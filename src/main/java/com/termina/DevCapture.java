@@ -47,6 +47,26 @@ final class DevCapture {
      * renderer paints on the next animation frame rather than synchronously, so capturing straight
      * after sending input reliably photographs an empty screen.
      */
+    /**
+     * The scene to photograph: normally the one passed in, but the context menu when asked for it,
+     * since a popup lives in a scene of its own.
+     *
+     * <pre>-Dtermina.captureMenu=screenX,screenY[,shift]</pre>
+     */
+    private static Scene sceneToCapture(Scene fallback, TerminalView terminal) {
+        String spec = System.getProperty("termina.captureMenu");
+        if (spec == null || spec.isBlank()) return fallback;
+        String[] parts = spec.split(",");
+        double x = Double.parseDouble(parts[0].trim());
+        double y = Double.parseDouble(parts[1].trim());
+        boolean shift = parts.length > 2 && Boolean.parseBoolean(parts[2].trim());
+        Scene menu = terminal.showContextMenuForCapture(x, y, shift);
+        System.out.println("[capture] context menu shown=" + (menu != null)
+                + " mouseMode=" + terminal.getDisplay().getMouseMode()
+                + " altScreen=" + terminal.getDisplay().isAlternateScreen());
+        return menu != null ? menu : fallback;
+    }
+
     static void schedule(Scene scene, TerminalView terminal) {
         String target = System.getProperty(CAPTURE_PROPERTY);
         String command = System.getProperty("termina.captureCommand", "");
@@ -62,10 +82,11 @@ final class DevCapture {
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the drag, which looks exactly like a selection that failed to paint.
+                Scene captured = sceneToCapture(scene, terminal);
                 PauseTransition settleFrame = new PauseTransition(Duration.millis(150));
                 settleFrame.setOnFinished(e3 -> {
                     try {
-                        write(scene, new File(target));
+                        write(captured, new File(target));
                         System.out.println("[capture] wrote " + target);
                     } catch (IOException io) {
                         System.err.println("[capture] failed: " + io);

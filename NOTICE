@@ -1,0 +1,29 @@
+Termina
+Copyright 2026 Adrian De Leon
+
+This product includes software from the following projects.
+
+--------------------------------------------------------------------------------
+JediTerm — https://github.com/JetBrains/jediterm
+Copyright JetBrains s.r.o.
+Licensed under LGPL-3.0 / Apache-2.0 (dual). Used as an unmodified dependency.
+
+pty4j — https://github.com/JetBrains/pty4j
+Copyright JetBrains s.r.o.
+Licensed under EPL-1.0. Used as an unmodified dependency, including its bundled
+native libraries (libpty, winpty, ConPTY helpers).
+
+Java Native Access (JNA) — https://github.com/java-native-access/jna
+Licensed under LGPL-2.1-or-later / Apache-2.0 (dual). Unmodified dependency.
+
+--------------------------------------------------------------------------------
+Vendored source
+--------------------------------------------------------------------------------
+
+src/main/resources/com/termina/styles/editora-{light,dark}.css
+    Carried over from Editora (same author). Derived from AtlantaFX
+    (https://github.com/mkpaz/atlantafx), licensed under MIT.
+
+src/main/java/com/termina/ui/MenuIcons.java
+    Glyph paths from Material Design Icons
+    (https://github.com/google/material-design-icons), licensed under Apache-2.0.

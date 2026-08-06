@@ -5,6 +5,7 @@ import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.StyledTextConsumer;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.emulator.mouse.MouseEventProcessingSettings;
+import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.CharBuffer;
 import com.jediterm.terminal.model.SelectionUtil;
 import com.jediterm.terminal.model.TerminalSelection;
@@ -18,9 +19,14 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.Node;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -148,6 +154,7 @@ public final class TerminalView extends Region {
         addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
         addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
+        setOnContextMenuRequested(this::onContextMenuRequested);
 
         display.setOnRepaint(this::markDirty);
         display.setSelectionSupplier(() -> selection);
@@ -624,8 +631,132 @@ public final class TerminalView extends Region {
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.RELEASED)) e.consume();
     }
 
+    // ---------------------------------------------------------------- context menu
+
+    private ContextMenu contextMenu;
+    private MenuItem copyItem;
+    private MenuItem pasteItem;
+    private Runnable onOpenSettings = () -> {};
+
+    /** Invoked by the menu's Settings item; the view has no way to reach that window itself. */
+    public void setOnOpenSettings(Runnable onOpenSettings) {
+        this.onOpenSettings = onOpenSettings == null ? () -> {} : onOpenSettings;
+    }
+
+    /**
+     * Decides between the context menu and the running program.
+     *
+     * <p>Right-click is genuinely contested: a terminal wants it for Copy and Paste, while a
+     * mouse-aware TUI (Midnight Commander, some file pickers) wants it as button 2 — and we report
+     * it as such. The rule is the one that already governs selection: while a program has grabbed
+     * the mouse it wins, and <b>Shift forces the menu</b>. Without that escape hatch there is no way
+     * to copy anything, or reach Settings, from inside such a program.
+     */
+    /**
+     * Whether a context-menu request should open the menu rather than belong to the running program.
+     *
+     * <p>Extracted and static because it is the whole of the contention rule, and it is the kind of
+     * three-way condition that is easy to get backwards and impossible to notice: getting it wrong
+     * either makes right-click dead inside every TUI, or makes Copy unreachable from one.
+     *
+     * @param keyboardTrigger the menu key rather than a click — never contested, since nothing was
+     *     reported to the program and the user asked for a menu explicitly
+     */
+    static boolean shouldShowMenu(MouseMode mode, boolean shift, boolean keyboardTrigger) {
+        if (keyboardTrigger || shift) return true;
+        return mode == MouseMode.MOUSE_REPORTING_NONE;
+    }
+
+    private void onContextMenuRequested(ContextMenuEvent e) {
+        // ContextMenuEvent carries no modifier state — only coordinates and whether a key raised
+        // it — so shift is read from the press that triggered it.
+        if (!shouldShowMenu(display.getMouseMode(), shiftOnLastPress, e.isKeyboardTrigger())) return;
+
+        if (contextMenu == null) contextMenu = buildContextMenu();
+        // Rebuilt per show: what Copy and Paste can act on changes long after the menu was created.
+        copyItem.setDisable(!hasSelection());
+        pasteItem.setDisable(!Clipboard.getSystemClipboard().hasString());
+        contextMenu.show(this, e.getScreenX(), e.getScreenY());
+        e.consume();
+    }
+
+    /**
+     * Shows the menu as a right-click would and returns its scene, or null when the running program
+     * owns the mouse and shift was not held. For the development capture hook — a ContextMenu is a
+     * popup with its own scene, so the main window's snapshot cannot show it.
+     */
+    public javafx.scene.Scene showContextMenuForCapture(double screenX, double screenY, boolean shift) {
+        shiftOnLastPress = shift;
+        ContextMenuEvent event = new ContextMenuEvent(
+                ContextMenuEvent.CONTEXT_MENU_REQUESTED, 0, 0, screenX, screenY, false, null);
+        onContextMenuRequested(event);
+        return contextMenu != null && contextMenu.isShowing() ? contextMenu.getScene() : null;
+    }
+
+    private ContextMenu buildContextMenu() {
+        copyItem = item("Copy", MenuIcons.copy(), this::copySelection);
+        pasteItem = item("Paste", MenuIcons.paste(), this::paste);
+        ContextMenu menu = new ContextMenu(
+                copyItem,
+                pasteItem,
+                item("Select All", MenuIcons.selectAll(), this::selectAll),
+                new SeparatorMenuItem(),
+                item("Clear Scrollback", MenuIcons.clear(), this::clearScrollback),
+                new SeparatorMenuItem(),
+                item("Settings…", MenuIcons.settings(), () -> onOpenSettings.run()));
+        menu.setAutoHide(true);
+        return menu;
+    }
+
+    private static MenuItem item(String text, Node icon, Runnable action) {
+        MenuItem menuItem = new MenuItem(text, icon);
+        menuItem.setOnAction(e -> action.run());
+        return menuItem;
+    }
+
+    /** Selects the whole buffer: all of the scrollback plus the live screen. */
+    public void selectAll() {
+        if (buffer == null) return;
+        buffer.lock();
+        try {
+            int history = buffer.getHistoryLinesCount();
+            TerminalSelection all = new TerminalSelection(new Point(0, -history));
+            all.updateEnd(new Point(columns, rows - 1));
+            selection = all;
+            selectionAnchor = new Point(0, -history);
+        } finally {
+            buffer.unlock();
+        }
+        markDirty();
+    }
+
+    /**
+     * Drops the scrollback while keeping the visible screen — clearing history without losing the
+     * prompt you are standing on.
+     */
+    public void clearScrollback() {
+        if (buffer == null) return;
+        buffer.lock();
+        try {
+            buffer.clearHistory();
+        } finally {
+            buffer.unlock();
+        }
+        // Everything measured against the history that just went away has to be reset with it, or
+        // the viewport scrolls into rows that no longer exist.
+        selection = null;
+        selectionAnchor = null;
+        scrollOrigin = 0;
+        knownHistoryLines = 0;
+        markDirty();
+    }
+
+    /** Shift state of the most recent press, for the context-menu event that may follow it. */
+    private boolean shiftOnLastPress;
+
     private void onMousePressed(MouseEvent e) {
         requestFocus();
+        shiftOnLastPress = e.isShiftDown();
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {
             e.consume();
             return;

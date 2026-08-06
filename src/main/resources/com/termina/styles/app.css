@@ -1,0 +1,23 @@
+/*
+ * Main-window chrome. Written in the theme's semantic colour variables, so both themes are
+ * covered without a second stylesheet.
+ */
+
+/*
+ * Context-menu glyphs. Coloured here rather than in MenuIcons so they track the theme; an SVGPath
+ * takes its colour from -fx-fill, not -fx-text-fill, so it does not inherit the item's own.
+ */
+.menu-icon {
+    -fx-fill: -color-fg-muted;
+}
+
+.menu-item:focused .menu-icon,
+.menu-item:hover .menu-icon {
+    -fx-fill: -color-fg-default;
+}
+
+/* A disabled item dims its label but not its graphic, so the icon has to be dimmed explicitly. */
+.menu-item:disabled .menu-icon {
+    -fx-fill: -color-fg-subtle;
+    -fx-opacity: 0.5;
+}

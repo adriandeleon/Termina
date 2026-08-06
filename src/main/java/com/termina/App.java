@@ -59,10 +59,14 @@ public final class App extends Application {
         terminal.setBellEnabled(settings.bell());
         // Fixed at session start, so they must be set before start() rather than in applySettings.
         terminal.setSessionOptions(settings.scrollbackLines(), settings.shell());
+        terminal.setOnOpenSettings(this::showSettings);
 
         BorderPane root = new BorderPane(terminal);
         Scene scene = new Scene(root, 900, 560);
         scene.setFill(theme.palette().background());
+
+        var appCss = App.class.getResource("/com/termina/styles/app.css");
+        if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
 
         installShortcuts(scene);
 

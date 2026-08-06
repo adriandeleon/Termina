@@ -133,9 +133,22 @@ On the alternate screen a wheel scroll falls back to arrow keys, so `less` and `
 wheel even though neither ever enables mouse reporting. Scroll magnitude is capped, or one inertial
 trackpad fling sends hundreds of keypresses to the shell.
 
+### Context menu
+
+Right-click gives Copy, Paste, Select All, Clear Scrollback and Settings. Copy and Paste are
+disabled rather than present-and-inert when there is nothing to act on.
+
+Right-click is **contested**, and the rule matters: a terminal wants it for Copy and Paste, while a
+mouse-aware TUI (Midnight Commander, some file pickers) wants it as button 2 — and Termina reports
+it as such. So while a program has grabbed the mouse it wins, and **Shift forces the menu**, the
+same escape hatch that governs selection. Without it there is no way to copy anything, or reach
+Settings, from inside htop. The keyboard menu key is never contested. `shouldShowMenu` is a static
+predicate with its own tests, because getting it backwards is invisible in a plain shell and breaks
+exactly one of the two cases.
+
 ### Settings
 
-`Cmd/Ctrl+,` opens preferences: theme, font family and size, cursor shape, visual bell, scrollback
+`Cmd/Ctrl+,` or the context menu opens preferences: theme, font family and size, cursor shape, visual bell, scrollback
 depth, shell, and Alt-as-Meta. Stored as a plain properties file at
 `~/.termina/settings.properties` — no dependency, and a file someone will reasonably open in an
 editor. Every getter falls back to a default, so one bad hand-edited line costs that key and not the
@@ -205,7 +218,12 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureDragShift=true      # ...holding shift, to bypass mouse reporting
   -Dtermina.captureClick=60,55,2       # x, y, click count (2 = word, 3 = line)
   -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
+  -Dtermina.captureMenu=300,300,false  # screenX, screenY, shift — photographs the context menu
+  -Dtermina.captureSettings=true       # ...the settings window instead
 ```
+
+`scripts/dev-run.sh` wraps all of this: it builds the module path itself, so any `-D` can be passed
+through (`mvn javafx:run` cannot take ad-hoc options — the plugin's are fixed in the pom).
 
 ## Not done yet
 
