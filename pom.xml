@@ -28,6 +28,8 @@
              windows=d3d,es2,sw (keep Direct3D), linux=es2,sw. This default covers
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
+        <!-- Overridden per-OS below; jpackage wants .icns on macOS, .ico on Windows, .png on Linux. -->
+        <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
 
         <!-- JediTerm: the VT/xterm emulation core (screen buffer + escape-sequence parser),
              UI-agnostic. NOT on Maven Central — see <repositories> below. -->
@@ -201,17 +203,26 @@
         <profile>
             <id>os-mac</id>
             <activation><os><family>mac</family></os></activation>
-            <properties><prism.pipeline>mtl,es2,sw</prism.pipeline></properties>
+            <properties>
+                <prism.pipeline>mtl,es2,sw</prism.pipeline>
+                <jpackage.icon>${project.basedir}/branding/termina.icns</jpackage.icon>
+            </properties>
         </profile>
         <profile>
             <id>os-windows</id>
             <activation><os><family>windows</family></os></activation>
-            <properties><prism.pipeline>d3d,es2,sw</prism.pipeline></properties>
+            <properties>
+                <prism.pipeline>d3d,es2,sw</prism.pipeline>
+                <jpackage.icon>${project.basedir}/branding/termina.ico</jpackage.icon>
+            </properties>
         </profile>
         <profile>
             <id>os-linux</id>
             <activation><os><family>unix</family><name>Linux</name></os></activation>
-            <properties><prism.pipeline>es2,sw</prism.pipeline></properties>
+            <properties>
+                <prism.pipeline>es2,sw</prism.pipeline>
+                <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
+            </properties>
         </profile>
 
         <!--
@@ -374,6 +385,7 @@
                                     <name>Termina</name>
                                     <appVersion>1.0.0</appVersion>
                                     <vendor>Termina</vendor>
+                                    <icon>${jpackage.icon}</icon>
                                     <destination>${project.build.directory}/dist</destination>
                                     <module>com.termina/com.termina.App</module>
                                     <modulePaths>

@@ -188,6 +188,9 @@ final class DevCapture {
         if (System.getProperty("termina.captureSettings") != null) {
             return windows.showSettingsForCapture(window.stage());
         }
+        if (System.getProperty("termina.captureAbout") != null) {
+            return windows.showAboutForCapture(window.stage());
+        }
         String menuSpec = System.getProperty("termina.captureMenu");
         if (menuSpec != null && !menuSpec.isBlank() && terminal != null) {
             String[] parts = menuSpec.split(",");

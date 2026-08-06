@@ -24,6 +24,7 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Selection and copy**: drag, double-click for a word, triple-click for a line.
 - **Mouse reporting**, so vim positions its cursor and htop responds to clicks. On the alternate
   screen the wheel falls back to arrow keys, so `less` and `man` scroll without it.
+- **Application icon**, carried into window icons and the macOS/Windows/Linux installer formats.
 - **Native app image** via `-Pdist` (moditect + jlink + jpackage), and a Maven wrapper so a system
   Maven is not required.
 

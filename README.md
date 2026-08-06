@@ -277,6 +277,24 @@ while it runs the user's profile, so a count taken too early reads high.
 `scripts/dev-run.sh` wraps all of this: it builds the module path itself, so any `-D` can be passed
 through (`mvn javafx:run` cannot take ad-hoc options — the plugin's are fixed in the pom).
 
+## Branding
+
+`branding/termina-icon.svg` is the source. The window icons
+(`src/main/resources/com/termina/icons/icon-*.png`) and the installer icons (`termina.icns`,
+`termina.ico`, `termina.png`) are generated from it — regenerate all of them after editing the SVG:
+
+```bash
+for s in 16 24 32 48 64 128 256 512 1024; do
+  rsvg-convert -w $s -h $s branding/termina-icon.svg -o src/main/resources/com/termina/icons/icon-$s.png
+done
+```
+
+It keeps Editora's family — the same Ink navy tile, corner radius and teal gradient, and the same
+split of a muted periwinkle framing glyph against a teal focal element — with a shell prompt in
+place of a letterform. Two shapes only: an earlier draft added the input line beneath the cursor,
+and below 32px it stopped reading as a line and became noise next to the block, which is the size
+an app icon has to work hardest at.
+
 ## Not done yet
 
 - **Selection refinements.** No autoscroll when dragging past the top or bottom edge, no

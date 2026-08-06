@@ -68,6 +68,7 @@ public final class TerminalWindow {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
 
         stage.setScene(scene);
+        Icons.applyTo(stage);
         stage.titleProperty().bind(Bindings.createStringBinding(
                 () -> {
                     Tab selected = tabs.getSelectionModel().getSelectedItem();

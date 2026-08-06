@@ -62,8 +62,12 @@ public final class AboutWindow {
         stage.setTitle("About " + AppInfo.NAME);
         stage.setResizable(false);
 
+        javafx.scene.image.ImageView logo = Icons.logo(72);
         Label name = new Label(AppInfo.NAME);
         name.getStyleClass().add("about-name");
+        HBox heading = new HBox(14);
+        heading.setAlignment(Pos.CENTER_LEFT);
+        if (logo != null) heading.getChildren().add(logo);
 
         // The snapshot suffix is kept rather than tidied away: it is what tells you at a glance
         // that a build came off a working tree rather than a release.
@@ -100,12 +104,15 @@ public final class AboutWindow {
         HBox footer = new HBox(spacer, close);
         footer.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox root = new VBox(10, name, version, details, homepage, updateRow, settingsPath, credits, footer);
+        VBox titles = new VBox(2, name, version);
+        heading.getChildren().add(titles);
+
+        VBox root = new VBox(10, heading, details, homepage, updateRow, settingsPath, credits, footer);
         root.setPadding(new Insets(20));
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = new Scene(root, 460, 340);
+        Scene scene = new Scene(root, 460, 380);
         var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         stage.setScene(scene);
