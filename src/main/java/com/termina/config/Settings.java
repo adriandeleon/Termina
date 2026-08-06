@@ -25,6 +25,7 @@ public final class Settings {
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String SHELL = "terminal.shell";
     public static final String BELL = "terminal.bell";
+    public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
 
     /** Cursor appearance. Names match the DECSCUSR families a program can also request. */
     public enum CursorShape {
@@ -167,6 +168,20 @@ public final class Settings {
 
     public void setBell(boolean bell) {
         put(BELL, String.valueOf(bell));
+    }
+
+    /**
+     * Hide the tab strip while only one tab is open.
+     *
+     * <p>Defaults to on, matching iTerm2, GNOME Terminal and Windows Terminal: a strip showing a
+     * single tab is a row of chrome that conveys nothing.
+     */
+    public boolean hideTabBarWhenSingle() {
+        return readBoolean(HIDE_TAB_BAR_WHEN_SINGLE, true);
+    }
+
+    public void setHideTabBarWhenSingle(boolean hide) {
+        put(HIDE_TAB_BAR_WHEN_SINGLE, String.valueOf(hide));
     }
 
     /** Clears every stored value; every accessor then reports its default. */

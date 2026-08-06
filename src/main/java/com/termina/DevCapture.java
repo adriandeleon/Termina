@@ -72,7 +72,7 @@ final class DevCapture {
                 closeTabsIfRequested(window);
                 if (settings != null) switchThemeIfRequested(settings);
                 TerminalWindow shown = windowToCapture(windows, window);
-                Scene captured = sceneToCapture(shown, shown.activeTerminal());
+                Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the input, which looks exactly like input that did nothing.
@@ -181,8 +181,12 @@ final class DevCapture {
      * The scene to photograph: the window's own, unless asked for the context menu, which lives in
      * a scene of its own.
      */
-    private static Scene sceneToCapture(TerminalWindow window, TerminalView terminal) {
+    private static Scene sceneToCapture(
+            WindowManager windows, TerminalWindow window, TerminalView terminal) {
         Scene fallback = window.stage().getScene();
+        if (System.getProperty("termina.captureSettings") != null) {
+            return windows.showSettingsForCapture(window.stage());
+        }
         String menuSpec = System.getProperty("termina.captureMenu");
         if (menuSpec != null && !menuSpec.isBlank() && terminal != null) {
             String[] parts = menuSpec.split(",");

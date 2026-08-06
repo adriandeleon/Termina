@@ -81,6 +81,12 @@ public final class WindowManager {
         settingsWindow.show(owner);
     }
 
+    /** Opens the settings window and returns its scene, for the development capture hook. */
+    public javafx.scene.Scene showSettingsForCapture(Window owner) {
+        showSettings(owner);
+        return settingsWindow.scene();
+    }
+
     public List<TerminalWindow> windows() {
         return List.copyOf(windows);
     }

@@ -320,6 +320,7 @@ public final class SettingsWindow {
     private ComboBox<Settings.CursorShape> cursorShape;
     private CheckBox altIsMeta;
     private CheckBox bell;
+    private CheckBox hideTabBar;
     private TextField shellField;
     private Label settingsPath;
 
@@ -367,6 +368,17 @@ public final class SettingsWindow {
         row(Category.APPEARANCE, font, "Font size",
                 "Also adjustable at any time with " + shortcutName() + " and the + / - keys.",
                 fontSize, "font size zoom scale");
+
+        VBox tabsSection = section(page, "Tabs");
+
+        hideTabBar = new CheckBox();
+        hideTabBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setHideTabBarWhenSingle(value);
+        });
+        row(Category.APPEARANCE, tabsSection, "Hide the tab bar with a single tab",
+                "The row is reclaimed for the terminal, so the shell gains a line.",
+                hideTabBar, "tab bar tabs hide single chrome strip header");
 
         VBox previewSection = section(page, "Preview");
         preview = new PalettePreview();
@@ -465,6 +477,7 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             bell.setSelected(settings.bell());
+            hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             shellField.setText(settings.shell());
             settingsPath.setText(settings.file().toString());
         } finally {

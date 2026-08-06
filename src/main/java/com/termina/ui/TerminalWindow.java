@@ -49,6 +49,7 @@ public final class TerminalWindow {
                 }
             }
             if (tabs.getTabs().isEmpty() && stage.isShowing()) stage.close();
+            applyTabBarVisibility();
         });
 
         BorderPane root = new BorderPane(tabs);
@@ -78,6 +79,25 @@ public final class TerminalWindow {
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });
     }
+
+    /** Whether the tab strip is worth its row of chrome. */
+    static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
+        return !hideWhenSingle || tabCount > 1;
+    }
+
+    /**
+     * Shows or collapses the tab strip.
+     *
+     * <p>Collapsing changes how many rows the terminal has, so the layout pass that follows resizes
+     * the PTY — the shell learns about it the same way it learns about a window resize.
+     */
+    private void applyTabBarVisibility() {
+        boolean show = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        tabs.getStyleClass().removeAll(HIDE_TAB_BAR);
+        if (!show) tabs.getStyleClass().add(HIDE_TAB_BAR);
+    }
+
+    private static final String HIDE_TAB_BAR = "hide-tab-bar";
 
     // ---------------------------------------------------------------- tabs
 
@@ -251,6 +271,7 @@ public final class TerminalWindow {
     public void applySettings() {
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
         if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
+        applyTabBarVisibility();
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
     }
 

@@ -21,3 +21,19 @@
     -fx-fill: -color-fg-subtle;
     -fx-opacity: 0.5;
 }
+
+/*
+ * Collapsing the tab strip.
+ *
+ * JavaFX offers no property for this, and TabPaneSkin lays the header area out from its own
+ * computed size — so `visibility: hidden` alone leaves the row's height behind as a blank band.
+ * All three of min/pref/max have to be pinned to zero, and the padding cleared with them, or the
+ * skin's own padding survives as a few stubborn pixels.
+ */
+.tab-pane.hide-tab-bar > .tab-header-area {
+    visibility: hidden;
+    -fx-min-height: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+    -fx-padding: 0;
+}

@@ -145,6 +145,13 @@ on screen looks wrong. Listening to the list covers every path at once — the c
 Tab, the shell exiting, and the window closing. Verified by counting child processes rather than by
 reading the code: three tabs, close two, one shell left.
 
+**The tab strip hides itself while only one tab is open** (on by default, matching iTerm2, GNOME
+Terminal and Windows Terminal; Settings → Appearance → Tabs). JavaFX has no property for this, and
+`visibility: hidden` alone leaves the row's height behind as a blank band — min, pref *and* max
+height have to be pinned to zero and the padding cleared with them, or the skin's own padding
+survives as a few stubborn pixels. Collapsing reclaims the row for the terminal, so the shell gains
+a line and gets resized accordingly.
+
 **Menu items and key bindings come from one value.** `MenuAction` holds the label, the accelerator
 and the action together, so the menu cannot advertise a shortcut that nothing implements. The
 binding is a **scene-level event filter**, not the menu's accelerator: JavaFX fires accelerators
@@ -243,7 +250,18 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
   -Dtermina.captureMenu=300,300,false  # screenX, screenY, shift — photographs the context menu
   -Dtermina.captureSettings=true       # ...the settings window instead
+  -Dtermina.captureTabs=2              # open N extra tabs first
+  -Dtermina.captureWindows=1           # ...and N extra windows
+  -Dtermina.captureWindowIndex=1       # photograph a window other than the first
+  -Dtermina.captureCloseTabs=2         # close N tabs, reporting the child-process count
+  -Dtermina.captureTheme=editora-light # switch theme after the windows exist
+  -Dtermina.captureChord=T             # fire an application chord at the scene
 ```
+
+Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
+one — each tab owns a shell, so a tab that closes without reaping it leaks a process and nothing on
+screen looks wrong. Read it only once things have settled: a login shell forks several children
+while it runs the user's profile, so a count taken too early reads high.
 
 `scripts/dev-run.sh` wraps all of this: it builds the module path itself, so any `-D` can be passed
 through (`mvn javafx:run` cannot take ad-hoc options — the plugin's are fixed in the pom).
