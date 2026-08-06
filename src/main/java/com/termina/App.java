@@ -73,8 +73,20 @@ public final class App extends Application {
         KeyCombination paste = MAC
                 ? new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN)
                 : new KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
+        // Same reasoning as paste, and more sharply: Ctrl+C is SIGINT and must reach the shell, so
+        // on Linux/Windows copy has to be Ctrl+Shift+C.
+        KeyCombination copy = MAC
+                ? new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
+                : new KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            // Consumed only when something was actually copied, so a copy chord with an empty
+            // selection stays available to whatever else might want it rather than silently
+            // becoming a no-op key.
+            if (copy.match(e) && terminal.copySelection()) {
+                e.consume();
+                return;
+            }
             if (paste.match(e)) {
                 terminal.paste();
                 e.consume();

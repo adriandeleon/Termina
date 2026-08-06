@@ -3,8 +3,9 @@
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
 renders the emulated screen to a canvas.
 
-Status: **early**. A working terminal — colour, styling, scrollback, resize, alternate-screen
-programs (vim, less, htop) — with a short list of known gaps at the bottom of this file.
+Status: **early**. A working terminal — colour, styling, scrollback, resize, selection and copy,
+alternate-screen programs (vim, less, htop) — with a short list of known gaps at the bottom of this
+file.
 
 ## Running
 
@@ -66,6 +67,26 @@ Hard-coding either breaks half the programs a terminal exists to run. Printable 
 through `KEY_TYPED` instead, which is the only event that reports the *composed* character — what
 makes dead keys, AltGr layouts, and IME input work.
 
+### Selection
+
+Drag to select, double-click for a word, triple-click for a line. Copy is `Cmd+C` / `Ctrl+Shift+C`
+(plain `Ctrl+C` is SIGINT and belongs to the shell).
+
+Selection coordinates are the same axis as the scroll origin: row 0 is the top of the live screen
+and negative rows reach into history. Extracting the text is JediTerm's `SelectionUtil`, which knows
+a wrapped line is one logical line and must not gain a newline in the middle.
+
+Two things follow from output arriving while a selection exists. As lines age off the screen into
+history, both the selection and a scrolled-back viewport are shifted to stay on their text —
+otherwise a selection made a moment ago comes to refer to different characters, and copying it
+produces the wrong thing silently. And `getNextSeparator` returns the last character *of* a word
+while a selection's end is exclusive, so word selection adds one; without it double-clicking
+`india` copies `indi`.
+
+The highlight is a translucent wash painted *over* the text. Painting it behind would mean threading
+selection state through every style run and splitting runs at its edges; the wash keeps the run loop
+untouched and stays legible over any of 16 million possible foreground colours.
+
 ## Notable details
 
 - **Login shells.** A GUI process inherits a stripped `PATH` with no Homebrew and no version-manager
@@ -92,11 +113,21 @@ java --module-path <deps> --add-modules com.termina \
   -m com.termina/com.termina.App
 ```
 
+It can also drive the mouse, firing real events at the view so the whole path is exercised — pixel
+to cell, anchor to drag, buffer coordinates to extracted text — and printing what copying yields:
+
+```bash
+  -Dtermina.captureDrag=0,35,240,75    # drag-select a region
+  -Dtermina.captureClick=60,55,2       # x, y, click count (2 = word, 3 = line)
+```
+
 ## Not done yet
 
-- **Selection and copy.** `TerminalDisplay.getSelection()` returns null; there is no mouse selection.
 - **Mouse reporting.** The modes are tracked but no mouse events are forwarded, so click-to-position
   in vim and scrolling in htop do not work.
+- **Selection refinements.** No autoscroll when dragging past the top or bottom edge, no
+  rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
+  keystroke rather than surviving it.
 - **Tabs and splits.** One session per window.
 - **Configuration.** Font, colours, shell, and scrollback depth are constants.
 - **Search in scrollback.**

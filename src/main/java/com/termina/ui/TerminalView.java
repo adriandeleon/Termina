@@ -1,9 +1,12 @@
 package com.termina.ui;
 
+import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.StyledTextConsumer;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.model.CharBuffer;
+import com.jediterm.terminal.model.SelectionUtil;
+import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.util.CharUtils;
 import com.termina.term.TerminalSession;
@@ -15,7 +18,10 @@ import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
@@ -44,6 +50,15 @@ public final class TerminalView extends Region {
     private static final int MIN_COLUMNS = 20;
     private static final int MIN_ROWS = 4;
 
+    /**
+     * Selection highlight, painted over the text rather than behind it.
+     *
+     * <p>Behind would mean threading selection state through every style run and splitting runs at
+     * its edges. A translucent wash keeps the run loop untouched and stays legible over any
+     * foreground colour, which matters in a terminal where a cell can be any of 16 million.
+     */
+    private static final Color SELECTION_WASH = Color.rgb(0x62, 0x9f, 0xd8, 0.30);
+
     private final Canvas canvas = new Canvas();
     private final FxTerminalDisplay display = new FxTerminalDisplay();
 
@@ -62,8 +77,26 @@ public final class TerminalView extends Region {
     /**
      * Rows scrolled back. 0 is the live screen; negative values reach into history. Named after
      * JediTerm's own term for the coordinate {@code processHistoryAndScreenLines} expects.
+     *
+     * <p>Volatile because the history listener adjusts it from the emulator thread — see
+     * {@link #onHistoryLineCountChanged()}.
      */
-    private int scrollOrigin;
+    private volatile int scrollOrigin;
+
+    /**
+     * The active selection, in buffer coordinates: x is a column, y is a row where 0 is the top of
+     * the live screen and negative reaches into history — the same axis as {@link #scrollOrigin}.
+     *
+     * <p>Volatile because the emulator reads it through {@code TerminalDisplay.getSelection()} on
+     * its own thread while the mouse mutates it on the FX thread.
+     */
+    private volatile TerminalSelection selection;
+
+    /** Where the current drag began, so a backwards drag extends rather than restarts. */
+    private Point selectionAnchor;
+
+    /** Lines already in history, to derive the delta the history listener does not supply. */
+    private int knownHistoryLines;
 
     private volatile boolean dirty = true;
     private int columns = 80;
@@ -88,12 +121,14 @@ public final class TerminalView extends Region {
         setFocusTraversable(true);
         canvas.setFocusTraversable(false);
 
-        setOnMousePressed(e -> requestFocus());
+        addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
+        addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
         addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
         addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
 
         display.setOnRepaint(this::markDirty);
+        display.setSelectionSupplier(() -> selection);
         // Visual bell. An audible one would mean java.awt.Toolkit.beep(), which initialises AWT —
         // see App.main for why that is off the table.
         display.setOnBell(() -> Platform.runLater(this::flashBell));
@@ -111,6 +146,7 @@ public final class TerminalView extends Region {
         buffer = session.getTextBuffer();
         // Fires on the emulator thread for every buffer mutation — cheap by design.
         buffer.addModelListener(this::markDirty);
+        buffer.addHistoryBufferListener(this::onHistoryLineCountChanged);
         session.setOnSessionEnded(() -> Platform.runLater(() -> {
             if (onSessionEnded != null) onSessionEnded.run();
         }));
@@ -254,6 +290,7 @@ public final class TerminalView extends Region {
                 @Override
                 public void consumeQueue(int x, int y, int nulIndex, int startRow) {}
             });
+            drawSelection(g);
             drawCursor(g);
         } finally {
             buffer.unlock();
@@ -409,6 +446,7 @@ public final class TerminalView extends Region {
         byte[] encoded = KeyEncoding.encodePressed(e, session::keyCode, altIsMeta);
         if (encoded != null) {
             snapToLive();
+            clearSelection();
             session.send(encoded);
             e.consume();
         }
@@ -419,8 +457,162 @@ public final class TerminalView extends Region {
         byte[] encoded = KeyEncoding.encodeTyped(e, altIsMeta);
         if (encoded != null) {
             snapToLive();
+            clearSelection();
             session.send(encoded);
             e.consume();
+        }
+    }
+
+    // ---------------------------------------------------------------- selection
+
+    /**
+     * Keeps the viewport and any selection pinned to their text as lines age out of the screen and
+     * into history.
+     *
+     * <p>Called on the emulator thread. The listener carries no delta, so it is derived from the
+     * history line count. Without this, output arriving while the user is scrolled back slides the
+     * text under them, and a selection made moments earlier silently comes to refer to different
+     * characters — which matters because copying it would then produce the wrong text.
+     */
+    private void onHistoryLineCountChanged() {
+        if (buffer == null) return;
+        int now = buffer.getHistoryLinesCount();
+        int delta = now - knownHistoryLines;
+        knownHistoryLines = now;
+        if (delta <= 0) return;
+
+        // At the live view (origin 0) staying pinned to the bottom is what is wanted, so only a
+        // scrolled-back viewport moves.
+        if (scrollOrigin < 0) scrollOrigin = Math.max(-now, scrollOrigin - delta);
+
+        TerminalSelection current = selection;
+        if (current != null) current.shiftY(-delta);
+        markDirty();
+    }
+
+    /** The buffer cell under a mouse position, clamped to the grid. */
+    private Point cellAt(MouseEvent e) {
+        int column = (int) Math.floor(e.getX() / charWidth);
+        int row = (int) Math.floor(e.getY() / lineHeight);
+        column = Math.max(0, Math.min(columns, column));
+        row = Math.max(0, Math.min(rows - 1, row));
+        return new Point(column, scrollOrigin + row);
+    }
+
+    private void onMousePressed(MouseEvent e) {
+        requestFocus();
+        if (e.getButton() != MouseButton.PRIMARY || buffer == null) return;
+
+        Point at = cellAt(e);
+        switch (e.getClickCount()) {
+            case 2 -> selectWordAt(at);
+            case 3 -> selectLineAt(at);
+            default -> {
+                // A press with no drag clears the selection, matching every terminal: it is how
+                // you dismiss a highlight without copying it.
+                selectionAnchor = at;
+                selection = null;
+            }
+        }
+        markDirty();
+    }
+
+    private void onMouseDragged(MouseEvent e) {
+        if (e.getButton() != MouseButton.PRIMARY || selectionAnchor == null) return;
+        Point at = cellAt(e);
+        TerminalSelection current = selection;
+        if (current == null) {
+            // Only on the first drag event, so a plain click never leaves an empty selection.
+            if (at.x == selectionAnchor.x && at.y == selectionAnchor.y) return;
+            current = new TerminalSelection(new Point(selectionAnchor.x, selectionAnchor.y));
+            selection = current;
+        }
+        current.updateEnd(at);
+        markDirty();
+    }
+
+    /**
+     * The selection covering the word under {@code at}.
+     *
+     * <p>Package-visible and static so it can be tested against a plain buffer — the boundary
+     * arithmetic below is exactly the kind that looks right and is wrong by one.
+     *
+     * <p>{@code getNextSeparator} returns the <em>last character of the word</em>, while a
+     * selection's end is exclusive. Passing it through unadjusted drops the final character, so
+     * double-clicking "india" yields "indi" — which looks like working selection until someone
+     * pastes it.
+     */
+    static TerminalSelection wordSelection(Point at, TerminalTextBuffer buffer) {
+        buffer.lock();
+        try {
+            Point start = SelectionUtil.getPreviousSeparator(at, buffer);
+            Point lastChar = SelectionUtil.getNextSeparator(at, buffer);
+            TerminalSelection word = new TerminalSelection(new Point(start.x, start.y));
+            word.updateEnd(new Point(lastChar.x + 1, lastChar.y));
+            return word;
+        } finally {
+            buffer.unlock();
+        }
+    }
+
+    private void selectWordAt(Point at) {
+        TerminalSelection word = wordSelection(at, buffer);
+        selection = word;
+        selectionAnchor = new Point(word.getStart().x, word.getStart().y);
+    }
+
+    private void selectLineAt(Point at) {
+        TerminalSelection line = new TerminalSelection(new Point(0, at.y));
+        line.updateEnd(new Point(columns, at.y));
+        selection = line;
+        selectionAnchor = new Point(0, at.y);
+    }
+
+    public boolean hasSelection() {
+        return selection != null;
+    }
+
+    /** Copies the selection, returning false when there was nothing to copy. */
+    public boolean copySelection() {
+        TerminalSelection current = selection;
+        if (current == null || buffer == null) return false;
+
+        String text;
+        buffer.lock();
+        try {
+            // JediTerm's extractor, not ours: it understands that a wrapped line is one logical
+            // line and must not gain a newline in the middle.
+            text = SelectionUtil.getSelectionText(current, buffer);
+        } finally {
+            buffer.unlock();
+        }
+        if (text == null || text.isEmpty()) return false;
+
+        ClipboardContent content = new ClipboardContent();
+        content.putString(text);
+        Clipboard.getSystemClipboard().setContent(content);
+        return true;
+    }
+
+    public void clearSelection() {
+        if (selection != null) {
+            selection = null;
+            markDirty();
+        }
+    }
+
+    /** Paints the selection over the text as a translucent wash. */
+    private void drawSelection(GraphicsContext g) {
+        TerminalSelection current = selection;
+        if (current == null) return;
+        g.setFill(SELECTION_WASH);
+        for (int row = 0; row < rows; row++) {
+            kotlin.Pair<Integer, Integer> span = current.intersect(0, scrollOrigin + row, columns);
+            if (span == null) continue;
+            int from = span.getFirst();
+            int length = span.getSecond();
+            if (length <= 0) continue;
+            g.fillRect(from * charWidth, row * lineHeight, length * charWidth, lineHeight);
         }
     }
 

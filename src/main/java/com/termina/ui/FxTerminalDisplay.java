@@ -7,6 +7,7 @@ import com.jediterm.terminal.TerminalDisplay;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
+import java.util.function.Supplier;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -113,11 +114,19 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         return windowTitle;
     }
 
+    /**
+     * Supplies the live selection. A supplier rather than a field because the selection is owned by
+     * the view and mutated on the FX thread, while this is read from the emulator thread.
+     */
+    public void setSelectionSupplier(Supplier<TerminalSelection> selectionSupplier) {
+        this.selectionSupplier = selectionSupplier;
+    }
+
+    private Supplier<TerminalSelection> selectionSupplier = () -> null;
+
     @Override
     public TerminalSelection getSelection() {
-        // Selection is a UI concept the emulator only consults to keep a highlight consistent
-        // across a scroll. Not implemented yet — see the deferred list in README.
-        return null;
+        return selectionSupplier.get();
     }
 
     @Override

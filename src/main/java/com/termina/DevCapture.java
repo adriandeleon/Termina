@@ -6,9 +6,13 @@ import java.io.File;
 import java.io.IOException;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.event.Event;
+import javafx.event.EventType;
 import javafx.scene.Scene;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 
 /**
@@ -53,18 +57,98 @@ final class DevCapture {
             if (!command.isBlank()) terminal.getSession().sendString(command + "\r");
             PauseTransition afterCommand = new PauseTransition(Duration.millis(afterCommandMs));
             afterCommand.setOnFinished(e2 -> {
-                try {
-                    write(scene, new File(target));
-                    System.out.println("[capture] wrote " + target);
-                } catch (IOException io) {
-                    System.err.println("[capture] failed: " + io);
-                }
-                terminal.close();
-                Platform.exit();
+                dragSelectIfRequested(terminal);
+                // A further pause before snapshotting, because rendering is deliberately deferred
+                // to the next animation frame: capturing in this same pulse photographs the frame
+                // *before* the drag, which looks exactly like a selection that failed to paint.
+                PauseTransition settleFrame = new PauseTransition(Duration.millis(150));
+                settleFrame.setOnFinished(e3 -> {
+                    try {
+                        write(scene, new File(target));
+                        System.out.println("[capture] wrote " + target);
+                    } catch (IOException io) {
+                        System.err.println("[capture] failed: " + io);
+                    }
+                    terminal.close();
+                    Platform.exit();
+                });
+                settleFrame.play();
             });
             afterCommand.play();
         });
         settle.play();
+    }
+
+    /**
+     * Drags a selection across the view and reports what copying it yields.
+     *
+     * <p>Real {@code MouseEvent}s fired at the node, not a call to some internal setter: the thing
+     * worth checking is the whole path — pixel to cell, anchor to drag, buffer coordinates to
+     * extracted text. Setting the selection directly would verify only the highlight.
+     *
+     * <pre>-Dtermina.captureDrag=x1,y1,x2,y2</pre>
+     */
+    private static void dragSelectIfRequested(TerminalView terminal) {
+        clickSelectIfRequested(terminal);
+
+        String spec = System.getProperty("termina.captureDrag");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        if (parts.length != 4) {
+            System.err.println("[capture] captureDrag needs x1,y1,x2,y2");
+            return;
+        }
+        double x1 = Double.parseDouble(parts[0].trim());
+        double y1 = Double.parseDouble(parts[1].trim());
+        double x2 = Double.parseDouble(parts[2].trim());
+        double y2 = Double.parseDouble(parts[3].trim());
+
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x1, y1, 1));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_DRAGGED, x2, y2, 1));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x2, y2, 1));
+
+        boolean copied = terminal.copySelection();
+        System.out.println("[capture] selection copied=" + copied);
+        if (copied) {
+            String text = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+            System.out.println("[capture] clipboard<<<" + text + ">>>");
+        }
+    }
+
+    /**
+     * Word (2) or line (3) selection by click count.
+     *
+     * <pre>-Dtermina.captureClick=x,y,clickCount</pre>
+     */
+    private static void clickSelectIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.captureClick");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        if (parts.length != 3) {
+            System.err.println("[capture] captureClick needs x,y,clickCount");
+            return;
+        }
+        double x = Double.parseDouble(parts[0].trim());
+        double y = Double.parseDouble(parts[1].trim());
+        int clicks = Integer.parseInt(parts[2].trim());
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x, y, clicks));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x, y, clicks));
+
+        if (terminal.copySelection()) {
+            System.out.println("[capture] click-selection<<<"
+                    + javafx.scene.input.Clipboard.getSystemClipboard().getString() + ">>>");
+        } else {
+            System.out.println("[capture] click-selection: nothing selected");
+        }
+    }
+
+    private static MouseEvent mouse(EventType<MouseEvent> type, double x, double y, int clicks) {
+        return new MouseEvent(
+                type, x, y, x, y, MouseButton.PRIMARY, clicks,
+                false, false, false, false, // shift, control, alt, meta
+                true, false, false, // primary/middle/secondary button down
+                false, false, false, // synthesized, popup trigger, still since press
+                null);
     }
 
     private static void write(Scene scene, File target) throws IOException {
