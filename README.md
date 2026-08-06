@@ -3,9 +3,9 @@
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
 renders the emulated screen to a canvas.
 
-Status: **early**. A working terminal — colour, styling, scrollback, resize, selection and copy,
-mouse-aware full-screen programs (vim, less, htop), themes and font settings — with a short list of
-known gaps at the bottom of this file.
+Status: **early**. A working terminal — tabs, multiple windows, a menu bar, colour and styling,
+scrollback, selection and copy, mouse-aware full-screen programs (vim, less, htop), themes and font
+settings — with a short list of known gaps at the bottom of this file.
 
 ## Running
 
@@ -132,6 +132,29 @@ out of a program that has grabbed the mouse — without it htop's output cannot 
 On the alternate screen a wheel scroll falls back to arrow keys, so `less` and `man` scroll with the
 wheel even though neither ever enables mouse reporting. Scroll magnitude is capped, or one inertial
 trackpad fling sends hundreds of keypresses to the shell.
+
+### Tabs, windows and the menu bar
+
+`TerminalWindow` is one window: a menu bar over a tab strip, each tab owning its own
+`TerminalView` and its own shell. `WindowManager` owns the set of windows and what they share —
+the settings, the single preferences window, and the theme. Sessions are never shared.
+
+**Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
+pump threads and an emulator thread; a removal path that skips disposal leaks all of it and nothing
+on screen looks wrong. Listening to the list covers every path at once — the close button, Close
+Tab, the shell exiting, and the window closing. Verified by counting child processes rather than by
+reading the code: three tabs, close two, one shell left.
+
+**Menu items and key bindings come from one value.** `MenuAction` holds the label, the accelerator
+and the action together, so the menu cannot advertise a shortcut that nothing implements. The
+binding is a **scene-level event filter**, not the menu's accelerator: JavaFX fires accelerators
+only after an event has bubbled unconsumed, and `TerminalView` consumes `Ctrl+<letter>` first to
+encode it as a control byte. Filters run in the capturing phase, ahead of that.
+
+Off macOS an application chord is `Ctrl+Shift+key`, never `Ctrl+key` — the plain form belongs to the
+shell (Ctrl+T is readline's transpose, Ctrl+W deletes a word, Ctrl+C is SIGINT). That rule has its
+own tests. Whether the shortcut modifier *is* Ctrl or Cmd is JavaFX's decision, not ours, and the
+tests deliberately do not assert it.
 
 ### Context menu
 

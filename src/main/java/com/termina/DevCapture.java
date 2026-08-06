@@ -1,6 +1,8 @@
 package com.termina;
 
 import com.termina.ui.TerminalView;
+import com.termina.ui.TerminalWindow;
+import com.termina.ui.WindowManager;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -21,14 +23,11 @@ import javafx.util.Duration;
  * unused.
  *
  * <p>A terminal's failure modes are visual — a wrong cell width, a colour resolved to the wrong
- * index, a cursor drawn a row off — and none of them throw. This renders the real window, types a
- * command into the real shell, and writes what came out to a PNG, which is the only way to check
- * those without a human looking.
+ * index, a cursor drawn a row off — and none of them throw. This drives the real window and the
+ * real shell, then writes what came out to a PNG, which is the only way to check those without a
+ * human looking.
  *
- * <pre>
- *   mvn javafx:run -Djavafx.args=... -Dtermina.capture=/tmp/shot.png \
- *                  -Dtermina.captureCommand="ls --color=always"
- * </pre>
+ * <p>Run it through {@code scripts/dev-run.sh}, which can pass arbitrary {@code -D} options.
  */
 final class DevCapture {
 
@@ -41,33 +40,18 @@ final class DevCapture {
     }
 
     /**
-     * Runs an optional command, waits for it to paint, writes a PNG, then exits.
+     * Runs an optional command, drives optional input, writes a PNG, then exits.
      *
-     * <p>The two delays are the point: the shell needs time to start and print a prompt, and the
+     * <p>The delays are the point: the shell needs time to start and print a prompt, and the
      * renderer paints on the next animation frame rather than synchronously, so capturing straight
-     * after sending input reliably photographs an empty screen.
+     * after sending input reliably photographs the frame before it.
      */
-    /**
-     * The scene to photograph: normally the one passed in, but the context menu when asked for it,
-     * since a popup lives in a scene of its own.
-     *
-     * <pre>-Dtermina.captureMenu=screenX,screenY[,shift]</pre>
-     */
-    private static Scene sceneToCapture(Scene fallback, TerminalView terminal) {
-        String spec = System.getProperty("termina.captureMenu");
-        if (spec == null || spec.isBlank()) return fallback;
-        String[] parts = spec.split(",");
-        double x = Double.parseDouble(parts[0].trim());
-        double y = Double.parseDouble(parts[1].trim());
-        boolean shift = parts.length > 2 && Boolean.parseBoolean(parts[2].trim());
-        Scene menu = terminal.showContextMenuForCapture(x, y, shift);
-        System.out.println("[capture] context menu shown=" + (menu != null)
-                + " mouseMode=" + terminal.getDisplay().getMouseMode()
-                + " altScreen=" + terminal.getDisplay().isAlternateScreen());
-        return menu != null ? menu : fallback;
+    static void schedule(WindowManager windows, TerminalWindow firstWindow) {
+        schedule(windows, firstWindow, null);
     }
 
-    static void schedule(Scene scene, TerminalView terminal) {
+    static void schedule(
+            WindowManager windows, TerminalWindow window, com.termina.config.Settings settings) {
         String target = System.getProperty(CAPTURE_PROPERTY);
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
@@ -75,14 +59,23 @@ final class DevCapture {
 
         PauseTransition settle = new PauseTransition(Duration.millis(settleMs));
         settle.setOnFinished(e -> {
-            if (!command.isBlank()) terminal.getSession().sendString(command + "\r");
+            openExtraTabsAndWindows(windows, window);
+            TerminalView terminal = window.activeTerminal();
+            if (!command.isBlank() && terminal != null) {
+                terminal.getSession().sendString(command + "\r");
+            }
             PauseTransition afterCommand = new PauseTransition(Duration.millis(afterCommandMs));
             afterCommand.setOnFinished(e2 -> {
-                dragSelectIfRequested(terminal);
+                TerminalView active = window.activeTerminal();
+                if (active != null) driveInput(active);
+                fireChordIfRequested(window);
+                closeTabsIfRequested(window);
+                if (settings != null) switchThemeIfRequested(settings);
+                TerminalWindow shown = windowToCapture(windows, window);
+                Scene captured = sceneToCapture(shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
-                // *before* the drag, which looks exactly like a selection that failed to paint.
-                Scene captured = sceneToCapture(scene, terminal);
+                // *before* the input, which looks exactly like input that did nothing.
                 PauseTransition settleFrame = new PauseTransition(Duration.millis(150));
                 settleFrame.setOnFinished(e3 -> {
                     try {
@@ -91,7 +84,8 @@ final class DevCapture {
                     } catch (IOException io) {
                         System.err.println("[capture] failed: " + io);
                     }
-                    terminal.close();
+                    report(windows);
+                    windows.closeAll();
                     Platform.exit();
                 });
                 settleFrame.play();
@@ -102,11 +96,111 @@ final class DevCapture {
     }
 
     /**
+     * {@code -Dtermina.captureTabs=N} opens N extra tabs; {@code -Dtermina.captureWindows=N} opens N
+     * extra windows.
+     */
+    private static void openExtraTabsAndWindows(WindowManager windows, TerminalWindow window) {
+        for (int i = 0; i < Integer.getInteger("termina.captureTabs", 0); i++) window.openTab();
+        for (int i = 0; i < Integer.getInteger("termina.captureWindows", 0); i++) windows.openWindow();
+    }
+
+    /**
+     * {@code -Dtermina.captureTheme=<id>} switches theme after the windows exist, which is how the
+     * broadcast gets checked: photograph a window that was open *before* the change and see whether
+     * it followed.
+     */
+    private static void switchThemeIfRequested(com.termina.config.Settings settings) {
+        String theme = System.getProperty("termina.captureTheme");
+        if (theme == null || theme.isBlank()) return;
+        settings.setThemeId(theme);
+        System.out.println("[capture] switched theme to " + theme);
+    }
+
+    /** {@code -Dtermina.captureWindowIndex=N} photographs a window other than the first. */
+    private static TerminalWindow windowToCapture(WindowManager windows, TerminalWindow fallback) {
+        int index = Integer.getInteger("termina.captureWindowIndex", -1);
+        if (index < 0 || index >= windows.windows().size()) return fallback;
+        return windows.windows().get(index);
+    }
+
+    /**
+     * A line of state the caller can assert on without reading the picture.
+     *
+     * <p>The descendant count is the one that matters: each tab owns a shell, and a tab that closes
+     * without reaping it leaks a process, its pump threads and the emulator thread. Nothing about
+     * the window would look wrong.
+     */
+    private static void report(WindowManager windows) {
+        System.out.println("[capture] windows=" + windows.windows().size()
+                + " terminals=" + windows.allTerminals().size()
+                + " descendants=" + descendants());
+    }
+
+    private static long descendants() {
+        return ProcessHandle.current().descendants().count();
+    }
+
+    /** {@code -Dtermina.captureCloseTabs=N} closes N tabs, to check they are actually reaped. */
+    private static void closeTabsIfRequested(TerminalWindow window) {
+        int count = Integer.getInteger("termina.captureCloseTabs", 0);
+        if (count <= 0) return;
+        System.out.println("[capture] descendants before close=" + descendants());
+        for (int i = 0; i < count; i++) window.closeCurrentTab();
+    }
+
+    /**
+     * Fires an application chord at the window scene.
+     *
+     * <pre>-Dtermina.captureChord=T[,shift]</pre>
+     *
+     * <p>This checks the one genuinely subtle claim in the key handling: that a scene-level filter
+     * beats TerminalView's own filter, which would otherwise encode Ctrl+&lt;letter&gt; as a control
+     * byte and swallow the chord. Reasoning about JavaFX dispatch order is not evidence.
+     */
+    private static void fireChordIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureChord");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        javafx.scene.input.KeyCode code = javafx.scene.input.KeyCode.valueOf(parts[0].trim());
+        boolean shift = parts.length > 1 && Boolean.parseBoolean(parts[1].trim());
+        boolean mac = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+        javafx.scene.input.KeyEvent event = new javafx.scene.input.KeyEvent(
+                javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code,
+                shift, !mac, false, mac); // shift, control, alt, meta
+        Event.fireEvent(window.stage().getScene(), event);
+        System.out.println("[capture] fired chord " + spec);
+    }
+
+    private static void driveInput(TerminalView terminal) {
+        clickSelectIfRequested(terminal);
+        scrollIfRequested(terminal);
+        dragSelectIfRequested(terminal);
+    }
+
+    /**
+     * The scene to photograph: the window's own, unless asked for the context menu, which lives in
+     * a scene of its own.
+     */
+    private static Scene sceneToCapture(TerminalWindow window, TerminalView terminal) {
+        Scene fallback = window.stage().getScene();
+        String menuSpec = System.getProperty("termina.captureMenu");
+        if (menuSpec != null && !menuSpec.isBlank() && terminal != null) {
+            String[] parts = menuSpec.split(",");
+            double x = Double.parseDouble(parts[0].trim());
+            double y = Double.parseDouble(parts[1].trim());
+            boolean shift = parts.length > 2 && Boolean.parseBoolean(parts[2].trim());
+            Scene menu = terminal.showContextMenuForCapture(x, y, shift);
+            System.out.println("[capture] context menu shown=" + (menu != null)
+                    + " mouseMode=" + terminal.getDisplay().getMouseMode());
+            if (menu != null) return menu;
+        }
+        return fallback;
+    }
+
+    /**
      * Scrolls the wheel over the view.
      *
      * <pre>-Dtermina.captureScroll=x,y,deltaY</pre>
-     *
-     * Positive deltaY is a wheel turn up/away, matching JavaFX.
      */
     private static void scrollIfRequested(TerminalView terminal) {
         String spec = System.getProperty("termina.captureScroll");
@@ -123,7 +217,7 @@ final class DevCapture {
                 ScrollEvent.SCROLL, x, y, x, y,
                 false, false, false, false, // shift, control, alt, meta
                 false, false, // direct, inertia
-                0, deltaY, 0, deltaY, // deltaX, deltaY, totalDeltaX, totalDeltaY
+                0, deltaY, 0, deltaY,
                 ScrollEvent.HorizontalTextScrollUnits.NONE, 0,
                 ScrollEvent.VerticalTextScrollUnits.NONE, 0,
                 0, null));
@@ -137,12 +231,9 @@ final class DevCapture {
      * worth checking is the whole path — pixel to cell, anchor to drag, buffer coordinates to
      * extracted text. Setting the selection directly would verify only the highlight.
      *
-     * <pre>-Dtermina.captureDrag=x1,y1,x2,y2</pre>
+     * <pre>-Dtermina.captureDrag=x1,y1,x2,y2   -Dtermina.captureDragShift=true</pre>
      */
     private static void dragSelectIfRequested(TerminalView terminal) {
-        clickSelectIfRequested(terminal);
-        scrollIfRequested(terminal);
-
         String spec = System.getProperty("termina.captureDrag");
         if (spec == null || spec.isBlank()) return;
         String[] parts = spec.split(",");
@@ -155,8 +246,8 @@ final class DevCapture {
         double x2 = Double.parseDouble(parts[2].trim());
         double y2 = Double.parseDouble(parts[3].trim());
 
-        // Shift is the documented bypass for a program that has grabbed the mouse, so the
-        // capture has to be able to exercise it.
+        // Shift is the documented bypass for a program that has grabbed the mouse, so the capture
+        // has to be able to exercise it.
         boolean shift = Boolean.getBoolean("termina.captureDragShift");
         Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x1, y1, 1, shift));
         Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_DRAGGED, x2, y2, 1, shift));
@@ -165,8 +256,8 @@ final class DevCapture {
         boolean copied = terminal.copySelection();
         System.out.println("[capture] selection copied=" + copied);
         if (copied) {
-            String text = javafx.scene.input.Clipboard.getSystemClipboard().getString();
-            System.out.println("[capture] clipboard<<<" + text + ">>>");
+            System.out.println("[capture] clipboard<<<"
+                    + javafx.scene.input.Clipboard.getSystemClipboard().getString() + ">>>");
         }
     }
 
