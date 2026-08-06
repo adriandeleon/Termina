@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.termina</groupId>
+    <artifactId>termina</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Termina</name>
+    <description>A cross-platform terminal emulator built on JavaFX</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>25</maven.compiler.release>
+
+        <javafx.version>26.0.2</javafx.version>
+        <javafx.plugin.version>0.0.8</javafx.plugin.version>
+
+        <!-- Prism pipeline order (-Dprism.order). Set per-OS in the os-* profiles:
+             mac=mtl,es2,sw (Metal — fixes M-series es2 render-to-texture glitches),
+             windows=d3d,es2,sw (keep Direct3D), linux=es2,sw. This default covers
+             profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
+        <prism.pipeline>es2,sw</prism.pipeline>
+
+        <!-- JediTerm: the VT/xterm emulation core (screen buffer + escape-sequence parser),
+             UI-agnostic. NOT on Maven Central — see <repositories> below. -->
+        <jediterm.version>3.74</jediterm.version>
+        <!-- pty4j: the PTY. One jar carries natives for every platform we ship:
+             macOS universal dylib, 7 Linux arches, Windows ConPTY + winpty fallback. -->
+        <pty4j.version>0.13.10</pty4j.version>
+
+        <!-- Both jediterm-core and pty4j are Kotlin, and they disagree on the stdlib
+             version (2.4.0 vs 2.1.21). Pinned in <dependencyManagement> so the choice is
+             ours rather than Maven's nearest-wins. Likewise JNA: pty4j asks for 5.14.0. -->
+        <kotlin.version>2.4.0</kotlin.version>
+        <jna.version>5.17.0</jna.version>
+        <slf4j.version>2.0.17</slf4j.version>
+
+        <junit.version>5.11.4</junit.version>
+    </properties>
+
+    <repositories>
+        <!-- JediTerm is published only to JetBrains' own repository. -->
+        <repository>
+            <id>intellij-dependencies</id>
+            <url>https://packages.jetbrains.team/maven/p/ij/intellij-dependencies</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>${kotlin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>${jna.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna-platform</artifactId>
+                <version>${jna.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.jediterm</groupId>
+            <artifactId>jediterm-core</artifactId>
+            <version>${jediterm.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.pty4j</groupId>
+            <artifactId>pty4j</artifactId>
+            <version>${pty4j.version}</version>
+        </dependency>
+
+        <!-- jediterm-core and pty4j both declare slf4j-api at runtime scope, which keeps it
+             off the compile module path. We need it resolved as a real module (module-info
+             wires it explicitly — see the note there), so declare it at compile scope. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <!-- Without a binding slf4j prints a "no providers" warning and drops every log line.
+             simple writes to stderr; swap for a real backend when there's somewhere to write to. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <!-- Tests run on the classpath (unnamed module) so they can reach
+                         package-private members and setAccessible freely. -->
+                    <useModulePath>false</useModulePath>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>${javafx.plugin.version}</version>
+                <configuration>
+                    <mainClass>com.termina/com.termina.App</mainClass>
+                    <options>
+                        <!-- JNA loads the pty4j native library through System.load. Without this the
+                             JDK warns on every launch, and it says the call will be blocked outright
+                             in a future release. ALL-UNNAMED is needed because this plugin puts the
+                             non-required jars on the classpath rather than the module path. -->
+                        <option>--enable-native-access=javafx.graphics,ALL-UNNAMED</option>
+                        <option>-Dprism.order=${prism.pipeline}</option>
+                    </options>
+                    <launcher>termina</launcher>
+                    <jlinkImageName>termina</jlinkImageName>
+                    <jlinkZipName>termina</jlinkZipName>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>os-mac</id>
+            <activation><os><family>mac</family></os></activation>
+            <properties><prism.pipeline>mtl,es2,sw</prism.pipeline></properties>
+        </profile>
+        <profile>
+            <id>os-windows</id>
+            <activation><os><family>windows</family></os></activation>
+            <properties><prism.pipeline>d3d,es2,sw</prism.pipeline></properties>
+        </profile>
+        <profile>
+            <id>os-linux</id>
+            <activation><os><family>unix</family><name>Linux</name></os></activation>
+            <properties><prism.pipeline>es2,sw</prism.pipeline></properties>
+        </profile>
+    </profiles>
+</project>
