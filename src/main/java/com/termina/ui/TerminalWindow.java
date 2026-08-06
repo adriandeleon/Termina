@@ -9,6 +9,7 @@ import javafx.beans.binding.Bindings;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.SeparatorMenuItem;
@@ -17,7 +18,10 @@ import javafx.scene.control.TabPane;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.DataFormat;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
@@ -45,10 +49,16 @@ public final class TerminalWindow {
         tabs.getTabs().addListener((ListChangeListener<Tab>) change -> {
             while (change.next()) {
                 for (Tab removed : change.getRemoved()) {
+                    // A reorder is a remove followed by an add. Without this guard, dragging a tab
+                    // would dispose the session being dragged — killing the shell and leaving an
+                    // empty tab behind, for a gesture that is supposed to change nothing but order.
+                    if (reordering) continue;
                     terminalOf(removed).close();
                 }
             }
-            if (tabs.getTabs().isEmpty() && stage.isShowing()) stage.close();
+            // Same reason: mid-reorder the list is briefly one short, and for a single-tab window
+            // briefly empty, which would close the window out from under the drag.
+            if (!reordering && tabs.getTabs().isEmpty() && stage.isShowing()) stage.close();
             applyTabBarVisibility();
         });
 
@@ -115,8 +125,14 @@ public final class TerminalWindow {
         Tab tab = new Tab();
         tab.setContent(terminal);
         tab.setUserData(terminal);
-        // The tab shows whatever the shell calls itself, which is what makes a row of tabs useful.
-        tab.textProperty().bind(terminal.getDisplay().windowTitleProperty());
+        // The title goes on a Label graphic rather than on the Tab: a Tab is not a Node, so it has
+        // nowhere to attach drag handlers. The label still shows whatever the shell calls itself,
+        // which is what makes a row of tabs useful.
+        Label title = new Label();
+        title.getStyleClass().add("tab-title");
+        title.textProperty().bind(terminal.getDisplay().windowTitleProperty());
+        tab.setGraphic(title);
+        installTabDrag(tab, title);
 
         tabs.getTabs().add(tab);
         tabs.getSelectionModel().select(tab);
@@ -133,9 +149,120 @@ public final class TerminalWindow {
         Platform.runLater(terminal::requestFocus);
     }
 
+    /** Identifies our own drags, so a drop from another application is not mistaken for one. */
+    private static final DataFormat TAB_DRAG = new DataFormat("application/x-termina-tab");
+
+    /** The tab being dragged. The Dragboard can only carry serialisable data, and a Tab is not. */
+    private Tab draggedTab;
+
+    /**
+     * Drag-to-reorder.
+     *
+     * <p>JavaFX has no tab reordering of its own, so this is the whole gesture: the label is the
+     * drag source, the drop side is decided by which half of the target it lands on, and an accent
+     * edge shows where it would go.
+     */
+    private void installTabDrag(Tab tab, Label title) {
+        title.setOnDragDetected(e -> {
+            if (tabs.getTabs().size() < 2) return;
+            draggedTab = tab;
+            var board = title.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            // The payload is a marker, not the data: identifying our drag is all it is for.
+            content.put(TAB_DRAG, "tab");
+            board.setContent(content);
+            board.setDragView(title.snapshot(null, null));
+            title.getStyleClass().add("tab-dragging");
+            e.consume();
+        });
+
+        title.setOnDragOver(e -> {
+            if (draggedTab == null || e.getGestureSource() == title) return;
+            if (!e.getDragboard().hasContent(TAB_DRAG)) return;
+            e.acceptTransferModes(TransferMode.MOVE);
+            markDropSide(title, e.getX() > title.getWidth() / 2);
+            e.consume();
+        });
+
+        title.setOnDragExited(e -> clearDropMarks(title));
+
+        title.setOnDragDropped(e -> {
+            clearDropMarks(title);
+            if (draggedTab == null || !e.getDragboard().hasContent(TAB_DRAG)) return;
+            int from = tabs.getTabs().indexOf(draggedTab);
+            int over = tabs.getTabs().indexOf(tab);
+            boolean after = e.getX() > title.getWidth() / 2;
+            moveTab(from, TabReorder.insertIndex(from, over, after, tabs.getTabs().size()));
+            e.setDropCompleted(true);
+            e.consume();
+        });
+
+        title.setOnDragDone(e -> {
+            title.getStyleClass().remove("tab-dragging");
+            draggedTab = null;
+            for (Tab other : tabs.getTabs()) {
+                if (other.getGraphic() instanceof Label l) clearDropMarks(l);
+            }
+        });
+    }
+
+    private static void markDropSide(Label title, boolean after) {
+        title.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
+        title.getStyleClass().add(after ? "tab-drop-after" : "tab-drop-before");
+    }
+
+    private static void clearDropMarks(Label title) {
+        title.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
+    }
+
+    /** True while a drag is rewriting the tab list, so removals are not treated as closes. */
+    private boolean reordering;
+
+    /**
+     * Moves a tab, keeping it selected.
+     *
+     * <p>Public because the drop handler and the development capture hook both drive it, and
+     * because "does reordering preserve the session?" is worth being able to ask directly.
+     */
+    public void moveTab(int from, int to) {
+        if (!TabReorder.isMove(from, to)) return;
+        if (from < 0 || from >= tabs.getTabs().size()) return;
+
+        reordering = true;
+        try {
+            Tab tab = tabs.getTabs().remove(from);
+            tabs.getTabs().add(Math.min(to, tabs.getTabs().size()), tab);
+            tabs.getSelectionModel().select(tab);
+        } finally {
+            reordering = false;
+        }
+        applyTabBarVisibility();
+    }
+
+    /** Tab titles in order — for the capture hook, to check a reorder did what was asked. */
+    public List<String> tabTitles() {
+        List<String> titles = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) titles.add(tab.getText() == null ? label(tab) : tab.getText());
+        return titles;
+    }
+
+    private static String label(Tab tab) {
+        return tab.getGraphic() instanceof Label l ? l.getText() : "";
+    }
+
     public void closeCurrentTab() {
         Tab selected = tabs.getSelectionModel().getSelectedItem();
         if (selected != null) tabs.getTabs().remove(selected);
+    }
+
+    /** Shifts the selected tab one place, stopping at the ends rather than wrapping. */
+    private void moveSelectedTab(int delta) {
+        int from = tabs.getSelectionModel().getSelectedIndex();
+        int to = from + delta;
+        // Deliberately not wrapping: dragging cannot wrap either, and a tab that jumps from one end
+        // to the other reads as a mistake.
+        if (from < 0 || to < 0 || to >= tabs.getTabs().size()) return;
+        moveTab(from, to);
     }
 
     private void selectRelativeTab(int delta) {
@@ -244,7 +371,18 @@ public final class TerminalWindow {
                 register(MenuAction.of("Next Tab", MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
                         () -> selectRelativeTab(1))),
                 register(MenuAction.of("Previous Tab", MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
-                        () -> selectRelativeTab(-1))));
+                        () -> selectRelativeTab(-1))),
+                null,
+                // Dragging is the usual way, but a tab strip that can only be reordered by mouse is
+                // unreachable from the keyboard entirely.
+                register(MenuAction.of("Move Tab Left",
+                        new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN,
+                                KeyCombination.SHIFT_DOWN),
+                        () -> moveSelectedTab(-1))),
+                register(MenuAction.of("Move Tab Right",
+                        new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN,
+                                KeyCombination.SHIFT_DOWN),
+                        () -> moveSelectedTab(1))));
 
         updateItem = MenuAction.of("Check for Updates…", () -> windows.checkForUpdatesNow(this::report))
                 .toMenuItem();

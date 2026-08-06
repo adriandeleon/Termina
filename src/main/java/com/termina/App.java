@@ -30,6 +30,7 @@ public final class App extends Application {
         Application.setUserAgentStylesheet(
                 Theme.byId(settings.themeId(), Theme.EDITORA_DARK).stylesheet());
 
+        com.termina.ui.StallMonitor.installIfRequested();
         windows = new WindowManager(settings);
         windows.setLinkOpener(url -> getHostServices().showDocument(url));
         TerminalWindow first = windows.openFirstWindow(stage);

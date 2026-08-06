@@ -40,6 +40,29 @@ final class DevCapture {
     }
 
     /**
+     * Longest gap between animation frames, in milliseconds.
+     *
+     * <p>The FX thread drives that timer, so a long gap means it was blocked — which is what a
+     * "freeze" is. Rendering slowly shows up as a steady 30-50ms; blocking shows up as one enormous
+     * gap. The two look identical from the outside and have completely different causes.
+     */
+    private static volatile double maxStallMs;
+
+    private static final javafx.animation.AnimationTimer STALL_METER =
+            new javafx.animation.AnimationTimer() {
+                private long previous;
+
+                @Override
+                public void handle(long now) {
+                    if (previous != 0) {
+                        double gap = (now - previous) / 1_000_000.0;
+                        if (gap > maxStallMs) maxStallMs = gap;
+                    }
+                    previous = now;
+                }
+            };
+
+    /**
      * Runs an optional command, drives optional input, writes a PNG, then exits.
      *
      * <p>The delays are the point: the shell needs time to start and print a prompt, and the
@@ -57,12 +80,41 @@ final class DevCapture {
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
         long afterCommandMs = Long.getLong("termina.captureAfterCommandMs", 2000);
 
+        STALL_METER.start();
         PauseTransition settle = new PauseTransition(Duration.millis(settleMs));
         settle.setOnFinished(e -> {
             openExtraTabsAndWindows(windows, window);
             TerminalView terminal = window.activeTerminal();
             if (!command.isBlank() && terminal != null) {
                 terminal.getSession().sendString(command + "\r");
+            }
+            // -Dtermina.captureTypeTab=<text> types the text then presses Tab, without a Return —
+            // the completion case, which cannot be expressed as a command to run.
+            String tabPrefix = System.getProperty("termina.captureTypeTab");
+            if (tabPrefix != null && terminal != null) {
+                terminal.getSession().sendString(tabPrefix);
+                maxStallMs = 0; // measure only from here
+                // Two different things look identical to someone watching: the UI thread blocked,
+                // and the shell simply not answering. The stall meter measures the first; this
+                // measures the second. Without both, "it froze" is unattributable.
+                long[] firstChange = {0};
+                long sentAt = System.nanoTime();
+                terminal.getSession().getTextBuffer().addModelListener(() -> {
+                    if (firstChange[0] == 0) firstChange[0] = System.nanoTime();
+                });
+                terminal.getSession().send(new byte[] {0x09});
+                PauseTransition measure = new PauseTransition(Duration.millis(afterCommandMs - 500));
+                measure.setOnFinished(x -> System.out.println("[capture] shellReplyMs="
+                        + (firstChange[0] == 0 ? "NEVER" : (firstChange[0] - sentAt) / 1_000_000)));
+                measure.play();
+                // A large completion set makes zsh ask before listing; -Dtermina.captureAfterTab
+                // answers it, so the listing is actually drawn and can be measured.
+                String afterTab = System.getProperty("termina.captureAfterTab");
+                if (afterTab != null && !afterTab.isEmpty()) {
+                    PauseTransition answer = new PauseTransition(Duration.millis(1200));
+                    answer.setOnFinished(x -> terminal.getSession().sendString(afterTab));
+                    answer.play();
+                }
             }
             PauseTransition afterCommand = new PauseTransition(Duration.millis(afterCommandMs));
             afterCommand.setOnFinished(e2 -> {
@@ -133,7 +185,8 @@ final class DevCapture {
     private static void report(WindowManager windows) {
         System.out.println("[capture] windows=" + windows.windows().size()
                 + " terminals=" + windows.allTerminals().size()
-                + " descendants=" + descendants());
+                + " descendants=" + descendants()
+                + " maxStallMs=" + Math.round(maxStallMs));
         for (TerminalWindow w : windows.windows()) System.out.println("[capture] layout " + w.layoutReport());
     }
 

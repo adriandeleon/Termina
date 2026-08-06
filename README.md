@@ -163,6 +163,23 @@ shell (Ctrl+T is readline's transpose, Ctrl+W deletes a word, Ctrl+C is SIGINT).
 own tests. Whether the shortcut modifier *is* Ctrl or Cmd is JavaFX's decision, not ours, and the
 tests deliberately do not assert it.
 
+### Reordering tabs
+
+Drag a tab, or `Cmd/Ctrl+Shift+Left/Right` from the keyboard. JavaFX has no tab reordering, so the
+gesture is built on a `Label` graphic — a `Tab` is not a `Node` and has nowhere to attach drag
+handlers.
+
+**A reorder is a remove followed by an add**, which the tab-disposal listener would otherwise read
+as "close that session" — dragging a tab would kill the shell being dragged and leave an empty tab
+behind, for a gesture meant to change nothing but order. A `reordering` guard suppresses disposal,
+and suppresses the close-the-window-when-empty rule with it, since a single-tab window is briefly
+empty mid-move.
+
+Where a dragged tab lands is `TabReorder.insertIndex`, kept pure and tested: the drop position is
+expressed against the list as it looks *during* the drag, but the insert happens against the list
+with the dragged tab already removed. Off by one there moves the tab one place from where it was
+dropped, which reads as sloppiness rather than a bug.
+
 ### Context menu
 
 Right-click gives Copy, Paste, Select All, Clear Scrollback and Settings. Copy and Paste are
@@ -238,6 +255,21 @@ ratio rather than leaving it to judgement, for every colour in both themes.
   `NoClassDefFoundError`.
 - **Paste** is `Cmd+V` on macOS and `Ctrl+Shift+V` elsewhere — plain `Ctrl+V` is readline's
   literal-next and belongs to the shell.
+
+## Diagnosing a freeze
+
+"It froze" has two causes that look identical from the outside — the UI thread blocked, or the
+shell had nothing to say yet — and only the first is Termina's. `-Dtermina.stallLog=<ms>` reports
+gaps between animation frames, which the FX thread drives, so a long gap means it was genuinely
+blocked:
+
+```bash
+scripts/dev-run.sh -Dtermina.stallLog=400
+JAVA_TOOL_OPTIONS=-Dtermina.stallLog=400 ./target/dist/Termina.app/Contents/MacOS/Termina
+```
+
+It is opt-in because an always-running `AnimationTimer` forces a 60fps pulse even when the terminal
+is idle.
 
 ## Development capture
 

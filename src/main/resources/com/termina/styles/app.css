@@ -62,3 +62,22 @@
     -fx-max-height: 0;
     -fx-padding: 0;
 }
+
+/* Drag-to-reorder feedback: the dragged tab dims, and an accent edge shows where it would land. */
+.tab-title {
+    -fx-padding: 0 2 0 2;
+}
+
+.tab-dragging {
+    -fx-opacity: 0.4;
+}
+
+.tab-drop-before {
+    -fx-border-color: transparent transparent transparent -color-accent-emphasis;
+    -fx-border-width: 0 0 0 2;
+}
+
+.tab-drop-after {
+    -fx-border-color: transparent -color-accent-emphasis transparent transparent;
+    -fx-border-width: 0 2 0 0;
+}
