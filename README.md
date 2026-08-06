@@ -19,6 +19,31 @@ Requires JDK 25. Everything else is fetched by Maven.
 mvn test
 ```
 
+### Building a native app image
+
+```bash
+mvn clean -Pdist -DskipTests package     # => target/dist/Termina{.app}
+```
+
+Self-contained: bundled runtime, no JDK needed to run it. `clean` is not optional — jlink's input is
+built from `target/classes`, and an incremental compile can leave that inconsistent in ways javac
+will not correct on its own.
+
+Four dependencies (`jediterm-core`, `pty4j`, `jna`, `jna-platform`) are **automatic modules**, and
+jlink refuses to link those. moditect injects real descriptors; an antrun step then overlays the
+patched jars over the plain ones so exactly one copy of each is on the module path.
+
+Two things about this build are worth knowing because neither announces itself:
+
+- **The slf4j binding has to be named explicitly.** It is reached only through `ServiceLoader`, so
+  nothing `requires` it and jlink leaves it out. The image builds, launches, and silently drops
+  every log line from pty4j and JediTerm — in the one build where a native library failing to load
+  is hardest to diagnose.
+- **pty4j's native libraries survive by luck, not design.** JPMS encapsulates resources whose
+  directory maps to a valid package name. `resources/com/pty4j/native/…` does not, because `native`
+  is a reserved word, so it stays readable. The same accident covers JNA (`darwin-aarch64` contains
+  a hyphen). Neither would work if those directories were named differently.
+
 ## How it fits together
 
 Three pieces, each doing one thing:
@@ -152,7 +177,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
 - **Tabs and splits.** One session per window.
 - **Configuration.** Font, colours, shell, and scrollback depth are constants.
 - **Search in scrollback.**
-- **Packaging.** No `jpackage`/`jlink` profile yet. That will need moditect descriptors for the four
-  automatic modules (`jediterm-core`, `pty4j`, `jna`, `jna-platform`) before jlink can link them.
+- **Installers.** `-Pdist` builds an app image, not a `.dmg`/`.msi`/`.deb`, and it is unsigned —
+  macOS will refuse to launch a downloaded copy until it is signed and notarised.
 - **Windows and Linux are untested.** The code paths exist and pty4j carries the natives, but only
-  macOS has actually been run.
+  macOS has actually been run — including the `-Pdist` build, whose per-OS behaviour (ConPTY, the
+  Linux launcher layout) is unverified.

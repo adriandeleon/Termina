@@ -40,6 +40,10 @@
         <slf4j.version>2.0.17</slf4j.version>
 
         <junit.version>5.11.4</junit.version>
+
+        <!-- dist profile only -->
+        <moditect.version>1.2.2.Final</moditect.version>
+        <jpackage.plugin.version>1.6.6</jpackage.plugin.version>
     </properties>
 
     <repositories>
@@ -176,6 +180,202 @@
             <id>os-linux</id>
             <activation><os><family>unix</family><name>Linux</name></os></activation>
             <properties><prism.pipeline>es2,sw</prism.pipeline></properties>
+        </profile>
+
+        <!--
+            Native app image:  mvn clean -Pdist package  =>  target/dist/Termina{.app}
+
+            `clean` matters. jlink's input is built from target/classes, and an incremental compile
+            can leave that directory inconsistent with the sources in ways javac will not correct.
+
+            Four of our dependencies are automatic modules (no module-info), and jlink refuses to
+            link those. moditect injects real descriptors; the antrun step then overlays the patched
+            jars on top of the plain ones so the module path holds exactly one copy of each.
+        -->
+        <profile>
+            <id>dist</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.moditect</groupId>
+                        <artifactId>moditect-maven-plugin</artifactId>
+                        <version>${moditect.version}</version>
+                        <executions>
+                            <execution>
+                                <id>patch-automatic-modules</id>
+                                <phase>package</phase>
+                                <goals><goal>add-module-info</goal></goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}/modules</outputDirectory>
+                                    <overwriteExistingFiles>true</overwriteExistingFiles>
+                                    <jdepsExtraArgs>
+                                        <arg>--multi-release=25</arg>
+                                        <!-- These jars reference optional dependencies we do not
+                                             bundle (JNA's AWT bridge, pty4j's Windows-only paths on
+                                             a mac build). Let jdeps skip what it cannot resolve
+                                             rather than fail the whole descriptor. -->
+                                        <arg>--ignore-missing-deps</arg>
+                                    </jdepsExtraArgs>
+                                    <modules>
+                                        <module>
+                                            <artifact>
+                                                <groupId>net.java.dev.jna</groupId>
+                                                <artifactId>jna</artifactId>
+                                                <version>${jna.version}</version>
+                                            </artifact>
+                                            <moduleInfo>
+                                                <name>com.sun.jna</name>
+                                            </moduleInfo>
+                                        </module>
+                                        <module>
+                                            <artifact>
+                                                <groupId>net.java.dev.jna</groupId>
+                                                <artifactId>jna-platform</artifactId>
+                                                <version>${jna.version}</version>
+                                            </artifact>
+                                            <moduleInfo>
+                                                <name>com.sun.jna.platform</name>
+                                            </moduleInfo>
+                                        </module>
+                                        <module>
+                                            <artifact>
+                                                <groupId>org.jetbrains.jediterm</groupId>
+                                                <artifactId>jediterm-core</artifactId>
+                                                <version>${jediterm.version}</version>
+                                            </artifact>
+                                            <moduleInfo>
+                                                <name>jediterm.core</name>
+                                                <!-- jdeps sees the Kotlin and slf4j calls, but the
+                                                     module names it derives are only as good as
+                                                     what is on its path; state them so a dropped
+                                                     requires cannot make the linked image fail at
+                                                     the first emulator call instead of at build. -->
+                                                <requires>
+                                                    kotlin.stdlib;
+                                                    org.slf4j;
+                                                    java.desktop;
+                                                    *;
+                                                </requires>
+                                            </moduleInfo>
+                                        </module>
+                                        <module>
+                                            <artifact>
+                                                <groupId>org.jetbrains.pty4j</groupId>
+                                                <artifactId>pty4j</artifactId>
+                                                <version>${pty4j.version}</version>
+                                            </artifact>
+                                            <moduleInfo>
+                                                <name>pty4j</name>
+                                                <requires>
+                                                    kotlin.stdlib;
+                                                    org.slf4j;
+                                                    com.sun.jna;
+                                                    com.sun.jna.platform;
+                                                    *;
+                                                </requires>
+                                            </moduleInfo>
+                                        </module>
+                                    </modules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.8.1</version>
+                        <executions>
+                            <execution>
+                                <id>collect-modules</id>
+                                <phase>package</phase>
+                                <goals><goal>copy-dependencies</goal></goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.directory}/mods</outputDirectory>
+                                    <includeScope>runtime</includeScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>assemble-module-path</id>
+                                <phase>package</phase>
+                                <goals><goal>run</goal></goals>
+                                <configuration>
+                                    <target>
+                                        <!-- Patched jars win over the plain automatic ones. -->
+                                        <copy todir="${project.build.directory}/mods" overwrite="true">
+                                            <fileset dir="${project.build.directory}/modules"/>
+                                        </copy>
+                                        <copy todir="${project.build.directory}/mods"
+                                              file="${project.build.directory}/${project.build.finalName}.jar"/>
+                                        <!-- JavaFX publishes a stub jar plus a platform-classifier jar
+                                             with the real classes. Both declare the same module, so
+                                             leaving both on the path is a duplicate-module error. -->
+                                        <delete>
+                                            <fileset dir="${project.build.directory}/mods"
+                                                     includes="javafx-*-${javafx.version}.jar"/>
+                                        </delete>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <version>${jpackage.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>app-image</id>
+                                <phase>package</phase>
+                                <goals><goal>jpackage</goal></goals>
+                                <configuration>
+                                    <type>APP_IMAGE</type>
+                                    <name>Termina</name>
+                                    <appVersion>1.0.0</appVersion>
+                                    <vendor>Termina</vendor>
+                                    <destination>${project.build.directory}/dist</destination>
+                                    <module>com.termina/com.termina.App</module>
+                                    <modulePaths>
+                                        <modulePath>${project.build.directory}/mods</modulePath>
+                                    </modulePaths>
+                                    <!--
+                                        The slf4j binding is reached only through ServiceLoader, so
+                                        nothing `requires` it and jlink leaves it out of the image
+                                        without a word. The result builds and launches, and every
+                                        log line from pty4j and JediTerm silently disappears — in
+                                        the one build where a native library failing to load is
+                                        hardest to diagnose. Named explicitly rather than binding
+                                        all services, which would drag in every provider on the
+                                        module path.
+                                    -->
+                                    <addModules>
+                                        <addModule>org.slf4j.simple</addModule>
+                                    </addModules>
+                                    <javaOptions>
+                                        <javaOption>--enable-native-access=javafx.graphics,com.sun.jna</javaOption>
+                                        <javaOption>-Dprism.order=${prism.pipeline}</javaOption>
+                                    </javaOptions>
+                                    <jLinkOptions>
+                                        <jLinkOption>--strip-debug</jLinkOption>
+                                        <jLinkOption>--no-man-pages</jLinkOption>
+                                        <jLinkOption>--no-header-files</jLinkOption>
+                                        <jLinkOption>--compress=zip-6</jLinkOption>
+                                    </jLinkOptions>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>
