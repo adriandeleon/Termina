@@ -4,6 +4,7 @@ import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.StyledTextConsumer;
 import com.jediterm.terminal.TextStyle;
+import com.jediterm.terminal.emulator.mouse.MouseEventProcessingSettings;
 import com.jediterm.terminal.model.CharBuffer;
 import com.jediterm.terminal.model.SelectionUtil;
 import com.jediterm.terminal.model.TerminalSelection;
@@ -123,6 +124,7 @@ public final class TerminalView extends Region {
 
         addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
         addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
+        addEventFilter(MouseEvent.MOUSE_RELEASED, this::onMouseReleased);
         addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
         addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
@@ -499,8 +501,60 @@ public final class TerminalView extends Region {
         return new Point(column, scrollOrigin + row);
     }
 
+    // ---------------------------------------------------------------- mouse reporting
+
+    /**
+     * Offers the event to the program running in the terminal.
+     *
+     * <p>Returns true when it was reported, in which case the local gesture (selection, scrollback)
+     * must not also run — otherwise a click in vim both moves its cursor and starts a highlight.
+     *
+     * <p><b>Shift bypasses reporting entirely.</b> That is the xterm convention and it is the only
+     * way out of a full-screen program that has grabbed the mouse: without it, an application like
+     * htop makes the text impossible to select.
+     */
+    private boolean reportMouse(MouseEvent e, com.jediterm.core.input.MouseEvent.Type type) {
+        if (session == null || e.isShiftDown()) return false;
+        int code = MouseEncoding.buttonCode(e.getButton());
+        var event = new com.jediterm.core.input.MouseEvent(type, code, MouseEncoding.modifierFlags(e));
+        return session.getTerminal().onMouseEvent(column(e), visibleRow(e), event, mouseSettings());
+    }
+
+    private boolean reportWheel(ScrollEvent e) {
+        if (session == null || e.isShiftDown()) return false;
+        int code = MouseEncoding.wheelButtonCode(e.getDeltaY());
+        var event = new com.jediterm.core.input.MouseWheelEvent(
+                code, MouseEncoding.modifierFlags(e), MouseEncoding.unitsToScroll(e.getDeltaY(), lineHeight));
+        int column = Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
+        int row = Math.max(0, Math.min(rows - 1, (int) Math.floor(e.getY() / lineHeight)));
+        return session.getTerminal().onMouseEvent(column, row, event, mouseSettings());
+    }
+
+    private MouseEventProcessingSettings mouseSettings() {
+        // The third flag turns a wheel scroll into arrow keys while on the alternate screen, so
+        // less and man scroll with the wheel even though they never enable mouse reporting.
+        return new MouseEventProcessingSettings(true, display.isAlternateScreen(), true);
+    }
+
+    private int column(MouseEvent e) {
+        return Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
+    }
+
+    /** Row relative to the visible screen — what the reporting protocol addresses. */
+    private int visibleRow(MouseEvent e) {
+        return Math.max(0, Math.min(rows - 1, (int) Math.floor(e.getY() / lineHeight)));
+    }
+
+    private void onMouseReleased(MouseEvent e) {
+        if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.RELEASED)) e.consume();
+    }
+
     private void onMousePressed(MouseEvent e) {
         requestFocus();
+        if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {
+            e.consume();
+            return;
+        }
         if (e.getButton() != MouseButton.PRIMARY || buffer == null) return;
 
         Point at = cellAt(e);
@@ -518,6 +572,10 @@ public final class TerminalView extends Region {
     }
 
     private void onMouseDragged(MouseEvent e) {
+        if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.DRAGGED)) {
+            e.consume();
+            return;
+        }
         if (e.getButton() != MouseButton.PRIMARY || selectionAnchor == null) return;
         Point at = cellAt(e);
         TerminalSelection current = selection;
@@ -626,6 +684,10 @@ public final class TerminalView extends Region {
 
     private void onScroll(ScrollEvent e) {
         if (buffer == null) return;
+        if (reportWheel(e)) {
+            e.consume();
+            return;
+        }
         // No scrollback exists on the alternate screen; a full-screen program owns the viewport.
         if (display.isAlternateScreen()) return;
 

@@ -4,8 +4,8 @@ A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real 
 renders the emulated screen to a canvas.
 
 Status: **early**. A working terminal — colour, styling, scrollback, resize, selection and copy,
-alternate-screen programs (vim, less, htop) — with a short list of known gaps at the bottom of this
-file.
+mouse-aware full-screen programs (vim, less, htop) — with a short list of known gaps at the bottom
+of this file.
 
 ## Running
 
@@ -87,6 +87,27 @@ The highlight is a translucent wash painted *over* the text. Painting it behind 
 selection state through every style run and splitting runs at its edges; the wash keeps the run loop
 untouched and stays legible over any of 16 million possible foreground colours.
 
+### Mouse reporting
+
+Clicks, drags and the wheel are offered to the program running in the terminal before any local
+gesture runs, so vim positions its cursor and htop responds to clicks. Only the *mapping* from
+JavaFX events to button codes is ours — JediTerm encodes the escape sequences, because there are
+four incompatible wire formats (X10, UTF-8, URXVT, SGR) and the active one is chosen by the running
+program.
+
+The mapping mirrors JediTerm's own AWT adapter, which is the implementation its encoder was written
+against. Two parts look like bugs and are not: the **motion flag is never set here** (the encoder
+derives it from the event type, and setting it twice reports a drag as a different button), and the
+**scroll codes read backwards** — `SCROLLDOWN` is sent when the wheel turns up, because the names
+describe which way the content moves.
+
+**Shift bypasses reporting.** That is the xterm convention, and it is the only way to select text
+out of a program that has grabbed the mouse — without it htop's output cannot be copied.
+
+On the alternate screen a wheel scroll falls back to arrow keys, so `less` and `man` scroll with the
+wheel even though neither ever enables mouse reporting. Scroll magnitude is capped, or one inertial
+trackpad fling sends hundreds of keypresses to the shell.
+
 ## Notable details
 
 - **Login shells.** A GUI process inherits a stripped `PATH` with no Homebrew and no version-manager
@@ -118,13 +139,13 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
 
 ```bash
   -Dtermina.captureDrag=0,35,240,75    # drag-select a region
+  -Dtermina.captureDragShift=true      # ...holding shift, to bypass mouse reporting
   -Dtermina.captureClick=60,55,2       # x, y, click count (2 = word, 3 = line)
+  -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
 ```
 
 ## Not done yet
 
-- **Mouse reporting.** The modes are tracked but no mouse events are forwarded, so click-to-position
-  in vim and scrolling in htop do not work.
 - **Selection refinements.** No autoscroll when dragging past the top or bottom edge, no
   rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
   keystroke rather than surviving it.

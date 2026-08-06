@@ -13,6 +13,7 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.util.Duration;
 
 /**
@@ -80,6 +81,35 @@ final class DevCapture {
     }
 
     /**
+     * Scrolls the wheel over the view.
+     *
+     * <pre>-Dtermina.captureScroll=x,y,deltaY</pre>
+     *
+     * Positive deltaY is a wheel turn up/away, matching JavaFX.
+     */
+    private static void scrollIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.captureScroll");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        if (parts.length != 3) {
+            System.err.println("[capture] captureScroll needs x,y,deltaY");
+            return;
+        }
+        double x = Double.parseDouble(parts[0].trim());
+        double y = Double.parseDouble(parts[1].trim());
+        double deltaY = Double.parseDouble(parts[2].trim());
+        Event.fireEvent(terminal, new ScrollEvent(
+                ScrollEvent.SCROLL, x, y, x, y,
+                false, false, false, false, // shift, control, alt, meta
+                false, false, // direct, inertia
+                0, deltaY, 0, deltaY, // deltaX, deltaY, totalDeltaX, totalDeltaY
+                ScrollEvent.HorizontalTextScrollUnits.NONE, 0,
+                ScrollEvent.VerticalTextScrollUnits.NONE, 0,
+                0, null));
+        System.out.println("[capture] scrolled deltaY=" + deltaY);
+    }
+
+    /**
      * Drags a selection across the view and reports what copying it yields.
      *
      * <p>Real {@code MouseEvent}s fired at the node, not a call to some internal setter: the thing
@@ -90,6 +120,7 @@ final class DevCapture {
      */
     private static void dragSelectIfRequested(TerminalView terminal) {
         clickSelectIfRequested(terminal);
+        scrollIfRequested(terminal);
 
         String spec = System.getProperty("termina.captureDrag");
         if (spec == null || spec.isBlank()) return;
@@ -103,9 +134,12 @@ final class DevCapture {
         double x2 = Double.parseDouble(parts[2].trim());
         double y2 = Double.parseDouble(parts[3].trim());
 
-        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x1, y1, 1));
-        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_DRAGGED, x2, y2, 1));
-        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x2, y2, 1));
+        // Shift is the documented bypass for a program that has grabbed the mouse, so the
+        // capture has to be able to exercise it.
+        boolean shift = Boolean.getBoolean("termina.captureDragShift");
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x1, y1, 1, shift));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_DRAGGED, x2, y2, 1, shift));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x2, y2, 1, shift));
 
         boolean copied = terminal.copySelection();
         System.out.println("[capture] selection copied=" + copied);
@@ -131,8 +165,8 @@ final class DevCapture {
         double x = Double.parseDouble(parts[0].trim());
         double y = Double.parseDouble(parts[1].trim());
         int clicks = Integer.parseInt(parts[2].trim());
-        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x, y, clicks));
-        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x, y, clicks));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, x, y, clicks, false));
+        Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x, y, clicks, false));
 
         if (terminal.copySelection()) {
             System.out.println("[capture] click-selection<<<"
@@ -142,10 +176,11 @@ final class DevCapture {
         }
     }
 
-    private static MouseEvent mouse(EventType<MouseEvent> type, double x, double y, int clicks) {
+    private static MouseEvent mouse(
+            EventType<MouseEvent> type, double x, double y, int clicks, boolean shift) {
         return new MouseEvent(
                 type, x, y, x, y, MouseButton.PRIMARY, clicks,
-                false, false, false, false, // shift, control, alt, meta
+                shift, false, false, false, // shift, control, alt, meta
                 true, false, false, // primary/middle/secondary button down
                 false, false, false, // synthesized, popup trigger, still since press
                 null);
