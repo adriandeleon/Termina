@@ -10,6 +10,7 @@ import com.jediterm.terminal.model.SelectionUtil;
 import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.util.CharUtils;
+import com.termina.config.Settings;
 import com.termina.term.TerminalSession;
 import java.io.IOException;
 import java.util.List;
@@ -51,20 +52,37 @@ public final class TerminalView extends Region {
     private static final int MIN_COLUMNS = 20;
     private static final int MIN_ROWS = 4;
 
-    /**
-     * Selection highlight, painted over the text rather than behind it.
-     *
-     * <p>Behind would mean threading selection state through every style run and splitting runs at
-     * its edges. A translucent wash keeps the run loop untouched and stays legible over any
-     * foreground colour, which matters in a terminal where a cell can be any of 16 million.
-     */
-    private static final Color SELECTION_WASH = Color.rgb(0x62, 0x9f, 0xd8, 0.30);
+    /** How opaque the selection wash is over the text beneath it. */
+    private static final double SELECTION_ALPHA = 0.30;
 
     private final Canvas canvas = new Canvas();
     private final FxTerminalDisplay display = new FxTerminalDisplay();
 
     private TerminalSession session;
     private TerminalTextBuffer buffer;
+
+    /**
+     * Theme colours. Held rather than read from a constant so a theme change repaints in place —
+     * see {@link #setPalette}.
+     */
+    private TerminalPalette palette = Theme.EDITORA_DARK.palette();
+
+    /**
+     * Selection highlight, painted over the text rather than behind it.
+     *
+     * <p>Behind would mean threading selection state through every style run and splitting runs at
+     * its edges. A translucent wash keeps the run loop untouched and stays legible over any
+     * foreground colour, which matters in a terminal where a cell can be any of 16 million. Derived
+     * from the palette's blue so it suits a light theme as well as a dark one.
+     */
+    private Color selectionWash = washFor(Theme.EDITORA_DARK.palette());
+
+    /** Preferred cursor shape. A program can still override it with DECSCUSR while running. */
+    private Settings.CursorShape preferredCursor = Settings.CursorShape.BLOCK;
+
+    private boolean bellEnabled = true;
+
+    private String fontFamily = MonospaceFonts.available().get(0);
 
     private Font font;
     private Font boldFont;
@@ -106,6 +124,7 @@ public final class TerminalView extends Region {
     /** Alt/Option prefixes ESC rather than composing a character; see {@link KeyEncoding}. */
     private boolean altIsMeta = true;
 
+
     private final AnimationTimer painter = new AnimationTimer() {
         @Override
         public void handle(long now) {
@@ -117,6 +136,7 @@ public final class TerminalView extends Region {
     };
 
     public TerminalView(double fontSize) {
+        applyFont();
         setFontSize(fontSize);
         getChildren().add(canvas);
         setFocusTraversable(true);
@@ -133,7 +153,9 @@ public final class TerminalView extends Region {
         display.setSelectionSupplier(() -> selection);
         // Visual bell. An audible one would mean java.awt.Toolkit.beep(), which initialises AWT —
         // see App.main for why that is off the table.
-        display.setOnBell(() -> Platform.runLater(this::flashBell));
+        display.setOnBell(() -> {
+            if (bellEnabled) Platform.runLater(this::flashBell);
+        });
         display.setOnAlternateScreenChanged(() -> {
             // Scrollback belongs to the primary buffer; entering or leaving the alternate screen
             // must snap back to the live view or a full-screen program renders at an offset.
@@ -142,9 +164,22 @@ public final class TerminalView extends Region {
         });
     }
 
+    private int scrollbackLines = Settings.DEFAULT_SCROLLBACK;
+    private String shellOverride = "";
+
+    /**
+     * Options fixed at session start. Changing either afterwards cannot affect the running shell —
+     * scrollback sizes a buffer that already exists, and the shell is already running — so the
+     * settings UI says so rather than pretending otherwise.
+     */
+    public void setSessionOptions(int scrollbackLines, String shellOverride) {
+        this.scrollbackLines = scrollbackLines;
+        this.shellOverride = shellOverride == null ? "" : shellOverride;
+    }
+
     /** Starts the shell. Must be called once, after the view is in a scene. */
     public void start() throws IOException {
-        session = new TerminalSession(display, columns, rows);
+        session = new TerminalSession(display, columns, rows, scrollbackLines, shellOverride);
         buffer = session.getTextBuffer();
         // Fires on the emulator thread for every buffer mutation — cheap by design.
         buffer.addModelListener(this::markDirty);
@@ -195,27 +230,53 @@ public final class TerminalView extends Region {
 
     public void setFontSize(double size) {
         this.fontSize = Math.max(6, size);
-        String family = pickMonospaceFamily();
-        font = Font.font(family, this.fontSize);
-        boldFont = Font.font(family, FontWeight.BOLD, this.fontSize);
-        italicFont = Font.font(family, FontWeight.NORMAL, javafx.scene.text.FontPosture.ITALIC, this.fontSize);
-        boldItalicFont = Font.font(family, FontWeight.BOLD, javafx.scene.text.FontPosture.ITALIC, this.fontSize);
+        applyFont();
+    }
+
+    /**
+     * Sets the face. Resolved through {@link MonospaceFonts} so a family that is blank, or was
+     * chosen on a machine that had it installed, falls back rather than silently rendering the grid
+     * in a proportional face.
+     */
+    public void setFontFamily(String family) {
+        this.fontFamily = MonospaceFonts.resolve(family);
+        applyFont();
+    }
+
+    public double getFontSize() {
+        return fontSize;
+    }
+
+    private void applyFont() {
+        String family = fontFamily;
+        font = Font.font(family, fontSize);
+        boldFont = Font.font(family, FontWeight.BOLD, fontSize);
+        italicFont = Font.font(family, FontWeight.NORMAL, javafx.scene.text.FontPosture.ITALIC, fontSize);
+        boldItalicFont = Font.font(family, FontWeight.BOLD, javafx.scene.text.FontPosture.ITALIC, fontSize);
         measureFont();
         markDirty();
         requestLayout();
     }
 
-    /**
-     * A real monospace face, preferred per platform, falling back to JavaFX's logical
-     * "Monospaced" family, which always resolves to something fixed-pitch.
-     */
-    private static String pickMonospaceFamily() {
-        List<String> families = Font.getFamilies();
-        for (String candidate : List.of("JetBrains Mono", "SF Mono", "Menlo", "Cascadia Mono",
-                "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Ubuntu Mono", "Monospaced")) {
-            if (families.contains(candidate)) return candidate;
-        }
-        return "Monospaced";
+    /** Applies a theme's colours and repaints. */
+    public void setPalette(TerminalPalette palette) {
+        this.palette = palette;
+        this.selectionWash = washFor(palette);
+        markDirty();
+    }
+
+    private static Color washFor(TerminalPalette palette) {
+        Color blue = palette.ansi()[4];
+        return Color.color(blue.getRed(), blue.getGreen(), blue.getBlue(), SELECTION_ALPHA);
+    }
+
+    public void setPreferredCursor(Settings.CursorShape shape) {
+        this.preferredCursor = shape == null ? Settings.CursorShape.BLOCK : shape;
+        markDirty();
+    }
+
+    public void setBellEnabled(boolean bellEnabled) {
+        this.bellEnabled = bellEnabled;
     }
 
     private void measureFont() {
@@ -266,7 +327,7 @@ public final class TerminalView extends Region {
         if (w <= 0 || h <= 0) return;
 
         g.setFontSmoothingType(FontSmoothingType.GRAY);
-        g.setFill(AnsiPalette.DEFAULT_BACKGROUND);
+        g.setFill(palette.background());
         g.fillRect(0, 0, w, h);
 
         if (buffer == null) return;
@@ -301,7 +362,7 @@ public final class TerminalView extends Region {
 
     private void drawBackground(GraphicsContext g, int column, int row, int length, TextStyle style) {
         Color bg = backgroundOf(style);
-        if (bg.equals(AnsiPalette.DEFAULT_BACKGROUND)) return; // already cleared
+        if (bg.equals(palette.background())) return; // already cleared
         g.setFill(bg);
         g.fillRect(column * charWidth, row * lineHeight, length * charWidth, lineHeight);
     }
@@ -318,7 +379,7 @@ public final class TerminalView extends Region {
         double y = row * lineHeight;
         double width = text.length() * charWidth;
 
-        if (!bg.equals(AnsiPalette.DEFAULT_BACKGROUND)) {
+        if (!bg.equals(palette.background())) {
             g.setFill(bg);
             g.fillRect(x, y, width, lineHeight);
         }
@@ -394,18 +455,18 @@ public final class TerminalView extends Region {
 
     private Color foregroundOf(TextStyle style) {
         boolean inverse = style.hasOption(TextStyle.Option.INVERSE);
-        Color fg = AnsiPalette.resolve(
+        Color fg = palette.resolve(
                 inverse ? style.getBackground() : style.getForeground(),
-                inverse ? AnsiPalette.DEFAULT_BACKGROUND : AnsiPalette.DEFAULT_FOREGROUND);
-        if (style.hasOption(TextStyle.Option.DIM)) fg = AnsiPalette.dim(fg, backgroundOf(style));
+                inverse ? palette.background() : palette.foreground());
+        if (style.hasOption(TextStyle.Option.DIM)) fg = TerminalPalette.dim(fg, backgroundOf(style));
         return fg;
     }
 
     private Color backgroundOf(TextStyle style) {
         boolean inverse = style.hasOption(TextStyle.Option.INVERSE);
-        return AnsiPalette.resolve(
+        return palette.resolve(
                 inverse ? style.getForeground() : style.getBackground(),
-                inverse ? AnsiPalette.DEFAULT_FOREGROUND : AnsiPalette.DEFAULT_BACKGROUND);
+                inverse ? palette.foreground() : palette.background());
     }
 
     private void drawCursor(GraphicsContext g) {
@@ -418,26 +479,40 @@ public final class TerminalView extends Region {
 
         double x = column * charWidth;
         double y = row * lineHeight;
-        CursorShape shape = display.getCursorShape();
-        g.setFill(AnsiPalette.DEFAULT_FOREGROUND);
+        g.setFill(palette.foreground());
 
-        switch (shape) {
-            case BLINK_UNDERLINE, STEADY_UNDERLINE ->
-                g.fillRect(x, y + lineHeight - 2, charWidth, 2);
-            case BLINK_VERTICAL_BAR, STEADY_VERTICAL_BAR -> g.fillRect(x, y, 2, lineHeight);
+        switch (effectiveCursorShape()) {
+            case UNDERLINE -> g.fillRect(x, y + lineHeight - 2, charWidth, 2);
+            case BAR -> g.fillRect(x, y, 2, lineHeight);
             default -> {
                 g.fillRect(x, y, charWidth, lineHeight);
                 // Re-draw the glyph underneath in the background colour so a block cursor does not
                 // hide the character it is sitting on.
                 char ch = buffer.getCharAt(column, display.getCursorY() - 1);
                 if (ch != '\0' && ch != ' ') {
-                    g.setFill(AnsiPalette.DEFAULT_BACKGROUND);
+                    g.setFill(palette.background());
                     g.setFont(font);
                     g.setTextBaseline(VPos.BASELINE);
                     g.fillText(String.valueOf(ch), x, y + ascent);
                 }
             }
         }
+    }
+
+    /**
+     * The shape to draw: whatever a program asked for, else the user's preference.
+     *
+     * <p>A program's request wins because it is usually communicating mode — vim's insert-mode bar
+     * against its normal-mode block — which the user's default should not override.
+     */
+    private Settings.CursorShape effectiveCursorShape() {
+        CursorShape requested = display.getCursorShape();
+        if (requested == null) return preferredCursor;
+        return switch (requested) {
+            case BLINK_UNDERLINE, STEADY_UNDERLINE -> Settings.CursorShape.UNDERLINE;
+            case BLINK_VERTICAL_BAR, STEADY_VERTICAL_BAR -> Settings.CursorShape.BAR;
+            default -> Settings.CursorShape.BLOCK;
+        };
     }
 
     // ---------------------------------------------------------------- input
@@ -663,7 +738,7 @@ public final class TerminalView extends Region {
     private void drawSelection(GraphicsContext g) {
         TerminalSelection current = selection;
         if (current == null) return;
-        g.setFill(SELECTION_WASH);
+        g.setFill(selectionWash);
         for (int row = 0; row < rows; row++) {
             kotlin.Pair<Integer, Integer> span = current.intersect(0, scrollOrigin + row, columns);
             if (span == null) continue;

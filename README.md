@@ -4,8 +4,8 @@ A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real 
 renders the emulated screen to a canvas.
 
 Status: **early**. A working terminal — colour, styling, scrollback, resize, selection and copy,
-mouse-aware full-screen programs (vim, less, htop) — with a short list of known gaps at the bottom
-of this file.
+mouse-aware full-screen programs (vim, less, htop), themes and font settings — with a short list of
+known gaps at the bottom of this file.
 
 ## Running
 
@@ -133,6 +133,44 @@ On the alternate screen a wheel scroll falls back to arrow keys, so `less` and `
 wheel even though neither ever enables mouse reporting. Scroll magnitude is capped, or one inertial
 trackpad fling sends hundreds of keypresses to the shell.
 
+### Settings
+
+`Cmd/Ctrl+,` opens preferences: theme, font family and size, cursor shape, visual bell, scrollback
+depth, shell, and Alt-as-Meta. Stored as a plain properties file at
+`~/.termina/settings.properties` — no dependency, and a file someone will reasonably open in an
+editor. Every getter falls back to a default, so one bad hand-edited line costs that key and not the
+rest, and values are clamped **on read as well as on write** (a hand-edited two-million-line
+scrollback would otherwise exhaust memory at the next launch).
+
+The window follows Editora's: a grouped sidebar, a search box that narrows both rows and
+categories, and **no OK or Cancel**. Every control writes its setting immediately and the terminal
+re-applies. That is the point rather than a shortcut — choosing a font or a theme is a judgement
+about how something looks, and a dialog that defers the result until it is dismissed makes you
+guess. The Appearance page shows a live sample rendered with the real palette and the real font for
+the same reason.
+
+Two settings deliberately do **not** apply live, and say so on their own row: scrollback sizes a
+buffer that already exists, and the shell is a process already running. Both take effect in the next
+session.
+
+Font choices are restricted to **monospace faces**, filtered by measuring whether `i` and `M` have
+the same advance. That is not tidiness — the renderer places every glyph on a fixed cell grid, so a
+proportional face misaligns every column on screen.
+
+### Themes
+
+Two, carried over from Editora: **Editora Dark** and **Editora Light** — Caret teal on Ink navy. The
+control stylesheets are AtlantaFX-derived and self-contained, so they are applied with
+`Application.setUserAgentStylesheet` directly and AtlantaFX is not a dependency.
+
+The ANSI colours are derived from the matching Editora *editor* theme's syntax palette: keyword
+becomes red, string blue, escape green, type yellow, function magenta, and the Caret accent becomes
+cyan — so a shell's `ls` colours stay in the same family as the editor's code colours.
+
+On the light theme ANSI "white" is rendered **dark**. It has to be: a program that sets colour 7 on
+a white background would otherwise write invisible text. `ThemeTest` enforces this as a contrast
+ratio rather than leaving it to judgement, for every colour in both themes.
+
 ## Notable details
 
 - **Login shells.** A GUI process inherits a stripped `PATH` with no Homebrew and no version-manager
@@ -175,7 +213,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
   keystroke rather than surviving it.
 - **Tabs and splits.** One session per window.
-- **Configuration.** Font, colours, shell, and scrollback depth are constants.
+- **Configuration.** No keybinding customisation, no custom themes beyond the two built in, and no
+  per-profile settings.
 - **Search in scrollback.**
 - **Installers.** `-Pdist` builds an app image, not a `.dmg`/`.msi`/`.deb`, and it is unsigned —
   macOS will refuse to launch a downloaded copy until it is signed and notarised.

@@ -22,9 +22,6 @@ import java.util.List;
  */
 public final class TerminalSession {
 
-    /** Lines retained above the screen. 5000 is roughly a terminal's worth of `make` output. */
-    private static final int SCROLLBACK_LINES = 5000;
-
     private final PtyProcess process;
     private final PtyTtyConnector connector;
     private final TerminalTextBuffer textBuffer;
@@ -37,13 +34,18 @@ public final class TerminalSession {
     private Runnable onSessionEnded = () -> {};
 
     public TerminalSession(
-            com.jediterm.terminal.TerminalDisplay display, int columns, int rows) throws IOException {
-        List<String> command = ShellLauncher.shellCommand();
-        process = ShellLauncher.start(columns, rows);
+            com.jediterm.terminal.TerminalDisplay display,
+            int columns,
+            int rows,
+            int scrollbackLines,
+            String shellOverride)
+            throws IOException {
+        List<String> command = ShellLauncher.shellCommand(shellOverride);
+        process = ShellLauncher.start(columns, rows, shellOverride);
         connector = new PtyTtyConnector(process, command);
 
         StyleState styleState = new StyleState();
-        textBuffer = new TerminalTextBuffer(columns, rows, styleState, SCROLLBACK_LINES);
+        textBuffer = new TerminalTextBuffer(columns, rows, styleState, Math.max(0, scrollbackLines));
         terminal = new JediTerminal(display, textBuffer, styleState);
 
         executors = new TerminalExecutors();
@@ -68,9 +70,11 @@ public final class TerminalSession {
                         .log(System.Logger.Level.ERROR, "terminal emulator stopped", e);
             }
         } finally {
-            // Reached when the shell exits (the user typed `exit`, or the process died).
-            Runnable ended = onSessionEnded;
-            ended.run();
+            // Reached when the shell exits (the user typed `exit`, or the process died) — but also
+            // when we tore the session down ourselves. Only the first is news: firing the callback
+            // during our own shutdown races the toolkit, whose listener marshals to the FX thread
+            // ("Main Java thread is detached" out of the Glass dispatcher once it has stopped).
+            if (!closed) onSessionEnded.run();
         }
     }
 

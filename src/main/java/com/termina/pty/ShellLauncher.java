@@ -41,6 +41,21 @@ public final class ShellLauncher {
      * those directories back.
      */
     public static List<String> shellCommand() {
+        return shellCommand("");
+    }
+
+    /**
+     * @param override an explicit shell path, or blank to use the user's own. An override that is
+     *     not executable is ignored rather than failing the launch — a stale settings entry should
+     *     not leave someone unable to open a terminal at all.
+     */
+    public static List<String> shellCommand(String override) {
+        if (override != null && !override.isBlank()) {
+            Path path = Path.of(override.trim());
+            if (Files.isExecutable(path)) {
+                return isWindows() ? List.of(path.toString()) : List.of(path.toString(), "-l");
+            }
+        }
         if (isWindows()) {
             String pwsh = findOnPath("pwsh.exe");
             if (pwsh != null) return List.of(pwsh, "-NoLogo");
@@ -89,7 +104,11 @@ public final class ShellLauncher {
 
     /** Starts the shell on a PTY sized to {@code columns} x {@code rows}. */
     public static PtyProcess start(int columns, int rows) throws IOException {
-        List<String> command = shellCommand();
+        return start(columns, rows, "");
+    }
+
+    public static PtyProcess start(int columns, int rows, String shellOverride) throws IOException {
+        List<String> command = shellCommand(shellOverride);
         return new PtyProcessBuilder(command.toArray(String[]::new))
                 .setEnvironment(environment())
                 .setDirectory(System.getProperty("user.home"))

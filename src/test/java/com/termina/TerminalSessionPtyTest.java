@@ -37,7 +37,7 @@ class TerminalSessionPtyTest {
         assumeTrue(!ShellLauncher.isWindows(), "shell syntax below is POSIX");
 
         StubDisplay display = new StubDisplay();
-        TerminalSession session = new TerminalSession(display, 80, 24);
+        TerminalSession session = new TerminalSession(display, 80, 24, 5000, "");
         try {
             session.start();
             TerminalTextBuffer buffer = session.getTextBuffer();
@@ -62,7 +62,7 @@ class TerminalSessionPtyTest {
         assumeTrue(!ShellLauncher.isWindows(), "shell syntax below is POSIX");
 
         StubDisplay display = new StubDisplay();
-        TerminalSession session = new TerminalSession(display, 80, 24);
+        TerminalSession session = new TerminalSession(display, 80, 24, 5000, "");
         try {
             session.start();
             assumeTrue(awaitReady(session), "shell did not start");

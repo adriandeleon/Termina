@@ -28,7 +28,11 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     private volatile int cursorY = 1;
 
     private volatile boolean cursorVisible = true;
-    private volatile CursorShape cursorShape = CursorShape.BLINK_BLOCK;
+    /**
+     * Null until a program requests a shape (DECSCUSR). Null is meaningful: it is what lets the
+     * user's preference apply, while still yielding to a program that has an opinion.
+     */
+    private volatile CursorShape cursorShape;
     private volatile boolean alternateScreen;
     private volatile MouseMode mouseMode = MouseMode.MOUSE_REPORTING_NONE;
     private volatile MouseFormat mouseFormat = MouseFormat.MOUSE_FORMAT_XTERM;
@@ -165,6 +169,7 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         return cursorVisible;
     }
 
+    /** The shape a program requested, or null if none has. */
     public CursorShape getCursorShape() {
         return cursorShape;
     }
