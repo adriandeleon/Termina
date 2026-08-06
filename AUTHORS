@@ -1,0 +1,9 @@
+# Authors
+
+Termina is written and maintained by:
+
+Adrian De Leon <adrian.deleon@gmail.com>
+
+Termina stands on two projects it does not vendor, both from JetBrains:
+JediTerm (terminal emulation) and pty4j (pseudo-terminals). See NOTICE for
+the full list of third-party software and its licensing.

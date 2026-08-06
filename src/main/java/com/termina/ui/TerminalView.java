@@ -637,10 +637,23 @@ public final class TerminalView extends Region {
     private MenuItem copyItem;
     private MenuItem pasteItem;
     private Runnable onOpenSettings = () -> {};
+    private Runnable onNewTab = () -> {};
+    private Runnable onNewWindow = () -> {};
 
-    /** Invoked by the menu's Settings item; the view has no way to reach that window itself. */
+    /**
+     * Menu actions the view cannot perform itself. A terminal knows nothing about tabs, windows or
+     * preferences — those belong to the window that owns it — so they arrive as callbacks.
+     */
     public void setOnOpenSettings(Runnable onOpenSettings) {
         this.onOpenSettings = onOpenSettings == null ? () -> {} : onOpenSettings;
+    }
+
+    public void setOnNewTab(Runnable onNewTab) {
+        this.onNewTab = onNewTab == null ? () -> {} : onNewTab;
+    }
+
+    public void setOnNewWindow(Runnable onNewWindow) {
+        this.onNewWindow = onNewWindow == null ? () -> {} : onNewWindow;
     }
 
     /**
@@ -697,6 +710,9 @@ public final class TerminalView extends Region {
         copyItem = item("Copy", MenuIcons.copy(), this::copySelection);
         pasteItem = item("Paste", MenuIcons.paste(), this::paste);
         ContextMenu menu = new ContextMenu(
+                item("New Tab", MenuIcons.newTab(), () -> onNewTab.run()),
+                item("New Window", MenuIcons.newWindow(), () -> onNewWindow.run()),
+                new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
                 item("Select All", MenuIcons.selectAll(), this::selectAll),

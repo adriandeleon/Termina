@@ -134,6 +134,7 @@ final class DevCapture {
         System.out.println("[capture] windows=" + windows.windows().size()
                 + " terminals=" + windows.allTerminals().size()
                 + " descendants=" + descendants());
+        for (TerminalWindow w : windows.windows()) System.out.println("[capture] layout " + w.layoutReport());
     }
 
     private static long descendants() {

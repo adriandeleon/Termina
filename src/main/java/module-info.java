@@ -21,5 +21,9 @@ module com.termina {
     // See App.main for why AWT is nonetheless forced headless.
     requires java.desktop;
 
+    // The update check: one HTTPS request, and a real parser for its response.
+    requires java.net.http;
+    requires com.fasterxml.jackson.core;
+
     exports com.termina;
 }

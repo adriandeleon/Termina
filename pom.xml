@@ -15,6 +15,10 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
+        <!-- Indirected through a property: the format is ignored when maven.build.timestamp is
+             filtered into a resource directly. -->
+        <maven.build.timestamp.format>yyyy-MM-dd HH:mm 'UTC'</maven.build.timestamp.format>
+        <build.timestamp>${maven.build.timestamp}</build.timestamp>
 
         <javafx.version>26.0.2</javafx.version>
         <javafx.plugin.version>0.0.8</javafx.plugin.version>
@@ -38,6 +42,12 @@
         <kotlin.version>2.4.0</kotlin.version>
         <jna.version>5.17.0</jna.version>
         <slf4j.version>2.0.17</slf4j.version>
+
+        <!-- The release-check response is a large JSON document with user-authored text in it, so
+             it gets a real parser. Hand-rolling one to save a dependency would mean hand-rolling
+             string-escape handling, which is the entire hard part. jackson-core only — no
+             databind, and it is already a proper JPMS module, so jlink links it without moditect. -->
+        <jackson.version>2.19.0</jackson.version>
 
         <junit.version>5.11.4</junit.version>
 
@@ -117,6 +127,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
@@ -125,6 +141,22 @@
     </dependencies>
 
     <build>
+        <resources>
+            <!-- build-info.properties is filtered so the version comes from this pom and nowhere
+                 else; every other file reads it through AppInfo. A release then means editing one
+                 number. Everything else is copied verbatim — filtering the CSS would mangle any
+                 ${...} it contains. -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes><include>com/termina/build-info.properties</include></includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes><exclude>com/termina/build-info.properties</exclude></excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

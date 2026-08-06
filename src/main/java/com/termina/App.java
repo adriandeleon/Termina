@@ -31,7 +31,9 @@ public final class App extends Application {
                 Theme.byId(settings.themeId(), Theme.EDITORA_DARK).stylesheet());
 
         windows = new WindowManager(settings);
+        windows.setLinkOpener(url -> getHostServices().showDocument(url));
         TerminalWindow first = windows.openFirstWindow(stage);
+        windows.maybeCheckForUpdates();
 
         if (DevCapture.requested()) DevCapture.schedule(windows, first, settings);
     }

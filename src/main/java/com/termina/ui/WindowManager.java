@@ -20,6 +20,13 @@ public final class WindowManager {
     private final Settings settings;
     private final List<TerminalWindow> windows = new ArrayList<>();
     private SettingsWindow settingsWindow;
+    private AboutWindow aboutWindow;
+
+    private final com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
+    /** The newer release, once found. Held app-wide so every window's Help menu agrees. */
+    private com.termina.update.ReleaseInfo availableUpdate;
+    private final List<Runnable> updateListeners = new ArrayList<>();
+    private java.util.function.Consumer<String> openLink = url -> {};
 
     public WindowManager(Settings settings) {
         this.settings = settings;
@@ -75,6 +82,86 @@ public final class WindowManager {
         for (TerminalWindow window : List.copyOf(windows)) window.applySettings();
     }
 
+    /** How to open a URL. Supplied by App, which owns the JavaFX HostServices. */
+    public void setLinkOpener(java.util.function.Consumer<String> openLink) {
+        this.openLink = openLink == null ? url -> {} : openLink;
+    }
+
+    public void showAbout(Window owner) {
+        if (aboutWindow == null) aboutWindow = new AboutWindow(settings, openLink);
+        aboutWindow.setUpdate(availableUpdate);
+        aboutWindow.show(owner);
+    }
+
+    /** For the development capture hook. */
+    public javafx.scene.Scene showAboutForCapture(Window owner) {
+        showAbout(owner);
+        return aboutWindow.scene();
+    }
+
+    // ---------------------------------------------------------------- updates
+
+    /**
+     * The startup check, if it is enabled and a day has passed.
+     *
+     * <p>The timestamp is stamped <em>before</em> the request, not after: otherwise a check that
+     * fails — offline, say — leaves it unset and every launch retries.
+     */
+    public void maybeCheckForUpdates() {
+        if (!settings.updateCheck()) return;
+        long now = System.currentTimeMillis();
+        if (!com.termina.update.UpdateCheck.isDue(
+                settings.lastUpdateCheck(), now, com.termina.update.UpdateCheck.DEFAULT_INTERVAL_MS)) {
+            return;
+        }
+        settings.setLastUpdateCheck(now);
+        updates.check(com.termina.AppInfo.VERSION, outcome -> onUpdateOutcome(outcome, false));
+    }
+
+    /** The user asked. Ignores both the interval and the enable setting, and always reports. */
+    public void checkForUpdatesNow(java.util.function.Consumer<String> report) {
+        report.accept("Checking for updates…");
+        settings.setLastUpdateCheck(System.currentTimeMillis());
+        updates.check(com.termina.AppInfo.VERSION, outcome -> {
+            onUpdateOutcome(outcome, true);
+            if (outcome.error() != null) {
+                report.accept("Could not check for updates (" + outcome.error() + ")");
+            } else if (outcome.available()) {
+                report.accept("Version " + outcome.latest().version() + " is available");
+            } else {
+                report.accept("Termina is up to date");
+            }
+        });
+    }
+
+    private void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
+        if (!outcome.available()) return;
+        // A version the user has already been shown stays out of the menu, but a manual check
+        // surfaces it again — they just asked.
+        if (!manual && outcome.latest().version().equals(settings.dismissedUpdate())) return;
+        availableUpdate = outcome.latest();
+        if (aboutWindow != null) aboutWindow.setUpdate(availableUpdate);
+        for (Runnable listener : List.copyOf(updateListeners)) listener.run();
+    }
+
+    public com.termina.update.ReleaseInfo availableUpdate() {
+        return availableUpdate;
+    }
+
+    /** Notified when an update is found, so a window can relabel its Help menu. */
+    void addUpdateListener(Runnable listener) {
+        updateListeners.add(listener);
+    }
+
+    /** Opens the release page and remembers the version, so it stops being advertised. */
+    public void openReleasePage() {
+        if (availableUpdate != null) settings.setDismissedUpdate(availableUpdate.version());
+        String url = availableUpdate == null || availableUpdate.url().isBlank()
+                ? com.termina.AppInfo.RELEASES_PAGE
+                : availableUpdate.url();
+        openLink.accept(url);
+    }
+
     /** One settings window for the whole application, re-parented to whoever asked for it. */
     public void showSettings(Window owner) {
         if (settingsWindow == null) settingsWindow = new SettingsWindow(settings);
@@ -100,5 +187,6 @@ public final class WindowManager {
 
     public void closeAll() {
         for (TerminalWindow window : List.copyOf(windows)) window.close();
+        updates.shutdown();
     }
 }

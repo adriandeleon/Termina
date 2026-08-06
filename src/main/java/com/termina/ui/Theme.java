@@ -23,6 +23,7 @@ public enum Theme {
             "editora-dark",
             "Editora Dark",
             true,
+            "editora-dark",
             Color.web("#171a24"), // the editor surface, a shade below the window background
             Color.web("#e8eaf3"),
             new String[] {
@@ -48,6 +49,7 @@ public enum Theme {
             "editora-light",
             "Editora Light",
             false,
+            "editora-light",
             Color.web("#ffffff"),
             Color.web("#1b1e2a"), // Ink
             new String[] {
@@ -69,17 +71,71 @@ public enum Theme {
                 "#6639ba", // 13 bright magenta
                 "#0b6e62", // 14 bright cyan
                 "#1b1e2a", // 15 bright white
+            }),
+
+    /**
+     * macOS Terminal's "Clear Dark", colours taken from Apple's own profile
+     * ({@code Terminal.app/Contents/Resources/Initial Settings/Clear Dark.terminal}) rather than
+     * matched by eye.
+     *
+     * <p>Apple ships it at 95% opacity over a blurred desktop. We have no window transparency, so
+     * it renders opaque — the colours are exact, the translucency is not reproduced.
+     */
+    CLEAR_DARK(
+            "clear-dark",
+            "Clear Dark",
+            true,
+            "editora-dark",
+            Color.web("#191d27"),
+            Color.web("#e0e0e0"),
+            new String[] {
+                "#35424c", "#b45648", "#6caa71", "#c4ac62",
+                "#6d96b4", "#bd7bcd", "#7ccbcd", "#dee5eb",
+                "#465c6d", "#df6c5a", "#79be7e", "#e5c872",
+                "#67b5ed", "#d389e5", "#84dde0", "#e5eff5",
+            }),
+
+    /**
+     * macOS Terminal's "Clear Light", likewise taken from Apple's profile.
+     *
+     * <p>Apple ships it at 93% opacity; rendered opaque here for the same reason.
+     *
+     * <p>Its ANSI white (7) and bright white (15) sit close to the white background — see
+     * {@code ThemeTest}. That is Apple's choice, kept rather than corrected, because the point of a
+     * ported theme is that it matches the terminal it was ported from.
+     */
+    CLEAR_LIGHT(
+            "clear-light",
+            "Clear Light",
+            false,
+            "editora-light",
+            Color.web("#ffffff"),
+            Color.web("#2d3840"),
+            new String[] {
+                "#2d3840", "#b45648", "#6caa71", "#c4ac62",
+                "#5685a8", "#ad64be", "#69c6c9", "#c1c8cc",
+                "#506573", "#df6c5a", "#79be7e", "#e5c872",
+                "#49a2e1", "#d389e5", "#77e1e5", "#d8e1e7",
             });
 
     private final String id;
     private final String displayName;
     private final boolean dark;
+    private final String chrome;
     private final TerminalPalette palette;
 
-    Theme(String id, String displayName, boolean dark, Color background, Color foreground, String[] ansi) {
+    /**
+     * @param chrome the control stylesheet to use for the application's own windows. A ported
+     *     terminal palette brings no opinion about how a settings window should look, so it
+     *     borrows whichever Caret &amp; Ink sheet matches its brightness. That also keeps the two
+     *     vendored 165 KB stylesheets as the only two.
+     */
+    Theme(String id, String displayName, boolean dark, String chrome,
+            Color background, Color foreground, String[] ansi) {
         this.id = id;
         this.displayName = displayName;
         this.dark = dark;
+        this.chrome = chrome;
         Color[] colors = new Color[ansi.length];
         for (int i = 0; i < ansi.length; i++) colors[i] = Color.web(ansi[i]);
         this.palette = new TerminalPalette(background, foreground, colors);
@@ -103,7 +159,7 @@ public enum Theme {
 
     /** The control stylesheet URL, for {@code Application.setUserAgentStylesheet}. */
     public String stylesheet() {
-        var url = Theme.class.getResource("/com/termina/styles/" + id + ".css");
+        var url = Theme.class.getResource("/com/termina/styles/" + chrome + ".css");
         if (url == null) throw new IllegalStateException("missing stylesheet for theme " + id);
         return url.toExternalForm();
     }

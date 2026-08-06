@@ -18,6 +18,16 @@ final class MenuIcons {
 
     private MenuIcons() {}
 
+    static Node newTab() {
+        return of("M4 5h16v2H4v12h16v-7h2v7c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2zm14"
+                + " 0V2h2v3h3v2h-3v3h-2V7h-3V5h3z");
+    }
+
+    static Node newWindow() {
+        return of("M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0"
+                + " 14H5V8h14v10zm-6-7h4v2h-4v3h-2v-3H7v-2h4V8h2v3z");
+    }
+
     static Node copy() {
         return of("M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1"
                 + " 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z");

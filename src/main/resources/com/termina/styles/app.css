@@ -37,3 +37,28 @@
     -fx-max-height: 0;
     -fx-padding: 0;
 }
+
+/* About window. */
+.about-name { -fx-font-size: 1.6em; -fx-font-weight: bold; -fx-text-fill: -color-fg-default; }
+.about-version { -fx-text-fill: -color-fg-muted; }
+.about-details { -fx-text-fill: -color-fg-muted; }
+.about-details .label { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.9em; }
+.about-credits { -fx-text-fill: -color-fg-subtle; -fx-font-size: 0.85em; }
+.about-path { -fx-text-fill: -color-fg-subtle; -fx-font-family: monospace; -fx-font-size: 0.8em; }
+.about-uptodate { -fx-text-fill: -color-success-fg; -fx-font-size: 0.9em; }
+.about-update-headline { -fx-text-fill: -color-accent-fg; -fx-font-weight: bold; }
+
+/*
+ * macOS moves the menus to the screen menu bar, but the MenuBar node stays in the scene graph —
+ * it has to, since that is what JavaFX forwards to the system bar — and still lays out with its
+ * own padding. The result is a band of empty chrome above the terminal (measured: 8px).
+ *
+ * Collapsed rather than hidden or unmanaged: making it invisible or removing it from layout risks
+ * the system-menu registration that depends on it being a live part of the scene.
+ */
+.menu-bar.system-menu-bar-host {
+    -fx-min-height: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+    -fx-padding: 0;
+}

@@ -10,19 +10,19 @@ settings — with a short list of known gaps at the bottom of this file.
 ## Running
 
 ```bash
-mvn javafx:run
+./mvnw javafx:run
 ```
 
-Requires JDK 25. Everything else is fetched by Maven.
+Requires JDK 25. Everything else — including Maven itself, via the wrapper — is fetched on demand.
 
 ```bash
-mvn test
+./mvnw test
 ```
 
 ### Building a native app image
 
 ```bash
-mvn clean -Pdist -DskipTests package     # => target/dist/Termina{.app}
+./mvnw clean -Pdist -DskipTests package     # => target/dist/Termina{.app}
 ```
 
 Self-contained: bundled runtime, no JDK needed to run it. `clean` is not optional — jlink's input is
@@ -202,9 +202,20 @@ proportional face misaligns every column on screen.
 
 ### Themes
 
-Two, carried over from Editora: **Editora Dark** and **Editora Light** — Caret teal on Ink navy. The
-control stylesheets are AtlantaFX-derived and self-contained, so they are applied with
+Four. **Editora Dark** and **Editora Light** are carried over from Editora — Caret teal on Ink
+navy. Their control stylesheets are AtlantaFX-derived and self-contained, so they are applied with
 `Application.setUserAgentStylesheet` directly and AtlantaFX is not a dependency.
+
+**Clear Dark** and **Clear Light** are ported from macOS Terminal, with the colours decoded out of
+Apple's own `.terminal` profiles rather than matched by eye. Two caveats, both stated because a port
+should be honest about what it is: Apple ships them translucent (95% and 93% over a blurred
+desktop) and Termina has no window transparency, so they render opaque; and Clear Light is
+genuinely low-contrast in four places — white, bright yellow, bright cyan and bright white against
+its white background. That is Apple's choice and it is kept, pinned in `ThemeTest` so nobody
+"fixes" it by accident. A ported theme that improves its source is no longer that theme.
+
+Ported palettes bring no opinion about how a settings window should look, so they borrow whichever
+Caret & Ink control stylesheet matches their brightness.
 
 The ANSI colours are derived from the matching Editora *editor* theme's syntax palette: keyword
 becomes red, string blue, escape green, type yellow, function magenta, and the Caret accent becomes

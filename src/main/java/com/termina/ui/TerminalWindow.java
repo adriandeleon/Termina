@@ -53,7 +53,8 @@ public final class TerminalWindow {
         });
 
         BorderPane root = new BorderPane(tabs);
-        root.setTop(buildMenuBar());
+        menuBar = buildMenuBar();
+        root.setTop(menuBar);
 
         Scene scene = new Scene(root, 900, 560);
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
@@ -107,6 +108,8 @@ public final class TerminalWindow {
         applySettingsTo(terminal);
         terminal.setSessionOptions(settings.scrollbackLines(), settings.shell());
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
+        terminal.setOnNewTab(this::openTab);
+        terminal.setOnNewWindow(windows::openWindow);
 
         Tab tab = new Tab();
         tab.setContent(terminal);
@@ -162,6 +165,19 @@ public final class TerminalWindow {
         return stage;
     }
 
+    /** Heights of the chrome above the terminal, for diagnosing stray bands. */
+    public String layoutReport() {
+        javafx.scene.Node header = tabs.lookup(".tab-header-area");
+        return "menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
+                + " managed=" + (menuBar != null && menuBar.isManaged())
+                + " visible=" + (menuBar != null && menuBar.isVisible())
+                + " | tabHeader h=" + (header == null ? "absent" : header.getBoundsInParent().getHeight())
+                + " | tabs styleClass=" + tabs.getStyleClass()
+                + " | tabPane y=" + tabs.getBoundsInParent().getMinY();
+    }
+
+    private MenuBar menuBar;
+
     public void show() {
         stage.show();
     }
@@ -185,6 +201,10 @@ public final class TerminalWindow {
         MenuBar bar = new MenuBar();
         // On macOS the menu belongs to the screen, not the window; the focused window's bar wins.
         bar.setUseSystemMenuBar(MAC);
+        // ...but the node stays in the scene graph and keeps its own padding, which shows up as a
+        // band of empty chrome above the terminal. Collapsed in CSS rather than hidden, so the
+        // system-menu registration that depends on it being live is untouched.
+        if (MAC) bar.getStyleClass().add("system-menu-bar-host");
 
         Menu file = menu("File",
                 register(MenuAction.of("New Tab", MenuAction.appChord(KeyCode.T), this::openTab)),
@@ -225,8 +245,50 @@ public final class TerminalWindow {
                 register(MenuAction.of("Previous Tab", MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
                         () -> selectRelativeTab(-1))));
 
-        bar.getMenus().addAll(file, edit, view, window);
+        updateItem = MenuAction.of("Check for Updates…", () -> windows.checkForUpdatesNow(this::report))
+                .toMenuItem();
+        Menu help = new Menu("Help");
+        help.getItems().addAll(
+                MenuAction.of("About " + com.termina.AppInfo.NAME, () -> windows.showAbout(stage))
+                        .toMenuItem(),
+                updateItem);
+
+        // The Help menu is where an available update shows up. Termina has no status bar, which is
+        // where Editora puts its badge, and a banner over the terminal would cost a row of the
+        // thing the user is actually looking at.
+        windows.addUpdateListener(this::refreshUpdateItem);
+        refreshUpdateItem();
+
+        bar.getMenus().addAll(file, edit, view, window, help);
         return bar;
+    }
+
+    private javafx.scene.control.MenuItem updateItem;
+
+    private void refreshUpdateItem() {
+        if (updateItem == null) return;
+        var update = windows.availableUpdate();
+        if (update == null) {
+            updateItem.setText("Check for Updates…");
+            updateItem.setOnAction(e -> windows.checkForUpdatesNow(this::report));
+        } else {
+            updateItem.setText("Version " + update.version() + " is available…");
+            updateItem.setOnAction(e -> windows.openReleasePage());
+        }
+    }
+
+    /**
+     * Shows a transient message. With no status bar, an information-only alert is the honest
+     * option — it is the only surface that cannot be missed, and this only ever runs in response to
+     * the user picking the menu item.
+     */
+    private void report(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.initOwner(stage);
+        alert.setTitle(com.termina.AppInfo.NAME);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.show();
     }
 
     /** Records the binding for the scene filter and hands the action back for the menu. */

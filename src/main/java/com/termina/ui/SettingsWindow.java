@@ -159,7 +159,9 @@ public final class SettingsWindow {
         VBox.setVgrow(body, Priority.ALWAYS);
         root.setPadding(new Insets(14));
 
-        Scene scene = new Scene(root, 760, 520);
+        // 20% larger than the original 760x520: the Appearance page overflowed, and a page of
+        // preferences that scrolls hides the rows below the fold.
+        Scene scene = new Scene(root, 912, 624);
         // A scene stylesheet, not part of the theme: it must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs.
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");

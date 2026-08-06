@@ -27,3 +27,13 @@ src/main/resources/com/termina/styles/editora-{light,dark}.css
 src/main/java/com/termina/ui/MenuIcons.java
     Glyph paths from Material Design Icons
     (https://github.com/google/material-design-icons), licensed under Apache-2.0.
+
+--------------------------------------------------------------------------------
+Colour palettes
+--------------------------------------------------------------------------------
+
+The "Clear Dark" and "Clear Light" themes reproduce the colour values of the
+profiles of the same name shipped with Apple's Terminal.app, read from
+/System/Applications/Utilities/Terminal.app/Contents/Resources/Initial Settings/.
+Termina is not affiliated with or endorsed by Apple. The names are used to say
+which palette is being reproduced.

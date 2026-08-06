@@ -26,6 +26,9 @@ public final class Settings {
     public static final String SHELL = "terminal.shell";
     public static final String BELL = "terminal.bell";
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
+    public static final String UPDATE_CHECK = "updates.check";
+    public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
+    public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
 
     /** Cursor appearance. Names match the DECSCUSR families a program can also request. */
     public enum CursorShape {
@@ -182,6 +185,32 @@ public final class Settings {
 
     public void setHideTabBarWhenSingle(boolean hide) {
         put(HIDE_TAB_BAR_WHEN_SINGLE, String.valueOf(hide));
+    }
+
+    /** Check GitHub for a newer release at startup, at most once a day. */
+    public boolean updateCheck() {
+        return readBoolean(UPDATE_CHECK, true);
+    }
+
+    public void setUpdateCheck(boolean check) {
+        put(UPDATE_CHECK, String.valueOf(check));
+    }
+
+    public long lastUpdateCheck() {
+        return (long) readDouble(LAST_UPDATE_CHECK, 0);
+    }
+
+    public void setLastUpdateCheck(long epochMs) {
+        put(LAST_UPDATE_CHECK, String.valueOf(epochMs));
+    }
+
+    /** The version the user has already been shown and acted on. */
+    public String dismissedUpdate() {
+        return properties.getProperty(DISMISSED_UPDATE, "");
+    }
+
+    public void setDismissedUpdate(String version) {
+        put(DISMISSED_UPDATE, version == null ? "" : version);
     }
 
     /** Clears every stored value; every accessor then reports its default. */

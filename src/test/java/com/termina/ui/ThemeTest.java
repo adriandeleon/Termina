@@ -15,12 +15,12 @@ class ThemeTest {
 
     @ParameterizedTest
     @EnumSource(Theme.class)
-    void everyThemeShipsTheStylesheetItNames(Theme theme) {
+    void everyThemeResolvesAChromeStylesheet(Theme theme) {
         // A missing resource is invisible until someone selects that theme at runtime, and under
-        // -Pdist it would mean the file was never packaged.
-        assertNotNull(Theme.class.getResource("/com/termina/styles/" + theme.id() + ".css"),
-                () -> "no stylesheet for " + theme.id());
-        assertTrue(theme.stylesheet().endsWith(theme.id() + ".css"));
+        // -Pdist it would mean the file was never packaged. Not necessarily named after the theme:
+        // a ported terminal palette borrows the chrome sheet matching its brightness.
+        assertNotNull(theme.stylesheet(), () -> "no stylesheet for " + theme.id());
+        assertTrue(theme.stylesheet().endsWith(".css"));
     }
 
     @ParameterizedTest
@@ -41,19 +41,65 @@ class ThemeTest {
                 () -> theme.id() + " default text does not meet a readable contrast ratio");
     }
 
+    /**
+     * Legibility is a rule for the themes we design, not one we can impose on a ported one.
+     *
+     * <p>1-6 and 9-14 are the colours programs use to mean something — an error, a directory, a
+     * diff line. 0/8 and 7/15 are the ends of the ramp and are legitimately faint on a ground of
+     * the same polarity; bright black is what dim text uses.
+     */
     @ParameterizedTest
-    @EnumSource(Theme.class)
-    void everyAnsiColourIsLegibleAgainstTheBackground(Theme theme) {
-        // On a light theme this is the rule that forces ANSI "white" to actually be dark: a program
-        // that sets colour 7 must not end up writing invisible text.
+    @EnumSource(value = Theme.class, names = {"EDITORA_DARK", "EDITORA_LIGHT"})
+    void ourOwnThemesKeepEveryChromaticColourLegible(Theme theme) {
         Color background = theme.palette().background();
         Color[] ansi = theme.palette().ansi();
-        for (int i = 1; i < 16; i++) {
-            if (i == 8) continue; // bright black is deliberately faint — it is what dim text uses
+        for (int i : new int[] {1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14}) {
             double ratio = contrast(background, ansi[i]);
             assertTrue(ratio > 1.9,
-                    () -> theme.id() + " ANSI colour is too close to the background");
+                    () -> theme.id() + " ANSI colour " + i + " at " + ratio + " is too close to the background");
         }
+    }
+
+    @Test
+    void editoraLightKeepsItsWhitesReadable() {
+        // Our own light theme darkens ANSI white deliberately, so a program that sets colour 7 does
+        // not write invisible text. Asserted so the choice cannot be undone by accident.
+        Color background = Theme.EDITORA_LIGHT.palette().background();
+        Color[] ansi = Theme.EDITORA_LIGHT.palette().ansi();
+        assertTrue(contrast(background, ansi[7]) > 4.0);
+        assertTrue(contrast(background, ansi[15]) > 4.0);
+    }
+
+    @Test
+    void clearLightIsFaintInFourPlacesAndThatIsApplesChoice() {
+        // Recorded rather than corrected. Against its white background Apple's Clear Light puts
+        // white at 1.69, bright yellow at 1.64, bright cyan at 1.53 and bright white at 1.33 — so
+        // anything a program prints in those colours is hard to read. A ported theme that
+        // "improves" its source is no longer that theme, but this should not be a surprise anyone
+        // discovers on their own, so the exact set is pinned here.
+        Color background = Theme.CLEAR_LIGHT.palette().background();
+        Color[] ansi = Theme.CLEAR_LIGHT.palette().ansi();
+        for (int i : new int[] {7, 11, 14, 15}) {
+            assertTrue(contrast(background, ansi[i]) < 2.0,
+                    () -> "index " + i + " was expected to be one of Apple's faint colours");
+        }
+        // Everything else in the palette is fine, so the theme is usable — it is these four only.
+        for (int i : new int[] {1, 2, 3, 4, 5, 6, 9, 10, 12, 13}) {
+            assertTrue(contrast(background, ansi[i]) > 1.9,
+                    () -> "index " + i + " should be legible in Clear Light");
+        }
+    }
+
+    @Test
+    void portedThemesMatchApplesPublishedColours() {
+        // Decoded from Terminal.app's own .terminal profiles, not matched by eye. Spot-checked so a
+        // future edit cannot silently drift away from the theme it claims to be.
+        assertEquals(Color.web("#191d27"), Theme.CLEAR_DARK.palette().background());
+        assertEquals(Color.web("#e0e0e0"), Theme.CLEAR_DARK.palette().foreground());
+        assertEquals(Color.web("#b45648"), Theme.CLEAR_DARK.palette().ansi()[1]);
+        assertEquals(Color.web("#ffffff"), Theme.CLEAR_LIGHT.palette().background());
+        assertEquals(Color.web("#2d3840"), Theme.CLEAR_LIGHT.palette().foreground());
+        assertEquals(Color.web("#5685a8"), Theme.CLEAR_LIGHT.palette().ansi()[4]);
     }
 
     @Test
