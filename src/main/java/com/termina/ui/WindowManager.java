@@ -1,5 +1,7 @@
 package com.termina.ui;
 
+import static com.termina.i18n.Messages.tr;
+
 import com.termina.config.Settings;
 import java.util.ArrayList;
 import java.util.List;
@@ -120,16 +122,16 @@ public final class WindowManager {
 
     /** The user asked. Ignores both the interval and the enable setting, and always reports. */
     public void checkForUpdatesNow(java.util.function.Consumer<String> report) {
-        report.accept("Checking for updates…");
+        report.accept(tr("status.checkingForUpdates"));
         settings.setLastUpdateCheck(System.currentTimeMillis());
         updates.check(com.termina.AppInfo.VERSION, outcome -> {
             onUpdateOutcome(outcome, true);
             if (outcome.error() != null) {
-                report.accept("Could not check for updates (" + outcome.error() + ")");
+                report.accept(tr("status.updateCheckFailed", outcome.error()));
             } else if (outcome.available()) {
-                report.accept("Version " + outcome.latest().version() + " is available");
+                report.accept(tr("status.updateAvailable", outcome.latest().version()));
             } else {
-                report.accept("Termina is up to date");
+                report.accept(tr("status.upToDate", com.termina.AppInfo.NAME));
             }
         });
     }

@@ -25,6 +25,8 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Optional scrollbar** for the scrollback (Appearance → Window), palette-coloured.
 - Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.
 - **Window size is remembered** across launches, clamped to the current screen.
+- **Six interface languages** (en/it/es/fr/pt/de), picked in Appearance → Language.
+- **Window opacity** (Appearance → Window), clamped so it cannot hide the window that undoes it.
 - **Bundled fonts**: five monospace families plus Inter for the interface, so a terminal looks the
   same on every platform. JetBrains Mono is now the default.
 - Tooltip on the new-tab button; "Hide Menu Bar" no longer appears in the menu on macOS.

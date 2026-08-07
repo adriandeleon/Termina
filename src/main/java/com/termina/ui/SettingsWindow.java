@@ -1,6 +1,9 @@
 package com.termina.ui;
 
+import static com.termina.i18n.Messages.tr;
+
 import com.termina.config.Settings;
+import com.termina.i18n.Messages;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -45,30 +48,45 @@ import javafx.stage.Window;
  */
 public final class SettingsWindow {
 
-    /** Sidebar groups, in display order. */
+    /**
+     * Sidebar groups, in display order.
+     *
+     * <p>Each holds a catalogue key rather than a title, resolved on read. An enum constant is
+     * initialised once, the first time the class is touched, so a translated title baked in there
+     * would be whatever the language was at that moment — fine today, wrong the moment anything
+     * relabels without a restart.
+     */
     private enum Group {
-        GENERAL("General"),
-        SYSTEM("System");
+        GENERAL("settings.group.general"),
+        SYSTEM("settings.group.system");
 
-        final String title;
+        private final String key;
 
-        Group(String title) {
-            this.title = title;
+        Group(String key) {
+            this.key = key;
+        }
+
+        String title() {
+            return tr(key);
         }
     }
 
     /** Pages, in sidebar order within their group. */
     private enum Category {
-        APPEARANCE(Group.GENERAL, "Appearance"),
-        TERMINAL(Group.GENERAL, "Terminal"),
-        ADVANCED(Group.SYSTEM, "Advanced");
+        APPEARANCE(Group.GENERAL, "settings.cat.appearance"),
+        TERMINAL(Group.GENERAL, "settings.cat.terminal"),
+        ADVANCED(Group.SYSTEM, "settings.cat.advanced");
 
         final Group group;
-        final String title;
+        private final String key;
 
-        Category(Group group, String title) {
+        Category(Group group, String key) {
             this.group = group;
-            this.title = title;
+            this.key = key;
+        }
+
+        String title() {
+            return tr(key);
         }
     }
 
@@ -117,13 +135,13 @@ public final class SettingsWindow {
     // ---------------------------------------------------------------- shell
 
     private void build() {
-        stage.setTitle("Termina Settings");
+        stage.setTitle(tr("settings.title", com.termina.AppInfo.NAME));
 
         for (Category category : Category.values()) {
             pages.put(category, buildPage(category));
         }
 
-        search.setPromptText("Search settings");
+        search.setPromptText(tr("settings.search"));
         search.textProperty().addListener((o, old, value) -> filter(value));
         VBox.setMargin(search, new Insets(0, 0, 8, 0));
 
@@ -139,12 +157,12 @@ public final class SettingsWindow {
         pageHost.setPadding(new Insets(4, 0, 0, 14));
         pageHost.setAlignment(Pos.TOP_LEFT);
 
-        Button reset = new Button("Reset to Defaults");
+        Button reset = new Button(tr("settings.reset"));
         reset.setOnAction(e -> {
             settings.resetToDefaults();
             reload();
         });
-        Button close = new Button("Close");
+        Button close = new Button(tr("settings.close"));
         close.setOnAction(e -> stage.hide());
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -164,7 +182,13 @@ public final class SettingsWindow {
         // preferences that scrolls hides the rows below the fold.
         // Grown from the original 760x520 over several passes; a page of preferences that scrolls
         // hides the rows below the fold, which is the opposite of what a settings window is for.
-        Scene scene = new Scene(root, 1153, 905);
+        // Tall enough for the longest page, but never taller than the screen — a settings window
+        // whose buttons are below the bottom edge is worse than one that scrolls. Every row added
+        // since the first version has pushed this up; the clamp is what stops that becoming a
+        // problem on a laptop.
+        javafx.geometry.Rectangle2D visible = javafx.stage.Screen.getPrimary().getVisualBounds();
+        Scene scene = new Scene(root, Math.min(1153, visible.getWidth() * 0.95),
+                Math.min(985, visible.getHeight() * 0.92));
         // A scene stylesheet, not part of the theme: it must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs.
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
@@ -202,13 +226,13 @@ public final class SettingsWindow {
                 return;
             }
             if (item instanceof Group group) {
-                setText(group.title.toUpperCase(Locale.ROOT));
+                setText(group.title().toUpperCase(Locale.ROOT));
                 getStyleClass().add("settings-group-header");
                 setMouseTransparent(true);
                 setDisable(false);
             } else {
                 Category category = (Category) item;
-                setText("    " + category.title);
+                setText("    " + category.title());
                 getStyleClass().add("settings-sidebar-item");
                 setMouseTransparent(false);
                 boolean dimmed = hiddenCategories.contains(category);
@@ -330,13 +354,14 @@ public final class SettingsWindow {
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
     private CheckBox showScrollBar;
+    private ComboBox<String> language;
     private Slider windowOpacity;
     private Label windowOpacityValue;
     private TextField shellField;
     private Label settingsPath;
 
     private void buildAppearance(VBox page) {
-        VBox theme = section(page, "Theme");
+        VBox theme = section(page, tr("settings.section.theme"));
 
         themeCombo = new ComboBox<>();
         themeCombo.getItems().setAll(Theme.byDisplayName().keySet());
@@ -349,11 +374,11 @@ public final class SettingsWindow {
                 refreshPreview();
             }
         });
-        row(Category.APPEARANCE, theme, "Colour theme",
-                "Applies to this window and the terminal palette.", themeCombo,
+        row(Category.APPEARANCE, theme, tr("settings.theme"),
+                tr("settings.theme.desc"), themeCombo,
                 "theme colour color dark light appearance palette");
 
-        VBox font = section(page, "Font");
+        VBox font = section(page, tr("settings.section.font"));
 
         fontCombo = new ComboBox<>();
         fontCombo.setPrefWidth(240);
@@ -363,8 +388,8 @@ public final class SettingsWindow {
             settings.setFontFamily(value);
             refreshPreview();
         });
-        row(Category.APPEARANCE, font, "Font family",
-                "Monospace faces only — the renderer places glyphs on a fixed cell grid.",
+        row(Category.APPEARANCE, font, tr("settings.fontFamily"),
+                tr("settings.fontFamily.desc"),
                 fontCombo, "font family typeface monospace");
 
         fontSize = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(
@@ -376,22 +401,22 @@ public final class SettingsWindow {
             settings.setFontSize(value);
             refreshPreview();
         });
-        row(Category.APPEARANCE, font, "Font size",
-                "Also adjustable at any time with " + shortcutName() + " and the + / - keys.",
+        row(Category.APPEARANCE, font, tr("settings.fontSize"),
+                tr("settings.fontSize.desc", shortcutName()),
                 fontSize, "font size zoom scale");
 
-        VBox tabsSection = section(page, "Tabs");
+        VBox tabsSection = section(page, tr("settings.section.tabs"));
 
         hideTabBar = new CheckBox();
         hideTabBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
             settings.setHideTabBarWhenSingle(value);
         });
-        row(Category.APPEARANCE, tabsSection, "Hide the tab bar with a single tab",
-                "The row is reclaimed for the terminal, so the shell gains a line.",
+        row(Category.APPEARANCE, tabsSection, tr("settings.hideTabBar"),
+                tr("settings.hideTabBar.desc"),
                 hideTabBar, "tab bar tabs hide single chrome strip header");
 
-        VBox windowSection = section(page, "Window");
+        VBox windowSection = section(page, tr("settings.section.window"));
 
         showMenuBar = new CheckBox();
         showMenuBar.selectedProperty().addListener((o, old, value) -> {
@@ -402,12 +427,8 @@ public final class SettingsWindow {
         // Disabled rather than hidden on macOS: a setting that silently does nothing is worse than
         // one that says why it cannot.
         showMenuBar.setDisable(mac);
-        row(Category.APPEARANCE, windowSection, "Show the menu bar",
-                mac
-                        ? "macOS puts the menus in the screen menu bar, so there is nothing in the "
-                                + "window to hide."
-                        : "Hiding it keeps every command reachable by keyboard, and Settings stays "
-                                + "on the right-click menu.",
+        row(Category.APPEARANCE, windowSection, tr("settings.showMenuBar"),
+                mac ? tr("settings.showMenuBar.mac") : tr("settings.showMenuBar.desc"),
                 showMenuBar, "menu bar menubar hide chrome window");
 
         showScrollBar = new CheckBox();
@@ -415,9 +436,8 @@ public final class SettingsWindow {
             if (loading) return;
             settings.setShowScrollBar(value);
         });
-        row(Category.APPEARANCE, windowSection, "Show a scrollbar",
-                "It takes a column of width rather than floating over the text. The wheel scrolls "
-                        + "the history either way.",
+        row(Category.APPEARANCE, windowSection, tr("settings.showScrollBar"),
+                tr("settings.showScrollBar.desc"),
                 showScrollBar, "scroll bar scrollbar scrollback history gutter");
 
         windowOpacity = new Slider(WindowOpacity.MIN * 100, WindowOpacity.MAX * 100, 100);
@@ -440,29 +460,67 @@ public final class SettingsWindow {
         });
         HBox opacityControl = new HBox(8, windowOpacity, windowOpacityValue);
         opacityControl.setAlignment(Pos.CENTER_RIGHT);
-        row(Category.APPEARANCE, windowSection, "Window opacity",
-                "Plain transparency, with no blur behind it — so it fades the text along with the "
-                        + "background. Applies to terminal windows only.",
+        row(Category.APPEARANCE, windowSection, tr("settings.windowOpacity"),
+                tr("settings.windowOpacity.desc"),
                 opacityControl, "opacity transparent transparency see through alpha blur");
 
-        VBox previewSection = section(page, "Preview");
+        VBox languageSection = section(page, tr("settings.section.language"));
+
+        language = new ComboBox<>();
+        language.getItems().add("");
+        language.getItems().addAll(Messages.available().keySet());
+        language.setPrefWidth(180);
+        // The endonym, not the name in the current language: someone who has landed in a language
+        // they cannot read needs to recognise their own in the list.
+        language.setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(String code) {
+                return code == null || code.isBlank()
+                        ? tr("settings.language.automatic")
+                        : Messages.languageName(code);
+            }
+
+            @Override
+            public String fromString(String display) {
+                return display;
+            }
+        });
+        language.valueProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setUiLanguage(value == null ? "" : value);
+        });
+        row(Category.APPEARANCE, languageSection, tr("settings.language"), tr("settings.language.desc"),
+                language, "language locale idioma langue sprache lingua idioma interface");
+
+        VBox previewSection = section(page, tr("settings.section.preview"));
         preview = new PalettePreview();
         previewSection.getChildren().add(preview.node());
         rows.add(new Row(Category.APPEARANCE, preview.node(), "preview sample colours font", previewSection));
     }
 
     private void buildTerminal(VBox page) {
-        VBox display = section(page, "Display");
+        VBox display = section(page, tr("settings.section.display"));
 
         cursorShape = new ComboBox<>();
         cursorShape.getItems().setAll(Settings.CursorShape.values());
+        cursorShape.setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(Settings.CursorShape shape) {
+                return shape == null ? "" : tr("cursor." + shape.name().toLowerCase(Locale.ROOT));
+            }
+
+            @Override
+            public Settings.CursorShape fromString(String display) {
+                return null;
+            }
+        });
         cursorShape.setPrefWidth(160);
         cursorShape.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
             settings.setCursorShape(value);
         });
-        row(Category.TERMINAL, display, "Cursor shape",
-                "A program can still request its own shape while it is running.",
+        row(Category.TERMINAL, display, tr("settings.cursorShape"),
+                tr("settings.cursorShape.desc"),
                 cursorShape, "cursor caret shape block underline bar");
 
         bell = new CheckBox();
@@ -470,10 +528,10 @@ public final class SettingsWindow {
             if (loading) return;
             settings.setBell(value);
         });
-        row(Category.TERMINAL, display, "Visual bell",
-                "Flashes the screen instead of making a sound.", bell, "bell alert flash sound");
+        row(Category.TERMINAL, display, tr("settings.bell"),
+                tr("settings.bell.desc"), bell, "bell alert flash sound");
 
-        VBox session = section(page, "Session");
+        VBox session = section(page, tr("settings.section.session"));
 
         scrollback = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
@@ -483,8 +541,8 @@ public final class SettingsWindow {
             if (loading || value == null) return;
             settings.setScrollbackLines(value);
         });
-        row(Category.TERMINAL, session, "Scrollback lines",
-                "Held in memory. Takes effect in the next session.", scrollback,
+        row(Category.TERMINAL, session, tr("settings.scrollback"),
+                tr("settings.scrollback.desc"), scrollback,
                 "scrollback history lines buffer memory");
 
         shellField = new TextField();
@@ -496,31 +554,30 @@ public final class SettingsWindow {
         shellField.setOnAction(e -> {
             if (!loading) settings.setShell(shellField.getText());
         });
-        row(Category.TERMINAL, session, "Shell",
-                "Started as a login shell. Takes effect in the next session.", shellField,
+        row(Category.TERMINAL, session, tr("settings.shell"),
+                tr("settings.shell.desc"), shellField,
                 "shell zsh bash program command login");
 
-        VBox input = section(page, "Input");
+        VBox input = section(page, tr("settings.section.input"));
 
         altIsMeta = new CheckBox();
         altIsMeta.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
             settings.setAltIsMeta(value);
         });
-        row(Category.TERMINAL, input, "Use Alt as Meta",
-                "On for readline's M-b and M-f. Off lets Alt compose characters, which is what "
-                        + "macOS Option normally does.",
+        row(Category.TERMINAL, input, tr("settings.altIsMeta"),
+                tr("settings.altIsMeta.desc"),
                 altIsMeta, "alt option meta escape readline compose");
     }
 
     private void buildAdvanced(VBox page) {
-        VBox files = section(page, "Files");
+        VBox files = section(page, tr("settings.section.files"));
 
         settingsPath = new Label();
         settingsPath.getStyleClass().add("settings-path");
         settingsPath.setWrapText(true);
-        row(Category.ADVANCED, files, "Settings file",
-                "A plain properties file; safe to edit by hand while Termina is closed.",
+        row(Category.ADVANCED, files, tr("settings.settingsFile"),
+                tr("settings.settingsFile.desc"),
                 settingsPath, "settings file path properties config location");
     }
 
@@ -546,6 +603,7 @@ public final class SettingsWindow {
             showMenuBar.setSelected(settings.showMenuBar());
             showScrollBar.setSelected(settings.showScrollBar());
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
+            language.setValue(settings.uiLanguage());
             shellField.setText(settings.shell());
             settingsPath.setText(settings.file().toString());
         } finally {

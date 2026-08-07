@@ -30,6 +30,17 @@ public final class App extends Application {
         Settings settings = new Settings(Settings.defaultFile());
         settings.load();
 
+        // Before the command names, menus and Settings rows are built — all of which read the
+        // catalogue as they are constructed, once.
+        String language = com.termina.i18n.Messages.resolve(
+                settings.uiLanguage(),
+                com.termina.i18n.Messages.available().keySet(),
+                java.util.Locale.getDefault().getLanguage());
+        com.termina.i18n.Messages.init(language);
+        // So JavaFX localises its own built-in pieces — the OK/Cancel buttons on an Alert, and any
+        // locale-sensitive control — to match rather than to the OS.
+        java.util.Locale.setDefault(java.util.Locale.forLanguageTag(language));
+
         // Applied before any window is built, so the first frame is already themed.
         Application.setUserAgentStylesheet(
                 Theme.byId(settings.themeId(), Theme.EDITORA_DARK).stylesheet());

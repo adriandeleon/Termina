@@ -213,6 +213,12 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
+**Six interface languages** — English, Italian, Spanish, French, Portuguese, German — chosen in
+Appearance → Language, or followed from the system when left on Automatic. English is both the base
+catalogue and the fallback, so a key missing from a translation shows English rather than a gap, and
+a test holds the six catalogues to identical key sets: drift here is silent, since nobody testing in
+English ever sees it.
+
 **Fonts are bundled**, not borrowed from the machine: five monospace families (JetBrains Mono,
 Cascadia Code, Fira Code, IBM Plex Mono, Source Code Pro) and Inter for the interface. A picker over
 whatever happens to be installed gives Menlo on macOS, Consolas on Windows and DejaVu on Linux —

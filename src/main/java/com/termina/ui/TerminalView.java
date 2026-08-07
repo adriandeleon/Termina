@@ -1,5 +1,7 @@
 package com.termina.ui;
 
+import static com.termina.i18n.Messages.tr;
+
 import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.StyledTextConsumer;
@@ -853,19 +855,19 @@ public final class TerminalView extends Region {
     }
 
     private ContextMenu buildContextMenu() {
-        copyItem = item("Copy", MenuIcons.copy(), this::copySelection);
-        pasteItem = item("Paste", MenuIcons.paste(), this::paste);
+        copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
+        pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
         ContextMenu menu = new ContextMenu(
-                item("New Tab", MenuIcons.newTab(), () -> onNewTab.run()),
-                item("New Window", MenuIcons.newWindow(), () -> onNewWindow.run()),
+                item(tr("menu.newTab"), MenuIcons.newTab(), () -> onNewTab.run()),
+                item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> onNewWindow.run()),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
-                item("Select All", MenuIcons.selectAll(), this::selectAll),
+                item(tr("menu.selectAll"), MenuIcons.selectAll(), this::selectAll),
                 new SeparatorMenuItem(),
-                item("Clear Scrollback", MenuIcons.clear(), this::clearScrollback),
+                item(tr("menu.clearScrollback"), MenuIcons.clear(), this::clearScrollback),
                 new SeparatorMenuItem(),
-                item("Settings…", MenuIcons.settings(), () -> onOpenSettings.run()));
+                item(tr("menu.settings"), MenuIcons.settings(), () -> onOpenSettings.run()));
         menu.setAutoHide(true);
         return menu;
     }

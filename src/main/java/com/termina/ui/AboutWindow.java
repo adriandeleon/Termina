@@ -1,5 +1,7 @@
 package com.termina.ui;
 
+import static com.termina.i18n.Messages.tr;
+
 import com.termina.AppInfo;
 import com.termina.config.Settings;
 import com.termina.update.ReleaseInfo;
@@ -59,7 +61,7 @@ public final class AboutWindow {
     }
 
     private void build() {
-        stage.setTitle("About " + AppInfo.NAME);
+        stage.setTitle(tr("about.title", AppInfo.NAME));
         stage.setResizable(false);
 
         javafx.scene.image.ImageView logo = Icons.logo(72);
@@ -71,13 +73,13 @@ public final class AboutWindow {
 
         // The snapshot suffix is kept rather than tidied away: it is what tells you at a glance
         // that a build came off a working tree rather than a release.
-        Label version = new Label("Version " + AppInfo.VERSION);
+        Label version = new Label(tr("about.version", AppInfo.VERSION));
         version.getStyleClass().add("about-version");
 
         VBox details = new VBox(3);
         details.getStyleClass().add("about-details");
         if (!AppInfo.BUILD_TIME.isBlank()) {
-            details.getChildren().add(new Label("Built " + AppInfo.BUILD_TIME));
+            details.getChildren().add(new Label(tr("about.built", AppInfo.BUILD_TIME)));
         }
         details.getChildren().addAll(
                 new Label(AppInfo.COPYRIGHT),
@@ -86,18 +88,18 @@ public final class AboutWindow {
         Hyperlink homepage = new Hyperlink(AppInfo.HOMEPAGE);
         homepage.setOnAction(e -> openLink.accept(AppInfo.HOMEPAGE));
 
-        Label settingsPath = new Label("Settings: " + settings.file());
+        Label settingsPath = new Label(tr("about.settings", settings.file()));
         settingsPath.getStyleClass().add("about-path");
         settingsPath.setWrapText(true);
 
         Label credits = new Label(
-                "Terminal emulation by JediTerm; pseudo-terminals by pty4j. See NOTICE.");
+                tr("about.credits"));
         credits.getStyleClass().add("about-credits");
         credits.setWrapText(true);
 
         updateRow.getStyleClass().add("about-update");
 
-        Button close = new Button("Close");
+        Button close = new Button(tr("about.close"));
         close.setOnAction(e -> stage.hide());
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -124,14 +126,14 @@ public final class AboutWindow {
     private void refreshUpdateRow() {
         updateRow.getChildren().clear();
         if (update == null) {
-            Label upToDate = new Label("You are up to date.");
+            Label upToDate = new Label(tr("about.upToDate"));
             upToDate.getStyleClass().add("about-uptodate");
             updateRow.getChildren().add(upToDate);
             return;
         }
-        Label headline = new Label("Version " + update.version() + " is available.");
+        Label headline = new Label(tr("about.updateHeadline", update.version()));
         headline.getStyleClass().add("about-update-headline");
-        Hyperlink download = new Hyperlink("Open the release page");
+        Hyperlink download = new Hyperlink(tr("about.openReleasePage"));
         download.setOnAction(e -> {
             String url = update.url() == null || update.url().isBlank()
                     ? AppInfo.RELEASES_PAGE

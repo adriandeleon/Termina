@@ -1,5 +1,7 @@
 package com.termina.ui;
 
+import static com.termina.i18n.Messages.tr;
+
 import com.termina.config.Settings;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -92,7 +94,7 @@ public final class TerminalWindow {
         plus.getStyleClass().add("tab-strip-glyph");
         newTabButton.setGraphic(plus);
         newTabButton.setOnAction(e -> openTab());
-        Tooltip newTabTip = new Tooltip("New Tab (" + MenuAction.appChord(KeyCode.T).getDisplayText() + ")");
+        Tooltip newTabTip = new Tooltip(tr("tooltip.newTab", MenuAction.appChord(KeyCode.T).getDisplayText()));
         newTabTip.setShowDelay(Duration.millis(400));
         newTabButton.setTooltip(newTabTip);
         StackPane.setAlignment(newTabButton, Pos.TOP_RIGHT);
@@ -366,19 +368,19 @@ public final class TerminalWindow {
      * one that was clicked rather than whichever happens to be selected.
      */
     private ContextMenu buildTabMenu(Tab tab) {
-        MenuItem closeOthers = tabItem("Close Other Tabs", MenuIcons.closeOthers(),
+        MenuItem closeOthers = tabItem(tr("menu.closeOtherTabs"), MenuIcons.closeOthers(),
                 () -> closeOtherTabs(tab));
-        MenuItem closeRight = tabItem("Close Tabs to the Right", MenuIcons.closeRight(),
+        MenuItem closeRight = tabItem(tr("menu.closeTabsToTheRight"), MenuIcons.closeRight(),
                 () -> closeTabsToTheRight(tab));
-        MenuItem moveLeft = tabItem("Move Tab Left", MenuIcons.arrowLeft(),
+        MenuItem moveLeft = tabItem(tr("menu.moveTabLeft"), MenuIcons.arrowLeft(),
                 () -> moveTabBy(tab, -1));
-        MenuItem moveRight = tabItem("Move Tab Right", MenuIcons.arrowRight(),
+        MenuItem moveRight = tabItem(tr("menu.moveTabRight"), MenuIcons.arrowRight(),
                 () -> moveTabBy(tab, 1));
 
         ContextMenu menu = new ContextMenu(
-                tabItem("New Tab", MenuIcons.newTab(), this::openTab),
+                tabItem(tr("menu.newTab"), MenuIcons.newTab(), this::openTab),
                 new SeparatorMenuItem(),
-                tabItem("Close Tab", MenuIcons.close(), () -> tabs.getTabs().remove(tab)),
+                tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> tabs.getTabs().remove(tab)),
                 closeOthers,
                 closeRight,
                 new SeparatorMenuItem(),
@@ -657,36 +659,36 @@ public final class TerminalWindow {
         // system-menu registration that depends on it being live is untouched.
 
 
-        Menu file = menu("File",
-                register(MenuAction.of("New Tab", MenuAction.appChord(KeyCode.T), this::openTab)),
-                register(MenuAction.of("New Window", MenuAction.appChord(KeyCode.N), windows::openWindow)),
+        Menu file = menu(tr("menu.file"),
+                register(MenuAction.of(tr("menu.newTab"), MenuAction.appChord(KeyCode.T), this::openTab)),
+                register(MenuAction.of(tr("menu.newWindow"), MenuAction.appChord(KeyCode.N), windows::openWindow)),
                 null,
-                register(MenuAction.of("Close Tab", MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
-                register(MenuAction.of("Close Window", MenuAction.shiftChord(KeyCode.W), this::close)),
+                register(MenuAction.of(tr("menu.closeTab"), MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
+                register(MenuAction.of(tr("menu.closeWindow"), MenuAction.shiftChord(KeyCode.W), this::close)),
                 null,
-                register(MenuAction.of("Settings…",
+                register(MenuAction.of(tr("menu.settings"),
                         new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
                         () -> windows.showSettings(stage))));
 
-        Menu edit = menu("Edit",
-                register(MenuAction.of("Copy", MenuAction.appChord(KeyCode.C),
+        Menu edit = menu(tr("menu.edit"),
+                register(MenuAction.of(tr("menu.copy"), MenuAction.appChord(KeyCode.C),
                         () -> withActiveTerminal(TerminalView::copySelection))),
-                register(MenuAction.of("Paste", MenuAction.appChord(KeyCode.V),
+                register(MenuAction.of(tr("menu.paste"), MenuAction.appChord(KeyCode.V),
                         () -> withActiveTerminal(TerminalView::paste))),
-                register(MenuAction.of("Select All", MenuAction.appChord(KeyCode.A),
+                register(MenuAction.of(tr("menu.selectAll"), MenuAction.appChord(KeyCode.A),
                         () -> withActiveTerminal(TerminalView::selectAll))),
                 null,
-                register(MenuAction.of("Clear Scrollback", MenuAction.appChord(KeyCode.K),
+                register(MenuAction.of(tr("menu.clearScrollback"), MenuAction.appChord(KeyCode.K),
                         () -> withActiveTerminal(TerminalView::clearScrollback))));
 
         List<MenuAction> viewItems = new java.util.ArrayList<>(List.of(
-                register(MenuAction.of("Zoom In",
+                register(MenuAction.of(tr("menu.zoomIn"),
                         new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN),
                         () -> zoom(1))),
-                register(MenuAction.of("Zoom Out",
+                register(MenuAction.of(tr("menu.zoomOut"),
                         new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
                         () -> zoom(-1))),
-                register(MenuAction.of("Actual Size",
+                register(MenuAction.of(tr("menu.actualSize"),
                         new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
                         () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE)))));
         // Omitted entirely on macOS, where the menus live in the screen menu bar and there is
@@ -698,35 +700,35 @@ public final class TerminalWindow {
             viewItems.add(null);
             // Hiding it from the menu it lives in is only safe because the right-click menu
             // reaches Settings, which is how it comes back.
-            viewItems.add(register(MenuAction.of("Hide Menu Bar",
+            viewItems.add(register(MenuAction.of(tr("menu.hideMenuBar"),
                     new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN,
                             KeyCombination.SHIFT_DOWN),
                     () -> settings.setShowMenuBar(!settings.showMenuBar()))));
         }
-        Menu view = menu("View", viewItems.toArray(MenuAction[]::new));
+        Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
 
-        Menu window = menu("Window",
-                register(MenuAction.of("Next Tab", MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
+        Menu window = menu(tr("menu.window"),
+                register(MenuAction.of(tr("menu.nextTab"), MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
                         () -> selectRelativeTab(1))),
-                register(MenuAction.of("Previous Tab", MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
+                register(MenuAction.of(tr("menu.previousTab"), MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
                         () -> selectRelativeTab(-1))),
                 null,
                 // Dragging is the usual way, but a tab strip that can only be reordered by mouse is
                 // unreachable from the keyboard entirely.
-                register(MenuAction.of("Move Tab Left",
+                register(MenuAction.of(tr("menu.moveTabLeft"),
                         new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN,
                                 KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(-1))),
-                register(MenuAction.of("Move Tab Right",
+                register(MenuAction.of(tr("menu.moveTabRight"),
                         new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN,
                                 KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(1))));
 
-        updateItem = MenuAction.of("Check for Updates…", () -> windows.checkForUpdatesNow(this::report))
+        updateItem = MenuAction.of(tr("menu.checkForUpdates"), () -> windows.checkForUpdatesNow(this::report))
                 .toMenuItem();
-        Menu help = new Menu("Help");
+        Menu help = new Menu(tr("menu.help"));
         help.getItems().addAll(
-                MenuAction.of("About " + com.termina.AppInfo.NAME, () -> windows.showAbout(stage))
+                MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
                         .toMenuItem(),
                 updateItem);
 
@@ -746,10 +748,10 @@ public final class TerminalWindow {
         if (updateItem == null) return;
         var update = windows.availableUpdate();
         if (update == null) {
-            updateItem.setText("Check for Updates…");
+            updateItem.setText(tr("menu.checkForUpdates"));
             updateItem.setOnAction(e -> windows.checkForUpdatesNow(this::report));
         } else {
-            updateItem.setText("Version " + update.version() + " is available…");
+            updateItem.setText(tr("menu.updateAvailable", update.version()));
             updateItem.setOnAction(e -> windows.openReleasePage());
         }
     }
@@ -836,8 +838,8 @@ public final class TerminalWindow {
     private void reportShellFailure(IOException e) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initOwner(stage);
-        alert.setTitle("Termina");
-        alert.setHeaderText("Could not start a shell");
+        alert.setTitle(com.termina.AppInfo.NAME);
+        alert.setHeaderText(tr("dialog.shellFailed"));
         alert.setContentText(String.valueOf(e.getMessage()));
         alert.showAndWait();
     }

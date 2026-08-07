@@ -32,6 +32,7 @@ public final class Settings {
     public static final String WINDOW_HEIGHT = "window.height";
     public static final String WINDOW_MAXIMIZED = "window.maximized";
     public static final String WINDOW_OPACITY = "window.opacity";
+    public static final String UI_LANGUAGE = "ui.language";
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
@@ -250,6 +251,15 @@ public final class Settings {
 
     public void setWindowOpacity(double opacity) {
         put(WINDOW_OPACITY, String.valueOf(opacity));
+    }
+
+    /** UI language code, or blank for "follow the system". */
+    public String uiLanguage() {
+        return properties.getProperty(UI_LANGUAGE, "");
+    }
+
+    public void setUiLanguage(String code) {
+        put(UI_LANGUAGE, code == null ? "" : code);
     }
 
     /** Check GitHub for a newer release at startup, at most once a day. */
