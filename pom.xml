@@ -30,6 +30,7 @@
         <prism.pipeline>es2,sw</prism.pipeline>
         <!-- Overridden per-OS below; jpackage wants .icns on macOS, .ico on Windows, .png on Linux. -->
         <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
+        <skip.mac.version.fix>true</skip.mac.version.fix>
 
         <!-- JediTerm: the VT/xterm emulation core (screen buffer + escape-sequence parser),
              UI-agnostic. NOT on Maven Central — see <repositories> below. -->
@@ -206,6 +207,7 @@
             <properties>
                 <prism.pipeline>mtl,es2,sw</prism.pipeline>
                 <jpackage.icon>${project.basedir}/branding/termina.icns</jpackage.icon>
+                <skip.mac.version.fix>false</skip.mac.version.fix>
             </properties>
         </profile>
         <profile>
@@ -347,6 +349,46 @@
                         <version>3.1.0</version>
                         <executions>
                             <execution>
+                                <!--
+                                  jpackage will not accept a version it cannot parse, and macOS
+                                  additionally refuses one whose first number is zero — so a 0.x pom
+                                  fails there and only there. Both are handled here rather than by
+                                  hardcoding a number, which is what this replaced: the bundle
+                                  claimed 1.0.0 while the application reported 0.1.0-SNAPSHOT, so
+                                  Finder, the About box and the update check all disagreed.
+                                -->
+                                <id>derive-versions</id>
+                                <phase>initialize</phase>
+                                <goals><goal>run</goal></goals>
+                                <configuration>
+                                    <exportAntProperties>true</exportAntProperties>
+                                    <target>
+                                        <loadresource property="jpackage.publicVersion">
+                                            <string value="${project.version}"/>
+                                            <filterchain>
+                                                <tokenfilter>
+                                                    <replaceregex pattern="-SNAPSHOT$" replace=""/>
+                                                </tokenfilter>
+                                            </filterchain>
+                                        </loadresource>
+                                        <loadresource property="jpackage.macVersion">
+                                            <string value="${jpackage.publicVersion}"/>
+                                            <filterchain>
+                                                <tokenfilter>
+                                                    <replaceregex pattern="^0\." replace="1."/>
+                                                </tokenfilter>
+                                            </filterchain>
+                                        </loadresource>
+                                        <condition property="jpackage.appVersion"
+                                                   value="${jpackage.macVersion}"
+                                                   else="${jpackage.publicVersion}">
+                                            <os family="mac"/>
+                                        </condition>
+                                        <echo message="version ${project.version}: public ${jpackage.publicVersion}, bundle ${jpackage.appVersion}"/>
+                                    </target>
+                                </configuration>
+                            </execution>
+                            <execution>
                                 <id>assemble-module-path</id>
                                 <phase>package</phase>
                                 <goals><goal>run</goal></goals>
@@ -383,7 +425,7 @@
                                 <configuration>
                                     <type>APP_IMAGE</type>
                                     <name>Termina</name>
-                                    <appVersion>1.0.0</appVersion>
+                                    <appVersion>${jpackage.appVersion}</appVersion>
                                     <vendor>Termina</vendor>
                                     <icon>${jpackage.icon}</icon>
                                     <destination>${project.build.directory}/dist</destination>
@@ -418,7 +460,33 @@
                             </execution>
                         </executions>
                     </plugin>
-                </plugins>
+                            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <!--
+                          Declared after jpackage on purpose: both are bound to `package`, and within
+                          a phase Maven runs plugins in the order the POM lists them. Bound earlier
+                          it ran before the bundle it edits existed.
+                        -->
+                        <id>fix-mac-bundle-version</id>
+                        <phase>package</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>${project.basedir}/scripts/fix-mac-bundle-version.sh</executable>
+                            <arguments>
+                                <argument>${project.build.directory}/dist/Termina.app</argument>
+                                <argument>${jpackage.publicVersion}</argument>
+                            </arguments>
+                            <!-- Nothing to fix where there is no bundle; the script exits 0 anyway. -->
+                            <skip>${skip.mac.version.fix}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
             </build>
         </profile>
     </profiles>

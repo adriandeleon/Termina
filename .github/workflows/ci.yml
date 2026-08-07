@@ -1,0 +1,89 @@
+# Build and test on all three platforms.
+#
+# Termina claims to be cross-platform, and until this existed only macOS had ever compiled it. The
+# Windows shell resolution in particular — pwsh, then powershell, then COMSPEC — had never run
+# anywhere at all.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  # A newer push supersedes an older one on the same branch; nothing is learned from finishing a run
+  # against code that has already been replaced.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing must not cancel the others: which platforms are affected is usually
+      # the most useful thing about the failure.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Test
+        run: ./mvnw -B --no-transfer-progress verify
+        shell: bash
+
+      - name: Upload test reports
+        # Only the failures matter here, and only then.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-${{ matrix.os }}
+          path: target/surefire-reports/
+          retention-days: 7
+
+  package:
+    name: Package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # jlink and jpackage are host-specific: there is no cross-building, so each platform's image
+      # can only be produced by that platform. This is the step that says whether a release could
+      # be cut today, which is why it runs on every push rather than only on a tag.
+      - name: Package
+        run: ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests package
+        shell: bash
+
+      - name: Check the image exists and is not empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d target/dist ]; then
+            echo "::error::no app image was produced"
+            exit 1
+          fi
+          du -sh target/dist/* || true

@@ -1,0 +1,132 @@
+# Build the app image on every platform and attach the archives to a GitHub release.
+#
+# Triggered by a v* tag. The pom's version is the single source of truth: the tag has to agree with
+# it, and the build fails loudly if it does not — artifacts labelled with a version they were not
+# built from are worse than no artifacts.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # For a dry run: builds and uploads artifacts, creates no release.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+            archive: tar.gz
+          - os: macos-latest
+            target: macos-arm64
+            archive: tar.gz
+          - os: macos-15-intel
+            target: macos-x64
+            archive: tar.gz
+          - os: windows-latest
+            target: windows-x64
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          pom=$(./mvnw -B -q --no-transfer-progress help:evaluate -Dexpression=project.version -DforceStdout)
+          public="${pom%-SNAPSHOT}"
+          echo "version=$public" >> "$GITHUB_OUTPUT"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$public" ]; then
+              echo "::error::tag v$tag does not match the pom version $pom"
+              echo "::error::Set <version> in pom.xml to $tag (without -SNAPSHOT) and re-tag."
+              exit 1
+            fi
+            if [ "$pom" != "$public" ]; then
+              echo "::error::refusing to release a snapshot ($pom); drop -SNAPSHOT from pom.xml"
+              exit 1
+            fi
+          fi
+          echo "Building $public for ${{ matrix.target }}"
+
+      - name: Package
+        run: ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests package
+        shell: bash
+
+      - name: Archive
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          name="Termina-$version-${{ matrix.target }}"
+          cd target/dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            # PowerShell's Compress-Archive is the one thing reliably present on the Windows image.
+            powershell -Command "Compress-Archive -Path * -DestinationPath '../$name.zip'"
+          else
+            # -p preserves the executable bit on the launcher, without which the extracted image
+            # cannot be started at all.
+            tar -czpf "../$name.tar.gz" *
+          fi
+          cd ..
+          echo "file=target/$name.${{ matrix.archive }}" >> "$GITHUB_OUTPUT"
+          ls -la "$name.${{ matrix.archive }}"
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Termina-${{ matrix.target }}
+          path: ${{ steps.archive.outputs.file }}
+          retention-days: 14
+          if-no-files-found: error
+
+  release:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: build
+    # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
+    if: github.ref_type == 'tag'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: artifacts
+        run: |
+          set -euo pipefail
+          ls -la
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          # A tag carrying a suffix (-rc1, -beta2) is published as a pre-release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true

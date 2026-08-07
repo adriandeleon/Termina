@@ -1,5 +1,7 @@
 # Termina
 
+[![CI](https://github.com/adriandeleon/Termina/actions/workflows/ci.yml/badge.svg)](https://github.com/adriandeleon/Termina/actions/workflows/ci.yml)
+
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
 renders the emulated screen to a canvas.
 
@@ -439,3 +441,22 @@ an app icon has to work hardest at.
 - **Windows and Linux are untested.** The code paths exist and pty4j carries the natives, but only
   macOS has actually been run — including the `-Pdist` build, whose per-OS behaviour (ConPTY, the
   Linux launcher layout) is unverified.
+
+## Building and releasing
+
+`./mvnw verify` runs the tests. `./mvnw clean -Pdist -DskipTests package` produces a native app image
+under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
+built on that platform, which is what the CI matrix is for.
+
+To cut a release: set `<version>` in `pom.xml` to the release version (drop `-SNAPSHOT`), commit,
+then push a `vX.Y.Z` tag. The workflow refuses to build if the tag and the pom disagree, or if the
+pom still carries `-SNAPSHOT` — artifacts labelled with a version they were not built from are worse
+than no artifacts. A tag with a suffix (`v1.0.0-rc1`) publishes as a pre-release.
+
+The version reaches the bundle through two derived values, because jpackage will not accept one it
+cannot parse and macOS additionally refuses any whose first number is zero. `jpackage.publicVersion`
+is the pom version without `-SNAPSHOT`; `jpackage.appVersion` is that with a leading `0.` bumped to
+`1.` on macOS only, purely to get past the check. `scripts/fix-mac-bundle-version.sh` then puts the
+true version back into `Info.plist` and re-signs the bundle — jpackage ad-hoc-signs the app image and
+the plist is part of what that seals, so editing it without re-signing makes macOS refuse to launch
+the app as tampered with.
