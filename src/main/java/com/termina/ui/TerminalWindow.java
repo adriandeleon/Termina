@@ -83,6 +83,12 @@ public final class TerminalWindow {
         // need to know it is not a real tab. This keeps the model honest.
         newTabButton.setFocusTraversable(false);
         newTabButton.getStyleClass().add("new-tab-button");
+        // A shaped Region, not a "+" character. The tab's close button is a shape JavaFX draws from
+        // CSS, and a font glyph beside it never matches: different size, different weight, and a
+        // baseline rather than a centre to align to.
+        javafx.scene.layout.Region plus = new javafx.scene.layout.Region();
+        plus.getStyleClass().add("tab-strip-glyph");
+        newTabButton.setGraphic(plus);
         newTabButton.setOnAction(e -> openTab());
         StackPane.setAlignment(newTabButton, Pos.TOP_RIGHT);
         StackPane tabHost = new StackPane(tabs, newTabButton);
@@ -479,7 +485,29 @@ public final class TerminalWindow {
                 + " | tabs styleClass=" + tabs.getStyleClass()
                 + " | tabPane y=" + tabs.getBoundsInParent().getMinY()
                 + " | tabWidths=" + tabHeaderWidths()
+                + " | glyphs " + glyphBoxes()
                 + " | scrollBar " + (selectedTerminal() == null ? "none" : selectedTerminal().scrollBarReport());
+    }
+
+    /**
+     * Where the tab-strip glyphs actually sit, in scene coordinates.
+     *
+     * <p>Reported rather than eyeballed: two icons being a couple of pixels out of line is exactly
+     * the kind of thing that looks like nothing in a screenshot and wrong on a real screen.
+     */
+    private String glyphBoxes() {
+        StringBuilder out = new StringBuilder();
+        javafx.scene.Node close = tabs.lookup(".tab-close-button");
+        javafx.scene.Node plus = newTabButton.lookup(".tab-strip-glyph");
+        out.append("close=").append(box(close)).append(" plus=").append(box(plus));
+        return out.toString();
+    }
+
+    private static String box(javafx.scene.Node n) {
+        if (n == null) return "absent";
+        javafx.geometry.Bounds b = n.localToScene(n.getBoundsInLocal());
+        return "%dx%d@cy%.1f"
+                .formatted(Math.round(b.getWidth()), Math.round(b.getHeight()), b.getCenterY());
     }
 
     /** Actual rendered width of each tab header, to check the sizing rather than assume it. */
@@ -494,7 +522,7 @@ public final class TerminalWindow {
 
     private MenuBar menuBar;
 
-    private final Button newTabButton = new Button("+");
+    private final Button newTabButton = new Button();
 
     /**
      * Space kept clear at the right end of the strip for the new-tab button, and the per-tab
@@ -510,7 +538,23 @@ public final class TerminalWindow {
     private static final double TAB_CHROME = 17;
 
     /** Sizes every tab so the strip fills the window, shrinking as tabs are added. */
+    /**
+     * Gives the new-tab button the height of the tab strip, so its glyph centres on the same line as
+     * every tab's close button.
+     *
+     * <p>The button floats in a StackPane over the strip and anchors to the top, which left it eight
+     * pixels high of the close buttons. Bound to the header rather than set to a number because the
+     * strip's height follows the font size and the theme.
+     */
+    private void syncNewTabButtonHeight() {
+        if (newTabButton.prefHeightProperty().isBound()) return;
+        if (tabs.lookup(".tab-header-area") instanceof javafx.scene.layout.Region header) {
+            newTabButton.prefHeightProperty().bind(header.heightProperty());
+        }
+    }
+
     private void applyTabWidths() {
+        syncNewTabButtonHeight();
         double width = TabLayout.tabWidth(
                 tabs.getWidth(), tabs.getTabs().size(), NEW_TAB_RESERVED, TAB_CHROME);
         // Both bounds, or JavaFX sizes each tab to its label and they no longer tile.

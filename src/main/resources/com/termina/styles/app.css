@@ -83,10 +83,44 @@
 }
 
 /* New-tab button, floating over the right end of the tab strip. */
+/*
+ * The two glyphs in the tab strip: a tab's close button and the new-tab button.
+ *
+ * Both are shaped Regions on the same 24-unit grid at the same box, so they match in size, weight
+ * and centring. The close button has to be done here because TabPaneSkin creates it — CSS is the
+ * only handle on it — and the new-tab glyph is done the same way rather than as text so the two
+ * cannot drift. The path data mirrors MenuIcons.close(); the menu's copy is a separate size in a
+ * separate context, and unifying them would mean styling menu items from here.
+ */
+.tab-strip-glyph,
+.tab-close-button {
+    -fx-background-color: -color-fg-muted;
+    -fx-min-width: 11;
+    -fx-pref-width: 11;
+    -fx-max-width: 11;
+    -fx-min-height: 11;
+    -fx-pref-height: 11;
+    -fx-max-height: 11;
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+    -fx-scale-shape: true;
+}
+
+.tab-close-button {
+    -fx-shape: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+}
+
+.tab-strip-glyph {
+    -fx-shape: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+}
+
+.tab:selected .tab-close-button,
+.tab-close-button:hover {
+    -fx-background-color: -color-fg-default;
+}
+
 .new-tab-button {
     -fx-background-color: transparent;
-    -fx-text-fill: -color-fg-muted;
-    -fx-font-size: 1.15em;
     -fx-padding: 2 10 2 10;
     -fx-background-radius: 6;
     -fx-min-width: 32;
@@ -95,7 +129,10 @@
 
 .new-tab-button:hover {
     -fx-background-color: -color-bg-subtle;
-    -fx-text-fill: -color-fg-default;
+}
+
+.new-tab-button:hover .tab-strip-glyph {
+    -fx-background-color: -color-fg-default;
 }
 
 

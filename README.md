@@ -213,6 +213,11 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
+The tab-strip glyphs — each tab's close button and the new-tab button — are shaped Regions on one
+grid at one size, rather than a shape beside a font character, which never match in weight or
+centring. The new-tab button takes the strip's height so its glyph lands on the same line as the
+close buttons.
+
 Right-clicking a tab gives New Tab, Close Tab, Close Other Tabs, Close Tabs to the Right, and Move
 Tab Left/Right, with the inapplicable ones disabled. It is attached with `Tab.setContextMenu`, so it
 acts on the tab that was clicked rather than whichever is selected.

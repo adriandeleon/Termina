@@ -336,6 +336,7 @@ final class DevCapture {
         clickSelectIfRequested(terminal);
         scrollIfRequested(terminal);
         dragSelectIfRequested(terminal);
+        dragScrollBarWithMouseIfRequested(terminal);
     }
 
     /**
@@ -433,6 +434,31 @@ final class DevCapture {
             System.out.println("[capture] clipboard<<<"
                     + javafx.scene.input.Clipboard.getSystemClipboard().getString() + ">>>");
         }
+    }
+
+    /**
+     * {@code -Dtermina.captureDragScrollBar=y1,y2} drags on the scrollbar.
+     *
+     * <p>Fired at the bar rather than at the terminal, because the whole question is what the event
+     * <em>target</em> is: aiming at the terminal with scrollbar coordinates would exercise nothing,
+     * since the terminal's filters key off the target, not the position.
+     */
+    private static void dragScrollBarWithMouseIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.captureDragScrollBar");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        if (parts.length != 2) {
+            System.err.println("[capture] captureDragScrollBar needs y1,y2");
+            return;
+        }
+        double y1 = Double.parseDouble(parts[0].trim());
+        double y2 = Double.parseDouble(parts[1].trim());
+        javafx.scene.Node bar = terminal.scrollBarNode();
+        Event.fireEvent(bar, mouse(MouseEvent.MOUSE_PRESSED, 4, y1, 1, false));
+        Event.fireEvent(bar, mouse(MouseEvent.MOUSE_DRAGGED, 4, y2, 1, false));
+        Event.fireEvent(bar, mouse(MouseEvent.MOUSE_RELEASED, 4, y2, 1, false));
+        System.out.println("[capture] scrollbar mouse drag: selection=" + terminal.hasSelection()
+                + " " + terminal.scrollBarReport());
     }
 
     /**

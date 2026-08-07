@@ -79,6 +79,16 @@ public final class TerminalView extends Region {
     private boolean updatingScrollBar;
 
     private boolean scrollBarEnabled = true;
+
+    /**
+     * Whether the press that began the current drag landed on the scrollbar.
+     *
+     * <p>Latched at the press rather than re-tested per event: what a drag reports as its target is
+     * not something to depend on, and a drag that started on the thumb must stay the thumb's for as
+     * long as the button is held — including when the pointer leaves the bar, which it does the
+     * moment anyone drags at a natural angle.
+     */
+    private boolean pressedOnScrollBar;
     private final FxTerminalDisplay display = new FxTerminalDisplay();
 
     private TerminalSession session;
@@ -383,6 +393,11 @@ public final class TerminalView extends Region {
                 + " w=" + Math.round(scrollBarWidth())
                 + " cols=" + columns
                 + " origin=" + scrollOrigin;
+    }
+
+    /** The bar itself, so a capture run can aim events at it the way a real mouse does. */
+    public javafx.scene.Node scrollBarNode() {
+        return scrollBar;
     }
 
     /** Moves the bar as a drag would, going through the same listener the mouse uses. */
@@ -750,6 +765,10 @@ public final class TerminalView extends Region {
     }
 
     private void onMouseReleased(MouseEvent e) {
+        if (pressedOnScrollBar) {
+            pressedOnScrollBar = false;
+            return;
+        }
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.RELEASED)) e.consume();
     }
 
@@ -897,6 +916,15 @@ public final class TerminalView extends Region {
     /** Shift state of the most recent press, for the context-menu event that may follow it. */
     private boolean shiftOnLastPress;
 
+    /** Whether an event is headed for the scrollbar, i.e. the bar or one of its skin's parts. */
+    private boolean fromScrollBar(MouseEvent e) {
+        javafx.scene.Node node = e.getTarget() instanceof javafx.scene.Node n ? n : null;
+        for (; node != null; node = node.getParent()) {
+            if (node == scrollBar) return true;
+        }
+        return false;
+    }
+
     private void onMousePressed(MouseEvent e) {
         // A click anywhere in the terminal dismisses the menu instead of acting on the terminal.
         // ContextMenu's own auto-hide covers clicks outside the window, but this filter runs first
@@ -906,6 +934,12 @@ public final class TerminalView extends Region {
             e.consume();
             return;
         }
+        // The mouse filters are on this Region, and a filter runs in the capturing phase — so a
+        // press on the scrollbar reaches the terminal *before* the bar itself. Without this the
+        // terminal starts a selection under every scroll drag.
+        pressedOnScrollBar = fromScrollBar(e);
+        if (pressedOnScrollBar) return; // deliberately not consumed: the bar still needs it
+
         requestFocus();
         shiftOnLastPress = e.isShiftDown();
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {
@@ -929,6 +963,7 @@ public final class TerminalView extends Region {
     }
 
     private void onMouseDragged(MouseEvent e) {
+        if (pressedOnScrollBar) return;
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.DRAGGED)) {
             e.consume();
             return;
