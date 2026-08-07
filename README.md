@@ -172,6 +172,15 @@ disabled there and says so, rather than being a switch that silently does nothin
 Hiding it strands no commands: the key bindings are a scene-level filter independent of the menu,
 and Settings is on the right-click menu, which is how it comes back.
 
+Hiding it is done in **code**, not CSS, and the two platforms need different mechanisms. Under a
+system menu bar the node must stay live — that is what JavaFX forwards from — so it is only
+collapsed to zero height, and nothing paints in the window because the menus are elsewhere.
+Everywhere else the bar really is in the window, so hiding it sets `visible` and `managed` to false.
+
+CSS was tried first and was wrong: `visibility: hidden` never applied (the node still reported
+`isVisible() == true`), and a zero-height Region does not clip its children, so the menu buttons
+carried on painting over the terminal's first rows while occupying no space of their own.
+
 `-Dtermina.forceInWindowMenuBar=true` makes a Mac lay out like the other platforms. Without it the
 in-window menu bar — the only place this setting does anything — cannot be seen on the machine this
 is developed on.

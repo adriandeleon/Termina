@@ -114,11 +114,32 @@ public final class TerminalWindow {
         return !systemMenuBar && showMenuBar;
     }
 
+    /**
+     * Applies the menu bar's visibility. The two platforms need different mechanisms.
+     *
+     * <p>Under a <b>system menu bar</b> the node has to stay live — that is what JavaFX forwards to
+     * the screen bar — so it is only collapsed to zero height, and nothing paints in the window
+     * because the menus are not there.
+     *
+     * <p><b>Everywhere else</b> the bar really is in the window, and hiding it has to remove it
+     * from painting as well as layout. CSS is not enough for that, and relying on it was a bug:
+     * {@code visibility: hidden} never applied (the node still reported {@code isVisible() == true})
+     * and a zero-height Region does not clip its children, so the menu buttons carried on painting
+     * over the terminal's first rows while occupying no space of their own.
+     */
     private void applyMenuBarVisibility() {
         if (menuBar == null) return;
         boolean occupies = menuBarOccupiesSpace(SYSTEM_MENU_BAR, settings.showMenuBar());
+        if (SYSTEM_MENU_BAR) {
+            menuBar.getStyleClass().removeAll(COLLAPSED_MENU_BAR);
+            menuBar.getStyleClass().add(COLLAPSED_MENU_BAR);
+            menuBar.setVisible(true);
+            menuBar.setManaged(true);
+            return;
+        }
         menuBar.getStyleClass().removeAll(COLLAPSED_MENU_BAR);
-        if (!occupies) menuBar.getStyleClass().add(COLLAPSED_MENU_BAR);
+        menuBar.setVisible(occupies);
+        menuBar.setManaged(occupies);
     }
 
     private static final String COLLAPSED_MENU_BAR = "collapsed-menu-bar";
@@ -328,6 +349,7 @@ public final class TerminalWindow {
     public String layoutReport() {
         javafx.scene.Node header = tabs.lookup(".tab-header-area");
         return "menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
+                + " boundsH=" + (menuBar == null ? "?" : menuBar.getBoundsInParent().getHeight())
                 + " managed=" + (menuBar != null && menuBar.isManaged())
                 + " visible=" + (menuBar != null && menuBar.isVisible())
                 + " | tabHeader h=" + (header == null ? "absent" : header.getBoundsInParent().getHeight())
