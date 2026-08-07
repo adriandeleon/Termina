@@ -1,0 +1,6 @@
+# Tree-wide reformat when Palantir Java Format was adopted. Mechanical; skip it in blame.
+#
+# Enable locally once with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# GitHub honours this file automatically.
+82fafb92a8d0dada24796489d475176180ed41ba
