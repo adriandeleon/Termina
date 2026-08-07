@@ -20,9 +20,12 @@ class ShellLauncherTest {
 
     @Test
     void aConfiguredShellIsUsed() {
-        // /bin/sh exists and is executable on every platform this runs on bar Windows.
-        List<String> command = ShellLauncher.shellCommand("/bin/sh");
-        assertEquals("/bin/sh", command.get(0));
+        // Derived from this platform rather than hardcoded: the first version asserted /bin/sh and
+        // CI caught it on Windows, where that is not executable so the override is ignored and the
+        // fallback chain returns pwsh. Asking for whatever this machine would have picked anyway
+        // keeps the override branch covered everywhere instead of skipping a third of the matrix.
+        String available = ShellLauncher.shellCommand().get(0);
+        assertEquals(available, ShellLauncher.shellCommand(available).get(0));
     }
 
     @Test

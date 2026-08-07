@@ -40,8 +40,20 @@ public final class TerminalSession {
             int scrollbackLines,
             String shellOverride)
             throws IOException {
-        List<String> command = ShellLauncher.shellCommand(shellOverride);
-        process = ShellLauncher.start(columns, rows, shellOverride);
+        this(display, columns, rows, scrollbackLines, com.termina.pty.LaunchOptions.ofShell(shellOverride));
+    }
+
+    public TerminalSession(
+            com.jediterm.terminal.TerminalDisplay display,
+            int columns,
+            int rows,
+            int scrollbackLines,
+            com.termina.pty.LaunchOptions options)
+            throws IOException {
+        // The same list the process was started from, so the connector reports the real command.
+        List<String> command =
+                options.hasCommand() ? options.command() : ShellLauncher.shellCommand(options.shell());
+        process = ShellLauncher.start(columns, rows, options);
         connector = new PtyTtyConnector(process, command);
 
         StyleState styleState = new StyleState();

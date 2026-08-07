@@ -37,14 +37,22 @@ public final class WindowManager {
 
     /** Opens the first window on the primary stage, so the app owns no spare empty stage. */
     public TerminalWindow openFirstWindow(Stage primary) {
-        return open(primary);
+        return openFirstWindow(primary, null);
+    }
+
+    /**
+     * @param cli launch options from the command line, applied to this window's first tab only —
+     *     every later tab and window uses the configured shell and the home directory
+     */
+    public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.LaunchOptions cli) {
+        return open(primary, cli);
     }
 
     public void openWindow() {
-        open(new Stage());
+        open(new Stage(), null);
     }
 
-    private TerminalWindow open(Stage stage) {
+    private TerminalWindow open(Stage stage, com.termina.pty.LaunchOptions cli) {
         TerminalWindow window = new TerminalWindow(this, settings, stage);
         windows.add(window);
 
@@ -63,7 +71,7 @@ public final class WindowManager {
         }
 
         window.show();
-        window.openTab();
+        window.openTab(cli != null ? cli.withShell(settings.shell()) : com.termina.pty.LaunchOptions.ofShell(settings.shell()));
         return window;
     }
 

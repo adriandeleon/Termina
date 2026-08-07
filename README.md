@@ -442,6 +442,29 @@ an app icon has to work hardest at.
   macOS has actually been run — including the `-Pdist` build, whose per-OS behaviour (ConPTY, the
   Linux launcher layout) is unverified.
 
+## Command line
+
+```
+termina [options] [-e command [args...]]
+
+  -h, --help                     Show this help and exit
+  -v, --version                  Show the version and exit
+  -d, --working-directory=DIR    Start the shell in DIR
+  -e, --command CMD [args...]    Run CMD instead of the shell; must come last
+      --config-dir=DIR           Read and write settings in DIR
+```
+
+`--help` and `--version` are answered before the toolkit starts, so they work without a display —
+`--version` is what ends up in a bug report. An unknown option is refused rather than ignored, since
+an option that is silently dropped looks exactly like one that exists and does nothing.
+
+`-e` takes the rest of the line, which is xterm's convention and why it has to come last: `-e ls -l`
+passes `-l` to `ls` rather than rejecting it here. The command replaces the shell rather than running
+inside one, so the terminal closes when it exits.
+
+The command line applies to the first tab of the first window only. A second tab re-running `-e vim`,
+or reopening in a directory you have since navigated away from, is not what anybody means by it.
+
 ## Building and releasing
 
 `./mvnw verify` runs the tests. `./mvnw clean -Pdist -DskipTests package` produces a native app image

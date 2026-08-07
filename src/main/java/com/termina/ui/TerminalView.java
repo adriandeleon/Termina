@@ -207,7 +207,7 @@ public final class TerminalView extends Region {
     }
 
     private int scrollbackLines = Settings.DEFAULT_SCROLLBACK;
-    private String shellOverride = "";
+    private com.termina.pty.LaunchOptions launchOptions = com.termina.pty.LaunchOptions.DEFAULTS;
 
     /**
      * Options fixed at session start. Changing either afterwards cannot affect the running shell —
@@ -215,13 +215,17 @@ public final class TerminalView extends Region {
      * settings UI says so rather than pretending otherwise.
      */
     public void setSessionOptions(int scrollbackLines, String shellOverride) {
+        setSessionOptions(scrollbackLines, com.termina.pty.LaunchOptions.ofShell(shellOverride));
+    }
+
+    public void setSessionOptions(int scrollbackLines, com.termina.pty.LaunchOptions options) {
         this.scrollbackLines = scrollbackLines;
-        this.shellOverride = shellOverride == null ? "" : shellOverride;
+        this.launchOptions = options == null ? com.termina.pty.LaunchOptions.DEFAULTS : options;
     }
 
     /** Starts the shell. Must be called once, after the view is in a scene. */
     public void start() throws IOException {
-        session = new TerminalSession(display, columns, rows, scrollbackLines, shellOverride);
+        session = new TerminalSession(display, columns, rows, scrollbackLines, launchOptions);
         buffer = session.getTextBuffer();
         // Fires on the emulator thread for every buffer mutation — cheap by design.
         buffer.addModelListener(this::markDirty);

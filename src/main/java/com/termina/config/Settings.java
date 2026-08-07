@@ -66,6 +66,21 @@ public final class Settings {
 
     /** The standard location. Honours {@code TERMINA_CONFIG_DIR} so a dev run can be isolated. */
     public static Path defaultFile() {
+        return defaultFile("");
+    }
+
+    /**
+     * @param override a directory from {@code --config-dir}, taking precedence over the environment
+     *     variable, which in turn takes precedence over the standard location
+     */
+    public static Path defaultFile(String override) {
+        if (override != null && !override.isBlank()) {
+            return Path.of(override.trim()).resolve("settings.properties");
+        }
+        return defaultFileFromEnvironment();
+    }
+
+    private static Path defaultFileFromEnvironment() {
         String override = System.getenv("TERMINA_CONFIG_DIR");
         Path dir = override != null && !override.isBlank()
                 ? Path.of(override)

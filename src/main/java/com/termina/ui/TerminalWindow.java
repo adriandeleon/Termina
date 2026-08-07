@@ -234,9 +234,20 @@ public final class TerminalWindow {
 
     /** Opens a tab and starts a shell in it. */
     public void openTab() {
+        openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()));
+    }
+
+    /**
+     * Opens a tab with explicit launch options.
+     *
+     * <p>Used for the first tab of the first window, which is the only one the command line applies
+     * to. A second tab running `-e vim` again — or reopening in a directory the user has since
+     * navigated away from — is not what anybody means by it.
+     */
+    public void openTab(com.termina.pty.LaunchOptions options) {
         TerminalView terminal = new TerminalView(settings.fontSize());
         applySettingsTo(terminal);
-        terminal.setSessionOptions(settings.scrollbackLines(), settings.shell());
+        terminal.setSessionOptions(settings.scrollbackLines(), options);
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
         terminal.setOnNewTab(this::openTab);
         terminal.setOnNewWindow(windows::openWindow);

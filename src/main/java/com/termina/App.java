@@ -1,6 +1,8 @@
 package com.termina;
 
+import com.termina.cli.CommandLine;
 import com.termina.config.Settings;
+import com.termina.pty.LaunchOptions;
 import com.termina.ui.Theme;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
@@ -12,7 +14,29 @@ public final class App extends Application {
 
     private WindowManager windows;
 
+    /** How the launcher is invoked, for the usage text. */
+    private static final String LAUNCH_NAME = "termina";
+
     public static void main(String[] args) {
+        // Parsed before anything else starts. --version is what somebody pastes into a bug report,
+        // so it must not depend on a display, a config file, or the toolkit coming up at all.
+        CommandLine cli = CommandLine.parse(args);
+        if (cli.error() != null) {
+            System.err.println(AppInfo.NAME + ": " + cli.error());
+            System.err.println("Try '" + LAUNCH_NAME + " --help' for the options.");
+            System.exit(2);
+        }
+        if (cli.help()) {
+            System.out.println(CommandLine.usage(LAUNCH_NAME));
+            // Not a bare return: launching an Application subclass in module mode starts the FX
+            // toolkit, whose non-daemon thread would keep the process alive after main returns.
+            System.exit(0);
+        }
+        if (cli.version()) {
+            System.out.println(AppInfo.NAME + " " + AppInfo.VERSION);
+            System.exit(0);
+        }
+
         // Must be the first statement, before any AWT class can load. We require java.desktop
         // (TtyConnector's default methods reference java.awt.Dimension) but never use AWT, and on
         // macOS an initialised AWT/Java2D pipeline contends with JavaFX's Glass/Prism for the
@@ -30,7 +54,8 @@ public final class App extends Application {
         // registered does not wait for it, it silently resolves to the system face.
         com.termina.ui.Fonts.load();
 
-        Settings settings = new Settings(Settings.defaultFile());
+        CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
+        Settings settings = new Settings(Settings.defaultFile(cli.configDir()));
         settings.load();
         com.termina.ui.DebugLog.attachFile(settings.file().getParent());
 
@@ -52,7 +77,8 @@ public final class App extends Application {
         com.termina.ui.StallMonitor.installIfRequested();
         windows = new WindowManager(settings);
         windows.setLinkOpener(url -> getHostServices().showDocument(url));
-        TerminalWindow first = windows.openFirstWindow(stage);
+        TerminalWindow first = windows.openFirstWindow(
+                stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()));
         windows.maybeCheckForUpdates();
 
         if (DevCapture.requested()) DevCapture.schedule(windows, first, settings);

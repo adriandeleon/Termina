@@ -72,6 +72,21 @@ public final class ShellLauncher {
         return List.of(shell, "-l");
     }
 
+    /**
+     * Where to start the shell.
+     *
+     * <p>A directory that is not there falls back to home rather than failing the launch: the
+     * argument is usually supplied by another program — a file manager, an editor — and a stale one
+     * should not mean no terminal.
+     */
+    static String workingDirectory(String requested) {
+        if (requested != null && !requested.isBlank()) {
+            Path path = Path.of(requested.trim());
+            if (Files.isDirectory(path)) return path.toAbsolutePath().toString();
+        }
+        return System.getProperty("user.home");
+    }
+
     private static String findOnPath(String exe) {
         String path = System.getenv("PATH");
         if (path == null) return null;
@@ -108,10 +123,17 @@ public final class ShellLauncher {
     }
 
     public static PtyProcess start(int columns, int rows, String shellOverride) throws IOException {
-        List<String> command = shellCommand(shellOverride);
+        return start(columns, rows, LaunchOptions.ofShell(shellOverride));
+    }
+
+    public static PtyProcess start(int columns, int rows, LaunchOptions options) throws IOException {
+        // An explicit command replaces the shell rather than running inside it: `termina -e vim`
+        // should be vim, not a shell that happens to have started vim, so quitting it ends the
+        // terminal the way every other terminal behaves.
+        List<String> command = options.hasCommand() ? options.command() : shellCommand(options.shell());
         return new PtyProcessBuilder(command.toArray(String[]::new))
                 .setEnvironment(environment())
-                .setDirectory(System.getProperty("user.home"))
+                .setDirectory(workingDirectory(options.workingDirectory()))
                 .setInitialColumns(columns)
                 .setInitialRows(rows)
                 // false = a real PTY. Console mode is Windows' "attach to a console screen buffer"
