@@ -513,7 +513,9 @@ public final class TerminalView extends Region {
 
         double x = column * charWidth;
         double y = row * lineHeight;
-        double width = text.length() * charWidth;
+        // Cells, not characters: an astral code point is two array slots and one column, so a run
+        // holding one would otherwise be painted a column too wide.
+        double width = CellWidth.cells(text) * charWidth;
 
         if (!bg.equals(palette.background())) {
             g.setFill(bg);
@@ -538,7 +540,7 @@ public final class TerminalView extends Region {
     /**
      * Draws a style run onto the cell grid.
      *
-     * <p>Every element of the buffer's char array is exactly one cell. A double-width character
+     * <p>Array slots are not columns, in either direction: a double-width character
      * (CJK, most emoji) therefore occupies two: the glyph itself, followed by {@link CharUtils#DWC}
      * — a private-use placeholder that must never be drawn. Rendering it produces a stray box or
      * bar between every pair of CJK characters, and drawing the run with one {@code fillText} also
@@ -567,7 +569,12 @@ public final class TerminalView extends Region {
             if (codePoint != 0 && c != ' ') {
                 g.fillText(new String(Character.toChars(codePoint)), x + cell * charWidth, baseline);
             }
-            cell += slots;
+            // One column per code point, whatever its UTF-16 length. Advancing by the number of
+            // array slots instead gave every astral character — every Nerd Font icon in an `ls`
+            // listing — a second, empty column, pushing the rest of the line out of alignment with
+            // the lines around it.  A genuinely double-width glyph gets its second column from the
+            // DWC placeholder above, not from here.
+            cell++;
             i += slots;
         }
     }

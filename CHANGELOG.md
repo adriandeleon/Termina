@@ -25,6 +25,8 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Optional scrollbar** for the scrollback (Appearance → Window), palette-coloured.
 - Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.
 - **Window size is remembered** across launches, clamped to the current screen.
+- **Fixed**: a Nerd Font icon (or any emoji) in a directory listing shifted the rest of its line one
+  column right, so columns did not line up between rows.
 - **Six interface languages** (en/it/es/fr/pt/de), picked in Appearance → Language.
 - **Window opacity** (Appearance → Window), clamped so it cannot hide the window that undoes it.
 - **Bundled fonts**: five monospace families plus Inter for the interface, so a terminal looks the
