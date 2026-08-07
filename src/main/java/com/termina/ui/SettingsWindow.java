@@ -326,6 +326,7 @@ public final class SettingsWindow {
     private CheckBox altIsMeta;
     private CheckBox bell;
     private CheckBox hideTabBar;
+    private CheckBox showMenuBar;
     private TextField shellField;
     private Label settingsPath;
 
@@ -384,6 +385,25 @@ public final class SettingsWindow {
         row(Category.APPEARANCE, tabsSection, "Hide the tab bar with a single tab",
                 "The row is reclaimed for the terminal, so the shell gains a line.",
                 hideTabBar, "tab bar tabs hide single chrome strip header");
+
+        VBox windowSection = section(page, "Window");
+
+        showMenuBar = new CheckBox();
+        showMenuBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setShowMenuBar(value);
+        });
+        boolean mac = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+        // Disabled rather than hidden on macOS: a setting that silently does nothing is worse than
+        // one that says why it cannot.
+        showMenuBar.setDisable(mac);
+        row(Category.APPEARANCE, windowSection, "Show the menu bar",
+                mac
+                        ? "macOS puts the menus in the screen menu bar, so there is nothing in the "
+                                + "window to hide."
+                        : "Hiding it keeps every command reachable by keyboard, and Settings stays "
+                                + "on the right-click menu.",
+                showMenuBar, "menu bar menubar hide chrome window");
 
         VBox previewSection = section(page, "Preview");
         preview = new PalettePreview();
@@ -483,6 +503,7 @@ public final class SettingsWindow {
             altIsMeta.setSelected(settings.altIsMeta());
             bell.setSelected(settings.bell());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
+            showMenuBar.setSelected(settings.showMenuBar());
             shellField.setText(settings.shell());
             settingsPath.setText(settings.file().toString());
         } finally {

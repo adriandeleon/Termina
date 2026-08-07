@@ -163,6 +163,19 @@ shell (Ctrl+T is readline's transpose, Ctrl+W deletes a word, Ctrl+C is SIGINT).
 own tests. Whether the shortcut modifier *is* Ctrl or Cmd is JavaFX's decision, not ours, and the
 tests deliberately do not assert it.
 
+### Hiding the menu bar
+
+Settings → Appearance → Window, or `Cmd/Ctrl+Shift+M`. **No effect on macOS**, where the menus
+belong to the screen menu bar and there is nothing in the window to hide — the settings row is
+disabled there and says so, rather than being a switch that silently does nothing.
+
+Hiding it strands no commands: the key bindings are a scene-level filter independent of the menu,
+and Settings is on the right-click menu, which is how it comes back.
+
+`-Dtermina.forceInWindowMenuBar=true` makes a Mac lay out like the other platforms. Without it the
+in-window menu bar — the only place this setting does anything — cannot be seen on the machine this
+is developed on.
+
 ### Reordering tabs
 
 Drag a tab, or `Cmd/Ctrl+Shift+Left/Right` from the keyboard. JavaFX has no tab reordering, so the

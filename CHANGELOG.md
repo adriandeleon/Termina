@@ -18,6 +18,7 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   scrollback depth, shell, Alt-as-Meta, and hiding the tab bar. Live apply, no OK button.
 - **Themes**: Editora Dark and Light (Caret & Ink), plus **Clear Dark** and **Clear Light** ported
   from macOS Terminal with colours read out of Apple's own profiles.
+- **Menu bar can be hidden** (`Cmd/Ctrl+Shift+M`), on the platforms that draw one in the window.
 - **Tab reordering** by drag, or `Cmd/Ctrl+Shift+Left/Right`.
 - **Tab bar hides itself** while only one tab is open, reclaiming the row for the terminal.
 - **About window** and an **update check** against GitHub releases, throttled to once a day and

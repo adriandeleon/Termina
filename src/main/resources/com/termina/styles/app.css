@@ -56,7 +56,7 @@
  * Collapsed rather than hidden or unmanaged: making it invisible or removing it from layout risks
  * the system-menu registration that depends on it being a live part of the scene.
  */
-.menu-bar.system-menu-bar-host {
+.menu-bar.collapsed-menu-bar {
     -fx-min-height: 0;
     -fx-pref-height: 0;
     -fx-max-height: 0;

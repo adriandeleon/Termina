@@ -26,6 +26,7 @@ public final class Settings {
     public static final String SHELL = "terminal.shell";
     public static final String BELL = "terminal.bell";
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
+    public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
@@ -185,6 +186,20 @@ public final class Settings {
 
     public void setHideTabBarWhenSingle(boolean hide) {
         put(HIDE_TAB_BAR_WHEN_SINGLE, String.valueOf(hide));
+    }
+
+    /**
+     * Show the in-window menu bar.
+     *
+     * <p>No effect on macOS, where the menus belong to the screen menu bar and there is nothing in
+     * the window to hide.
+     */
+    public boolean showMenuBar() {
+        return readBoolean(SHOW_MENU_BAR, true);
+    }
+
+    public void setShowMenuBar(boolean show) {
+        put(SHOW_MENU_BAR, String.valueOf(show));
     }
 
     /** Check GitHub for a newer release at startup, at most once a day. */

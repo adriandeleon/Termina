@@ -31,6 +31,16 @@ public final class TerminalWindow {
     private static final boolean MAC =
             System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
 
+    /**
+     * Whether the menus go to the screen menu bar rather than into the window.
+     *
+     * <p>{@code -Dtermina.forceInWindowMenuBar=true} makes a Mac behave like the other platforms.
+     * Without it the in-window menu bar — the only place the hide setting does anything — could not
+     * be seen or tested on the one machine this is developed on.
+     */
+    private static final boolean SYSTEM_MENU_BAR =
+            MAC && !Boolean.getBoolean("termina.forceInWindowMenuBar");
+
     private final WindowManager windows;
     private final Settings settings;
     private final Stage stage;
@@ -65,6 +75,7 @@ public final class TerminalWindow {
         BorderPane root = new BorderPane(tabs);
         menuBar = buildMenuBar();
         root.setTop(menuBar);
+        applyMenuBarVisibility();
 
         Scene scene = new Scene(root, 900, 560);
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
@@ -91,6 +102,26 @@ public final class TerminalWindow {
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });
     }
+
+    /**
+     * Whether the menu bar should take up a row in the window.
+     *
+     * <p>False on macOS whatever the setting says: the menus are in the screen menu bar, and the
+     * node only remains in the scene graph because that is what JavaFX forwards from. Leaving it
+     * measurable there costs a band of empty chrome above the terminal.
+     */
+    static boolean menuBarOccupiesSpace(boolean systemMenuBar, boolean showMenuBar) {
+        return !systemMenuBar && showMenuBar;
+    }
+
+    private void applyMenuBarVisibility() {
+        if (menuBar == null) return;
+        boolean occupies = menuBarOccupiesSpace(SYSTEM_MENU_BAR, settings.showMenuBar());
+        menuBar.getStyleClass().removeAll(COLLAPSED_MENU_BAR);
+        if (!occupies) menuBar.getStyleClass().add(COLLAPSED_MENU_BAR);
+    }
+
+    private static final String COLLAPSED_MENU_BAR = "collapsed-menu-bar";
 
     /** Whether the tab strip is worth its row of chrome. */
     static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
@@ -328,11 +359,11 @@ public final class TerminalWindow {
     private MenuBar buildMenuBar() {
         MenuBar bar = new MenuBar();
         // On macOS the menu belongs to the screen, not the window; the focused window's bar wins.
-        bar.setUseSystemMenuBar(MAC);
+        bar.setUseSystemMenuBar(SYSTEM_MENU_BAR);
         // ...but the node stays in the scene graph and keeps its own padding, which shows up as a
         // band of empty chrome above the terminal. Collapsed in CSS rather than hidden, so the
         // system-menu registration that depends on it being live is untouched.
-        if (MAC) bar.getStyleClass().add("system-menu-bar-host");
+
 
         Menu file = menu("File",
                 register(MenuAction.of("New Tab", MenuAction.appChord(KeyCode.T), this::openTab)),
@@ -365,7 +396,14 @@ public final class TerminalWindow {
                         () -> zoom(-1))),
                 register(MenuAction.of("Actual Size",
                         new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
-                        () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE))));
+                        () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE))),
+                null,
+                // Hiding it from the menu it lives in is only safe because the right-click menu
+                // reaches Settings, which is how it comes back.
+                register(MenuAction.of("Hide Menu Bar",
+                        new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN,
+                                KeyCombination.SHIFT_DOWN),
+                        () -> settings.setShowMenuBar(!settings.showMenuBar()))));
 
         Menu window = menu("Window",
                 register(MenuAction.of("Next Tab", MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
@@ -473,6 +511,7 @@ public final class TerminalWindow {
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
         if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
         applyTabBarVisibility();
+        applyMenuBarVisibility();
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
     }
 
