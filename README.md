@@ -475,6 +475,12 @@ Formatting is [Palantir Java Format](https://github.com/palantir/palantir-java-f
 a 120-column, lambda-friendly fork of google-java-format. Imports are grouped JDK, then javafx, then
 everything else, then static. Hand-aligned code can be wrapped in `// spotless:off` … `// spotless:on`.
 
+Only packages whose coverage does not vary by platform are gated. `com.termina.term` and
+`com.termina.pty` are not: almost all of their coverage comes from an integration test that starts a
+real shell, which is POSIX-only, so on Windows they measure 0% and 26% against 64% and 69% on macOS.
+Measure from a clean target — `jacoco.exec` accumulates across runs, so a second measurement without
+`clean` silently reports the union of both.
+
 Coverage floors are a regression net rather than a target — each sits well below what is actually
 measured, so they catch tests being deleted, not a few lines of drift. `com.termina.ui` is
 deliberately ungated: most of its 2,100 lines are the renderer, the window and the settings sheet,
