@@ -166,6 +166,10 @@ public final class TerminalView extends Region {
             if (dirty) {
                 dirty = false;
                 render();
+                // The first repaint the shell caused, rather than the first frame of an empty grid:
+                // a window is on screen well before there is a prompt in it, and timing to the empty
+                // one would flatter the measurement by everything the shell takes to start.
+                com.termina.perf.Startup.markFirstPaint();
             }
         }
     };

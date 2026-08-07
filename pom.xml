@@ -34,6 +34,7 @@
         <!-- Overridden per-OS below; jpackage wants .icns on macOS, .ico on Windows, .png on Linux. -->
         <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
         <skip.mac.version.fix>true</skip.mac.version.fix>
+        <jpackage.imageName>Termina</jpackage.imageName>
 
         <!-- JediTerm: the VT/xterm emulation core (screen buffer + escape-sequence parser),
              UI-agnostic. NOT on Maven Central — see <repositories> below. -->
@@ -344,6 +345,11 @@
                              non-required jars on the classpath rather than the module path. -->
                         <option>--enable-native-access=javafx.graphics,ALL-UNNAMED</option>
                         <option>-Dprism.order=${prism.pipeline}</option>
+                                <!-- $APPDIR is the app directory of the installed image, so this
+                                     survives being moved. Under the default AOTMode=auto a missing
+                                     or stale cache is a warning and a normal start, which is what
+                                     makes the training step safe to fail. -->
+                                <option>-XX:AOTCache=$APPDIR/termina.aot</option>
                     </options>
                     <launcher>termina</launcher>
                     <jlinkImageName>termina</jlinkImageName>
@@ -361,6 +367,7 @@
                 <prism.pipeline>mtl,es2,sw</prism.pipeline>
                 <jpackage.icon>${project.basedir}/branding/termina.icns</jpackage.icon>
                 <skip.mac.version.fix>false</skip.mac.version.fix>
+                <jpackage.imageName>Termina.app</jpackage.imageName>
             </properties>
         </profile>
         <profile>
@@ -602,6 +609,12 @@
                                     <javaOptions>
                                         <javaOption>--enable-native-access=javafx.graphics,com.sun.jna</javaOption>
                                         <javaOption>-Dprism.order=${prism.pipeline}</javaOption>
+                                        <!-- $APPDIR is the installed image's app directory, so this
+                                             survives the bundle being moved. Under the default
+                                             AOTMode=auto a missing or stale cache is a warning and a
+                                             normal start, which is what makes a failed training step
+                                             safe. -->
+                                        <javaOption>-XX:AOTCache=$APPDIR/termina.aot</javaOption>
                                     </javaOptions>
                                     <jLinkOptions>
                                         <jLinkOption>--strip-debug</jLinkOption>
@@ -618,6 +631,24 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
                 <executions>
+                    <execution>
+                        <!--
+                          Between jpackage and the macOS fix-up: it adds a file to the image, and on
+                          macOS that invalidates the ad-hoc signature, which the fix-up's re-sign
+                          then repairs. Reversed, the image ships signed-then-modified and macOS
+                          refuses to launch it.
+                        -->
+                        <id>aot-train</id>
+                        <phase>package</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>${project.basedir}/scripts/aot-train.sh</executable>
+                            <arguments>
+                                <argument>${project.build.directory}/dist/${jpackage.imageName}</argument>
+                                <argument>termina.aot</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <!--
                           Declared after jpackage on purpose: both are bound to `package`, and within

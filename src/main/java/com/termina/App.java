@@ -43,6 +43,7 @@ public final class App extends Application {
         // macOS an initialised AWT/Java2D pipeline contends with JavaFX's Glass/Prism for the
         // single AppKit run loop — an intermittent hang rather than a clean failure.
         System.setProperty("java.awt.headless", "true");
+        com.termina.perf.Startup.mark("main");
         // Before launch, so anything that goes wrong during startup is captured too — that is the
         // window in which a packaged application is most likely to fail and least able to say so.
         com.termina.ui.DebugLog.install();
@@ -53,11 +54,14 @@ public final class App extends Application {
     public void start(Stage stage) {
         // Before the stylesheet below and before any window: CSS naming a font that is not yet
         // registered does not wait for it, it silently resolves to the system face.
+        com.termina.perf.Startup.mark("fx-start");
         com.termina.ui.Fonts.load();
+        com.termina.perf.Startup.mark("fonts");
 
         CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
         Settings settings = new Settings(Settings.defaultFile(cli.configDir()));
         settings.load();
+        com.termina.perf.Startup.mark("settings");
         com.termina.ui.DebugLog.attachFile(settings.file().getParent());
 
         // Before the command names, menus and Settings rows are built — all of which read the
@@ -78,11 +82,29 @@ public final class App extends Application {
         com.termina.ui.StallMonitor.installIfRequested();
         windows = new WindowManager(settings);
         windows.setLinkOpener(url -> getHostServices().showDocument(url));
+        com.termina.perf.Startup.mark("pre-window");
         TerminalWindow first = windows.openFirstWindow(
                 stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()));
+        com.termina.perf.Startup.mark("window-shown");
         windows.maybeCheckForUpdates();
 
         if (DevCapture.requested()) DevCapture.schedule(windows, first, settings);
+        maybeExitAfterTraining();
+    }
+
+    /**
+     * Ends the run once a window has been up long enough to have loaded what it needs.
+     *
+     * <p>Used only while recording the AOT cache. The training run has to render — the bulk of what
+     * is worth archiving is JavaFX scene, control and CSS classes, which are not touched until a
+     * window actually paints, so a headless training run gains close to nothing.
+     */
+    private void maybeExitAfterTraining() {
+        if (System.getProperty("termina.aotTrain") == null) return;
+        javafx.animation.PauseTransition settle =
+                new javafx.animation.PauseTransition(javafx.util.Duration.millis(2500));
+        settle.setOnFinished(e -> System.exit(0));
+        settle.play();
     }
 
     @Override
