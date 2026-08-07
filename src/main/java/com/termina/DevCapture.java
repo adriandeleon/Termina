@@ -225,7 +225,62 @@ final class DevCapture {
         System.out.println("[capture] fired chord " + spec);
     }
 
+    /**
+     * Asks the emulator for the encoding of every special key we claim to handle, and reports the
+     * ones it has nothing for.
+     *
+     * <p>A key with no encoding is not merely unsent: KeyEncoding returns null, the event is left
+     * unconsumed, and JavaFX is free to act on it — which for Tab means moving focus out of the
+     * terminal, so every keystroke after it goes somewhere else.
+     */
+    private static void probeKeyEncodings(TerminalView terminal) {
+        if (System.getProperty("termina.captureKeyProbe") == null) return;
+        int[][] keys = {
+            {9, 'T'}, {8, 'B'}, {10, 'E'}, {27, 'X'}, {33, 'U'}, {34, 'D'}, {35, 'N'}, {36, 'H'},
+            {37, 'L'}, {38, 'P'}, {39, 'R'}, {40, 'W'}, {155, 'I'}, {127, 'Z'},
+            {112, '1'}, {113, '2'}, {114, '3'}, {115, '4'}, {116, '5'}, {117, '6'},
+        };
+        String[] names = {
+            "TAB", "BACK_SPACE", "ENTER", "ESCAPE", "PAGE_UP", "PAGE_DOWN", "END", "HOME",
+            "LEFT", "UP", "RIGHT", "DOWN", "INSERT", "DELETE",
+            "F1", "F2", "F3", "F4", "F5", "F6",
+        };
+        StringBuilder missing = new StringBuilder();
+        for (int i = 0; i < keys.length; i++) {
+            byte[] code = terminal.getSession().keyCode(keys[i][0], 0);
+            if (code == null || code.length == 0) missing.append(names[i]).append(' ');
+        }
+        System.out.println("[capture] keys with NO encoding: "
+                + (missing.length() == 0 ? "(none)" : missing.toString().trim()));
+    }
+
+    /** Fires a real key event at the view, exercising the whole key path rather than raw bytes. */
+    private static void pressKeyIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.capturePressKey");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        javafx.scene.input.KeyCode code = javafx.scene.input.KeyCode.valueOf(parts[0].trim());
+        boolean shift = parts.length > 1 && Boolean.parseBoolean(parts[1].trim());
+        // Type a partial command first, without Return, so the key lands in the shell's line editor
+        // where completion actually happens.
+        String prefix = System.getProperty("termina.capturePressKeyAfter", "");
+        if (!prefix.isEmpty()) {
+            terminal.getSession().sendString(prefix);
+            try {
+                Thread.sleep(300); // let the shell echo it before the key arrives
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        Event.fireEvent(terminal, new javafx.scene.input.KeyEvent(
+                javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code, shift, false, false, false));
+        System.out.println("[capture] pressed " + spec + "; terminal still focused="
+                + terminal.isFocused());
+    }
+
     private static void driveInput(TerminalView terminal) {
+        probeKeyEncodings(terminal);
+        pressKeyIfRequested(terminal);
         clickSelectIfRequested(terminal);
         scrollIfRequested(terminal);
         dragSelectIfRequested(terminal);

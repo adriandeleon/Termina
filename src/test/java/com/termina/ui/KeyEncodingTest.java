@@ -2,6 +2,7 @@ package com.termina.ui;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.charset.StandardCharsets;
@@ -74,6 +75,52 @@ class KeyEncodingTest {
         assertArrayEquals(
                 new byte[] {0x01}, // Ctrl+A -> SOH (readline: beginning-of-line)
                 KeyEncoding.encodePressed(pressed(KeyCode.A, false, true, false, false), lookup, true));
+    }
+
+    @Test
+    void tabAndEscapeAreSentEvenThoughTheEmulatorCannotEncodeThem() {
+        // JediTerm's key encoder maps Enter and Backspace but not these two, and both are control
+        // characters so the KEY_TYPED path discards them as well. Unhandled they reach the shell by
+        // no route at all — and worse, the event goes unconsumed and JavaFX treats Tab as focus
+        // traversal, moving focus out of the terminal so everything typed afterwards lands
+        // elsewhere. That is what "the terminal freezes when I hit tab" was.
+        RecordingLookup none = new RecordingLookup(null);
+        assertArrayEquals(
+                new byte[] {0x09},
+                KeyEncoding.encodePressed(pressed(KeyCode.TAB, false, false, false, false), none, true));
+        assertArrayEquals(
+                new byte[] {0x1b},
+                KeyEncoding.encodePressed(pressed(KeyCode.ESCAPE, false, false, false, false), none, true));
+    }
+
+    @Test
+    void shiftTabIsBackTab() {
+        // ESC [ Z (CBT) is what xterm sends and what readline and every TUI expect.
+        RecordingLookup none = new RecordingLookup(null);
+        assertArrayEquals(
+                new byte[] {0x1b, '[', 'Z'},
+                KeyEncoding.encodePressed(pressed(KeyCode.TAB, true, false, false, false), none, true));
+    }
+
+    @Test
+    void theEmulatorStillWinsWhenItHasAnEncoding() {
+        // The fallback must not shadow mode-dependent encodings — an emulator answer always wins.
+        RecordingLookup lookup = new RecordingLookup(new byte[] {0x1b, 'O', 'A'});
+        assertArrayEquals(
+                new byte[] {0x1b, 'O', 'A'},
+                KeyEncoding.encodePressed(pressed(KeyCode.TAB, false, false, false, false), lookup, true));
+    }
+
+    @Test
+    void everyKeyWeClaimToHandleProducesSomething() {
+        // The real invariant: a key in the VK table must never return null with no encoder, because
+        // null means unconsumed, and unconsumed means JavaFX may act on it.
+        RecordingLookup none = new RecordingLookup(null);
+        for (KeyCode code : new KeyCode[] {KeyCode.TAB, KeyCode.ESCAPE, KeyCode.ENTER, KeyCode.BACK_SPACE}) {
+            assertNotNull(
+                    KeyEncoding.encodePressed(pressed(code, false, false, false, false), none, true),
+                    () -> code + " must not fall through unconsumed");
+        }
     }
 
     @Test

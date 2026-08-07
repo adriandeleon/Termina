@@ -88,6 +88,12 @@ public final class KeyEncoding {
             // modifier never silently swallows the keystroke itself.
             byte[] plain = lookup.apply(vk, 0);
             if (plain != null) return withMeta(plain, e, altIsMeta);
+            // Still nothing: the emulator has no mapping for this key at all. Falling through here
+            // is not merely "the key does nothing" — the event goes unconsumed and JavaFX acts on
+            // it, and for Tab that means moving focus out of the terminal, so every keystroke
+            // afterwards lands somewhere else and the terminal looks frozen.
+            byte[] literal = literalFallback(code, e);
+            if (literal != null) return withMeta(literal, e, altIsMeta);
             return null;
         }
 
@@ -146,6 +152,29 @@ public final class KeyEncoding {
         if (e.isMetaDown()) mods |= META_DOWN;
         if (e.isAltDown() && altIsMeta) mods |= ALT_DOWN;
         return mods;
+    }
+
+    /**
+     * The plain byte a key sends when the emulator has no mapping of its own.
+     *
+     * <p>Tab and Escape are the ones that matter: JediTerm's key encoder covers Enter and
+     * Backspace but not these two, and because both are control characters the KEY_TYPED path
+     * discards them as well — so without this they reach the shell by no route at all. Escape is
+     * how you leave insert mode in vim; Tab is completion.
+     *
+     * <p>Shift+Tab is {@code ESC [ Z} (CBT), which is what xterm sends and what readline and every
+     * TUI expect for a backwards field move.
+     */
+    static byte[] literalFallback(KeyCode code, KeyEvent e) {
+        return switch (code) {
+            case TAB -> e.isShiftDown() ? new byte[] {ESC, '[', 'Z'} : new byte[] {0x09};
+            case ESCAPE -> new byte[] {ESC};
+            // Mapped by the emulator today, kept here as insurance: the failure mode of a missing
+            // entry is a dead key plus a stolen focus, which is expensive to diagnose.
+            case ENTER -> new byte[] {0x0d};
+            case BACK_SPACE -> new byte[] {0x7f};
+            default -> null;
+        };
     }
 
     /** The C0 control byte for Ctrl+<key>, or null if the key has no control form. */

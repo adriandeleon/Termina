@@ -86,7 +86,17 @@ natural advance would otherwise push the rest of the line off the grid.
 
 ### Input
 
-Special keys are encoded by **JediTerm**, not by us, via `TerminalStarter.getCode`. The right bytes
+Special keys are encoded by **JediTerm** via `TerminalStarter.getCode` — but not all of them: its
+encoder has no entry for **Tab or Escape**. Both are control characters, so the `KEY_TYPED` path
+discards them too, and without a fallback they reach the shell by no route at all. Worse, returning
+null leaves the event unconsumed, and JavaFX then treats Tab as focus traversal — focus leaves the
+terminal and everything typed afterwards goes somewhere else, which presents as the terminal
+freezing. `KeyEncoding.literalFallback` covers them, with `ESC [ Z` for Shift+Tab.
+
+The invariant is that **a key we claim to handle must never return null**, since null means
+unconsumed and unconsumed means JavaFX may act on it. That is asserted rather than assumed.
+
+Otherwise, special keys are encoded by JediTerm via `TerminalStarter.getCode`. The right bytes
 depend on emulator state: in application-cursor-key mode Up is `ESC O A`, otherwise `ESC [ A`.
 Hard-coding either breaks half the programs a terminal exists to run. Printable characters go
 through `KEY_TYPED` instead, which is the only event that reports the *composed* character — what

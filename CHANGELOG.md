@@ -30,6 +30,14 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Native app image** via `-Pdist` (moditect + jlink + jpackage), and a Maven wrapper so a system
   Maven is not required.
 
+### Fixed
+
+- **Tab and Escape did nothing, and Tab froze the terminal.** Neither is in JediTerm's key encoder,
+  and both are control characters the typed-character path drops, so they never reached the shell —
+  and the unconsumed Tab moved focus out of the terminal, so everything typed after it went
+  elsewhere.
+- **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
+
 ### Known gaps
 
 - Windows and Linux are unrun. The code paths exist and pty4j carries every platform's natives, but
