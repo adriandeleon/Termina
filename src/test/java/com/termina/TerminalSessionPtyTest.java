@@ -47,14 +47,35 @@ class TerminalSessionPtyTest {
             // Wait for the shell to be ready to read before typing at it: a login shell sources the
             // user's profile first, and input sent before then is simply discarded.
             assumeTrue(awaitReady(session), "shell did not start");
-            session.sendString("echo " + marker + "\r");
 
+            // Typed repeatedly rather than once. First output is not the same as ready to read:
+            // macOS bash prints a notice about zsh before it reaches its prompt, and anything sent
+            // in that window is discarded. CI found this — on a runner the gap is wide enough to
+            // lose the keystroke every time, where locally it never showed. A user with a slow
+            // profile has exactly the same race.
             assertTrue(
-                    await(buffer, marker),
+                    awaitTyping(session, buffer, "echo " + marker + "\r", marker),
                     () -> "marker never appeared on screen. Screen was:\n" + screen(buffer));
         } finally {
             session.close();
         }
+    }
+
+    /**
+     * Sends {@code input} until {@code expected} shows up, or the timeout runs out.
+     *
+     * <p>Re-sending is safe here: the worst case is a shell that echoes the same harmless command
+     * twice, and the assertion only cares that it appeared at all.
+     */
+    private static boolean awaitTyping(
+            TerminalSession session, TerminalTextBuffer buffer, String input, String expected)
+            throws InterruptedException {
+        Instant deadline = Instant.now().plus(TIMEOUT);
+        while (Instant.now().isBefore(deadline)) {
+            session.sendString(input);
+            if (await(buffer, expected, Duration.ofSeconds(2))) return true;
+        }
+        return false;
     }
 
     @Test
@@ -93,7 +114,12 @@ class TerminalSessionPtyTest {
     }
 
     private static boolean await(TerminalTextBuffer buffer, String needle) throws InterruptedException {
-        Instant deadline = Instant.now().plus(TIMEOUT);
+        return await(buffer, needle, TIMEOUT);
+    }
+
+    private static boolean await(TerminalTextBuffer buffer, String needle, Duration timeout)
+            throws InterruptedException {
+        Instant deadline = Instant.now().plus(timeout);
         while (Instant.now().isBefore(deadline)) {
             // The command echoes once as typed and once as output; two occurrences means the shell
             // actually ran it rather than merely echoing the keystrokes back.
