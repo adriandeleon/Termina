@@ -615,6 +615,16 @@
                                              normal start, which is what makes a failed training step
                                              safe. -->
                                         <javaOption>-XX:AOTCache=$APPDIR/termina.aot</javaOption>
+                                        <!--
+                                          A ceiling, not a tuning claim. Without it the JVM takes a
+                                          quarter of physical RAM as its maximum heap — 4 GB on a
+                                          16 GB machine, 16 GB on a 64 GB one — for an application
+                                          whose live set is tens of megabytes. A cap that high does
+                                          not make anything faster; it just lets the collector defer
+                                          work and the process grow. 1 GB is an order of magnitude
+                                          above any realistic scrollback across every tab and window.
+                                        -->
+                                        <javaOption>-Xmx1g</javaOption>
                                     </javaOptions>
                                     <jLinkOptions>
                                         <jLinkOption>--strip-debug</jLinkOption>
