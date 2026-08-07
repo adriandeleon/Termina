@@ -114,6 +114,11 @@ public final class SettingsWindow {
     }
 
     /** The window's scene, for the development capture hook. */
+    /** Types into the search box as the user would, so a capture can reach any page. */
+    public void searchForCapture(String query) {
+        search.setText(query);
+    }
+
     public Scene scene() {
         return stage.getScene();
     }
@@ -579,7 +584,19 @@ public final class SettingsWindow {
         row(Category.ADVANCED, files, tr("settings.settingsFile"),
                 tr("settings.settingsFile.desc"),
                 settingsPath, "settings file path properties config location");
+
+        VBox diagnostics = section(page, tr("settings.section.diagnostics"));
+        Button showDebugLog = new Button(tr("settings.debugLog.button"));
+        showDebugLog.setOnAction(e -> {
+            if (debugLog == null) debugLog = new DebugLogWindow(stage);
+            debugLog.show();
+        });
+        row(Category.ADVANCED, diagnostics, tr("settings.debugLog"), tr("settings.debugLog.desc"),
+                showDebugLog, "debug log diagnostics errors warnings crash trace troubleshoot");
     }
+
+    /** Built on first use: most sessions never open it. */
+    private DebugLogWindow debugLog;
 
     private static String shortcutName() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac") ? "Cmd" : "Ctrl";

@@ -213,6 +213,16 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
+A **command palette** on Shift+Cmd/Ctrl+P lists every command in the window, found by typing part of
+its name — "nw" reaches New Window, "ct" Close Tab. The commands are the menu bar's own actions
+rather than a parallel list that could disagree with it, so an entry is in the palette because it is
+in a menu, and its shortcut is shown because the action already carries one. The colour themes are
+appended, since a menu listing every theme is a submenu nobody opens.
+
+A **debug log** (Advanced → Diagnostics) keeps this session's warnings, errors and uncaught
+exceptions, and mirrors them to `termina-session.log` beside the settings. A packaged application
+has no console, so without it the one sentence explaining why something failed goes nowhere.
+
 **Six interface languages** — English, Italian, Spanish, French, Portuguese, German — chosen in
 Appearance → Language, or followed from the system when left on Automatic. English is both the base
 catalogue and the fallback, so a key missing from a translation shows English rather than a gap, and

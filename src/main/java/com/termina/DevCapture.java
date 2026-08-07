@@ -128,6 +128,8 @@ final class DevCapture {
                 // exit never reaches the scene, so the geometry written on close is the old one and
                 // the run proves nothing.
                 resizeIfRequested(window);
+                openPaletteIfRequested(window);
+                probeDebugLog();
                 TerminalWindow shown = windowToCapture(windows, window);
                 Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
@@ -224,6 +226,38 @@ final class DevCapture {
         window.stage().setWidth(Double.parseDouble(parts[0].trim()));
         window.stage().setHeight(Double.parseDouble(parts[1].trim()));
         System.out.println("[capture] resized to " + spec);
+    }
+
+    /** {@code -Dtermina.capturePalette=true} opens the command palette before the screenshot. */
+    private static void openPaletteIfRequested(TerminalWindow window) {
+        String query = System.getProperty("termina.capturePalette");
+        if (query == null) return;
+        System.out.println("[capture] palette \"" + query + "\" -> " + window.showPaletteForCapture(query));
+    }
+
+    /**
+     * {@code -Dtermina.captureLogProbe=true} pushes a warning and an uncaught exception through the
+     * real logging path, to check the debug log is actually capturing rather than merely present.
+     */
+    private static void probeDebugLog() {
+        if (System.getProperty("termina.captureLogProbe") == null) return;
+        System.getLogger("com.termina.probe.Fake")
+                .log(System.Logger.Level.WARNING, "probe warning", new IllegalStateException("probe cause"));
+        Thread thread = new Thread(() -> {
+            throw new IllegalArgumentException("probe uncaught");
+        }, "probe-thread");
+        thread.start();
+        try {
+            thread.join(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        String captured = com.termina.ui.DebugLog.text();
+        System.out.println("[capture] debugLog chars=" + captured.length()
+                + " warning=" + captured.contains("probe warning")
+                + " cause=" + captured.contains("probe cause")
+                + " uncaught=" + captured.contains("probe uncaught")
+                + " file=" + com.termina.ui.DebugLog.file());
     }
 
     private static long descendants() {
@@ -365,7 +399,7 @@ final class DevCapture {
             WindowManager windows, TerminalWindow window, TerminalView terminal) {
         Scene fallback = window.stage().getScene();
         if (System.getProperty("termina.captureSettings") != null) {
-            return windows.showSettingsForCapture(window.stage());
+            return windows.showSettingsForCapture(window.stage(), System.getProperty("termina.captureSettings"));
         }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());

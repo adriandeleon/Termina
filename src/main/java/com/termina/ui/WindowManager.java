@@ -171,8 +171,11 @@ public final class WindowManager {
     }
 
     /** Opens the settings window and returns its scene, for the development capture hook. */
-    public javafx.scene.Scene showSettingsForCapture(Window owner) {
+    public javafx.scene.Scene showSettingsForCapture(Window owner, String query) {
         showSettings(owner);
+        if (query != null && !query.isBlank() && !"true".equals(query)) {
+            settingsWindow.searchForCapture(query);
+        }
         return settingsWindow.scene();
     }
 

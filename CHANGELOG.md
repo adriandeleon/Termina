@@ -27,6 +27,8 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Window size is remembered** across launches, clamped to the current screen.
 - **Fixed**: a Nerd Font icon (or any emoji) in a directory listing shifted the rest of its line one
   column right, so columns did not line up between rows.
+- **Command palette** (Shift+Cmd/Ctrl+P) over every menu command, plus the colour themes.
+- **Debug log** in Advanced → Diagnostics, mirrored to a file beside the settings.
 - **Six interface languages** (en/it/es/fr/pt/de), picked in Appearance → Language.
 - **Window opacity** (Appearance → Window), clamped so it cannot hide the window that undoes it.
 - **Bundled fonts**: five monospace families plus Inter for the interface, so a terminal looks the

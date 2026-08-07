@@ -56,6 +56,11 @@ public final class TerminalWindow {
     private final TabPane tabs = new TabPane();
     private final List<MenuAction> bindings = new ArrayList<>();
 
+    /** Everything the palette can run, in menu order. */
+    private final List<MenuAction> commands = new ArrayList<>();
+
+    private CommandPalette palette;
+
     TerminalWindow(WindowManager windows, Settings settings, Stage stage) {
         this.windows = windows;
         this.settings = settings;
@@ -108,12 +113,17 @@ public final class TerminalWindow {
         root.setTop(menuBar);
         applyMenuBarVisibility();
 
+        // A StackPane over the whole window so the palette has somewhere to be. It is empty until
+        // the palette opens, so it costs a node and nothing else.
+        StackPane overlay = new StackPane(root);
+        palette = new CommandPalette(overlay, this::focusActiveTerminal);
+
         javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
         double width = WindowGeometry.fit(settings.windowWidth(), DEFAULT_WIDTH, screen.getWidth());
         double height = WindowGeometry.fit(settings.windowHeight(), DEFAULT_HEIGHT, screen.getHeight());
         restoredWidth = width;
         restoredHeight = height;
-        Scene scene = new Scene(root, width, height);
+        Scene scene = new Scene(overlay, width, height);
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
         scene.setFill(theme.palette().background());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
@@ -705,7 +715,14 @@ public final class TerminalWindow {
                             KeyCombination.SHIFT_DOWN),
                     () -> settings.setShowMenuBar(!settings.showMenuBar()))));
         }
+        // Added to the list by hand rather than through menu(): a palette that offers to open the
+        // palette is noise in every search.
+        viewItems.add(null);
+        viewItems.add(register(MenuAction.of(tr("menu.commandPalette"),
+                new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+                this::showPalette)));
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
+        commands.remove(viewItems.get(viewItems.size() - 1));
 
         Menu window = menu(tr("menu.window"),
                 register(MenuAction.of(tr("menu.nextTab"), MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
@@ -724,13 +741,16 @@ public final class TerminalWindow {
                                 KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(1))));
 
-        updateItem = MenuAction.of(tr("menu.checkForUpdates"), () -> windows.checkForUpdatesNow(this::report))
-                .toMenuItem();
+        // Help is built by hand rather than through menu(), because its update entry is a MenuItem
+        // this class relabels later. Its two actions are added to the palette explicitly.
+        MenuAction about = MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage));
+        MenuAction checkForUpdates =
+                MenuAction.of(tr("menu.checkForUpdates"), () -> windows.checkForUpdatesNow(this::report));
+        updateItem = checkForUpdates.toMenuItem();
         Menu help = new Menu(tr("menu.help"));
-        help.getItems().addAll(
-                MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
-                        .toMenuItem(),
-                updateItem);
+        commands.add(about);
+        commands.add(checkForUpdates);
+        help.getItems().addAll(about.toMenuItem(), updateItem);
 
         // The Help menu is where an available update shows up. Termina has no status bar, which is
         // where Editora puts its badge, and a banner over the terminal would cost a row of the
@@ -777,15 +797,29 @@ public final class TerminalWindow {
     }
 
     /** A null entry becomes a separator. */
-    private static Menu menu(String title, MenuAction... actions) {
+    /**
+     * Builds a menu, and records its actions as the palette's command list.
+     *
+     * <p>Recorded here rather than declared separately so the two cannot drift: a command is in the
+     * palette because it is in a menu. The tab context menu deliberately does not come through
+     * here — its items act on the tab that was right-clicked, which is not a thing the palette can
+     * supply.
+     */
+    private Menu menu(String title, MenuAction... actions) {
         Menu menu = new Menu(title);
         for (MenuAction action : actions) {
             menu.getItems().add(action == null ? new SeparatorMenuItem() : action.toMenuItem());
+            if (action != null) commands.add(action);
         }
         return menu;
     }
 
     private void onKeyPressed(KeyEvent e) {
+        // While the palette is open it owns the keyboard. This filter is on the scene, so without
+        // this it would still be matching chords against keystrokes meant for the query field.
+        // Not consumed: the palette's own filter is downstream and still needs them.
+        if (palette != null && palette.isShowing()) return;
+
         for (MenuAction binding : bindings) {
             if (binding.matches(e)) {
                 binding.action().run();
@@ -835,7 +869,38 @@ public final class TerminalWindow {
         terminal.setScrollBarEnabled(settings.showScrollBar());
     }
 
+    /**
+     * Opens the palette over this window.
+     *
+     * <p>The theme entries are appended rather than living in a menu: a menu listing every theme is
+     * a submenu nobody opens, while a palette is exactly where "make this one darker" belongs.
+     */
+    private void showPalette() {
+        List<MenuAction> all = new ArrayList<>(commands);
+        for (Theme theme : Theme.values()) {
+            // Setting it is enough: Settings.onChange re-applies to every window already.
+            all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id())));
+        }
+        palette.show(all);
+    }
+
+    private void focusActiveTerminal() {
+        TerminalView terminal = activeTerminal();
+        if (terminal != null) terminal.requestFocus();
+    }
+
+    /** Public so a capture run can open the palette without a keystroke. */
+    public String showPaletteForCapture(String query) {
+        showPalette();
+        if (query != null && !query.isEmpty()) palette.setQueryForCapture(query);
+        return String.join(" | ", palette.visibleCommands());
+    }
+
     private void reportShellFailure(IOException e) {
+        // Logged as well as shown. The dialog says one sentence and is then gone; this is the part
+        // that survives to be pasted into a bug report, and it carries the stack trace.
+        System.getLogger(TerminalWindow.class.getName())
+                .log(System.Logger.Level.ERROR, "could not start a shell", e);
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initOwner(stage);
         alert.setTitle(com.termina.AppInfo.NAME);

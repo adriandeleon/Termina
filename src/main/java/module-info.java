@@ -20,6 +20,8 @@ module com.termina {
     // but the interface cannot be verified without java.desktop on the module path.
     // See App.main for why AWT is nonetheless forced headless.
     requires java.desktop;
+    // The debug log captures j.u.l output, which is where JavaFX and the emulator report trouble.
+    requires java.logging;
 
     // The update check: one HTTPS request, and a real parser for its response.
     requires java.net.http;

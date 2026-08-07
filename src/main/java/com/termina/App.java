@@ -18,6 +18,9 @@ public final class App extends Application {
         // macOS an initialised AWT/Java2D pipeline contends with JavaFX's Glass/Prism for the
         // single AppKit run loop — an intermittent hang rather than a clean failure.
         System.setProperty("java.awt.headless", "true");
+        // Before launch, so anything that goes wrong during startup is captured too — that is the
+        // window in which a packaged application is most likely to fail and least able to say so.
+        com.termina.ui.DebugLog.install();
         launch(args);
     }
 
@@ -29,6 +32,7 @@ public final class App extends Application {
 
         Settings settings = new Settings(Settings.defaultFile());
         settings.load();
+        com.termina.ui.DebugLog.attachFile(settings.file().getParent());
 
         // Before the command names, menus and Settings rows are built — all of which read the
         // catalogue as they are constructed, once.
