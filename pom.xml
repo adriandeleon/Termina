@@ -668,8 +668,11 @@
                         <phase>package</phase>
                         <goals><goal>exec</goal></goals>
                         <configuration>
-                            <executable>${project.basedir}/scripts/aot-train.sh</executable>
+                            <!-- Through bash, not as the executable: Windows cannot run a .sh
+                                 directly and fails with "%1 is not a valid Win32 application". -->
+                            <executable>bash</executable>
                             <arguments>
+                                <argument>${project.basedir}/scripts/aot-train.sh</argument>
                                 <argument>${project.build.directory}/dist/${jpackage.imageName}</argument>
                                 <argument>termina.aot</argument>
                             </arguments>
@@ -685,8 +688,9 @@
                         <phase>package</phase>
                         <goals><goal>exec</goal></goals>
                         <configuration>
-                            <executable>${project.basedir}/scripts/fix-mac-bundle-version.sh</executable>
+                            <executable>bash</executable>
                             <arguments>
+                                <argument>${project.basedir}/scripts/fix-mac-bundle-version.sh</argument>
                                 <argument>${project.build.directory}/dist/Termina.app</argument>
                                 <argument>${jpackage.publicVersion}</argument>
                             </arguments>

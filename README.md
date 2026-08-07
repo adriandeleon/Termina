@@ -1,6 +1,21 @@
-# Termina
+<p align="center">
+  <img src="branding/termina.png" alt="" width="128" height="128">
+</p>
 
-[![CI](https://github.com/adriandeleon/Termina/actions/workflows/ci.yml/badge.svg)](https://github.com/adriandeleon/Termina/actions/workflows/ci.yml)
+<h1 align="center">Termina</h1>
+
+<p align="center">
+  <a href="https://github.com/adriandeleon/Termina/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/adriandeleon/Termina/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/adriandeleon/Termina/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/adriandeleon/Termina?sort=semver"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/adriandeleon/Termina"></a>
+  <img alt="Java" src="https://img.shields.io/badge/Java-25-orange">
+  <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-26-blue">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey">
+</p>
+
+<p align="center">
+  <img src="docs/screenshot.png" alt="Termina running a shell, with a tab bar and coloured output" width="820">
+</p>
 
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
 renders the emulated screen to a canvas.

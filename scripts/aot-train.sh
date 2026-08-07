@@ -18,15 +18,22 @@ set -uo pipefail
 image="${1:?app image directory required}"
 cache_name="${2:-termina.aot}"
 
+# jpackage lays an app image out differently on each platform, and Linux is the odd one: its runtime
+# and app directory live under lib/, where the other two put them at the top. Guessing this wrong is
+# silent — the script skips, the build succeeds, and the release ships without a cache.
 case "$(uname -s)" in
     Darwin)
         java="$image/Contents/runtime/Contents/Home/bin/java"
         appdir="$image/Contents/app"
         ;;
+    Linux)
+        java="$image/lib/runtime/bin/java"
+        appdir="$image/lib/app"
+        ;;
     *)
-        java="$image/runtime/bin/java"
+        # MinGW/MSYS, i.e. Git Bash on Windows.
+        java="$image/runtime/bin/java.exe"
         appdir="$image/app"
-        [ -x "$java" ] || java="$image/runtime/bin/java.exe"
         ;;
 esac
 
@@ -41,6 +48,8 @@ cache="$appdir/$cache_name"
 # pipeline aborts on one — an Obj-C exception, which is a process abort that Prism's own fallback
 # chain cannot catch. Editora shipped eight releases with an untrained macOS arm64 build for exactly
 # this reason, and it never reproduced on real hardware.
+# The commas here are inside JVM option values (-Dprism.order=es2,sw), not element separators.
+# shellcheck disable=SC2054
 opts=(-XX:AOTCacheOutput="$cache"
       -Dprism.order=es2,sw
       -Dtermina.aotTrain=1

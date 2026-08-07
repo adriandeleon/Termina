@@ -44,7 +44,9 @@ if [ "$uninstall" = true ]; then
     if [ "$(id -u)" = "0" ] && command -v update-alternatives >/dev/null 2>&1; then
         update-alternatives --remove x-terminal-emulator "$root/bin/Termina" 2>/dev/null || true
     fi
-    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$apps" 2>/dev/null || true
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$apps" 2>/dev/null || true
+    fi
     echo "Termina removed."
     exit 0
 fi
@@ -69,8 +71,12 @@ fi
 sed "s|^Exec=termina$|Exec=$root/bin/Termina|" "$here/termina.desktop" > "$desktop"
 chmod 644 "$desktop"
 
-command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$apps" 2>/dev/null || true
-command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$icons" 2>/dev/null || true
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$apps" 2>/dev/null || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t "$icons" 2>/dev/null || true
+fi
 
 # Debian's mechanism for "which terminal does the system use". Priority 40 is below the usual
 # defaults, so installing Termina does not silently take over; `update-alternatives --config
