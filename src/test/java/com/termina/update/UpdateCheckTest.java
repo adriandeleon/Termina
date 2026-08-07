@@ -1,11 +1,11 @@
 package com.termina.update;
 
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.junit.jupiter.api.Test;
 
 /**
  * The update check.
@@ -27,8 +27,7 @@ class UpdateCheckTest {
                   "author": {"name": "someone", "html_url": "https://example.invalid"},
                   "assets": [{"name": "Termina.dmg", "url": "https://example.invalid/a"}]
                 }
-                """
-                .formatted(tag, tag, tag, draft, prerelease);
+                """.formatted(tag, tag, tag, draft, prerelease);
     }
 
     @Test

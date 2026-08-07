@@ -1,7 +1,5 @@
 package com.termina.pty;
 
-import com.pty4j.PtyProcess;
-import com.pty4j.PtyProcessBuilder;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import com.pty4j.PtyProcess;
+import com.pty4j.PtyProcessBuilder;
 
 /**
  * Chooses the shell to run and starts it attached to a pseudo-terminal.

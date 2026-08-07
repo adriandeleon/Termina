@@ -1,12 +1,13 @@
 package com.termina.term;
 
-import com.jediterm.terminal.TerminalExecutorServiceManager;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.jediterm.terminal.TerminalExecutorServiceManager;
 
 /**
  * The thread pools JediTerm schedules its internal work on (resize debouncing, blinking, deferred

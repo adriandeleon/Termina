@@ -1,8 +1,8 @@
 package com.termina.ui;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Restoring a window size onto whatever screen is actually present. */
 class WindowGeometryTest {

@@ -113,8 +113,7 @@ public final class Settings {
                 properties.store(out, "Termina settings");
             }
         } catch (IOException e) {
-            System.getLogger(Settings.class.getName())
-                    .log(System.Logger.Level.WARNING, "could not write " + file, e);
+            System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + file, e);
         }
     }
 

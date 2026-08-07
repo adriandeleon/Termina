@@ -1,5 +1,8 @@
 package com.termina.term;
 
+import java.io.IOException;
+import java.util.List;
+
 import com.jediterm.core.typeahead.TerminalTypeAheadManager;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.RequestOrigin;
@@ -8,11 +11,9 @@ import com.jediterm.terminal.TtyBasedArrayDataStream;
 import com.jediterm.terminal.model.JediTerminal;
 import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.model.TerminalTextBuffer;
+import com.pty4j.PtyProcess;
 import com.termina.pty.PtyTtyConnector;
 import com.termina.pty.ShellLauncher;
-import com.pty4j.PtyProcess;
-import java.io.IOException;
-import java.util.List;
 
 /**
  * One shell attached to one emulator: PTY process, escape-sequence parser, and screen buffer.
@@ -51,8 +52,7 @@ public final class TerminalSession {
             com.termina.pty.LaunchOptions options)
             throws IOException {
         // The same list the process was started from, so the connector reports the real command.
-        List<String> command =
-                options.hasCommand() ? options.command() : ShellLauncher.shellCommand(options.shell());
+        List<String> command = options.hasCommand() ? options.command() : ShellLauncher.shellCommand(options.shell());
         process = ShellLauncher.start(columns, rows, options);
         connector = new PtyTtyConnector(process, command);
 
@@ -62,8 +62,8 @@ public final class TerminalSession {
 
         executors = new TerminalExecutors();
         TerminalTypeAheadManager typeAhead = new TerminalTypeAheadManager(new DisabledTypeAhead());
-        starter = new TerminalStarter(
-                terminal, connector, new TtyBasedArrayDataStream(connector), typeAhead, executors);
+        starter =
+                new TerminalStarter(terminal, connector, new TtyBasedArrayDataStream(connector), typeAhead, executors);
 
         emulatorThread = new Thread(this::runEmulator, "termina-emulator");
         emulatorThread.setDaemon(true);

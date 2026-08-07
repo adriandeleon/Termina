@@ -15,12 +15,7 @@ import java.util.List;
  * is GNOME's spelling and {@code -d} the short form.
  */
 public record CommandLine(
-        boolean help,
-        boolean version,
-        String workingDirectory,
-        List<String> command,
-        String configDir,
-        String error) {
+        boolean help, boolean version, String workingDirectory, List<String> command, String configDir, String error) {
 
     /** Parsed successfully and the application should start. */
     public boolean shouldRun() {
@@ -110,7 +105,6 @@ public record CommandLine(
 
                 The shell, colours, font and everything else are configured in the application
                 itself, under Settings. TERMINA_CONFIG_DIR does the same as --config-dir.
-                """
-                .formatted(name);
+                """.formatted(name);
     }
 }

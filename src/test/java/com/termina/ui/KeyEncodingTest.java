@@ -1,14 +1,16 @@
 package com.termina.ui;
 
+import java.nio.charset.StandardCharsets;
+
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-
-import java.nio.charset.StandardCharsets;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyEvent;
-import org.junit.jupiter.api.Test;
 
 /** The key-to-bytes mapping. Pure enough to test without a toolkit. */
 class KeyEncodingTest {
@@ -131,7 +133,8 @@ class KeyEncodingTest {
 
     @Test
     void typedCharacterIsSentAsUtf8() {
-        assertArrayEquals("é".getBytes(StandardCharsets.UTF_8), KeyEncoding.encodeTyped(typed("é", false, false, false), true));
+        assertArrayEquals(
+                "é".getBytes(StandardCharsets.UTF_8), KeyEncoding.encodeTyped(typed("é", false, false, false), true));
     }
 
     @Test
@@ -157,9 +160,7 @@ class KeyEncodingTest {
     @Test
     void pasteNormalisesNewlinesToCarriageReturns() {
         // A shell reading a line wants CR; sending LF submits nothing and looks like a hang.
-        assertEquals(
-                "a\rb\rc",
-                new String(KeyEncoding.encodePaste("a\r\nb\nc", false), StandardCharsets.UTF_8));
+        assertEquals("a\rb\rc", new String(KeyEncoding.encodePaste("a\r\nb\nc", false), StandardCharsets.UTF_8));
     }
 
     @Test

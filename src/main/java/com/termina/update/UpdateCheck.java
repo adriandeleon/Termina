@@ -1,9 +1,10 @@
 package com.termina.update;
 
+import java.io.IOException;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import java.io.IOException;
 
 /**
  * The decisions behind an update check, separated from the network so they can be tested.

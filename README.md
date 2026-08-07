@@ -467,7 +467,20 @@ or reopening in a directory you have since navigated away from, is not what anyb
 
 ## Building and releasing
 
-`./mvnw verify` runs the tests. `./mvnw clean -Pdist -DskipTests package` produces a native app image
+`./mvnw verify` runs the tests, checks formatting and enforces the coverage floors. **Run
+`./mvnw spotless:apply` before committing** — `verify` fails on unformatted code, and so does CI.
+The compile loop and `mvn javafx:run` are deliberately left alone.
+
+Formatting is [Palantir Java Format](https://github.com/palantir/palantir-java-format) via Spotless:
+a 120-column, lambda-friendly fork of google-java-format. Imports are grouped JDK, then javafx, then
+everything else, then static. Hand-aligned code can be wrapped in `// spotless:off` … `// spotless:on`.
+
+Coverage floors are a regression net rather than a target — each sits well below what is actually
+measured, so they catch tests being deleted, not a few lines of drift. `com.termina.ui` is
+deliberately ungated: most of its 2,100 lines are the renderer, the window and the settings sheet,
+which a headless suite cannot reach, so a package number there says nothing about whether the tested
+parts are still tested. The way to raise it is to keep pulling decisions out into pure classes, not
+to lower the bar until it passes. `./mvnw clean -Pdist -DskipTests package` produces a native app image
 under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
 built on that platform, which is what the CI matrix is for.
 

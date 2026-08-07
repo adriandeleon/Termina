@@ -1,11 +1,11 @@
 package com.termina.ui;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Tabs tiling the width, the way macOS Terminal and GNOME Terminal lay them out. */
 class TabLayoutTest {
@@ -21,8 +21,8 @@ class TabLayoutTest {
         if (each <= TabLayout.MIN_TAB_WIDTH) return; // past the floor, overflow is expected
 
         double rendered = (each + CHROME) * count;
-        assertTrue(rendered <= strip - RESERVED,
-                () -> count + " tabs render " + rendered + " into " + (strip - RESERVED));
+        assertTrue(
+                rendered <= strip - RESERVED, () -> count + " tabs render " + rendered + " into " + (strip - RESERVED));
     }
 
     @Test
@@ -45,8 +45,7 @@ class TabLayoutTest {
         double rendered = (each + CHROME) * count;
         double slack = (strip - RESERVED) - rendered;
         assertTrue(slack >= 0, () -> count + " tabs overflow by " + (-slack));
-        assertTrue(slack < count + 1,
-                () -> count + " tabs leave " + slack + "px unused before the button");
+        assertTrue(slack < count + 1, () -> count + " tabs leave " + slack + "px unused before the button");
     }
 
     @Test

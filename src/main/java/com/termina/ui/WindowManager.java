@@ -1,14 +1,16 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
-import com.termina.config.Settings;
 import java.util.ArrayList;
 import java.util.List;
+
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+
+import com.termina.config.Settings;
+
+import static com.termina.i18n.Messages.tr;
 
 /**
  * The open windows, and the state they share.
@@ -27,6 +29,7 @@ public final class WindowManager {
     private final com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
     /** The newer release, once found. Held app-wide so every window's Help menu agrees. */
     private com.termina.update.ReleaseInfo availableUpdate;
+
     private final List<Runnable> updateListeners = new ArrayList<>();
     private java.util.function.Consumer<String> openLink = url -> {};
 
@@ -71,7 +74,10 @@ public final class WindowManager {
         }
 
         window.show();
-        window.openTab(cli != null ? cli.withShell(settings.shell()) : com.termina.pty.LaunchOptions.ofShell(settings.shell()));
+        window.openTab(
+                cli != null
+                        ? cli.withShell(settings.shell())
+                        : com.termina.pty.LaunchOptions.ofShell(settings.shell()));
         return window;
     }
 

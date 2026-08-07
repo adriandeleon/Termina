@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
@@ -26,17 +27,19 @@ public final class MonospaceFonts {
      * <p>The bundled families lead, because they are the only ones guaranteed to be there — a
      * default naming a system font gives a different terminal on each platform.
      */
-    private static final List<String> PREFERRED = concat(Fonts.BUNDLED_MONO, List.of(
-            "SF Mono",
-            "Menlo",
-            "Cascadia Mono",
-            "Cascadia Code",
-            "Consolas",
-            "DejaVu Sans Mono",
-            "Liberation Mono",
-            "Ubuntu Mono",
-            "Noto Sans Mono",
-            "Monospaced"));
+    private static final List<String> PREFERRED = concat(
+            Fonts.BUNDLED_MONO,
+            List.of(
+                    "SF Mono",
+                    "Menlo",
+                    "Cascadia Mono",
+                    "Cascadia Code",
+                    "Consolas",
+                    "DejaVu Sans Mono",
+                    "Liberation Mono",
+                    "Ubuntu Mono",
+                    "Noto Sans Mono",
+                    "Monospaced"));
 
     private static List<String> concat(List<String> first, List<String> second) {
         List<String> all = new ArrayList<>(first);

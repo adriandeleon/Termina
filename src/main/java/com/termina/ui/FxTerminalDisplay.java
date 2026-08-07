@@ -1,5 +1,11 @@
 package com.termina.ui;
 
+import java.util.function.Supplier;
+
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.CursorShape;
 import com.jediterm.terminal.RequestOrigin;
@@ -7,10 +13,6 @@ import com.jediterm.terminal.TerminalDisplay;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
-import java.util.function.Supplier;
-import javafx.application.Platform;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
 
 /**
  * The emulator's view of the display: JediTerm calls into this whenever an escape sequence changes
@@ -33,6 +35,7 @@ public final class FxTerminalDisplay implements TerminalDisplay {
      * user's preference apply, while still yielding to a program that has an opinion.
      */
     private volatile CursorShape cursorShape;
+
     private volatile boolean alternateScreen;
     private volatile MouseMode mouseMode = MouseMode.MOUSE_REPORTING_NONE;
     private volatile MouseFormat mouseFormat = MouseFormat.MOUSE_FORMAT_XTERM;

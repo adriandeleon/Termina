@@ -1,14 +1,15 @@
 package com.termina.ui;
 
+import javafx.scene.paint.Color;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import javafx.scene.paint.Color;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 /** The themes and the palette they hand the renderer. */
 class ThemeTest {
@@ -37,7 +38,8 @@ class ThemeTest {
     void foregroundAndBackgroundDiffer(Theme theme) {
         // The whole screen being one colour is a failure mode worth one assertion.
         assertNotSame(theme.palette().background(), theme.palette().foreground());
-        assertTrue(contrast(theme.palette().background(), theme.palette().foreground()) > 4.5,
+        assertTrue(
+                contrast(theme.palette().background(), theme.palette().foreground()) > 4.5,
                 () -> theme.id() + " default text does not meet a readable contrast ratio");
     }
 
@@ -49,13 +51,16 @@ class ThemeTest {
      * the same polarity; bright black is what dim text uses.
      */
     @ParameterizedTest
-    @EnumSource(value = Theme.class, names = {"EDITORA_DARK", "EDITORA_LIGHT"})
+    @EnumSource(
+            value = Theme.class,
+            names = {"EDITORA_DARK", "EDITORA_LIGHT"})
     void ourOwnThemesKeepEveryChromaticColourLegible(Theme theme) {
         Color background = theme.palette().background();
         Color[] ansi = theme.palette().ansi();
         for (int i : new int[] {1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14}) {
             double ratio = contrast(background, ansi[i]);
-            assertTrue(ratio > 1.9,
+            assertTrue(
+                    ratio > 1.9,
                     () -> theme.id() + " ANSI colour " + i + " at " + ratio + " is too close to the background");
         }
     }
@@ -80,13 +85,13 @@ class ThemeTest {
         Color background = Theme.CLEAR_LIGHT.palette().background();
         Color[] ansi = Theme.CLEAR_LIGHT.palette().ansi();
         for (int i : new int[] {7, 11, 14, 15}) {
-            assertTrue(contrast(background, ansi[i]) < 2.0,
+            assertTrue(
+                    contrast(background, ansi[i]) < 2.0,
                     () -> "index " + i + " was expected to be one of Apple's faint colours");
         }
         // Everything else in the palette is fine, so the theme is usable — it is these four only.
         for (int i : new int[] {1, 2, 3, 4, 5, 6, 9, 10, 12, 13}) {
-            assertTrue(contrast(background, ansi[i]) > 1.9,
-                    () -> "index " + i + " should be legible in Clear Light");
+            assertTrue(contrast(background, ansi[i]) > 1.9, () -> "index " + i + " should be legible in Clear Light");
         }
     }
 

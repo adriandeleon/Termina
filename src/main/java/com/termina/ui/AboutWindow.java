@@ -1,11 +1,7 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
-import com.termina.AppInfo;
-import com.termina.config.Settings;
-import com.termina.update.ReleaseInfo;
 import java.util.function.Consumer;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -19,6 +15,12 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+
+import com.termina.AppInfo;
+import com.termina.config.Settings;
+import com.termina.update.ReleaseInfo;
+
+import static com.termina.i18n.Messages.tr;
 
 /** About: what this build is, where it came from, and whether something newer exists. */
 public final class AboutWindow {
@@ -81,9 +83,7 @@ public final class AboutWindow {
         if (!AppInfo.BUILD_TIME.isBlank()) {
             details.getChildren().add(new Label(tr("about.built", AppInfo.BUILD_TIME)));
         }
-        details.getChildren().addAll(
-                new Label(AppInfo.COPYRIGHT),
-                new Label(AppInfo.LICENSE));
+        details.getChildren().addAll(new Label(AppInfo.COPYRIGHT), new Label(AppInfo.LICENSE));
 
         Hyperlink homepage = new Hyperlink(AppInfo.HOMEPAGE);
         homepage.setOnAction(e -> openLink.accept(AppInfo.HOMEPAGE));
@@ -92,8 +92,7 @@ public final class AboutWindow {
         settingsPath.getStyleClass().add("about-path");
         settingsPath.setWrapText(true);
 
-        Label credits = new Label(
-                tr("about.credits"));
+        Label credits = new Label(tr("about.credits"));
         credits.getStyleClass().add("about-credits");
         credits.setWrapText(true);
 
@@ -135,9 +134,7 @@ public final class AboutWindow {
         headline.getStyleClass().add("about-update-headline");
         Hyperlink download = new Hyperlink(tr("about.openReleasePage"));
         download.setOnAction(e -> {
-            String url = update.url() == null || update.url().isBlank()
-                    ? AppInfo.RELEASES_PAGE
-                    : update.url();
+            String url = update.url() == null || update.url().isBlank() ? AppInfo.RELEASES_PAGE : update.url();
             openLink.accept(url);
         });
         updateRow.getChildren().addAll(headline, download);

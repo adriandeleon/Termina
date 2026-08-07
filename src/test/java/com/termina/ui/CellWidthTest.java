@@ -1,9 +1,9 @@
 package com.termina.ui;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import com.jediterm.terminal.util.CharUtils;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Buffer text measured in columns rather than in array slots. */
 class CellWidthTest {

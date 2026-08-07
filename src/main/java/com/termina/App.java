@@ -1,13 +1,14 @@
 package com.termina;
 
+import javafx.application.Application;
+import javafx.stage.Stage;
+
 import com.termina.cli.CommandLine;
 import com.termina.config.Settings;
 import com.termina.pty.LaunchOptions;
-import com.termina.ui.Theme;
 import com.termina.ui.TerminalWindow;
+import com.termina.ui.Theme;
 import com.termina.ui.WindowManager;
-import javafx.application.Application;
-import javafx.stage.Stage;
 
 /** Termina — a cross-platform terminal emulator on JavaFX. */
 public final class App extends Application {

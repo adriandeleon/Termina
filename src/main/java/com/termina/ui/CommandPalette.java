@@ -1,22 +1,22 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
-import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+
+import static com.termina.i18n.Messages.tr;
 
 /**
  * Every command in the window, findable by typing part of its name.
@@ -98,7 +98,8 @@ final class CommandPalette {
         host.getChildren().addAll(backdrop, card);
         // The height is only knowable once the rows exist; a fixed one either wastes space on a
         // short list or scrolls a list that would have fitted.
-        results.setPrefHeight(Math.min(VISIBLE_ROWS, Math.max(1, results.getItems().size())) * 28 + 8);
+        results.setPrefHeight(
+                Math.min(VISIBLE_ROWS, Math.max(1, results.getItems().size())) * 28 + 8);
         query.requestFocus();
     }
 

@@ -1,27 +1,12 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
-import com.jediterm.core.compatibility.Point;
-import com.jediterm.terminal.CursorShape;
-import com.jediterm.terminal.StyledTextConsumer;
-import com.jediterm.terminal.TextStyle;
-import com.jediterm.terminal.emulator.mouse.MouseEventProcessingSettings;
-import com.jediterm.terminal.emulator.mouse.MouseMode;
-import com.jediterm.terminal.model.CharBuffer;
-import com.jediterm.terminal.model.SelectionUtil;
-import com.jediterm.terminal.model.TerminalSelection;
-import com.jediterm.terminal.model.TerminalTextBuffer;
-import com.jediterm.terminal.util.CharUtils;
-import com.termina.config.Settings;
-import com.termina.term.TerminalSession;
 import java.io.IOException;
-import java.util.List;
+
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.geometry.VPos;
-import javafx.scene.canvas.Canvas;
 import javafx.scene.Node;
+import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
@@ -40,6 +25,22 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontSmoothingType;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+
+import com.jediterm.core.compatibility.Point;
+import com.jediterm.terminal.CursorShape;
+import com.jediterm.terminal.StyledTextConsumer;
+import com.jediterm.terminal.TextStyle;
+import com.jediterm.terminal.emulator.mouse.MouseEventProcessingSettings;
+import com.jediterm.terminal.emulator.mouse.MouseMode;
+import com.jediterm.terminal.model.CharBuffer;
+import com.jediterm.terminal.model.SelectionUtil;
+import com.jediterm.terminal.model.TerminalSelection;
+import com.jediterm.terminal.model.TerminalTextBuffer;
+import com.jediterm.terminal.util.CharUtils;
+import com.termina.config.Settings;
+import com.termina.term.TerminalSession;
+
+import static com.termina.i18n.Messages.tr;
 
 /**
  * Renders a {@link TerminalSession}'s screen onto a canvas and feeds it keyboard input.
@@ -74,8 +75,7 @@ public final class TerminalView extends Region {
      * {@code value = historyLines + scrollOrigin}, since scrollOrigin is 0 at the live screen and
      * negative going up.
      */
-    private final javafx.scene.control.ScrollBar scrollBar =
-            new javafx.scene.control.ScrollBar();
+    private final javafx.scene.control.ScrollBar scrollBar = new javafx.scene.control.ScrollBar();
 
     /** Guards the value listener while the bar is being updated from the buffer, not the mouse. */
     private boolean updatingScrollBar;
@@ -91,6 +91,7 @@ public final class TerminalView extends Region {
      * moment anyone drags at a natural angle.
      */
     private boolean pressedOnScrollBar;
+
     private final FxTerminalDisplay display = new FxTerminalDisplay();
 
     private TerminalSession session;
@@ -158,7 +159,6 @@ public final class TerminalView extends Region {
 
     /** Alt/Option prefixes ESC rather than composing a character; see {@link KeyEncoding}. */
     private boolean altIsMeta = true;
-
 
     private final AnimationTimer painter = new AnimationTimer() {
         @Override
@@ -266,8 +266,7 @@ public final class TerminalView extends Region {
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.color(1, 1, 1, 0.18));
         g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        javafx.animation.PauseTransition clear =
-                new javafx.animation.PauseTransition(javafx.util.Duration.millis(80));
+        javafx.animation.PauseTransition clear = new javafx.animation.PauseTransition(javafx.util.Duration.millis(80));
         clear.setOnFinished(e -> markDirty());
         clear.play();
     }
@@ -482,8 +481,8 @@ public final class TerminalView extends Region {
                 }
 
                 @Override
-                public void consumeNul(int x, int y, int nulIndex, TextStyle style,
-                        CharBuffer characters, int startRow) {
+                public void consumeNul(
+                        int x, int y, int nulIndex, TextStyle style, CharBuffer characters, int startRow) {
                     // Cells past the last written column. Only the background is meaningful —
                     // drawing NUL as text would paint boxes across every short line.
                     drawBackground(g, x, y - startRow, characters.length(), style);
@@ -854,8 +853,8 @@ public final class TerminalView extends Region {
      */
     public javafx.scene.Scene showContextMenuForCapture(double screenX, double screenY, boolean shift) {
         shiftOnLastPress = shift;
-        ContextMenuEvent event = new ContextMenuEvent(
-                ContextMenuEvent.CONTEXT_MENU_REQUESTED, 0, 0, screenX, screenY, false, null);
+        ContextMenuEvent event =
+                new ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 0, 0, screenX, screenY, false, null);
         onContextMenuRequested(event);
         return contextMenu != null && contextMenu.isShowing() ? contextMenu.getScene() : null;
     }

@@ -1,15 +1,16 @@
 package com.termina.config;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Persistence and the tolerance of a hand-edited file. */
 class SettingsTest {
@@ -63,8 +64,7 @@ class SettingsTest {
     }
 
     @Test
-    void aGarbledValueFallsBackToItsDefaultWithoutTakingTheRestWithIt(@TempDir Path dir)
-            throws IOException {
+    void aGarbledValueFallsBackToItsDefaultWithoutTakingTheRestWithIt(@TempDir Path dir) throws IOException {
         // The file is meant to be hand-editable, so one bad line must not cost the others.
         Path file = dir.resolve("settings.properties");
         Files.writeString(file, "font.size=enormous\nterminal.cursorShape=spiral\ntheme=editora-light\n");

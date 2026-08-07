@@ -2,6 +2,7 @@ package com.termina.ui;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 
@@ -194,5 +195,4 @@ public final class KeyEncoding {
             default -> null;
         };
     }
-
 }

@@ -1,17 +1,19 @@
 package com.termina.ui;
 
+import java.util.Locale;
+
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.Locale;
-import javafx.scene.input.KeyCode;
-import javafx.scene.input.KeyCombination;
-import javafx.scene.input.KeyEvent;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Which chord an application action claims.
@@ -51,8 +53,7 @@ class MenuActionTest {
         assertTrue(chord.match(shortcutPress(code, true)));
         // The point of the whole rule: unshifted, that chord is the shell's.
         assertFalse(
-                chord.match(shortcutPress(code, false)),
-                "plain shortcut+" + key + " must stay available to the shell");
+                chord.match(shortcutPress(code, false)), "plain shortcut+" + key + " must stay available to the shell");
     }
 
     @Test

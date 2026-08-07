@@ -1,38 +1,39 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
-import com.termina.config.Settings;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 import javafx.application.Platform;
-import javafx.beans.binding.Bindings;
 import javafx.collections.ListChangeListener;
-import javafx.scene.Scene;
-import javafx.scene.control.Tooltip;
-import javafx.util.Duration;
 import javafx.geometry.Pos;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.DataFormat;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.input.DataFormat;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+
+import com.termina.config.Settings;
+
+import static com.termina.i18n.Messages.tr;
 
 /** One window: a menu bar over a tab strip, each tab a terminal with its own shell. */
 public final class TerminalWindow {
@@ -47,8 +48,7 @@ public final class TerminalWindow {
      * Without it the in-window menu bar — the only place the hide setting does anything — could not
      * be seen or tested on the one machine this is developed on.
      */
-    private static final boolean SYSTEM_MENU_BAR =
-            MAC && !Boolean.getBoolean("termina.forceInWindowMenuBar");
+    private static final boolean SYSTEM_MENU_BAR = MAC && !Boolean.getBoolean("termina.forceInWindowMenuBar");
 
     private final WindowManager windows;
     private final Settings settings;
@@ -99,7 +99,8 @@ public final class TerminalWindow {
         plus.getStyleClass().add("tab-strip-glyph");
         newTabButton.setGraphic(plus);
         newTabButton.setOnAction(e -> openTab());
-        Tooltip newTabTip = new Tooltip(tr("tooltip.newTab", MenuAction.appChord(KeyCode.T).getDisplayText()));
+        Tooltip newTabTip =
+                new Tooltip(tr("tooltip.newTab", MenuAction.appChord(KeyCode.T).getDisplayText()));
         newTabTip.setShowDelay(Duration.millis(400));
         newTabButton.setTooltip(newTabTip);
         StackPane.setAlignment(newTabButton, Pos.TOP_RIGHT);
@@ -323,7 +324,9 @@ public final class TerminalWindow {
             int from = tabs.getTabs().indexOf(draggedTab);
             int over = tabs.getTabs().indexOf(tab);
             boolean after = e.getX() > title.getWidth() / 2;
-            moveTab(from, TabReorder.insertIndex(from, over, after, tabs.getTabs().size()));
+            moveTab(
+                    from,
+                    TabReorder.insertIndex(from, over, after, tabs.getTabs().size()));
             e.setDropCompleted(true);
             e.consume();
         });
@@ -389,19 +392,19 @@ public final class TerminalWindow {
      * one that was clicked rather than whichever happens to be selected.
      */
     private ContextMenu buildTabMenu(Tab tab) {
-        MenuItem closeOthers = tabItem(tr("menu.closeOtherTabs"), MenuIcons.closeOthers(),
-                () -> closeOtherTabs(tab));
-        MenuItem closeRight = tabItem(tr("menu.closeTabsToTheRight"), MenuIcons.closeRight(),
-                () -> closeTabsToTheRight(tab));
-        MenuItem moveLeft = tabItem(tr("menu.moveTabLeft"), MenuIcons.arrowLeft(),
-                () -> moveTabBy(tab, -1));
-        MenuItem moveRight = tabItem(tr("menu.moveTabRight"), MenuIcons.arrowRight(),
-                () -> moveTabBy(tab, 1));
+        MenuItem closeOthers = tabItem(tr("menu.closeOtherTabs"), MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
+        MenuItem closeRight =
+                tabItem(tr("menu.closeTabsToTheRight"), MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
+        MenuItem moveLeft = tabItem(tr("menu.moveTabLeft"), MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
+        MenuItem moveRight = tabItem(tr("menu.moveTabRight"), MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
 
         ContextMenu menu = new ContextMenu(
                 tabItem(tr("menu.newTab"), MenuIcons.newTab(), this::openTab),
                 new SeparatorMenuItem(),
-                tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> tabs.getTabs().remove(tab)),
+                tabItem(
+                        tr("menu.closeTab"),
+                        MenuIcons.close(),
+                        () -> tabs.getTabs().remove(tab)),
                 closeOthers,
                 closeRight,
                 new SeparatorMenuItem(),
@@ -459,7 +462,8 @@ public final class TerminalWindow {
 
     /** Selects a tab by index. For the development capture hook. */
     public void selectTab(int index) {
-        if (index >= 0 && index < tabs.getTabs().size()) tabs.getSelectionModel().select(index);
+        if (index >= 0 && index < tabs.getTabs().size())
+            tabs.getSelectionModel().select(index);
     }
 
     public void closeCurrentTab() {
@@ -518,7 +522,8 @@ public final class TerminalWindow {
         for (Menu m : menuBar.getMenus()) {
             out.append(m.getText()).append('[');
             for (MenuItem item : m.getItems()) {
-                out.append(item instanceof SeparatorMenuItem ? "-" : item.getText()).append('|');
+                out.append(item instanceof SeparatorMenuItem ? "-" : item.getText())
+                        .append('|');
             }
             out.append("] ");
         }
@@ -528,15 +533,18 @@ public final class TerminalWindow {
     public String layoutReport() {
         javafx.scene.Node header = tabs.lookup(".tab-header-area");
         return "menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
-                + " boundsH=" + (menuBar == null ? "?" : menuBar.getBoundsInParent().getHeight())
+                + " boundsH="
+                + (menuBar == null ? "?" : menuBar.getBoundsInParent().getHeight())
                 + " managed=" + (menuBar != null && menuBar.isManaged())
                 + " visible=" + (menuBar != null && menuBar.isVisible())
-                + " | tabHeader h=" + (header == null ? "absent" : header.getBoundsInParent().getHeight())
+                + " | tabHeader h="
+                + (header == null ? "absent" : header.getBoundsInParent().getHeight())
                 + " | tabs styleClass=" + tabs.getStyleClass()
                 + " | tabPane y=" + tabs.getBoundsInParent().getMinY()
                 + " | tabWidths=" + tabHeaderWidths()
                 + " | glyphs " + glyphBoxes()
-                + " | scrollBar " + (selectedTerminal() == null ? "none" : selectedTerminal().scrollBarReport());
+                + " | scrollBar "
+                + (selectedTerminal() == null ? "none" : selectedTerminal().scrollBarReport());
     }
 
     /**
@@ -559,8 +567,7 @@ public final class TerminalWindow {
     private static String box(javafx.scene.Node n) {
         if (n == null) return "absent";
         javafx.geometry.Bounds b = n.localToScene(n.getBoundsInLocal());
-        return "%dx%d@cy%.1f"
-                .formatted(Math.round(b.getWidth()), Math.round(b.getHeight()), b.getCenterY());
+        return "%dx%d@cy%.1f".formatted(Math.round(b.getWidth()), Math.round(b.getHeight()), b.getCenterY());
     }
 
     /** Actual rendered width of each tab header, to check the sizing rather than assume it. */
@@ -618,8 +625,7 @@ public final class TerminalWindow {
 
     private void applyTabWidths() {
         syncNewTabButtonHeight();
-        double width = TabLayout.tabWidth(
-                tabs.getWidth(), tabs.getTabs().size(), NEW_TAB_RESERVED, TAB_CHROME);
+        double width = TabLayout.tabWidth(tabs.getWidth(), tabs.getTabs().size(), NEW_TAB_RESERVED, TAB_CHROME);
         // Both bounds, or JavaFX sizes each tab to its label and they no longer tile.
         tabs.setTabMinWidth(width);
         tabs.setTabMaxWidth(width);
@@ -679,37 +685,50 @@ public final class TerminalWindow {
         // band of empty chrome above the terminal. Collapsed in CSS rather than hidden, so the
         // system-menu registration that depends on it being live is untouched.
 
-
-        Menu file = menu(tr("menu.file"),
+        Menu file = menu(
+                tr("menu.file"),
                 register(MenuAction.of(tr("menu.newTab"), MenuAction.appChord(KeyCode.T), this::openTab)),
                 register(MenuAction.of(tr("menu.newWindow"), MenuAction.appChord(KeyCode.N), windows::openWindow)),
                 null,
                 register(MenuAction.of(tr("menu.closeTab"), MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
                 register(MenuAction.of(tr("menu.closeWindow"), MenuAction.shiftChord(KeyCode.W), this::close)),
                 null,
-                register(MenuAction.of(tr("menu.settings"),
+                register(MenuAction.of(
+                        tr("menu.settings"),
                         new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
                         () -> windows.showSettings(stage))));
 
-        Menu edit = menu(tr("menu.edit"),
-                register(MenuAction.of(tr("menu.copy"), MenuAction.appChord(KeyCode.C),
+        Menu edit = menu(
+                tr("menu.edit"),
+                register(MenuAction.of(
+                        tr("menu.copy"),
+                        MenuAction.appChord(KeyCode.C),
                         () -> withActiveTerminal(TerminalView::copySelection))),
-                register(MenuAction.of(tr("menu.paste"), MenuAction.appChord(KeyCode.V),
+                register(MenuAction.of(
+                        tr("menu.paste"),
+                        MenuAction.appChord(KeyCode.V),
                         () -> withActiveTerminal(TerminalView::paste))),
-                register(MenuAction.of(tr("menu.selectAll"), MenuAction.appChord(KeyCode.A),
+                register(MenuAction.of(
+                        tr("menu.selectAll"),
+                        MenuAction.appChord(KeyCode.A),
                         () -> withActiveTerminal(TerminalView::selectAll))),
                 null,
-                register(MenuAction.of(tr("menu.clearScrollback"), MenuAction.appChord(KeyCode.K),
+                register(MenuAction.of(
+                        tr("menu.clearScrollback"),
+                        MenuAction.appChord(KeyCode.K),
                         () -> withActiveTerminal(TerminalView::clearScrollback))));
 
         List<MenuAction> viewItems = new java.util.ArrayList<>(List.of(
-                register(MenuAction.of(tr("menu.zoomIn"),
+                register(MenuAction.of(
+                        tr("menu.zoomIn"),
                         new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN),
                         () -> zoom(1))),
-                register(MenuAction.of(tr("menu.zoomOut"),
+                register(MenuAction.of(
+                        tr("menu.zoomOut"),
                         new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
                         () -> zoom(-1))),
-                register(MenuAction.of(tr("menu.actualSize"),
+                register(MenuAction.of(
+                        tr("menu.actualSize"),
                         new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
                         () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE)))));
         // Omitted entirely on macOS, where the menus live in the screen menu bar and there is
@@ -721,35 +740,39 @@ public final class TerminalWindow {
             viewItems.add(null);
             // Hiding it from the menu it lives in is only safe because the right-click menu
             // reaches Settings, which is how it comes back.
-            viewItems.add(register(MenuAction.of(tr("menu.hideMenuBar"),
-                    new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN,
-                            KeyCombination.SHIFT_DOWN),
+            viewItems.add(register(MenuAction.of(
+                    tr("menu.hideMenuBar"),
+                    new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                     () -> settings.setShowMenuBar(!settings.showMenuBar()))));
         }
         // Added to the list by hand rather than through menu(): a palette that offers to open the
         // palette is noise in every search.
         viewItems.add(null);
-        viewItems.add(register(MenuAction.of(tr("menu.commandPalette"),
+        viewItems.add(register(MenuAction.of(
+                tr("menu.commandPalette"),
                 new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                 this::showPalette)));
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
         commands.remove(viewItems.get(viewItems.size() - 1));
 
-        Menu window = menu(tr("menu.window"),
-                register(MenuAction.of(tr("menu.nextTab"), MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
-                        () -> selectRelativeTab(1))),
-                register(MenuAction.of(tr("menu.previousTab"), MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
+        Menu window = menu(
+                tr("menu.window"),
+                register(MenuAction.of(
+                        tr("menu.nextTab"), MenuAction.shiftChord(KeyCode.CLOSE_BRACKET), () -> selectRelativeTab(1))),
+                register(MenuAction.of(
+                        tr("menu.previousTab"),
+                        MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
                         () -> selectRelativeTab(-1))),
                 null,
                 // Dragging is the usual way, but a tab strip that can only be reordered by mouse is
                 // unreachable from the keyboard entirely.
-                register(MenuAction.of(tr("menu.moveTabLeft"),
-                        new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN,
-                                KeyCombination.SHIFT_DOWN),
+                register(MenuAction.of(
+                        tr("menu.moveTabLeft"),
+                        new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(-1))),
-                register(MenuAction.of(tr("menu.moveTabRight"),
-                        new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN,
-                                KeyCombination.SHIFT_DOWN),
+                register(MenuAction.of(
+                        tr("menu.moveTabRight"),
+                        new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(1))));
 
         // Help is built by hand rather than through menu(), because its update entry is a MenuItem
@@ -839,8 +862,7 @@ public final class TerminalWindow {
             }
         }
         // Zoom-in reaches here as EQUALS on most layouts, since + is the shifted key.
-        if (e.isShortcutDown() && !e.isShiftDown()
-                && (e.getCode() == KeyCode.EQUALS || e.getCode() == KeyCode.ADD)) {
+        if (e.isShortcutDown() && !e.isShiftDown() && (e.getCode() == KeyCode.EQUALS || e.getCode() == KeyCode.ADD)) {
             zoom(1);
             e.consume();
         }
@@ -910,8 +932,7 @@ public final class TerminalWindow {
     private void reportShellFailure(IOException e) {
         // Logged as well as shown. The dialog says one sentence and is then gone; this is the part
         // that survives to be pasted into a bug report, and it carries the stack trace.
-        System.getLogger(TerminalWindow.class.getName())
-                .log(System.Logger.Level.ERROR, "could not start a shell", e);
+        System.getLogger(TerminalWindow.class.getName()).log(System.Logger.Level.ERROR, "could not start a shell", e);
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initOwner(stage);
         alert.setTitle(com.termina.AppInfo.NAME);

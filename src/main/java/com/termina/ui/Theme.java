@@ -2,6 +2,7 @@ package com.termina.ui;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 import javafx.scene.paint.Color;
 
 /**
@@ -82,13 +83,7 @@ public enum Theme {
      * it renders opaque — the colours are exact, the translucency is not reproduced.
      */
     CLEAR_DARK(
-            "clear-dark",
-            "Clear Dark",
-            true,
-            "editora-dark",
-            Color.web("#191d27"),
-            Color.web("#e0e0e0"),
-            new String[] {
+            "clear-dark", "Clear Dark", true, "editora-dark", Color.web("#191d27"), Color.web("#e0e0e0"), new String[] {
                 "#35424c", "#b45648", "#6caa71", "#c4ac62",
                 "#6d96b4", "#bd7bcd", "#7ccbcd", "#dee5eb",
                 "#465c6d", "#df6c5a", "#79be7e", "#e5c872",
@@ -130,8 +125,14 @@ public enum Theme {
      *     borrows whichever Caret &amp; Ink sheet matches its brightness. That also keeps the two
      *     vendored 165 KB stylesheets as the only two.
      */
-    Theme(String id, String displayName, boolean dark, String chrome,
-            Color background, Color foreground, String[] ansi) {
+    Theme(
+            String id,
+            String displayName,
+            boolean dark,
+            String chrome,
+            Color background,
+            Color foreground,
+            String[] ansi) {
         this.id = id;
         this.displayName = displayName;
         this.dark = dark;

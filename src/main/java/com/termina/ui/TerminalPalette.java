@@ -1,7 +1,8 @@
 package com.termina.ui;
 
-import com.jediterm.terminal.TerminalColor;
 import javafx.scene.paint.Color;
+
+import com.jediterm.terminal.TerminalColor;
 
 /**
  * The colours a terminal draws with: a background, a default foreground, and the sixteen ANSI

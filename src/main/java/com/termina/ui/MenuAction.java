@@ -1,6 +1,7 @@
 package com.termina.ui;
 
 import java.util.Locale;
+
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;

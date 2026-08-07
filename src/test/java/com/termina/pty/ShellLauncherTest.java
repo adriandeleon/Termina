@@ -1,14 +1,15 @@
 package com.termina.pty;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Choosing the shell to launch.
@@ -64,7 +65,9 @@ class ShellLauncherTest {
     void theFallbackShellExistsOnThisMachine() {
         // The fallbacks are hardcoded paths. If one of them is wrong for this platform the app
         // opens a window with nothing in it.
-        assertTrue(java.nio.file.Files.isExecutable(java.nio.file.Path.of(ShellLauncher.shellCommand().get(0))),
+        assertTrue(
+                java.nio.file.Files.isExecutable(
+                        java.nio.file.Path.of(ShellLauncher.shellCommand().get(0))),
                 "not executable: " + ShellLauncher.shellCommand());
     }
 

@@ -1,7 +1,7 @@
 package com.termina;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import java.time.Duration;
+import java.time.Instant;
 
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.CursorShape;
@@ -13,9 +13,10 @@ import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.pty.ShellLauncher;
 import com.termina.term.TerminalSession;
-import java.time.Duration;
-import java.time.Instant;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * End-to-end over a real PTY: start the user's shell, run a command, read it back off the emulated

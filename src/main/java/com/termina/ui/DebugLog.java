@@ -82,8 +82,12 @@ public final class DebugLog {
         while (ENTRIES.size() > MAX_ENTRIES) ENTRIES.removeFirst();
         if (file == null) return;
         try {
-            Files.writeString(file, line + System.lineSeparator(), StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(
+                    file,
+                    line + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (IOException ignored) {
             // Same again: the in-memory copy is still there.
         }
@@ -105,9 +109,8 @@ public final class DebugLog {
 
     /** Renders a record as one line, with a stack trace after it when there is one. */
     static String format(LogRecord record) {
-        StringBuilder out = new StringBuilder(stamp(record.getLevel().getName()
-                + " " + shortName(record.getLoggerName())
-                + " — " + record.getMessage()));
+        StringBuilder out = new StringBuilder(stamp(
+                record.getLevel().getName() + " " + shortName(record.getLoggerName()) + " — " + record.getMessage()));
         if (record.getThrown() != null) {
             out.append(System.lineSeparator()).append(stackTrace(record.getThrown()));
         }

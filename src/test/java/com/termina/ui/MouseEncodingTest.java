@@ -1,24 +1,40 @@
 package com.termina.ui;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 
 import com.jediterm.terminal.emulator.mouse.MouseButtonCodes;
 import com.jediterm.terminal.emulator.mouse.MouseButtonModifierFlags;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The JavaFX-to-JediTerm mouse mapping. */
 class MouseEncodingTest {
 
     private static MouseEvent event(boolean control, boolean shift, boolean meta) {
         return new MouseEvent(
-                MouseEvent.MOUSE_PRESSED, 0, 0, 0, 0, MouseButton.PRIMARY, 1,
-                shift, control, false, meta,
-                true, false, false, false, false, false, null);
+                MouseEvent.MOUSE_PRESSED,
+                0,
+                0,
+                0,
+                0,
+                MouseButton.PRIMARY,
+                1,
+                shift,
+                control,
+                false,
+                meta,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                null);
     }
 
     @Test

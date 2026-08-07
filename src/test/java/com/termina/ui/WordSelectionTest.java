@@ -1,7 +1,5 @@
 package com.termina.ui;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.model.CharBuffer;
 import com.jediterm.terminal.model.SelectionUtil;
@@ -12,6 +10,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Word selection over JediTerm's separator helpers.

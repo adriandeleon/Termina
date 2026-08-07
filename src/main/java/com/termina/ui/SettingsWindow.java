@@ -1,9 +1,5 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
-import com.termina.config.Settings;
-import com.termina.i18n.Messages;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -11,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -19,10 +16,10 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
@@ -36,6 +33,11 @@ import javafx.scene.paint.Color;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+
+import com.termina.config.Settings;
+import com.termina.i18n.Messages;
+
+import static com.termina.i18n.Messages.tr;
 
 /**
  * Preferences, laid out the way Editora's are: a grouped sidebar on the left, one page per category
@@ -192,8 +194,8 @@ public final class SettingsWindow {
         // since the first version has pushed this up; the clamp is what stops that becoming a
         // problem on a laptop.
         javafx.geometry.Rectangle2D visible = javafx.stage.Screen.getPrimary().getVisualBounds();
-        Scene scene = new Scene(root, Math.min(1153, visible.getWidth() * 0.95),
-                Math.min(985, visible.getHeight() * 0.92));
+        Scene scene =
+                new Scene(root, Math.min(1153, visible.getWidth() * 0.95), Math.min(985, visible.getHeight() * 0.92));
         // A scene stylesheet, not part of the theme: it must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs.
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
@@ -326,7 +328,8 @@ public final class SettingsWindow {
     }
 
     /** A titled row with an explanatory line under it, in the shape Editora's settings use. */
-    private Node row(Category category, VBox section, String title, String description, Region control, String keywords) {
+    private Node row(
+            Category category, VBox section, String title, String description, Region control, String keywords) {
         Label name = new Label(title);
         name.getStyleClass().add("settings-row-title");
         VBox text = new VBox(2, name);
@@ -379,8 +382,12 @@ public final class SettingsWindow {
                 refreshPreview();
             }
         });
-        row(Category.APPEARANCE, theme, tr("settings.theme"),
-                tr("settings.theme.desc"), themeCombo,
+        row(
+                Category.APPEARANCE,
+                theme,
+                tr("settings.theme"),
+                tr("settings.theme.desc"),
+                themeCombo,
                 "theme colour color dark light appearance palette");
 
         VBox font = section(page, tr("settings.section.font"));
@@ -393,9 +400,13 @@ public final class SettingsWindow {
             settings.setFontFamily(value);
             refreshPreview();
         });
-        row(Category.APPEARANCE, font, tr("settings.fontFamily"),
+        row(
+                Category.APPEARANCE,
+                font,
+                tr("settings.fontFamily"),
                 tr("settings.fontFamily.desc"),
-                fontCombo, "font family typeface monospace");
+                fontCombo,
+                "font family typeface monospace");
 
         fontSize = new Spinner<>(new SpinnerValueFactory.DoubleSpinnerValueFactory(
                 Settings.MIN_FONT_SIZE, Settings.MAX_FONT_SIZE, Settings.DEFAULT_FONT_SIZE, 1));
@@ -406,9 +417,13 @@ public final class SettingsWindow {
             settings.setFontSize(value);
             refreshPreview();
         });
-        row(Category.APPEARANCE, font, tr("settings.fontSize"),
+        row(
+                Category.APPEARANCE,
+                font,
+                tr("settings.fontSize"),
                 tr("settings.fontSize.desc", shortcutName()),
-                fontSize, "font size zoom scale");
+                fontSize,
+                "font size zoom scale");
 
         VBox tabsSection = section(page, tr("settings.section.tabs"));
 
@@ -417,9 +432,13 @@ public final class SettingsWindow {
             if (loading) return;
             settings.setHideTabBarWhenSingle(value);
         });
-        row(Category.APPEARANCE, tabsSection, tr("settings.hideTabBar"),
+        row(
+                Category.APPEARANCE,
+                tabsSection,
+                tr("settings.hideTabBar"),
                 tr("settings.hideTabBar.desc"),
-                hideTabBar, "tab bar tabs hide single chrome strip header");
+                hideTabBar,
+                "tab bar tabs hide single chrome strip header");
 
         VBox windowSection = section(page, tr("settings.section.window"));
 
@@ -432,18 +451,26 @@ public final class SettingsWindow {
         // Disabled rather than hidden on macOS: a setting that silently does nothing is worse than
         // one that says why it cannot.
         showMenuBar.setDisable(mac);
-        row(Category.APPEARANCE, windowSection, tr("settings.showMenuBar"),
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.showMenuBar"),
                 mac ? tr("settings.showMenuBar.mac") : tr("settings.showMenuBar.desc"),
-                showMenuBar, "menu bar menubar hide chrome window");
+                showMenuBar,
+                "menu bar menubar hide chrome window");
 
         showScrollBar = new CheckBox();
         showScrollBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
             settings.setShowScrollBar(value);
         });
-        row(Category.APPEARANCE, windowSection, tr("settings.showScrollBar"),
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.showScrollBar"),
                 tr("settings.showScrollBar.desc"),
-                showScrollBar, "scroll bar scrollbar scrollback history gutter");
+                showScrollBar,
+                "scroll bar scrollbar scrollback history gutter");
 
         windowOpacity = new Slider(WindowOpacity.MIN * 100, WindowOpacity.MAX * 100, 100);
         windowOpacity.setPrefWidth(180);
@@ -465,9 +492,13 @@ public final class SettingsWindow {
         });
         HBox opacityControl = new HBox(8, windowOpacity, windowOpacityValue);
         opacityControl.setAlignment(Pos.CENTER_RIGHT);
-        row(Category.APPEARANCE, windowSection, tr("settings.windowOpacity"),
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.windowOpacity"),
                 tr("settings.windowOpacity.desc"),
-                opacityControl, "opacity transparent transparency see through alpha blur");
+                opacityControl,
+                "opacity transparent transparency see through alpha blur");
 
         VBox languageSection = section(page, tr("settings.section.language"));
 
@@ -480,9 +511,7 @@ public final class SettingsWindow {
         language.setConverter(new javafx.util.StringConverter<>() {
             @Override
             public String toString(String code) {
-                return code == null || code.isBlank()
-                        ? tr("settings.language.automatic")
-                        : Messages.languageName(code);
+                return code == null || code.isBlank() ? tr("settings.language.automatic") : Messages.languageName(code);
             }
 
             @Override
@@ -494,8 +523,13 @@ public final class SettingsWindow {
             if (loading) return;
             settings.setUiLanguage(value == null ? "" : value);
         });
-        row(Category.APPEARANCE, languageSection, tr("settings.language"), tr("settings.language.desc"),
-                language, "language locale idioma langue sprache lingua idioma interface");
+        row(
+                Category.APPEARANCE,
+                languageSection,
+                tr("settings.language"),
+                tr("settings.language.desc"),
+                language,
+                "language locale idioma langue sprache lingua idioma interface");
 
         VBox previewSection = section(page, tr("settings.section.preview"));
         preview = new PalettePreview();
@@ -524,17 +558,20 @@ public final class SettingsWindow {
             if (loading || value == null) return;
             settings.setCursorShape(value);
         });
-        row(Category.TERMINAL, display, tr("settings.cursorShape"),
+        row(
+                Category.TERMINAL,
+                display,
+                tr("settings.cursorShape"),
                 tr("settings.cursorShape.desc"),
-                cursorShape, "cursor caret shape block underline bar");
+                cursorShape,
+                "cursor caret shape block underline bar");
 
         bell = new CheckBox();
         bell.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
             settings.setBell(value);
         });
-        row(Category.TERMINAL, display, tr("settings.bell"),
-                tr("settings.bell.desc"), bell, "bell alert flash sound");
+        row(Category.TERMINAL, display, tr("settings.bell"), tr("settings.bell.desc"), bell, "bell alert flash sound");
 
         VBox session = section(page, tr("settings.section.session"));
 
@@ -546,8 +583,12 @@ public final class SettingsWindow {
             if (loading || value == null) return;
             settings.setScrollbackLines(value);
         });
-        row(Category.TERMINAL, session, tr("settings.scrollback"),
-                tr("settings.scrollback.desc"), scrollback,
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.scrollback"),
+                tr("settings.scrollback.desc"),
+                scrollback,
                 "scrollback history lines buffer memory");
 
         shellField = new TextField();
@@ -559,8 +600,12 @@ public final class SettingsWindow {
         shellField.setOnAction(e -> {
             if (!loading) settings.setShell(shellField.getText());
         });
-        row(Category.TERMINAL, session, tr("settings.shell"),
-                tr("settings.shell.desc"), shellField,
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.shell"),
+                tr("settings.shell.desc"),
+                shellField,
                 "shell zsh bash program command login");
 
         VBox input = section(page, tr("settings.section.input"));
@@ -570,9 +615,13 @@ public final class SettingsWindow {
             if (loading) return;
             settings.setAltIsMeta(value);
         });
-        row(Category.TERMINAL, input, tr("settings.altIsMeta"),
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.altIsMeta"),
                 tr("settings.altIsMeta.desc"),
-                altIsMeta, "alt option meta escape readline compose");
+                altIsMeta,
+                "alt option meta escape readline compose");
     }
 
     private void buildAdvanced(VBox page) {
@@ -581,9 +630,13 @@ public final class SettingsWindow {
         settingsPath = new Label();
         settingsPath.getStyleClass().add("settings-path");
         settingsPath.setWrapText(true);
-        row(Category.ADVANCED, files, tr("settings.settingsFile"),
+        row(
+                Category.ADVANCED,
+                files,
+                tr("settings.settingsFile"),
                 tr("settings.settingsFile.desc"),
-                settingsPath, "settings file path properties config location");
+                settingsPath,
+                "settings file path properties config location");
 
         VBox diagnostics = section(page, tr("settings.section.diagnostics"));
         Button showDebugLog = new Button(tr("settings.debugLog.button"));
@@ -591,8 +644,13 @@ public final class SettingsWindow {
             if (debugLog == null) debugLog = new DebugLogWindow(stage);
             debugLog.show();
         });
-        row(Category.ADVANCED, diagnostics, tr("settings.debugLog"), tr("settings.debugLog.desc"),
-                showDebugLog, "debug log diagnostics errors warnings crash trace troubleshoot");
+        row(
+                Category.ADVANCED,
+                diagnostics,
+                tr("settings.debugLog"),
+                tr("settings.debugLog.desc"),
+                showDebugLog,
+                "debug log diagnostics errors warnings crash trace troubleshoot");
     }
 
     /** Built on first use: most sessions never open it. */
@@ -663,10 +721,11 @@ public final class SettingsWindow {
             box.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 6;");
 
             Color[] ansi = palette.ansi();
-            lines.getChildren().setAll(
-                    line(family, size, palette.foreground(), "user@host ~ % ls --color"),
-                    coloured(family, size, ansi),
-                    line(family, size, ansi[8], "# dim comment    " + "日本語  ✓"));
+            lines.getChildren()
+                    .setAll(
+                            line(family, size, palette.foreground(), "user@host ~ % ls --color"),
+                            coloured(family, size, ansi),
+                            line(family, size, ansi[8], "# dim comment    " + "日本語  ✓"));
 
             swatches.getChildren().clear();
             for (Color color : ansi) {
@@ -679,8 +738,8 @@ public final class SettingsWindow {
 
         private static Label line(String family, double size, Color colour, String text) {
             Label label = new Label(text);
-            label.setStyle("-fx-font-family: '" + family + "'; -fx-font-size: " + size
-                    + "px; -fx-text-fill: " + toCss(colour) + ";");
+            label.setStyle("-fx-font-family: '" + family + "'; -fx-font-size: " + size + "px; -fx-text-fill: "
+                    + toCss(colour) + ";");
             return label;
         }
 
@@ -697,9 +756,8 @@ public final class SettingsWindow {
         private static String toCss(Color color) {
             return String.format(
                     "#%02x%02x%02x",
-                    (int) Math.round(color.getRed() * 255),
-                    (int) Math.round(color.getGreen() * 255),
-                    (int) Math.round(color.getBlue() * 255));
+                    (int) Math.round(color.getRed() * 255), (int) Math.round(color.getGreen() * 255), (int)
+                            Math.round(color.getBlue() * 255));
         }
     }
 }

@@ -1,11 +1,9 @@
 package com.termina;
 
-import com.termina.ui.TerminalView;
-import com.termina.ui.TerminalWindow;
-import com.termina.ui.WindowManager;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.event.Event;
@@ -17,6 +15,10 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.util.Duration;
+
+import com.termina.ui.TerminalView;
+import com.termina.ui.TerminalWindow;
+import com.termina.ui.WindowManager;
 
 /**
  * Development-only screen capture, driven entirely by system properties so it costs nothing when
@@ -48,19 +50,18 @@ final class DevCapture {
      */
     private static volatile double maxStallMs;
 
-    private static final javafx.animation.AnimationTimer STALL_METER =
-            new javafx.animation.AnimationTimer() {
-                private long previous;
+    private static final javafx.animation.AnimationTimer STALL_METER = new javafx.animation.AnimationTimer() {
+        private long previous;
 
-                @Override
-                public void handle(long now) {
-                    if (previous != 0) {
-                        double gap = (now - previous) / 1_000_000.0;
-                        if (gap > maxStallMs) maxStallMs = gap;
-                    }
-                    previous = now;
-                }
-            };
+        @Override
+        public void handle(long now) {
+            if (previous != 0) {
+                double gap = (now - previous) / 1_000_000.0;
+                if (gap > maxStallMs) maxStallMs = gap;
+            }
+            previous = now;
+        }
+    };
 
     /**
      * Runs an optional command, drives optional input, writes a PNG, then exits.
@@ -73,8 +74,7 @@ final class DevCapture {
         schedule(windows, firstWindow, null);
     }
 
-    static void schedule(
-            WindowManager windows, TerminalWindow window, com.termina.config.Settings settings) {
+    static void schedule(WindowManager windows, TerminalWindow window, com.termina.config.Settings settings) {
         String target = System.getProperty(CAPTURE_PROPERTY);
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
@@ -243,9 +243,11 @@ final class DevCapture {
         if (System.getProperty("termina.captureLogProbe") == null) return;
         System.getLogger("com.termina.probe.Fake")
                 .log(System.Logger.Level.WARNING, "probe warning", new IllegalStateException("probe cause"));
-        Thread thread = new Thread(() -> {
-            throw new IllegalArgumentException("probe uncaught");
-        }, "probe-thread");
+        Thread thread = new Thread(
+                () -> {
+                    throw new IllegalArgumentException("probe uncaught");
+                },
+                "probe-thread");
         thread.start();
         try {
             thread.join(1000);
@@ -287,10 +289,18 @@ final class DevCapture {
         String[] parts = spec.split(",");
         javafx.scene.input.KeyCode code = javafx.scene.input.KeyCode.valueOf(parts[0].trim());
         boolean shift = parts.length > 1 && Boolean.parseBoolean(parts[1].trim());
-        boolean mac = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+        boolean mac = System.getProperty("os.name", "")
+                .toLowerCase(java.util.Locale.ROOT)
+                .startsWith("mac");
         javafx.scene.input.KeyEvent event = new javafx.scene.input.KeyEvent(
-                javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code,
-                shift, !mac, false, mac); // shift, control, alt, meta
+                javafx.scene.input.KeyEvent.KEY_PRESSED,
+                "",
+                "",
+                code,
+                shift,
+                !mac,
+                false,
+                mac); // shift, control, alt, meta
         Event.fireEvent(window.stage().getScene(), event);
         System.out.println("[capture] fired chord " + spec);
     }
@@ -306,14 +316,48 @@ final class DevCapture {
     private static void probeKeyEncodings(TerminalView terminal) {
         if (System.getProperty("termina.captureKeyProbe") == null) return;
         int[][] keys = {
-            {9, 'T'}, {8, 'B'}, {10, 'E'}, {27, 'X'}, {33, 'U'}, {34, 'D'}, {35, 'N'}, {36, 'H'},
-            {37, 'L'}, {38, 'P'}, {39, 'R'}, {40, 'W'}, {155, 'I'}, {127, 'Z'},
-            {112, '1'}, {113, '2'}, {114, '3'}, {115, '4'}, {116, '5'}, {117, '6'},
+            {9, 'T'},
+            {8, 'B'},
+            {10, 'E'},
+            {27, 'X'},
+            {33, 'U'},
+            {34, 'D'},
+            {35, 'N'},
+            {36, 'H'},
+            {37, 'L'},
+            {38, 'P'},
+            {39, 'R'},
+            {40, 'W'},
+            {155, 'I'},
+            {127, 'Z'},
+            {112, '1'},
+            {113, '2'},
+            {114, '3'},
+            {115, '4'},
+            {116, '5'},
+            {117, '6'},
         };
         String[] names = {
-            "TAB", "BACK_SPACE", "ENTER", "ESCAPE", "PAGE_UP", "PAGE_DOWN", "END", "HOME",
-            "LEFT", "UP", "RIGHT", "DOWN", "INSERT", "DELETE",
-            "F1", "F2", "F3", "F4", "F5", "F6",
+            "TAB",
+            "BACK_SPACE",
+            "ENTER",
+            "ESCAPE",
+            "PAGE_UP",
+            "PAGE_DOWN",
+            "END",
+            "HOME",
+            "LEFT",
+            "UP",
+            "RIGHT",
+            "DOWN",
+            "INSERT",
+            "DELETE",
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
         };
         StringBuilder missing = new StringBuilder();
         for (int i = 0; i < keys.length; i++) {
@@ -342,10 +386,11 @@ final class DevCapture {
                 Thread.currentThread().interrupt();
             }
         }
-        Event.fireEvent(terminal, new javafx.scene.input.KeyEvent(
-                javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code, shift, false, false, false));
-        System.out.println("[capture] pressed " + spec + "; terminal still focused="
-                + terminal.isFocused());
+        Event.fireEvent(
+                terminal,
+                new javafx.scene.input.KeyEvent(
+                        javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code, shift, false, false, false));
+        System.out.println("[capture] pressed " + spec + "; terminal still focused=" + terminal.isFocused());
     }
 
     /**
@@ -359,9 +404,17 @@ final class DevCapture {
         terminal.showContextMenuForCapture(300, 300, false);
         System.out.println("[capture] menu open before dismiss=" + terminal.isContextMenuShowing());
         if (how.equals("escape")) {
-            Event.fireEvent(terminal, new javafx.scene.input.KeyEvent(
-                    javafx.scene.input.KeyEvent.KEY_PRESSED, "", "",
-                    javafx.scene.input.KeyCode.ESCAPE, false, false, false, false));
+            Event.fireEvent(
+                    terminal,
+                    new javafx.scene.input.KeyEvent(
+                            javafx.scene.input.KeyEvent.KEY_PRESSED,
+                            "",
+                            "",
+                            javafx.scene.input.KeyCode.ESCAPE,
+                            false,
+                            false,
+                            false,
+                            false));
         } else {
             Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, 400, 400, 1, false));
         }
@@ -395,8 +448,7 @@ final class DevCapture {
      * The scene to photograph: the window's own, unless asked for the context menu, which lives in
      * a scene of its own.
      */
-    private static Scene sceneToCapture(
-            WindowManager windows, TerminalWindow window, TerminalView terminal) {
+    private static Scene sceneToCapture(WindowManager windows, TerminalWindow window, TerminalView terminal) {
         Scene fallback = window.stage().getScene();
         if (System.getProperty("termina.captureSettings") != null) {
             return windows.showSettingsForCapture(window.stage(), System.getProperty("termina.captureSettings"));
@@ -417,8 +469,8 @@ final class DevCapture {
             double y = Double.parseDouble(parts[1].trim());
             boolean shift = parts.length > 2 && Boolean.parseBoolean(parts[2].trim());
             Scene menu = terminal.showContextMenuForCapture(x, y, shift);
-            System.out.println("[capture] context menu shown=" + (menu != null)
-                    + " mouseMode=" + terminal.getDisplay().getMouseMode());
+            System.out.println("[capture] context menu shown=" + (menu != null) + " mouseMode="
+                    + terminal.getDisplay().getMouseMode());
             if (menu != null) return menu;
         }
         return fallback;
@@ -440,14 +492,30 @@ final class DevCapture {
         double x = Double.parseDouble(parts[0].trim());
         double y = Double.parseDouble(parts[1].trim());
         double deltaY = Double.parseDouble(parts[2].trim());
-        Event.fireEvent(terminal, new ScrollEvent(
-                ScrollEvent.SCROLL, x, y, x, y,
-                false, false, false, false, // shift, control, alt, meta
-                false, false, // direct, inertia
-                0, deltaY, 0, deltaY,
-                ScrollEvent.HorizontalTextScrollUnits.NONE, 0,
-                ScrollEvent.VerticalTextScrollUnits.NONE, 0,
-                0, null));
+        Event.fireEvent(
+                terminal,
+                new ScrollEvent(
+                        ScrollEvent.SCROLL,
+                        x,
+                        y,
+                        x,
+                        y,
+                        false,
+                        false,
+                        false,
+                        false, // shift, control, alt, meta
+                        false,
+                        false, // direct, inertia
+                        0,
+                        deltaY,
+                        0,
+                        deltaY,
+                        ScrollEvent.HorizontalTextScrollUnits.NONE,
+                        0,
+                        ScrollEvent.VerticalTextScrollUnits.NONE,
+                        0,
+                        0,
+                        null));
         System.out.println("[capture] scrolled deltaY=" + deltaY);
     }
 
@@ -509,8 +577,8 @@ final class DevCapture {
         Event.fireEvent(bar, mouse(MouseEvent.MOUSE_PRESSED, 4, y1, 1, false));
         Event.fireEvent(bar, mouse(MouseEvent.MOUSE_DRAGGED, 4, y2, 1, false));
         Event.fireEvent(bar, mouse(MouseEvent.MOUSE_RELEASED, 4, y2, 1, false));
-        System.out.println("[capture] scrollbar mouse drag: selection=" + terminal.hasSelection()
-                + " " + terminal.scrollBarReport());
+        System.out.println("[capture] scrollbar mouse drag: selection=" + terminal.hasSelection() + " "
+                + terminal.scrollBarReport());
     }
 
     /**
@@ -540,13 +608,25 @@ final class DevCapture {
         }
     }
 
-    private static MouseEvent mouse(
-            EventType<MouseEvent> type, double x, double y, int clicks, boolean shift) {
+    private static MouseEvent mouse(EventType<MouseEvent> type, double x, double y, int clicks, boolean shift) {
         return new MouseEvent(
-                type, x, y, x, y, MouseButton.PRIMARY, clicks,
-                shift, false, false, false, // shift, control, alt, meta
-                true, false, false, // primary/middle/secondary button down
-                false, false, false, // synthesized, popup trigger, still since press
+                type,
+                x,
+                y,
+                x,
+                y,
+                MouseButton.PRIMARY,
+                clicks,
+                shift,
+                false,
+                false,
+                false, // shift, control, alt, meta
+                true,
+                false,
+                false, // primary/middle/secondary button down
+                false,
+                false,
+                false, // synthesized, popup trigger, still since press
                 null);
     }
 

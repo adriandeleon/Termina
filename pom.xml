@@ -21,6 +21,9 @@
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
 
         <javafx.version>26.0.2</javafx.version>
+        <spotless.version>3.6.0</spotless.version>
+        <palantir.version>2.92.0</palantir.version>
+        <jacoco.version>0.8.13</jacoco.version>
         <javafx.plugin.version>0.0.8</javafx.plugin.version>
 
         <!-- Prism pipeline order (-Dprism.order). Set per-OS in the os-* profiles:
@@ -161,6 +164,153 @@
             </resource>
         </resources>
         <plugins>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <removeUnusedImports/>
+                        <palantirJavaFormat>
+                            <version>${palantir.version}</version>
+                        </palantirJavaFormat>
+                        <!-- importOrder runs AFTER Palantir so it has the final say on grouping;
+                             Palantir otherwise collapses everything into one alphabetical block.
+                             Groups, blank-line separated, longest prefix wins so javafx is not
+                             swallowed by java: JDK, then javafx, then everything else (third-party
+                             and com.termina), then static imports last. -->
+                        <importOrder>
+                            <order>java|javax,javafx,,\#</order>
+                        </importOrder>
+                        <toggleOffOn/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <!-- verify, not compile: `mvn javafx:run` and the compile loop stay
+                             untouched, and CI still refuses unformatted code. -->
+                        <id>spotless-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <!--
+                          A regression net, not a target. Each floor sits well below the coverage
+                          actually measured, so it catches tests being deleted or a package being
+                          gutted, and does not fail for a few lines of drift.
+
+                          Deliberately generous, because the matrix does not run the same tests
+                          everywhere: the PTY test is skipped on Windows and two ShellLauncher cases
+                          with it. Measured without the PTY test, term and pty do not move at all —
+                          but a floor that only holds on the machine it was measured on is a red
+                          build waiting for a platform, not a safety net.
+                        -->
+                        <id>jacoco-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <haltOnFailure>true</haltOnFailure>
+                            <rules>
+                                <!-- The command line: pure parsing, fully covered (100%). -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.cli</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <!-- i18n 80%, pty 69%, term 64%, update 61%, config 59%. -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.i18n</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.pty</include>
+                                        <include>com.termina.term</include>
+                                        <include>com.termina.update</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.50</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.config</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.45</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <!--
+                                  com.termina.ui and com.termina are deliberately ungated. The ui
+                                  package is 2,100 lines of which the great majority is the renderer,
+                                  the window and the settings sheet — toolkit code a headless suite
+                                  cannot reach — so a package-level number there says nothing about
+                                  whether the tested parts of it are still tested. Its pure pieces
+                                  (the matcher, the cell arithmetic, the tab layout, the palette
+                                  ranking) are covered individually. com.termina is the JavaFX entry
+                                  point and the capture harness.
+
+                                  The way to raise ui is to keep pulling decisions out into pure
+                                  classes and testing those, not to lower the bar until it passes.
+                                -->
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

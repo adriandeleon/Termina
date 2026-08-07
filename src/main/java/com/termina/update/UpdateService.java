@@ -1,6 +1,5 @@
 package com.termina.update;
 
-import com.termina.AppInfo;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -9,7 +8,10 @@ import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+
 import javafx.application.Platform;
+
+import com.termina.AppInfo;
 
 /**
  * Asks GitHub whether there is a newer release.
@@ -91,9 +93,7 @@ public final class UpdateService {
 
             ReleaseInfo latest = UpdateCheck.parseLatest(body);
             if (latest == null) return Outcome.none();
-            return UpdateCheck.isNewer(currentVersion, latest.version())
-                    ? Outcome.found(latest)
-                    : Outcome.none();
+            return UpdateCheck.isNewer(currentVersion, latest.version()) ? Outcome.found(latest) : Outcome.none();
         } catch (Exception e) {
             // Offline, DNS failure, timeout, TLS problem. A background check that fails is not the
             // user's problem; only a check they asked for reports anything.

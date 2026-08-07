@@ -1,7 +1,5 @@
 package com.termina.ui;
 
-import static com.termina.i18n.Messages.tr;
-
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -17,6 +15,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+
+import static com.termina.i18n.Messages.tr;
 
 /** Shows what {@link DebugLog} has captured, with a button to copy it into a bug report. */
 final class DebugLogWindow {

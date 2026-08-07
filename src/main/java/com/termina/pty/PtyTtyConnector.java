@@ -1,11 +1,12 @@
 package com.termina.pty;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.ProcessTtyConnector;
 import com.pty4j.PtyProcess;
 import com.pty4j.WinSize;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 /**
  * Bridges pty4j's {@link PtyProcess} to JediTerm's {@code TtyConnector}.

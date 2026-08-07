@@ -1,12 +1,13 @@
 package com.termina.ui;
 
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import org.junit.jupiter.api.Test;
 
 /** The debug log's formatting and bounds. */
 class DebugLogTest {
