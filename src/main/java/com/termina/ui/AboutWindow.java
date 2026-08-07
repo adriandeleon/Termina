@@ -115,6 +115,7 @@ public final class AboutWindow {
         Scene scene = new Scene(root, 460, 380);
         var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Fonts.installUiFont(scene);
         stage.setScene(scene);
 
         refreshUpdateRow();

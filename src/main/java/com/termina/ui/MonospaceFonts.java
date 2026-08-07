@@ -22,9 +22,11 @@ public final class MonospaceFonts {
     /**
      * Preferred faces, best first. Tried before the measured list so a machine with a good terminal
      * font gets it by default rather than whatever sorts first alphabetically.
+     *
+     * <p>The bundled families lead, because they are the only ones guaranteed to be there — a
+     * default naming a system font gives a different terminal on each platform.
      */
-    private static final List<String> PREFERRED = List.of(
-            "JetBrains Mono",
+    private static final List<String> PREFERRED = concat(Fonts.BUNDLED_MONO, List.of(
             "SF Mono",
             "Menlo",
             "Cascadia Mono",
@@ -34,7 +36,13 @@ public final class MonospaceFonts {
             "Liberation Mono",
             "Ubuntu Mono",
             "Noto Sans Mono",
-            "Monospaced");
+            "Monospaced"));
+
+    private static List<String> concat(List<String> first, List<String> second) {
+        List<String> all = new ArrayList<>(first);
+        all.addAll(second);
+        return List.copyOf(all);
+    }
 
     private static List<String> cached;
 

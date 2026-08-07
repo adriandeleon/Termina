@@ -23,6 +23,10 @@ public final class App extends Application {
 
     @Override
     public void start(Stage stage) {
+        // Before the stylesheet below and before any window: CSS naming a font that is not yet
+        // registered does not wait for it, it silently resolves to the system face.
+        com.termina.ui.Fonts.load();
+
         Settings settings = new Settings(Settings.defaultFile());
         settings.load();
 

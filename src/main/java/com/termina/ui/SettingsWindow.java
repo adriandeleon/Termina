@@ -163,11 +163,12 @@ public final class SettingsWindow {
         // preferences that scrolls hides the rows below the fold.
         // Grown from the original 760x520 over several passes; a page of preferences that scrolls
         // hides the rows below the fold, which is the opposite of what a settings window is for.
-        Scene scene = new Scene(root, 1153, 789);
+        Scene scene = new Scene(root, 1153, 845);
         // A scene stylesheet, not part of the theme: it must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs.
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Fonts.installUiFont(scene);
         stage.setScene(scene);
         Icons.applyTo(stage);
 

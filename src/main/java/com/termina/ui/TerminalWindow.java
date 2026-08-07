@@ -116,6 +116,7 @@ public final class TerminalWindow {
         scene.setFill(theme.palette().background());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
         if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
+        Fonts.installUiFont(scene);
 
         // A scene FILTER, not the menu's accelerators: filters run in the capturing phase, before
         // TerminalView's own filter turns Ctrl+<letter> into a control byte for the shell.

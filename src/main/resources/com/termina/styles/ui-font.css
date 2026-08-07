@@ -1,0 +1,15 @@
+/*
+ * The interface font.
+ *
+ * A scene stylesheet rather than a rule in app.css, because dialogs and popups each live in a scene
+ * of their own, and because a scene sheet survives the runtime setUserAgentStylesheet that a theme
+ * switch performs.
+ *
+ * Pinned to Inter for the same reason the fonts are bundled at all: the JavaFX default is the
+ * logical "System" family, which is a different typeface on each platform. Inter is also what the
+ * Caret & Ink themes were drawn against. The terminal itself is untouched — it takes its face from
+ * the font setting.
+ */
+.root {
+    -fx-font-family: "Inter";
+}

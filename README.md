@@ -213,6 +213,13 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
+**Fonts are bundled**, not borrowed from the machine: five monospace families (JetBrains Mono,
+Cascadia Code, Fira Code, IBM Plex Mono, Source Code Pro) and Inter for the interface. A picker over
+whatever happens to be installed gives Menlo on macOS, Consolas on Windows and DejaVu on Linux —
+three sets of metrics, and no way to describe a setup to anyone else. The bundled families lead the
+picker, since they are the only ones guaranteed to be there; every installed monospace face is still
+listed after them. They are the same families Editora ships, which is where the themes come from.
+
 **Window size is remembered** across launches, clamped to the screen that is actually present — a
 size saved on a 4K display and restored on a laptop would otherwise put the title bar off-screen,
 where no mouse can reach it. Only the un-maximized size is stored, so un-maximizing does not restore
