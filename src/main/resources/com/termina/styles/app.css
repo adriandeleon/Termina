@@ -97,3 +97,55 @@
     -fx-background-color: -color-bg-subtle;
     -fx-text-fill: -color-fg-default;
 }
+
+
+/*
+ * The scrollback bar.
+ *
+ * Deliberately minimal: it lives inside the terminal, next to text the user is reading, so it is a
+ * thumb on the background rather than a control with a track and stepper buttons. The two colours
+ * come from the terminal palette as looked-up variables set in TerminalView, not from the chrome
+ * theme — the terminal can be Clear Dark while the window chrome is light, and a bar following the
+ * chrome would be invisible against the text.
+ *
+ * The stepper buttons are collapsed rather than hidden: an invisible button still reserves its
+ * height, which would leave the thumb unable to reach either end of its own track.
+ */
+.terminal-scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-pref-width: 9;
+}
+
+.terminal-scroll-bar:vertical > .track,
+.terminal-scroll-bar:vertical > .track-background {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+}
+
+.terminal-scroll-bar:vertical > .thumb {
+    -fx-background-color: -terminal-thumb;
+    -fx-background-insets: 0 2 0 2;
+    -fx-background-radius: 3;
+}
+
+.terminal-scroll-bar:vertical > .thumb:hover,
+.terminal-scroll-bar:vertical > .thumb:pressed {
+    -fx-background-color: -terminal-thumb-hover;
+}
+
+.terminal-scroll-bar:vertical > .increment-button,
+.terminal-scroll-bar:vertical > .decrement-button {
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+    -fx-min-height: 0;
+    -fx-max-height: 0;
+}
+
+.terminal-scroll-bar:vertical > .increment-button > .increment-arrow,
+.terminal-scroll-bar:vertical > .decrement-button > .decrement-arrow {
+    -fx-shape: null;
+    -fx-padding: 0;
+}

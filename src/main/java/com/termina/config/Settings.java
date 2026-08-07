@@ -27,6 +27,7 @@ public final class Settings {
     public static final String BELL = "terminal.bell";
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
+    public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
@@ -200,6 +201,15 @@ public final class Settings {
 
     public void setShowMenuBar(boolean show) {
         put(SHOW_MENU_BAR, String.valueOf(show));
+    }
+
+    /** Show a scrollbar for the scrollback. The wheel works either way. */
+    public boolean showScrollBar() {
+        return readBoolean(SHOW_SCROLL_BAR, true);
+    }
+
+    public void setShowScrollBar(boolean show) {
+        put(SHOW_SCROLL_BAR, String.valueOf(show));
     }
 
     /** Check GitHub for a newer release at startup, at most once a day. */

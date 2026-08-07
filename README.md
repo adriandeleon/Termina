@@ -206,6 +206,13 @@ Tabs tile the full width and shrink as more are added, the way macOS Terminal an
 lay them out — down to a floor of 60px, past which the strip overflows rather than rendering
 slivers with no readable title. Whatever the count, they meet the new-tab button.
 
+An optional **scrollbar** (Appearance → Window, on by default) shows the scrollback and drags it.
+It takes a real column of width rather than floating over the text, so the shell is resized when it
+appears — a bar drawn over the last column would cover a character of every line. It hides itself on
+the alternate screen, where a full-screen program owns the viewport and there is no scrollback to
+reach, and it is coloured from the terminal palette rather than the window theme, since the two can
+differ.
+
 Right-clicking a tab gives New Tab, Close Tab, Close Other Tabs, Close Tabs to the Right, and Move
 Tab Left/Right, with the inapplicable ones disabled. It is attached with `Tab.setContextMenu`, so it
 acts on the tab that was clicked rather than whichever is selected.

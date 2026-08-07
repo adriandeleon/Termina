@@ -119,7 +119,7 @@ final class DevCapture {
             PauseTransition afterCommand = new PauseTransition(Duration.millis(afterCommandMs));
             afterCommand.setOnFinished(e2 -> {
                 TerminalView active = window.activeTerminal();
-                if (active != null) driveInput(active);
+                if (active != null) driveInput(window, active);
                 fireChordIfRequested(window);
                 selectTabIfRequested(window);
                 closeTabsIfRequested(window);
@@ -192,6 +192,20 @@ final class DevCapture {
             System.out.println("[capture] layout " + w.layoutReport());
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
         }
+    }
+
+    /**
+     * {@code -Dtermina.captureScrollBarTo=<value>} moves the scrollbar the way a drag does, going
+     * through the same listener rather than setting scrollOrigin behind its back — otherwise the
+     * test proves the renderer scrolls, not that the bar drives it.
+     */
+    private static void dragScrollBarIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureScrollBarTo");
+        if (spec == null) return;
+        TerminalView terminal = window.selectedTerminal();
+        if (terminal == null) return;
+        terminal.setScrollBarValue(Double.parseDouble(spec.trim()));
+        System.out.println("[capture] after drag: " + terminal.scrollBarReport());
     }
 
     private static long descendants() {
@@ -308,6 +322,11 @@ final class DevCapture {
         if (index == null) return;
         window.selectTab(index);
         System.out.println("[capture] selected tab " + index);
+    }
+
+    private static void driveInput(TerminalWindow window, TerminalView terminal) {
+        dragScrollBarIfRequested(window);
+        driveInput(terminal);
     }
 
     private static void driveInput(TerminalView terminal) {

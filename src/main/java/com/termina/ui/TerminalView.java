@@ -63,6 +63,22 @@ public final class TerminalView extends Region {
     private static final double SELECTION_ALPHA = 0.30;
 
     private final Canvas canvas = new Canvas();
+
+    /**
+     * Scrollbar for the scrollback.
+     *
+     * <p>Its range is in <em>lines of history</em>, with the bottom of the track meaning the live
+     * screen — the direction every terminal uses. Value therefore counts up as you scroll back:
+     * {@code value = historyLines + scrollOrigin}, since scrollOrigin is 0 at the live screen and
+     * negative going up.
+     */
+    private final javafx.scene.control.ScrollBar scrollBar =
+            new javafx.scene.control.ScrollBar();
+
+    /** Guards the value listener while the bar is being updated from the buffer, not the mouse. */
+    private boolean updatingScrollBar;
+
+    private boolean scrollBarEnabled = true;
     private final FxTerminalDisplay display = new FxTerminalDisplay();
 
     private TerminalSession session;
@@ -145,7 +161,13 @@ public final class TerminalView extends Region {
     public TerminalView(double fontSize) {
         applyFont();
         setFontSize(fontSize);
-        getChildren().add(canvas);
+        scrollBar.setOrientation(javafx.geometry.Orientation.VERTICAL);
+        scrollBar.getStyleClass().add("terminal-scroll-bar");
+        scrollBar.setFocusTraversable(false);
+        scrollBar.setVisible(false);
+        scrollBar.setManaged(false);
+        scrollBar.valueProperty().addListener((o, was, now) -> onScrollBarMoved(now.doubleValue()));
+        getChildren().addAll(canvas, scrollBar);
         setFocusTraversable(true);
         canvas.setFocusTraversable(false);
 
@@ -270,7 +292,29 @@ public final class TerminalView extends Region {
     public void setPalette(TerminalPalette palette) {
         this.palette = palette;
         this.selectionWash = washFor(palette);
+        styleScrollBar(palette);
         markDirty();
+    }
+
+    /**
+     * Colours the scrollbar from the terminal palette rather than the chrome theme.
+     *
+     * <p>It sits inside the terminal, so a control-themed bar reads as a piece of the window that
+     * wandered into the text. The colours are pushed as looked-up variables, because a thumb is a
+     * child node an inline style on the bar cannot reach.
+     */
+    private void styleScrollBar(TerminalPalette palette) {
+        Color fg = palette.foreground();
+        scrollBar.setStyle("-terminal-thumb: " + web(fg, 0.35) + "; -terminal-thumb-hover: " + web(fg, 0.6) + ";");
+    }
+
+    private static String web(Color c, double alpha) {
+        return "rgba(%d,%d,%d,%s)"
+                .formatted(
+                        Math.round(c.getRed() * 255),
+                        Math.round(c.getGreen() * 255),
+                        Math.round(c.getBlue() * 255),
+                        alpha);
     }
 
     private static Color washFor(TerminalPalette palette) {
@@ -285,6 +329,70 @@ public final class TerminalView extends Region {
 
     public void setBellEnabled(boolean bellEnabled) {
         this.bellEnabled = bellEnabled;
+    }
+
+    /**
+     * Shows or hides the scrollbar. This changes how many columns fit, so the shell is resized —
+     * the bar takes real width rather than floating over the text, where it would cover the last
+     * column of every line.
+     */
+    public void setScrollBarEnabled(boolean enabled) {
+        if (scrollBarEnabled == enabled) return;
+        scrollBarEnabled = enabled;
+        requestLayout();
+        markDirty();
+    }
+
+    private void onScrollBarMoved(double value) {
+        if (updatingScrollBar || buffer == null) return;
+        scrollOrigin = ScrollBarModel.origin(buffer.getHistoryLinesCount(), value);
+        markDirty();
+    }
+
+    /** Reflects the buffer into the scrollbar. Cheap: property setters no-op on an equal value. */
+    private void updateScrollBar() {
+        if (buffer == null) return;
+        int history = buffer.getHistoryLinesCount();
+        // Nothing to scroll on the alternate screen — a full-screen program owns the viewport and
+        // has no scrollback of its own.
+        boolean useful = ScrollBarModel.useful(scrollBarEnabled, history, display.isAlternateScreen());
+        if (scrollBar.isManaged() != useful) {
+            scrollBar.setVisible(useful);
+            scrollBar.setManaged(useful);
+            // Appearing or vanishing changes the width available for columns.
+            requestLayout();
+        }
+        if (!useful) return;
+        updatingScrollBar = true;
+        try {
+            scrollBar.setMin(0);
+            scrollBar.setMax(history);
+            scrollBar.setVisibleAmount(rows);
+            scrollBar.setValue(ScrollBarModel.value(history, scrollOrigin));
+        } finally {
+            updatingScrollBar = false;
+        }
+    }
+
+    /** State of the scrollbar, so a capture run can assert on it rather than eyeball the thumb. */
+    public String scrollBarReport() {
+        return "shown=" + scrollBar.isManaged()
+                + " value=" + Math.round(scrollBar.getValue())
+                + " max=" + Math.round(scrollBar.getMax())
+                + " thumb=" + Math.round(scrollBar.getVisibleAmount())
+                + " w=" + Math.round(scrollBarWidth())
+                + " cols=" + columns
+                + " origin=" + scrollOrigin;
+    }
+
+    /** Moves the bar as a drag would, going through the same listener the mouse uses. */
+    public void setScrollBarValue(double value) {
+        scrollBar.setValue(value);
+    }
+
+    /** Width the scrollbar takes from the terminal, or 0 when it is not shown. */
+    private double scrollBarWidth() {
+        return scrollBar.isManaged() ? scrollBar.prefWidth(-1) : 0;
     }
 
     private void measureFont() {
@@ -302,11 +410,13 @@ public final class TerminalView extends Region {
     protected void layoutChildren() {
         double w = getWidth();
         double h = getHeight();
-        canvas.setWidth(w);
+        double barWidth = scrollBarWidth();
+        canvas.setWidth(Math.max(0, w - barWidth));
         canvas.setHeight(h);
         canvas.relocate(0, 0);
+        if (barWidth > 0) scrollBar.resizeRelocate(w - barWidth, 0, barWidth, h);
 
-        int newColumns = Math.max(MIN_COLUMNS, (int) Math.floor(w / charWidth));
+        int newColumns = Math.max(MIN_COLUMNS, (int) Math.floor((w - barWidth) / charWidth));
         int newRows = Math.max(MIN_ROWS, (int) Math.floor(h / lineHeight));
         if (newColumns != columns || newRows != rows) {
             columns = newColumns;
@@ -363,6 +473,7 @@ public final class TerminalView extends Region {
             });
             drawSelection(g);
             drawCursor(g);
+            updateScrollBar();
         } finally {
             buffer.unlock();
         }

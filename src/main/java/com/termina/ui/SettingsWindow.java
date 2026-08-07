@@ -327,6 +327,7 @@ public final class SettingsWindow {
     private CheckBox bell;
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
+    private CheckBox showScrollBar;
     private TextField shellField;
     private Label settingsPath;
 
@@ -404,6 +405,16 @@ public final class SettingsWindow {
                         : "Hiding it keeps every command reachable by keyboard, and Settings stays "
                                 + "on the right-click menu.",
                 showMenuBar, "menu bar menubar hide chrome window");
+
+        showScrollBar = new CheckBox();
+        showScrollBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setShowScrollBar(value);
+        });
+        row(Category.APPEARANCE, windowSection, "Show a scrollbar",
+                "It takes a column of width rather than floating over the text. The wheel scrolls "
+                        + "the history either way.",
+                showScrollBar, "scroll bar scrollbar scrollback history gutter");
 
         VBox previewSection = section(page, "Preview");
         preview = new PalettePreview();
@@ -504,6 +515,7 @@ public final class SettingsWindow {
             bell.setSelected(settings.bell());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showMenuBar.setSelected(settings.showMenuBar());
+            showScrollBar.setSelected(settings.showScrollBar());
             shellField.setText(settings.shell());
             settingsPath.setText(settings.file().toString());
         } finally {

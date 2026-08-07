@@ -447,6 +447,12 @@ public final class TerminalWindow {
     }
 
     /** Every live terminal in this window. */
+    /** The terminal of the selected tab, or null when there is none. */
+    public TerminalView selectedTerminal() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        return tab == null ? null : terminalOf(tab);
+    }
+
     public List<TerminalView> terminals() {
         List<TerminalView> views = new ArrayList<>();
         for (Tab tab : tabs.getTabs()) views.add(terminalOf(tab));
@@ -472,7 +478,8 @@ public final class TerminalWindow {
                 + " | tabHeader h=" + (header == null ? "absent" : header.getBoundsInParent().getHeight())
                 + " | tabs styleClass=" + tabs.getStyleClass()
                 + " | tabPane y=" + tabs.getBoundsInParent().getMinY()
-                + " | tabWidths=" + tabHeaderWidths();
+                + " | tabWidths=" + tabHeaderWidths()
+                + " | scrollBar " + (selectedTerminal() == null ? "none" : selectedTerminal().scrollBarReport());
     }
 
     /** Actual rendered width of each tab header, to check the sizing rather than assume it. */
@@ -697,6 +704,7 @@ public final class TerminalWindow {
         terminal.setPreferredCursor(settings.cursorShape());
         terminal.setAltIsMeta(settings.altIsMeta());
         terminal.setBellEnabled(settings.bell());
+        terminal.setScrollBarEnabled(settings.showScrollBar());
     }
 
     private void reportShellFailure(IOException e) {
