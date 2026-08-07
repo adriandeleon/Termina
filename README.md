@@ -204,8 +204,14 @@ is developed on.
 
 Tabs tile the full width and shrink as more are added, the way macOS Terminal and GNOME Terminal
 lay them out — down to a floor of 60px, past which the strip overflows rather than rendering
-slivers with no readable title. A lone tab does not stretch: filling the window with one tab reads
-as a title bar, and neither of those terminals does it.
+slivers with no readable title. Whatever the count, they meet the new-tab button.
+
+Right-clicking a tab gives New Tab, Close Tab, Close Other Tabs, Close Tabs to the Right, and Move
+Tab Left/Right, with the inapplicable ones disabled. It is attached with `Tab.setContextMenu`, so it
+acts on the tab that was clicked rather than whichever is selected.
+
+The **window title follows the selected tab**, bound to that terminal's own title property so it
+tracks the shell live rather than only at the moment of selection.
 
 The **+** button floats over the right end of the strip rather than being a tab of its own. A
 sentinel "+" tab would pollute every count and index in the window — tab disposal, reordering, the

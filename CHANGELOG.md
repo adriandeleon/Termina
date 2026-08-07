@@ -20,6 +20,8 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   from macOS Terminal with colours read out of Apple's own profiles.
 - **Menu bar can be hidden** (`Cmd/Ctrl+Shift+M`), on the platforms that draw one in the window.
 - **Tabs tile the window width** and shrink as more are added, with a **+** button in the strip.
+- **Per-tab right-click menu**: new, close, close others, close to the right, move left/right.
+- **Window title follows the selected tab**, as macOS Terminal does.
 - **Tab reordering** by drag, or `Cmd/Ctrl+Shift+Left/Right`.
 - **Tab bar hides itself** while only one tab is open, reclaiming the row for the terminal.
 - **About window** and an **update check** against GitHub releases, throttled to once a day and

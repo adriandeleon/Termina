@@ -12,8 +12,10 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -106,17 +108,30 @@ public final class TerminalWindow {
 
         stage.setScene(scene);
         Icons.applyTo(stage);
-        stage.titleProperty().bind(Bindings.createStringBinding(
-                () -> {
-                    Tab selected = tabs.getSelectionModel().getSelectedItem();
-                    return selected == null ? "Termina" : selected.getText();
-                },
-                tabs.getSelectionModel().selectedItemProperty()));
-
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
+            bindTitleTo(tab);
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });
+        bindTitleTo(null);
+    }
+
+    /**
+     * Follows the selected tab's title, as macOS Terminal does.
+     *
+     * <p>Bound to the terminal's own title property rather than to the tab, so it tracks the shell
+     * live rather than only at the moment of selection. It cannot read {@code Tab.getText()} at
+     * all: the title moved onto a Label graphic when tabs became draggable — a Tab is not a Node
+     * and has nowhere to attach drag handlers — which left {@code getText()} null and the window
+     * title empty.
+     */
+    private void bindTitleTo(Tab tab) {
+        stage.titleProperty().unbind();
+        if (tab == null) {
+            stage.setTitle(com.termina.AppInfo.NAME);
+            return;
+        }
+        stage.titleProperty().bind(terminalOf(tab).getDisplay().windowTitleProperty());
     }
 
     /**
@@ -204,6 +219,7 @@ public final class TerminalWindow {
         title.getStyleClass().add("tab-title");
         title.textProperty().bind(terminal.getDisplay().windowTitleProperty());
         tab.setGraphic(title);
+        tab.setContextMenu(buildTabMenu(tab));
         installTabDrag(tab, title);
 
         tabs.getTabs().add(tab);
@@ -320,6 +336,87 @@ public final class TerminalWindow {
 
     private static String label(Tab tab) {
         return tab.getGraphic() instanceof Label l ? l.getText() : "";
+    }
+
+    /**
+     * The menu for right-clicking a tab header.
+     *
+     * <p>Built per tab and attached with {@code Tab.setContextMenu}, which is JavaFX's own hook for
+     * this — so it appears on the header rather than on the terminal, and the tab it acts on is the
+     * one that was clicked rather than whichever happens to be selected.
+     */
+    private ContextMenu buildTabMenu(Tab tab) {
+        MenuItem closeOthers = tabItem("Close Other Tabs", MenuIcons.closeOthers(),
+                () -> closeOtherTabs(tab));
+        MenuItem closeRight = tabItem("Close Tabs to the Right", MenuIcons.closeRight(),
+                () -> closeTabsToTheRight(tab));
+        MenuItem moveLeft = tabItem("Move Tab Left", MenuIcons.arrowLeft(),
+                () -> moveTabBy(tab, -1));
+        MenuItem moveRight = tabItem("Move Tab Right", MenuIcons.arrowRight(),
+                () -> moveTabBy(tab, 1));
+
+        ContextMenu menu = new ContextMenu(
+                tabItem("New Tab", MenuIcons.newTab(), this::openTab),
+                new SeparatorMenuItem(),
+                tabItem("Close Tab", MenuIcons.close(), () -> tabs.getTabs().remove(tab)),
+                closeOthers,
+                closeRight,
+                new SeparatorMenuItem(),
+                moveLeft,
+                moveRight);
+        // Recomputed per show: how many tabs there are, and where this one sits, both change long
+        // after the menu was built.
+        menu.setOnShowing(e -> {
+            int index = tabs.getTabs().indexOf(tab);
+            int count = tabs.getTabs().size();
+            closeOthers.setDisable(count < 2);
+            closeRight.setDisable(index < 0 || index >= count - 1);
+            moveLeft.setDisable(index <= 0);
+            moveRight.setDisable(index < 0 || index >= count - 1);
+        });
+        return menu;
+    }
+
+    private static MenuItem tabItem(String text, javafx.scene.Node icon, Runnable action) {
+        MenuItem item = new MenuItem(text, icon);
+        item.setOnAction(e -> action.run());
+        return item;
+    }
+
+    private void closeOtherTabs(Tab keep) {
+        for (Tab other : new ArrayList<>(tabs.getTabs())) {
+            if (other != keep) tabs.getTabs().remove(other);
+        }
+    }
+
+    private void closeTabsToTheRight(Tab from) {
+        int index = tabs.getTabs().indexOf(from);
+        if (index < 0) return;
+        // Backwards, so removing one does not shift the indices of those still to be removed.
+        for (int i = tabs.getTabs().size() - 1; i > index; i--) {
+            tabs.getTabs().remove(i);
+        }
+    }
+
+    private void moveTabBy(Tab tab, int delta) {
+        int from = tabs.getTabs().indexOf(tab);
+        int to = from + delta;
+        if (from < 0 || to < 0 || to >= tabs.getTabs().size()) return;
+        moveTab(from, to);
+    }
+
+    /** The clicked tab's menu, for the development capture hook. */
+    public javafx.scene.Scene showTabMenuForCapture(int index, double screenX, double screenY) {
+        if (index < 0 || index >= tabs.getTabs().size()) return null;
+        ContextMenu menu = tabs.getTabs().get(index).getContextMenu();
+        if (menu == null) return null;
+        menu.show(stage, screenX, screenY);
+        return menu.getScene();
+    }
+
+    /** Selects a tab by index. For the development capture hook. */
+    public void selectTab(int index) {
+        if (index >= 0 && index < tabs.getTabs().size()) tabs.getSelectionModel().select(index);
     }
 
     public void closeCurrentTab() {

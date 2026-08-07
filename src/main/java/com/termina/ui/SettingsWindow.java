@@ -161,9 +161,9 @@ public final class SettingsWindow {
 
         // 20% larger than the original 760x520: the Appearance page overflowed, and a page of
         // preferences that scrolls hides the rows below the fold.
-        // Grown twice from the original 760x520: a page of preferences that scrolls hides the
-        // rows below the fold, which is the opposite of what a settings window is for.
-        Scene scene = new Scene(root, 1003, 686);
+        // Grown from the original 760x520 over several passes; a page of preferences that scrolls
+        // hides the rows below the fold, which is the opposite of what a settings window is for.
+        Scene scene = new Scene(root, 1153, 789);
         // A scene stylesheet, not part of the theme: it must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs.
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");

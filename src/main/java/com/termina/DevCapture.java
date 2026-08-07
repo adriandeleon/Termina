@@ -121,6 +121,7 @@ final class DevCapture {
                 TerminalView active = window.activeTerminal();
                 if (active != null) driveInput(active);
                 fireChordIfRequested(window);
+                selectTabIfRequested(window);
                 closeTabsIfRequested(window);
                 if (settings != null) switchThemeIfRequested(settings);
                 TerminalWindow shown = windowToCapture(windows, window);
@@ -187,7 +188,10 @@ final class DevCapture {
                 + " terminals=" + windows.allTerminals().size()
                 + " descendants=" + descendants()
                 + " maxStallMs=" + Math.round(maxStallMs));
-        for (TerminalWindow w : windows.windows()) System.out.println("[capture] layout " + w.layoutReport());
+        for (TerminalWindow w : windows.windows()) {
+            System.out.println("[capture] layout " + w.layoutReport());
+            System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
+        }
     }
 
     private static long descendants() {
@@ -298,6 +302,14 @@ final class DevCapture {
         System.out.println("[capture] menu open after " + how + "=" + terminal.isContextMenuShowing());
     }
 
+    /** {@code -Dtermina.captureSelectTab=N} selects a tab, to check what follows the selection. */
+    private static void selectTabIfRequested(TerminalWindow window) {
+        Integer index = Integer.getInteger("termina.captureSelectTab");
+        if (index == null) return;
+        window.selectTab(index);
+        System.out.println("[capture] selected tab " + index);
+    }
+
     private static void driveInput(TerminalView terminal) {
         probeKeyEncodings(terminal);
         dismissMenuIfRequested(terminal);
@@ -319,6 +331,12 @@ final class DevCapture {
         }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
+        }
+        String tabMenu = System.getProperty("termina.captureTabMenu");
+        if (tabMenu != null && !tabMenu.isBlank()) {
+            Scene menu = window.showTabMenuForCapture(Integer.parseInt(tabMenu.trim()), 200, 120);
+            System.out.println("[capture] tab menu shown=" + (menu != null));
+            if (menu != null) return menu;
         }
         String menuSpec = System.getProperty("termina.captureMenu");
         if (menuSpec != null && !menuSpec.isBlank() && terminal != null) {

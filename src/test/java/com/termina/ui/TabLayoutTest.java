@@ -34,10 +34,19 @@ class TabLayoutTest {
         assertTrue(six > twelve, "twelve should be narrower than six");
     }
 
-    @Test
-    void aLoneTabDoesNotStretchAcrossTheWindow() {
-        // Filling the width with one tab reads as a title bar. Neither macOS nor GNOME does it.
-        assertEquals(TabLayout.MAX_TAB_WIDTH, TabLayout.tabWidth(1600, 1, RESERVED, CHROME));
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 6})
+    void tabsAlwaysReachTheNewTabButton(int count) {
+        // The point of the whole feature: whatever the count, the tabs divide the strip and meet
+        // the button. An earlier cap of 260px per tab was hit at two tabs on any wide window and
+        // left most of the strip empty.
+        double strip = 1800;
+        double each = TabLayout.tabWidth(strip, count, RESERVED, CHROME);
+        double rendered = (each + CHROME) * count;
+        double slack = (strip - RESERVED) - rendered;
+        assertTrue(slack >= 0, () -> count + " tabs overflow by " + (-slack));
+        assertTrue(slack < count + 1,
+                () -> count + " tabs leave " + slack + "px unused before the button");
     }
 
     @Test
@@ -55,6 +64,6 @@ class TabLayoutTest {
 
     @Test
     void noTabsIsNotADivideByZero() {
-        assertEquals(TabLayout.MAX_TAB_WIDTH, TabLayout.tabWidth(900, 0, RESERVED, CHROME));
+        assertEquals(TabLayout.MIN_TAB_WIDTH, TabLayout.tabWidth(900, 0, RESERVED, CHROME));
     }
 }

@@ -11,14 +11,14 @@ import javafx.scene.shape.SVGPath;
  * the {@code .menu-icon} CSS rule rather than from here, so the glyphs follow the theme without a
  * per-theme copy.
  */
-final class MenuIcons {
+public final class MenuIcons {
 
     /** Material's 24dp grid. Scaled to sit comfortably beside menu text. */
     private static final double SCALE = 0.7;
 
     private MenuIcons() {}
 
-    static Node newTab() {
+    public static Node newTab() {
         return of("M4 5h16v2H4v12h16v-7h2v7c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2zm14"
                 + " 0V2h2v3h3v2h-3v3h-2V7h-3V5h3z");
     }
@@ -26,6 +26,29 @@ final class MenuIcons {
     static Node newWindow() {
         return of("M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0"
                 + " 14H5V8h14v10zm-6-7h4v2h-4v3h-2v-3H7v-2h4V8h2v3z");
+    }
+
+    static Node close() {
+        return of("M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59"
+                + " 19 19 17.59 13.41 12z");
+    }
+
+    static Node closeOthers() {
+        return of("M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59"
+                + " 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41"
+                + " 13.41 12 17 15.59z");
+    }
+
+    static Node closeRight() {
+        return of("M6 6h2v12H6zm4.5 6l4.5 4.5V13H21v-2h-6V7.5z");
+    }
+
+    static Node arrowLeft() {
+        return of("M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z");
+    }
+
+    static Node arrowRight() {
+        return of("M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z");
     }
 
     static Node copy() {
