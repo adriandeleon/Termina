@@ -24,6 +24,8 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Window title follows the selected tab**, as macOS Terminal does.
 - **Optional scrollbar** for the scrollback (Appearance → Window), palette-coloured.
 - Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.
+- **Window size is remembered** across launches, clamped to the current screen.
+- Tooltip on the new-tab button; "Hide Menu Bar" no longer appears in the menu on macOS.
 - **Tab reordering** by drag, or `Cmd/Ctrl+Shift+Left/Right`.
 - **Tab bar hides itself** while only one tab is open, reclaiming the row for the terminal.
 - **About window** and an **update check** against GitHub releases, throttled to once a day and

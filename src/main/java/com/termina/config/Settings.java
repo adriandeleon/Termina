@@ -28,6 +28,9 @@ public final class Settings {
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
+    public static final String WINDOW_WIDTH = "window.width";
+    public static final String WINDOW_HEIGHT = "window.height";
+    public static final String WINDOW_MAXIMIZED = "window.maximized";
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
@@ -210,6 +213,33 @@ public final class Settings {
 
     public void setShowScrollBar(boolean show) {
         put(SHOW_SCROLL_BAR, String.valueOf(show));
+    }
+
+    /** Width a new window opens at, or 0 when none has been recorded yet. */
+    public double windowWidth() {
+        return readDouble(WINDOW_WIDTH, 0);
+    }
+
+    public double windowHeight() {
+        return readDouble(WINDOW_HEIGHT, 0);
+    }
+
+    public boolean windowMaximized() {
+        return readBoolean(WINDOW_MAXIMIZED, false);
+    }
+
+    /**
+     * Records the geometry a window was last left at.
+     *
+     * <p>Written directly instead of through {@code put}, deliberately: that fires the change
+     * broadcast, which re-applies every setting to every terminal in every window. Geometry is not
+     * something the UI reacts to, and a resize is not something to repaint the whole app over.
+     */
+    public void setWindowGeometry(double width, double height, boolean maximized) {
+        properties.setProperty(WINDOW_WIDTH, String.valueOf(Math.round(width)));
+        properties.setProperty(WINDOW_HEIGHT, String.valueOf(Math.round(height)));
+        properties.setProperty(WINDOW_MAXIMIZED, String.valueOf(maximized));
+        save();
     }
 
     /** Check GitHub for a newer release at startup, at most once a day. */

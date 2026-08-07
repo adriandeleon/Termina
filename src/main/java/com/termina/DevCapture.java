@@ -124,6 +124,10 @@ final class DevCapture {
                 selectTabIfRequested(window);
                 closeTabsIfRequested(window);
                 if (settings != null) switchThemeIfRequested(settings);
+                // Before the settle pause, not after: a resize applied in the same pulse as the
+                // exit never reaches the scene, so the geometry written on close is the old one and
+                // the run proves nothing.
+                resizeIfRequested(window);
                 TerminalWindow shown = windowToCapture(windows, window);
                 Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
@@ -190,6 +194,7 @@ final class DevCapture {
                 + " maxStallMs=" + Math.round(maxStallMs));
         for (TerminalWindow w : windows.windows()) {
             System.out.println("[capture] layout " + w.layoutReport());
+            System.out.println("[capture] menus " + w.menuReport());
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
         }
     }
@@ -206,6 +211,19 @@ final class DevCapture {
         if (terminal == null) return;
         terminal.setScrollBarValue(Double.parseDouble(spec.trim()));
         System.out.println("[capture] after drag: " + terminal.scrollBarReport());
+    }
+
+    /**
+     * {@code -Dtermina.captureResizeTo=W,H} resizes the window before it closes, so the next run can
+     * show whether the size was remembered.
+     */
+    private static void resizeIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureResizeTo");
+        if (spec == null) return;
+        String[] parts = spec.split(",");
+        window.stage().setWidth(Double.parseDouble(parts[0].trim()));
+        window.stage().setHeight(Double.parseDouble(parts[1].trim()));
+        System.out.println("[capture] resized to " + spec);
     }
 
     private static long descendants() {

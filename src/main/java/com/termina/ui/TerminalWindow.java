@@ -8,6 +8,8 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Scene;
+import javafx.scene.control.Tooltip;
+import javafx.util.Duration;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -90,6 +92,9 @@ public final class TerminalWindow {
         plus.getStyleClass().add("tab-strip-glyph");
         newTabButton.setGraphic(plus);
         newTabButton.setOnAction(e -> openTab());
+        Tooltip newTabTip = new Tooltip("New Tab (" + MenuAction.appChord(KeyCode.T).getDisplayText() + ")");
+        newTabTip.setShowDelay(Duration.millis(400));
+        newTabButton.setTooltip(newTabTip);
         StackPane.setAlignment(newTabButton, Pos.TOP_RIGHT);
         StackPane tabHost = new StackPane(tabs, newTabButton);
 
@@ -101,7 +106,12 @@ public final class TerminalWindow {
         root.setTop(menuBar);
         applyMenuBarVisibility();
 
-        Scene scene = new Scene(root, 900, 560);
+        javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
+        double width = WindowGeometry.fit(settings.windowWidth(), DEFAULT_WIDTH, screen.getWidth());
+        double height = WindowGeometry.fit(settings.windowHeight(), DEFAULT_HEIGHT, screen.getHeight());
+        restoredWidth = width;
+        restoredHeight = height;
+        Scene scene = new Scene(root, width, height);
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
         scene.setFill(theme.palette().background());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
@@ -114,6 +124,8 @@ public final class TerminalWindow {
 
         stage.setScene(scene);
         Icons.applyTo(stage);
+        if (settings.windowMaximized()) stage.setMaximized(true);
+        trackGeometry();
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
@@ -475,6 +487,19 @@ public final class TerminalWindow {
     }
 
     /** Heights of the chrome above the terminal, for diagnosing stray bands. */
+    /** The menu bar as text, so a capture run can assert on what is in it. */
+    public String menuReport() {
+        StringBuilder out = new StringBuilder();
+        for (Menu m : menuBar.getMenus()) {
+            out.append(m.getText()).append('[');
+            for (MenuItem item : m.getItems()) {
+                out.append(item instanceof SeparatorMenuItem ? "-" : item.getText()).append('|');
+            }
+            out.append("] ");
+        }
+        return out.toString().trim();
+    }
+
     public String layoutReport() {
         javafx.scene.Node header = tabs.lookup(".tab-header-area");
         return "menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
@@ -500,6 +525,8 @@ public final class TerminalWindow {
         javafx.scene.Node close = tabs.lookup(".tab-close-button");
         javafx.scene.Node plus = newTabButton.lookup(".tab-strip-glyph");
         out.append("close=").append(box(close)).append(" plus=").append(box(plus));
+        Tooltip tip = newTabButton.getTooltip();
+        out.append(" plusTip=\"").append(tip == null ? "" : tip.getText()).append('"');
         return out.toString();
     }
 
@@ -528,6 +555,16 @@ public final class TerminalWindow {
      * Space kept clear at the right end of the strip for the new-tab button, and the per-tab
      * padding and close button that sit outside the width JavaFX lets us set.
      */
+    /** Size a window opens at before one has ever been recorded. */
+    private static final double DEFAULT_WIDTH = 900;
+
+    private static final double DEFAULT_HEIGHT = 560;
+
+    /** The window's size ignoring maximization, tracked live and written out on close. */
+    private double restoredWidth;
+
+    private double restoredHeight;
+
     private static final double NEW_TAB_RESERVED = 40;
 
     /**
@@ -560,6 +597,33 @@ public final class TerminalWindow {
         // Both bounds, or JavaFX sizes each tab to its label and they no longer tile.
         tabs.setTabMinWidth(width);
         tabs.setTabMaxWidth(width);
+    }
+
+    /**
+     * Remembers the window's size so the next launch opens at it.
+     *
+     * <p>Only the un-maximized size is recorded. A maximized window reports the screen's size, and
+     * storing that would mean un-maximizing next time restores to full screen — the restore button
+     * would appear to do nothing. Whether it *was* maximized is stored separately.
+     *
+     * <p>Saved when the window closes rather than as it is dragged: a write per resize event would
+     * be hundreds of writes for one drag.
+     */
+    private void trackGeometry() {
+        // The SCENE's size, not the stage's. The stage's height includes the title bar while the
+        // scene's does not, and the size is restored by constructing a Scene — so saving the outer
+        // height and restoring it as the inner one grows the window by a title bar on every single
+        // launch. Measured: set to 700, saved as 728.
+        Scene scene = stage.getScene();
+        scene.widthProperty().addListener((o, was, now) -> {
+            if (!stage.isMaximized()) restoredWidth = now.doubleValue();
+        });
+        scene.heightProperty().addListener((o, was, now) -> {
+            if (!stage.isMaximized()) restoredHeight = now.doubleValue();
+        });
+        // Hiding, not hidden: WindowManager's own onHidden handler ends the app when the last
+        // window goes, and the write has to have happened by then.
+        stage.setOnHiding(e -> settings.setWindowGeometry(restoredWidth, restoredHeight, stage.isMaximized()));
     }
 
     public void show() {
@@ -612,7 +676,7 @@ public final class TerminalWindow {
                 register(MenuAction.of("Clear Scrollback", MenuAction.appChord(KeyCode.K),
                         () -> withActiveTerminal(TerminalView::clearScrollback))));
 
-        Menu view = menu("View",
+        List<MenuAction> viewItems = new java.util.ArrayList<>(List.of(
                 register(MenuAction.of("Zoom In",
                         new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN),
                         () -> zoom(1))),
@@ -621,14 +685,22 @@ public final class TerminalWindow {
                         () -> zoom(-1))),
                 register(MenuAction.of("Actual Size",
                         new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
-                        () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE))),
-                null,
-                // Hiding it from the menu it lives in is only safe because the right-click menu
-                // reaches Settings, which is how it comes back.
-                register(MenuAction.of("Hide Menu Bar",
-                        new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN,
-                                KeyCombination.SHIFT_DOWN),
-                        () -> settings.setShowMenuBar(!settings.showMenuBar()))));
+                        () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE)))));
+        // Omitted entirely on macOS, where the menus live in the screen menu bar and there is
+        // nothing in the window to hide. The Settings checkbox is disabled-with-a-reason instead,
+        // because it has room to explain itself; a menu item has none, and one that does nothing
+        // when clicked is worse than one that is not there. Skipping it also leaves Shift+Cmd+M
+        // free rather than bound to a no-op.
+        if (!SYSTEM_MENU_BAR) {
+            viewItems.add(null);
+            // Hiding it from the menu it lives in is only safe because the right-click menu
+            // reaches Settings, which is how it comes back.
+            viewItems.add(register(MenuAction.of("Hide Menu Bar",
+                    new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN,
+                            KeyCombination.SHIFT_DOWN),
+                    () -> settings.setShowMenuBar(!settings.showMenuBar()))));
+        }
+        Menu view = menu("View", viewItems.toArray(MenuAction[]::new));
 
         Menu window = menu("Window",
                 register(MenuAction.of("Next Tab", MenuAction.shiftChord(KeyCode.CLOSE_BRACKET),
