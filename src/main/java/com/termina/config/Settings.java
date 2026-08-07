@@ -31,6 +31,7 @@ public final class Settings {
     public static final String WINDOW_WIDTH = "window.width";
     public static final String WINDOW_HEIGHT = "window.height";
     public static final String WINDOW_MAXIMIZED = "window.maximized";
+    public static final String WINDOW_OPACITY = "window.opacity";
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
@@ -240,6 +241,15 @@ public final class Settings {
         properties.setProperty(WINDOW_HEIGHT, String.valueOf(Math.round(height)));
         properties.setProperty(WINDOW_MAXIMIZED, String.valueOf(maximized));
         save();
+    }
+
+    /** How see-through a terminal window is, 0.6 to 1.0. Clamped by the caller. */
+    public double windowOpacity() {
+        return readDouble(WINDOW_OPACITY, 1.0);
+    }
+
+    public void setWindowOpacity(double opacity) {
+        put(WINDOW_OPACITY, String.valueOf(opacity));
     }
 
     /** Check GitHub for a newer release at startup, at most once a day. */

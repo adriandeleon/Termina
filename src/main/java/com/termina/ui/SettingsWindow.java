@@ -16,6 +16,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
@@ -163,7 +164,7 @@ public final class SettingsWindow {
         // preferences that scrolls hides the rows below the fold.
         // Grown from the original 760x520 over several passes; a page of preferences that scrolls
         // hides the rows below the fold, which is the opposite of what a settings window is for.
-        Scene scene = new Scene(root, 1153, 845);
+        Scene scene = new Scene(root, 1153, 905);
         // A scene stylesheet, not part of the theme: it must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs.
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
@@ -329,6 +330,8 @@ public final class SettingsWindow {
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
     private CheckBox showScrollBar;
+    private Slider windowOpacity;
+    private Label windowOpacityValue;
     private TextField shellField;
     private Label settingsPath;
 
@@ -416,6 +419,31 @@ public final class SettingsWindow {
                 "It takes a column of width rather than floating over the text. The wheel scrolls "
                         + "the history either way.",
                 showScrollBar, "scroll bar scrollbar scrollback history gutter");
+
+        windowOpacity = new Slider(WindowOpacity.MIN * 100, WindowOpacity.MAX * 100, 100);
+        windowOpacity.setPrefWidth(180);
+        windowOpacity.setMajorTickUnit(10);
+        windowOpacity.setMinorTickCount(1);
+        windowOpacity.setSnapToTicks(true);
+        windowOpacityValue = new Label("100%");
+        windowOpacityValue.setMinWidth(44);
+        // Live while dragging, but written only when the drag ends: every write saves the file and
+        // broadcasts a settings change to every terminal in every window, which is not something to
+        // do per pixel of travel.
+        windowOpacity.valueProperty().addListener((o, old, value) -> {
+            windowOpacityValue.setText(WindowOpacity.percent(value.doubleValue() / 100) + "%");
+            if (loading || windowOpacity.isValueChanging()) return;
+            settings.setWindowOpacity(value.doubleValue() / 100);
+        });
+        windowOpacity.valueChangingProperty().addListener((o, was, changing) -> {
+            if (!changing && !loading) settings.setWindowOpacity(windowOpacity.getValue() / 100);
+        });
+        HBox opacityControl = new HBox(8, windowOpacity, windowOpacityValue);
+        opacityControl.setAlignment(Pos.CENTER_RIGHT);
+        row(Category.APPEARANCE, windowSection, "Window opacity",
+                "Plain transparency, with no blur behind it — so it fades the text along with the "
+                        + "background. Applies to terminal windows only.",
+                opacityControl, "opacity transparent transparency see through alpha blur");
 
         VBox previewSection = section(page, "Preview");
         preview = new PalettePreview();
@@ -517,6 +545,7 @@ public final class SettingsWindow {
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showMenuBar.setSelected(settings.showMenuBar());
             showScrollBar.setSelected(settings.showScrollBar());
+            windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             shellField.setText(settings.shell());
             settingsPath.setText(settings.file().toString());
         } finally {

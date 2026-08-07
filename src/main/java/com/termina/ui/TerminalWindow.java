@@ -126,6 +126,7 @@ public final class TerminalWindow {
         stage.setScene(scene);
         Icons.applyTo(stage);
         if (settings.windowMaximized()) stage.setMaximized(true);
+        stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         trackGeometry();
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
@@ -528,6 +529,7 @@ public final class TerminalWindow {
         out.append("close=").append(box(close)).append(" plus=").append(box(plus));
         Tooltip tip = newTabButton.getTooltip();
         out.append(" plusTip=\"").append(tip == null ? "" : tip.getText()).append('"');
+        out.append(" opacity=").append(stage.getOpacity());
         return out.toString();
     }
 
@@ -810,6 +812,13 @@ public final class TerminalWindow {
         if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
         applyTabBarVisibility();
         applyMenuBarVisibility();
+        // Live, and on the stage rather than the scene: a decorated window's native background is
+        // opaque, so scene-level transparency needs StageStyle.TRANSPARENT — which takes the title
+        // bar with it and can only be chosen before the window is shown. Stage opacity keeps both
+        // the decorations and the ability to change your mind without a restart. The cost is that
+        // it fades the glyphs along with the background, which the floor in WindowOpacity accounts
+        // for.
+        stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
     }
 
