@@ -471,6 +471,38 @@ or reopening in a directory you have since navigated away from, is not what anyb
 under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
 built on that platform, which is what the CI matrix is for.
 
+### Package managers
+
+JReleaser publishes the GitHub release and updates two package managers. It builds nothing — the app
+images come from `-Pdist` on each platform, since jlink and jpackage are host-specific.
+
+Both packagers push to repositories that do not exist yet and that the workflow's own token cannot
+write to. Before the first release:
+
+1. Create `adriandeleon/homebrew-tap` (an empty public repo is enough).
+2. Fork `microsoft/winget-pkgs` to `adriandeleon/winget-pkgs`.
+3. Add a `PACKAGES_TOKEN` secret: a personal access token with `repo` scope. The default
+   `GITHUB_TOKEN` can only write to this repository, so without it both packagers fail — and
+   because both are `continueOnError`, the release itself still succeeds.
+
+Neither is turnkey after that. **The macOS app is ad-hoc signed, not signed with a Developer ID and
+not notarised**, so a downloaded copy is refused by Gatekeeper on first launch — verified with
+`spctl`, which reports `rejected`. The cask says so in its caveats, and the fix is an Apple Developer
+ID, not a configuration change. **winget submissions are reviewed by Microsoft**, and the first one
+for a new publisher is a human process rather than an automatic merge. **The official homebrew-cask
+repository has notability requirements** a new project does not meet, which is why this uses a
+personal tap.
+
+The generated manifests can be inspected without releasing anything:
+
+```
+jreleaser package --basedir .
+```
+
+which writes them under `out/jreleaser/package`. Worth doing after any change to `jreleaser.yml`:
+the stock templates assume a command-line tool unpacked into a folder, and both needed overriding —
+they live in `src/jreleaser/distributions/`.
+
 To cut a release: set `<version>` in `pom.xml` to the release version (drop `-SNAPSHOT`), commit,
 then push a `vX.Y.Z` tag. The workflow refuses to build if the tag and the pom disagree, or if the
 pom still carries `-SNAPSHOT` — artifacts labelled with a version they were not built from are worse

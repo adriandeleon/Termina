@@ -1,0 +1,132 @@
+# JReleaser: publishes the GitHub release and updates the package managers.
+#
+# It does not build anything. The app images are produced by `-Pdist` on each platform in
+# release.yml — jlink and jpackage are host-specific and there is no cross-building — and JReleaser
+# is handed the finished archives.
+#
+# Homebrew and winget both need a token that can push to *another* repository, which the workflow's
+# default GITHUB_TOKEN cannot do. Both packagers are continueOnError, so a missing or expired token
+# costs the package-manager update and not the release itself.
+
+project:
+  name: Termina
+  description: A keyboard-driven terminal emulator for macOS, Windows and Linux
+  longDescription: |
+    Termina is a cross-platform terminal emulator built on JavaFX, with VT/xterm emulation by
+    JediTerm and real pseudo-terminals by pty4j. Tabs, multiple windows, a command palette,
+    configurable themes and fonts, and six interface languages.
+  links:
+    homepage: https://github.com/adriandeleon/Termina
+    documentation: https://github.com/adriandeleon/Termina#readme
+    bugTracker: https://github.com/adriandeleon/Termina/issues
+  authors:
+    - Adrian De Leon
+  license: MIT
+  inceptionYear: '2026'
+  # Read from the project rather than from the packager: tags set under winget: are not picked up,
+  # which showed as an empty Tags: key in the locale manifest.
+  tags:
+    - terminal
+    - terminal-emulator
+    - javafx
+    - cross-platform
+  # Tells the packagers this is an application rather than a command-line tool, which is what makes
+  # brew produce a cask instead of a formula.
+  stereotype: DESKTOP
+  languages:
+    java:
+      groupId: com.termina
+      artifactId: termina
+      version: '25'
+
+release:
+  github:
+    owner: adriandeleon
+    name: Termina
+    # A tag that carries a suffix (-rc1, -beta2) is published as a pre-release.
+    prerelease:
+      pattern: .*-.*
+    changelog:
+      formatted: ALWAYS
+      preset: conventional-commits
+      contributors:
+        enabled: false
+
+checksum:
+  individual: false
+
+distributions:
+  # Split by what each packager can consume, not by tidiness. A Homebrew cask accepts exactly one
+  # .zip, so the two macOS architectures cannot share a distribution — and neither can macOS and
+  # Windows, since brew would see both zips. The artifacts that no packager consumes are attached
+  # to the release through `files` below.
+  termina:
+    type: NATIVE_PACKAGE
+    artifacts:
+      # ditto-made, so the code signature survives: jpackage ad-hoc-signs the app and a copy whose
+      # signature did not come through will not launch.
+      - path: 'artifacts/Termina-{{projectVersion}}-macos-arm64.zip'
+        platform: osx-aarch_64
+
+    brew:
+      active: RELEASE
+      # A token problem costs the tap, not the release.
+      continueOnError: true
+      cask:
+        enabled: true
+        name: termina
+        displayName: Termina
+        appName: Termina.app
+      repository:
+        active: RELEASE
+        owner: adriandeleon
+        name: homebrew-tap
+      # Stated up front rather than left to be discovered at the Gatekeeper dialog. The app is
+      # ad-hoc signed, not signed with a Developer ID and not notarised, so a downloaded copy is
+      # refused on first launch until it is allowed explicitly. Verified with spctl: "rejected".
+      extraProperties:
+        cask.caveats: |
+          Termina is not signed with an Apple Developer ID yet, so macOS refuses to open it the
+          first time. Allow it once under System Settings > Privacy & Security > Open Anyway.
+
+  # BINARY, not NATIVE_PACKAGE: winget generates no manifest at all for a NATIVE_PACKAGE zip, and a
+  # packager that silently produces nothing is worse than one that errors.
+  termina-windows:
+    type: BINARY
+    executable:
+      name: Termina
+      windowsExtension: exe
+    artifacts:
+      - path: 'artifacts/Termina-{{projectVersion}}-windows-x64.zip'
+        platform: windows-x86_64
+
+    winget:
+      active: RELEASE
+      continueOnError: true
+      package:
+        identifier: AdrianDeLeon.Termina
+        name: Termina
+        version: '{{projectVersion}}'
+        url: https://github.com/adriandeleon/Termina
+      publisher:
+        name: Adrian De Leon
+        url: https://github.com/adriandeleon
+        supportUrl: https://github.com/adriandeleon/Termina/issues
+      moniker: termina
+      installer:
+        type: ZIP
+        scope: USER
+        upgradeBehavior: INSTALL
+      # A fork of microsoft/winget-pkgs under this account; the pull request is opened from it.
+      repository:
+        active: RELEASE
+        owner: adriandeleon
+        name: winget-pkgs
+        branch: master
+
+# Attached to the release, but not fed to any packager: Intel macOS has no cask of its own (a cask
+# takes one zip) and Linux has no packager configured yet.
+files:
+  artifacts:
+    - path: 'artifacts/Termina-{{projectVersion}}-macos-x64.zip'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.tar.gz'

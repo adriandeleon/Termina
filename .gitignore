@@ -12,3 +12,7 @@ target/
 # OS
 .DS_Store
 Thumbs.db
+
+# JReleaser working output, and the staging directory the release workflow downloads into.
+out/
+artifacts/
