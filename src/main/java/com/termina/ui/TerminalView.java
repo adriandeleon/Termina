@@ -27,6 +27,7 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.ContextMenuEvent;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -525,6 +526,16 @@ public final class TerminalView extends Region {
     // ---------------------------------------------------------------- input
 
     private void onKeyPressed(KeyEvent e) {
+        // Escape closes the context menu rather than reaching the shell. This filter runs before
+        // the menu would see the key, and Escape now encodes to a real byte, so without this the
+        // menu stays open and the shell gets an ESC nobody asked for.
+        if (contextMenu != null && contextMenu.isShowing()) {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                contextMenu.hide();
+                e.consume();
+                return;
+            }
+        }
         if (session == null || !session.isRunning()) return;
 
         byte[] encoded = KeyEncoding.encodePressed(e, session::keyCode, altIsMeta);
@@ -706,6 +717,11 @@ public final class TerminalView extends Region {
         return contextMenu != null && contextMenu.isShowing() ? contextMenu.getScene() : null;
     }
 
+    /** Whether the context menu is open — for the development capture hook. */
+    public boolean isContextMenuShowing() {
+        return contextMenu != null && contextMenu.isShowing();
+    }
+
     private ContextMenu buildContextMenu() {
         copyItem = item("Copy", MenuIcons.copy(), this::copySelection);
         pasteItem = item("Paste", MenuIcons.paste(), this::paste);
@@ -771,6 +787,14 @@ public final class TerminalView extends Region {
     private boolean shiftOnLastPress;
 
     private void onMousePressed(MouseEvent e) {
+        // A click anywhere in the terminal dismisses the menu instead of acting on the terminal.
+        // ContextMenu's own auto-hide covers clicks outside the window, but this filter runs first
+        // for clicks inside it, which would otherwise start a selection under the open menu.
+        if (contextMenu != null && contextMenu.isShowing()) {
+            contextMenu.hide();
+            e.consume();
+            return;
+        }
         requestFocus();
         shiftOnLastPress = e.isShiftDown();
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {

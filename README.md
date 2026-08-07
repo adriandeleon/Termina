@@ -136,6 +136,11 @@ derives it from the event type, and setting it twice reports a drag as a differe
 **scroll codes read backwards** — `SCROLLDOWN` is sent when the wheel turns up, because the names
 describe which way the content moves.
 
+The menu closes on Escape, on a click anywhere in the terminal, or on a click outside the window.
+Escape needs handling explicitly: the terminal's key filter runs before the menu would see the key,
+and Escape now encodes to a real byte, so without it the menu would stay open and the shell would
+receive an ESC nobody asked for.
+
 **Shift bypasses reporting.** That is the xterm convention, and it is the only way to select text
 out of a program that has grabbed the mouse — without it htop's output cannot be copied.
 
@@ -194,6 +199,21 @@ carried on painting over the terminal's first rows while occupying no space of t
 `-Dtermina.forceInWindowMenuBar=true` makes a Mac lay out like the other platforms. Without it the
 in-window menu bar — the only place this setting does anything — cannot be seen on the machine this
 is developed on.
+
+### The tab strip
+
+Tabs tile the full width and shrink as more are added, the way macOS Terminal and GNOME Terminal
+lay them out — down to a floor of 60px, past which the strip overflows rather than rendering
+slivers with no readable title. A lone tab does not stretch: filling the window with one tab reads
+as a title bar, and neither of those terminals does it.
+
+The **+** button floats over the right end of the strip rather than being a tab of its own. A
+sentinel "+" tab would pollute every count and index in the window — tab disposal, reordering, the
+hide-when-single rule, next/previous — each of which would then need to know it is not a real tab.
+
+`TabLayout.tabWidth` is pure and tested. The per-tab chrome constant was **measured**, not guessed:
+JavaFX renders a tab at the width set plus about 17px of its own padding, and an earlier value of 38
+left a visible gap at seven tabs — arithmetic that tiled correctly against the wrong constant.
 
 ### Reordering tabs
 

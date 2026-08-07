@@ -278,8 +278,29 @@ final class DevCapture {
                 + terminal.isFocused());
     }
 
+    /**
+     * Opens the context menu, then tries to dismiss it the way the user would.
+     *
+     * <pre>-Dtermina.captureMenuDismiss=escape|click</pre>
+     */
+    private static void dismissMenuIfRequested(TerminalView terminal) {
+        String how = System.getProperty("termina.captureMenuDismiss");
+        if (how == null || how.isBlank()) return;
+        terminal.showContextMenuForCapture(300, 300, false);
+        System.out.println("[capture] menu open before dismiss=" + terminal.isContextMenuShowing());
+        if (how.equals("escape")) {
+            Event.fireEvent(terminal, new javafx.scene.input.KeyEvent(
+                    javafx.scene.input.KeyEvent.KEY_PRESSED, "", "",
+                    javafx.scene.input.KeyCode.ESCAPE, false, false, false, false));
+        } else {
+            Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_PRESSED, 400, 400, 1, false));
+        }
+        System.out.println("[capture] menu open after " + how + "=" + terminal.isContextMenuShowing());
+    }
+
     private static void driveInput(TerminalView terminal) {
         probeKeyEncodings(terminal);
+        dismissMenuIfRequested(terminal);
         pressKeyIfRequested(terminal);
         clickSelectIfRequested(terminal);
         scrollIfRequested(terminal);

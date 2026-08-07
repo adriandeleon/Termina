@@ -81,3 +81,19 @@
     -fx-border-color: transparent -color-accent-emphasis transparent transparent;
     -fx-border-width: 0 2 0 0;
 }
+
+/* New-tab button, floating over the right end of the tab strip. */
+.new-tab-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-size: 1.15em;
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 6;
+    -fx-min-width: 32;
+    -fx-cursor: hand;
+}
+
+.new-tab-button:hover {
+    -fx-background-color: -color-bg-subtle;
+    -fx-text-fill: -color-fg-default;
+}

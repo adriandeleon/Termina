@@ -8,7 +8,9 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Scene;
+import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
@@ -23,6 +25,7 @@ import javafx.scene.input.DataFormat;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 /** One window: a menu bar over a tab strip, each tab a terminal with its own shell. */
@@ -72,7 +75,20 @@ public final class TerminalWindow {
             applyTabBarVisibility();
         });
 
-        BorderPane root = new BorderPane(tabs);
+        // The new-tab button floats over the right end of the tab strip rather than being a tab of
+        // its own. A sentinel "+" tab would pollute every count and index in this class — tab
+        // disposal, reordering, the hide-when-single rule, next/previous — each of which would then
+        // need to know it is not a real tab. This keeps the model honest.
+        newTabButton.setFocusTraversable(false);
+        newTabButton.getStyleClass().add("new-tab-button");
+        newTabButton.setOnAction(e -> openTab());
+        StackPane.setAlignment(newTabButton, Pos.TOP_RIGHT);
+        StackPane tabHost = new StackPane(tabs, newTabButton);
+
+        tabs.widthProperty().addListener((o, was, now) -> applyTabWidths());
+        tabs.getTabs().addListener((ListChangeListener<Tab>) c -> applyTabWidths());
+
+        BorderPane root = new BorderPane(tabHost);
         menuBar = buildMenuBar();
         root.setTop(menuBar);
         applyMenuBarVisibility();
@@ -159,6 +175,10 @@ public final class TerminalWindow {
         boolean show = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
         tabs.getStyleClass().removeAll(HIDE_TAB_BAR);
         if (!show) tabs.getStyleClass().add(HIDE_TAB_BAR);
+        // The button lives in the strip, so it goes with it — and unmanaged as well as invisible,
+        // for the same reason the menu bar had to be: a hidden-but-managed node still paints.
+        newTabButton.setVisible(show);
+        newTabButton.setManaged(show);
     }
 
     private static final String HIDE_TAB_BAR = "hide-tab-bar";
@@ -354,10 +374,45 @@ public final class TerminalWindow {
                 + " visible=" + (menuBar != null && menuBar.isVisible())
                 + " | tabHeader h=" + (header == null ? "absent" : header.getBoundsInParent().getHeight())
                 + " | tabs styleClass=" + tabs.getStyleClass()
-                + " | tabPane y=" + tabs.getBoundsInParent().getMinY();
+                + " | tabPane y=" + tabs.getBoundsInParent().getMinY()
+                + " | tabWidths=" + tabHeaderWidths();
+    }
+
+    /** Actual rendered width of each tab header, to check the sizing rather than assume it. */
+    private String tabHeaderWidths() {
+        var headers = tabs.lookupAll(".tab");
+        StringBuilder out = new StringBuilder("[");
+        for (javafx.scene.Node n : headers) {
+            out.append(Math.round(n.getBoundsInParent().getWidth())).append(' ');
+        }
+        return out.append("] stripW=").append(Math.round(tabs.getWidth())).toString();
     }
 
     private MenuBar menuBar;
+
+    private final Button newTabButton = new Button("+");
+
+    /**
+     * Space kept clear at the right end of the strip for the new-tab button, and the per-tab
+     * padding and close button that sit outside the width JavaFX lets us set.
+     */
+    private static final double NEW_TAB_RESERVED = 40;
+
+    /**
+     * Measured, not guessed: JavaFX renders a tab at the width set here plus about 17px of its own
+     * padding. At 38 the strip left a visible gap at seven tabs — the arithmetic tiled correctly
+     * against the wrong constant.
+     */
+    private static final double TAB_CHROME = 17;
+
+    /** Sizes every tab so the strip fills the window, shrinking as tabs are added. */
+    private void applyTabWidths() {
+        double width = TabLayout.tabWidth(
+                tabs.getWidth(), tabs.getTabs().size(), NEW_TAB_RESERVED, TAB_CHROME);
+        // Both bounds, or JavaFX sizes each tab to its label and they no longer tile.
+        tabs.setTabMinWidth(width);
+        tabs.setTabMaxWidth(width);
+    }
 
     public void show() {
         stage.show();
