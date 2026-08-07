@@ -5,6 +5,9 @@ import java.io.File;
 import java.io.IOException;
 
 import javafx.animation.PauseTransition;
+import com.jediterm.terminal.model.TerminalTextBuffer;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
 import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.event.EventType;
@@ -86,7 +89,7 @@ final class DevCapture {
             openExtraTabsAndWindows(windows, window);
             TerminalView terminal = window.activeTerminal();
             if (!command.isBlank() && terminal != null) {
-                terminal.getSession().sendString(command + "\r");
+                sendUntilItTakes(terminal, command);
             }
             // -Dtermina.captureTypeTab=<text> types the text then presses Tab, without a Return —
             // the completion case, which cannot be expressed as a command to run.
@@ -143,6 +146,7 @@ final class DevCapture {
                     } catch (IOException io) {
                         System.err.println("[capture] failed: " + io);
                     }
+                    printScreenTextIfRequested(shown.activeTerminal());
                     report(windows);
                     windows.closeAll();
                     Platform.exit();
@@ -260,6 +264,62 @@ final class DevCapture {
                 + " cause=" + captured.contains("probe cause")
                 + " uncaught=" + captured.contains("probe uncaught")
                 + " file=" + com.termina.ui.DebugLog.file());
+    }
+
+    /**
+     * Types a command, and keeps typing it until the shell shows it.
+     *
+     * <p>First output is not the same as ready to read: a login shell prints its profile's noise —
+     * on macOS, bash prints a notice about zsh — before it reaches a prompt, and anything sent in
+     * that window is discarded. The symptom is a screenshot of a command sitting there unexecuted.
+     * This has now caused three separate failures: the PTY integration test, and two attempts at
+     * the README screenshot.
+     *
+     * <p>Re-sending is safe: the worst case is a shell that echoes a harmless command twice.
+     */
+    private static void sendUntilItTakes(TerminalView terminal, String command) {
+        final int attempts = 8;
+        final Duration retryEvery = Duration.millis(400);
+        Timeline typing = new Timeline();
+        for (int i = 0; i < attempts; i++) {
+            typing.getKeyFrames().add(new KeyFrame(retryEvery.multiply(i), e -> {
+                if (screenText(terminal).contains(command)) {
+                    typing.stop();
+                    return;
+                }
+                terminal.getSession().sendString(command + "\r");
+            }));
+        }
+        typing.play();
+    }
+
+    /** The visible screen as text. Used to tell "the shell ran it" from "the shell ignored it". */
+    private static String screenText(TerminalView terminal) {
+        TerminalTextBuffer buffer = terminal.getSession().getTextBuffer();
+        buffer.lock();
+        try {
+            StringBuilder out = new StringBuilder();
+            for (int row = 0; row < buffer.getHeight(); row++) {
+                out.append(buffer.getLine(row).getText()).append('\n');
+            }
+            return out.toString();
+        } finally {
+            buffer.unlock();
+        }
+    }
+
+    /**
+     * {@code -Dtermina.captureScreenText=true} prints what is on screen.
+     *
+     * <p>The end-to-end check a smoke test needs: text on screen means the JVM started, JavaFX
+     * rendered, a pseudo-terminal was allocated, a shell ran, and the emulator parsed what it wrote.
+     * A screenshot proves only that a window appeared.
+     */
+    private static void printScreenTextIfRequested(TerminalView terminal) {
+        if (System.getProperty("termina.captureScreenText") == null || terminal == null) return;
+        System.out.println("[capture] screen<<<");
+        System.out.println(screenText(terminal).stripTrailing());
+        System.out.println("[capture] >>>");
     }
 
     private static long descendants() {

@@ -51,6 +51,10 @@ release:
       preset: conventional-commits
       contributors:
         enabled: false
+      # Install instructions ahead of the commit list. Somebody arriving at a release page wants to
+      # know how to run the thing, not what changed since a version they never had — and the first
+      # release has no previous version to have changed from.
+      contentTemplate: .github/release-notes.tpl
 
 checksum:
   individual: false

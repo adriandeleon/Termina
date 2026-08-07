@@ -480,6 +480,21 @@ inside one, so the terminal closes when it exits.
 The command line applies to the first tab of the first window only. A second tab re-running `-e vim`,
 or reopening in a directory you have since navigated away from, is not what anybody means by it.
 
+## Known issues
+
+**The macOS build is not signed with an Apple Developer ID, and is not notarised.** macOS will
+refuse to open it the first time — verified with `spctl`, which reports `rejected`. Allow it once
+under System Settings → Privacy & Security → Open Anyway. This is not something a configuration
+change fixes; it needs a paid Developer ID and a notarisation step.
+
+**The Windows build is unsigned**, so SmartScreen will warn on first run. "More info" → "Run anyway".
+
+**No installers yet** — the releases carry portable archives. A `.dmg` or `.msi` that nobody has
+ever installed is a worse first release than an archive that has been extracted and run.
+
+**Intel Macs get no Homebrew cask.** A cask accepts exactly one archive, so the tap serves Apple
+Silicon; Intel users can take the `macos-x64` archive from the release page.
+
 ## Installing on Linux
 
 The Linux archive carries the application image plus `install.sh` and a desktop entry:

@@ -88,6 +88,46 @@ jobs:
           fi
           du -sh target/dist/* || true
 
+      # Launches the packaged application and checks a shell actually ran in it. Until this existed
+      # nothing had ever started the Windows or Linux binary: the jobs built them, checked the files
+      # were present, and stopped. Text on screen proves the whole chain — JVM, JavaFX, a real
+      # pseudo-terminal, a shell, and the emulator parsing what it wrote — where a screenshot proves
+      # only that a window appeared.
+      - name: Smoke-test the packaged app
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.os }}" in
+            macos-*)   launcher="target/dist/Termina.app/Contents/MacOS/Termina" ;;
+            windows-*) launcher="target/dist/Termina/Termina.exe" ;;
+            *)         launcher="target/dist/Termina/bin/Termina" ;;
+          esac
+          [ -x "$launcher" ] || { echo "::error::no launcher at $launcher"; exit 1; }
+
+          # whoami exists on all three, takes no arguments — JAVA_TOOL_OPTIONS cannot carry a space
+          # inside a -D value — and prints something this job can predict and check for.
+          me=$(whoami)
+          echo "expecting the shell to print: $me"
+
+          export JAVA_TOOL_OPTIONS="-Dtermina.capture=$RUNNER_TEMP/smoke.png -Dtermina.captureCommand=whoami -Dtermina.captureScreenText=true -Dtermina.captureAfterCommandMs=4000"
+          export TERMINA_CONFIG_DIR="$RUNNER_TEMP/smoke-config"
+
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+            xvfb-run -a "$launcher" > "$RUNNER_TEMP/smoke.log" 2>&1 || true
+          else
+            "$launcher" > "$RUNNER_TEMP/smoke.log" 2>&1 || true
+          fi
+
+          echo "--- what the terminal showed ---"
+          sed -n '/screen<<</,/>>>/p' "$RUNNER_TEMP/smoke.log" || true
+
+          [ -s "$RUNNER_TEMP/smoke.png" ] || { echo "::error::no screenshot — the window never rendered"; exit 1; }
+          grep -q "terminals=1" "$RUNNER_TEMP/smoke.log" || { echo "::error::no terminal was created"; exit 1; }
+          # The command being on screen only proves it was typed; the answer proves a shell ran it.
+          grep -qi "$me" "$RUNNER_TEMP/smoke.log" || { echo "::error::the shell did not run the command"; exit 1; }
+          echo "smoke test: a shell ran and printed in the packaged app"
+
       # The Linux installer makes claims about where jpackage puts things. Checked by machine on the
       # platform that produces the layout, rather than believed from a macOS desk.
       - name: Check the Linux image layout and desktop entry
