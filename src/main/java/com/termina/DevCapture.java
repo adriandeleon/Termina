@@ -4,10 +4,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
-import javafx.animation.PauseTransition;
-import com.jediterm.terminal.model.TerminalTextBuffer;
-import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.event.Event;
 import javafx.event.EventType;
@@ -19,6 +18,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.util.Duration;
 
+import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.ui.TerminalView;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
