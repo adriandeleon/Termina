@@ -465,6 +465,28 @@ inside one, so the terminal closes when it exits.
 The command line applies to the first tab of the first window only. A second tab re-running `-e vim`,
 or reopening in a directory you have since navigated away from, is not what anybody means by it.
 
+## Installing on Linux
+
+The Linux archive carries the application image plus `install.sh` and a desktop entry:
+
+```
+tar -xzf Termina-<version>-linux-x64.tar.gz
+./install.sh          # this user, into ~/.local
+sudo ./install.sh     # everyone, into /opt
+./install.sh --uninstall
+```
+
+It puts `termina` on PATH, installs the launcher entry and icon, and — as root on Debian and
+derivatives — registers Termina as an `x-terminal-emulator` alternative at a low priority, so it
+becomes available as the system terminal without silently taking the job. `update-alternatives
+--config x-terminal-emulator` is how you choose it. That works because Termina accepts `-e command`,
+which is the interface everything expects of a system terminal.
+
+The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the module's
+main class rather than from the application name. Without it a running window cannot be matched to
+its launcher, so the dock shows a second generic icon beside the entry instead of highlighting it.
+**This one wants checking on a real desktop** — `xprop WM_CLASS`, then click the window.
+
 ## Building and releasing
 
 `./mvnw verify` runs the tests, checks formatting and enforces the coverage floors. **Run

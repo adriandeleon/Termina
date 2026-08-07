@@ -95,6 +95,14 @@ jobs:
               powershell -Command "Compress-Archive -Path * -DestinationPath '../$name.zip'"
               ;;
             *)
+              # The desktop entry and its installer travel with the image. A terminal that is not in
+              # the application menu can only be started from another terminal, which rather defeats
+              # it — and the tarball is the only Linux delivery, so if they are not here they are
+              # nowhere.
+              cp "$GITHUB_WORKSPACE/packaging/linux/install.sh" .
+              cp "$GITHUB_WORKSPACE/packaging/linux/termina.desktop" .
+              cp "$GITHUB_WORKSPACE/branding/termina.png" . 2>/dev/null || true
+              chmod +x install.sh
               # -p preserves the executable bit on the launcher, without which the extracted image
               # cannot be started at all.
               tar -czpf "../$name.tar.gz" *

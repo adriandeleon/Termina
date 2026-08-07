@@ -87,3 +87,44 @@ jobs:
             exit 1
           fi
           du -sh target/dist/* || true
+
+      # The Linux installer makes claims about where jpackage puts things. Checked by machine on the
+      # platform that produces the layout, rather than believed from a macOS desk.
+      - name: Check the Linux image layout and desktop entry
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "--- image layout ---"
+          find target/dist -maxdepth 2 | head -20
+
+          launcher=target/dist/Termina/bin/Termina
+          [ -x "$launcher" ] || { echo "::error::no executable launcher at $launcher"; exit 1; }
+          echo "launcher: OK"
+
+          # The installer prefers this icon and falls back to branding/. Not fatal either way, but
+          # worth knowing which path is actually being taken.
+          if [ -f target/dist/Termina/lib/Termina.png ]; then
+            echo "icon: jpackage supplied lib/Termina.png"
+          else
+            echo "::warning::no lib/Termina.png in the image; the installer will use branding/termina.png"
+          fi
+
+          sudo apt-get update -qq && sudo apt-get install -y -qq desktop-file-utils shellcheck
+          desktop-file-validate packaging/linux/termina.desktop
+          echo "desktop entry: valid"
+          shellcheck packaging/linux/install.sh
+          echo "installer: shellcheck clean"
+
+          # A dry run into a throwaway prefix: proves the script actually installs, rather than
+          # proving only that it parses.
+          cp -r target/dist/Termina packaging/linux/
+          ( cd packaging/linux && ./install.sh --prefix "$RUNNER_TEMP/prefix" )
+          test -x "$RUNNER_TEMP/prefix/bin/termina"
+          test -f "$RUNNER_TEMP/prefix/share/applications/termina.desktop"
+          desktop-file-validate "$RUNNER_TEMP/prefix/share/applications/termina.desktop"
+          grep -q "^Exec=$RUNNER_TEMP/prefix" "$RUNNER_TEMP/prefix/share/applications/termina.desktop"
+          echo "install: OK"
+          ( cd packaging/linux && ./install.sh --prefix "$RUNNER_TEMP/prefix" --uninstall )
+          test ! -e "$RUNNER_TEMP/prefix/bin/termina"
+          echo "uninstall: OK"
