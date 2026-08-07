@@ -479,8 +479,8 @@ images come from `-Pdist` on each platform, since jlink and jpackage are host-sp
 Both packagers push to repositories that do not exist yet and that the workflow's own token cannot
 write to. Before the first release:
 
-1. Create `adriandeleon/homebrew-tap` (an empty public repo is enough).
-2. Fork `microsoft/winget-pkgs` to `adriandeleon/winget-pkgs`.
+1. ~~Create `adriandeleon/homebrew-tap`~~ — done.
+2. ~~Fork `microsoft/winget-pkgs` to `adriandeleon/winget-pkgs`~~ — done.
 3. Add a `PACKAGES_TOKEN` secret: a personal access token with `repo` scope. The default
    `GITHUB_TOKEN` can only write to this repository, so without it both packagers fail — and
    because both are `continueOnError`, the release itself still succeeds.

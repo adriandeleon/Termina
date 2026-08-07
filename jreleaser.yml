@@ -81,6 +81,10 @@ distributions:
         active: RELEASE
         owner: adriandeleon
         name: homebrew-tap
+        # Stated rather than left as HEAD: the tap's default branch is main, and a default that is
+        # resolved at clone time is one more thing to be surprised by later.
+        branch: main
+        branchPush: main
       # Stated up front rather than left to be discovered at the Gatekeeper dialog. The app is
       # ad-hoc signed, not signed with a Developer ID and not notarised, so a downloaded copy is
       # refused on first launch until it is allowed explicitly. Verified with spctl: "rejected".
@@ -122,7 +126,11 @@ distributions:
         active: RELEASE
         owner: adriandeleon
         name: winget-pkgs
+        # Branched from the fork's master, pushed to a branch of its own per release: a winget
+        # submission is a pull request, and one long-lived branch carrying every version at once is
+        # not something to open a PR from.
         branch: master
+        branchPush: 'termina-{{projectVersion}}'
 
 # Attached to the release, but not fed to any packager: Intel macOS has no cask of its own (a cask
 # takes one zip) and Linux has no packager configured yet.
