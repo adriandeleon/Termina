@@ -124,10 +124,22 @@ public final class UpdateCheck {
     }
 
     private static int compareSegment(String a, String b) {
+        Integer left = numeric(a);
+        Integer right = numeric(b);
+        if (left != null && right != null) return Integer.compare(left, right);
+        // A segment that is not a number is not a version we understand, and the safe direction is
+        // down: a malformed tag then fails to be offered as an update rather than being offered to
+        // everybody forever. A plain string compare puts "x" above "0" and does the opposite.
+        if (left != null) return 1;
+        if (right != null) return -1;
+        return a.compareTo(b);
+    }
+
+    private static Integer numeric(String segment) {
         try {
-            return Integer.compare(Integer.parseInt(a.trim()), Integer.parseInt(b.trim()));
+            return Integer.valueOf(segment.trim());
         } catch (NumberFormatException e) {
-            return a.compareTo(b);
+            return null;
         }
     }
 
