@@ -547,14 +547,19 @@ built on that platform, which is what the CI matrix is for.
 JReleaser publishes the GitHub release and updates two package managers. It builds nothing — the app
 images come from `-Pdist` on each platform, since jlink and jpackage are host-specific.
 
-Both packagers push to repositories that do not exist yet and that the workflow's own token cannot
-write to. Before the first release:
+**Without a `PACKAGES_TOKEN` secret the release still works** — the workflow detects its absence and
+excludes both packagers, so a tag produces the GitHub release, the four archives, checksums and the
+notes, and says in the log that it skipped the cask and the pull request. Adding the token later
+turns them on with no change to anything else.
+
+To publish to Homebrew and winget:
 
 1. ~~Create `adriandeleon/homebrew-tap`~~ — done.
 2. ~~Fork `microsoft/winget-pkgs` to `adriandeleon/winget-pkgs`~~ — done.
-3. Add a `PACKAGES_TOKEN` secret: a personal access token with `repo` scope. The default
-   `GITHUB_TOKEN` can only write to this repository, so without it both packagers fail — and
-   because both are `continueOnError`, the release itself still succeeds.
+3. Add a `PACKAGES_TOKEN` secret: a **classic** personal access token with `repo` scope
+   (<https://github.com/settings/tokens/new>). The default `GITHUB_TOKEN` is scoped to this
+   repository alone and cannot write to the tap or the fork. A fine-grained token will not do:
+   opening a pull request against `microsoft/winget-pkgs` is not something it can express.
 
 Neither is turnkey after that. **The macOS app is ad-hoc signed, not signed with a Developer ID and
 not notarised**, so a downloaded copy is refused by Gatekeeper on first launch — verified with

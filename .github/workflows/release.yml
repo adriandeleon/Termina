@@ -143,10 +143,29 @@ jobs:
       - name: List what will be released
         run: ls -la artifacts
 
+      # Decided here rather than by editing config: with no token the package managers are excluded
+      # outright, and the moment PACKAGES_TOKEN exists they are included again with no change to
+      # anything. Excluding is not the same as letting them fail — a skipped packager says so in one
+      # line, where a failed one buries the reason in a stack trace nobody reads on release day.
+      - name: Decide which packagers can run
+        id: packagers
+        shell: bash
+        env:
+          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PACKAGES_TOKEN:-}" ]; then
+            echo "args=full-release" >> "$GITHUB_OUTPUT"
+            echo "PACKAGES_TOKEN is set: the Homebrew cask and winget PR will be published."
+          else
+            echo "args=full-release --exclude-packager brew --exclude-packager winget" >> "$GITHUB_OUTPUT"
+            echo "::notice::No PACKAGES_TOKEN — publishing the GitHub release only. No Homebrew cask, no winget pull request."
+          fi
+
       - name: Publish release
         uses: jreleaser/release-action@v2
         with:
-          arguments: full-release
+          arguments: ${{ steps.packagers.outputs.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.build.outputs.version }}
           # Creates the release in this repository.
