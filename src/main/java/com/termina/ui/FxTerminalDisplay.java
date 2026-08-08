@@ -13,6 +13,7 @@ import com.jediterm.terminal.TerminalDisplay;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
+import com.termina.AppInfo;
 
 /**
  * The emulator's view of the display: JediTerm calls into this whenever an escape sequence changes
@@ -41,8 +42,22 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     private volatile MouseFormat mouseFormat = MouseFormat.MOUSE_FORMAT_XTERM;
     private volatile boolean bracketedPaste;
 
-    private final StringProperty windowTitle = new SimpleStringProperty("Termina");
-    private volatile String titleValue = "Termina";
+    /**
+     * The two sources a title can come from, kept apart rather than resolved on arrival.
+     *
+     * <p>{@code shellTitle} is what an escape sequence set, {@code cwd} is what the OS says the
+     * shell's directory is, and {@link TerminalTitle} decides between them. Collapsing them into one
+     * field as each arrives would lose the distinction — a program that sets a title and later
+     * clears it (vim does exactly this on exit) has to leave the directory showing again, and that
+     * is only possible if the directory was never overwritten.
+     */
+    private volatile String shellTitle = "";
+
+    private volatile String cwd = "";
+    private final String home = System.getProperty("user.home", "");
+
+    private final StringProperty windowTitle = new SimpleStringProperty(AppInfo.NAME);
+    private final StringProperty tabTitle = new SimpleStringProperty(AppInfo.NAME);
 
     private Runnable onBell = () -> {};
     private Runnable onRepaint = () -> {};
@@ -105,20 +120,48 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         onRepaint.run();
     }
 
+    /**
+     * What the <em>shell</em> set, not what is on screen.
+     *
+     * <p>JediTerm reads this back to implement the title stack (OSC 22 push, OSC 23 pop). Answering
+     * with the resolved title would let a push/pop round-trip bake the current directory into
+     * {@code shellTitle}, after which the tab would be frozen at whichever directory happened to be
+     * current when some program saved the title.
+     */
     @Override
     public String getWindowTitle() {
-        return titleValue;
+        return shellTitle;
     }
 
     @Override
     public void setWindowTitle(String title) {
-        String value = title == null || title.isBlank() ? "Termina" : title;
-        titleValue = value;
-        Platform.runLater(() -> windowTitle.set(value));
+        shellTitle = title == null ? "" : title;
+        refreshTitles();
     }
 
+    /** The shell's working directory, from {@link com.termina.pty.CwdWatcher}. */
+    public void setCwd(String cwd) {
+        this.cwd = cwd == null ? "" : cwd;
+        refreshTitles();
+    }
+
+    private void refreshTitles() {
+        String window = TerminalTitle.window(shellTitle, cwd, home);
+        String tab = TerminalTitle.tab(shellTitle, cwd, home);
+        Platform.runLater(() -> {
+            windowTitle.set(window);
+            tabTitle.set(tab);
+        });
+    }
+
+    /** The full path, for the title bar. */
     public StringProperty windowTitleProperty() {
         return windowTitle;
+    }
+
+    /** The directory's own name, for the tab strip, where a path does not fit. */
+    public StringProperty tabTitleProperty() {
+        return tabTitle;
     }
 
     /**

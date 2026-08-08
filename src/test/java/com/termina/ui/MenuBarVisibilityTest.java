@@ -22,4 +22,13 @@ class MenuBarVisibilityTest {
         assertFalse(TerminalWindow.menuBarOccupiesSpace(true, true));
         assertFalse(TerminalWindow.menuBarOccupiesSpace(true, false));
     }
+
+    @Test
+    void theToggleIsOfferedOnlyWhereThereIsABarInTheWindowToHide() {
+        // Read by two menus — the View menu's Hide item and the right-click menu's checkbox — which
+        // is the whole reason it is a named rule rather than an `if` in each of them. Offering it
+        // in one place and not the other reads as a bug in whichever you looked at first.
+        assertTrue(TerminalWindow.offersMenuBarToggle(false));
+        assertFalse(TerminalWindow.offersMenuBarToggle(true));
+    }
 }

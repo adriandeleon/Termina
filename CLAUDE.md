@@ -62,6 +62,29 @@ Each of these cost real time, and none of them announces itself.
   after an event bubbles unconsumed, and `TerminalView` consumes `Ctrl+<letter>` first. Filters run
   in the capturing phase, ahead of that. `MenuAction` holds the label, chord and action together so
   the menu and the filter cannot disagree.
+- **Nothing in the chrome may be focus-traversable.** The scene hands initial focus to the first
+  focus-traversable node it finds, and a `TabPane` is one by default — so it raced the
+  `requestFocus` in `openTab` and, on a cold first launch, won: the window came up looking ready
+  with every keystroke going to the tab strip. Opening a second tab appeared to fix it only because
+  the strip then had focus to give away. `tabs` and `newTabButton` are both
+  `setFocusTraversable(false)`. Traversal into chrome is unwanted here anyway — Tab belongs to the
+  shell.
+- **Driving input in a capture run mostly goes *around* focus.** `captureCommand` writes into the
+  PTY and the mouse/key options fire at the view by name, so all of them pass in a window where
+  nothing the user types reaches the shell. `captureTypeAtFocus` is the one that fires at the focus
+  owner, and `focusReport()` prints who that is; the focus bug above was invisible to every other
+  check, including the screenshot.
+- **The shell will not tell you where it is, and often will not tell you anything.** The window
+  title arrives only as an escape sequence (OSC 0), and emitting it is the *prompt's* job — every
+  prompt framework that replaces `PS1` drops it without a word. GNOME Terminal appears to escape
+  this only because `/etc/profile.d/vte-2.91.sh` re-adds it, gated on `VTE_VERSION`, which we do not
+  set. So the directory is read from the OS instead (`ProcessCwd`/`CwdWatcher`), and a shell-set
+  title still takes precedence. `FxTerminalDisplay` keeps the two apart rather than resolving on
+  arrival, because a program that sets a title and later clears it (vim, on exit) has to leave the
+  directory showing again.
+- **The deb and rpm bundlers throw your icon away.** See `packaging/linux/NOTES.md` — `--icon`
+  reaches the app image only, and the 0.1.0 packages shipped jpackage's generic Java icon as a
+  result. Verify a built package, not the tree.
 - **Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
   pump threads and an emulator thread. Any removal path that skips disposal leaks all of it and
   nothing on screen looks wrong.

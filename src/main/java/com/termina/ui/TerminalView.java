@@ -1,6 +1,9 @@
 package com.termina.ui;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
@@ -8,6 +11,7 @@ import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
@@ -38,6 +42,8 @@ import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.util.CharUtils;
 import com.termina.config.Settings;
+import com.termina.pty.CwdWatcher;
+import com.termina.pty.ProcessCwd;
 import com.termina.term.TerminalSession;
 
 import static com.termina.i18n.Messages.tr;
@@ -238,9 +244,15 @@ public final class TerminalView extends Region {
             if (onSessionEnded != null) onSessionEnded.run();
         }));
         session.start();
+        // Started here rather than inside the session: what the directory is *for* is a UI
+        // question. The term layer reports the shell's state; it does not decide what a tab is
+        // called. Skipped outright where the OS cannot answer, so no thread runs to find out.
+        if (ProcessCwd.isSupported()) cwdWatch = CwdWatcher.watch(session.pid(), display::setCwd);
         painter.start();
         markDirty();
     }
+
+    private CwdWatcher cwdWatch;
 
     private Runnable onSessionEnded;
 
@@ -258,6 +270,10 @@ public final class TerminalView extends Region {
 
     public void close() {
         painter.stop();
+        // Before the session: the watcher polls by pid, and a pid is reused. Left running past the
+        // process it was watching, it would eventually start reporting some unrelated process's
+        // directory into a tab that no longer exists.
+        if (cwdWatch != null) cwdWatch.close();
         if (session != null) session.close();
     }
 
@@ -793,9 +809,15 @@ public final class TerminalView extends Region {
     private ContextMenu contextMenu;
     private MenuItem copyItem;
     private MenuItem pasteItem;
+    private CheckMenuItem menuBarItem;
     private Runnable onOpenSettings = () -> {};
     private Runnable onNewTab = () -> {};
     private Runnable onNewWindow = () -> {};
+    private Runnable onZoomIn = () -> {};
+    private Runnable onZoomOut = () -> {};
+    private Runnable onActualSize = () -> {};
+    private BooleanSupplier menuBarShown;
+    private Runnable onToggleMenuBar;
 
     /**
      * Menu actions the view cannot perform itself. A terminal knows nothing about tabs, windows or
@@ -811,6 +833,27 @@ public final class TerminalView extends Region {
 
     public void setOnNewWindow(Runnable onNewWindow) {
         this.onNewWindow = onNewWindow == null ? () -> {} : onNewWindow;
+    }
+
+    /** Zoom is the window's, not the view's: it writes through the settings, which every tab shares. */
+    public void setOnZoom(Runnable zoomIn, Runnable zoomOut, Runnable actualSize) {
+        this.onZoomIn = zoomIn == null ? () -> {} : zoomIn;
+        this.onZoomOut = zoomOut == null ? () -> {} : zoomOut;
+        this.onActualSize = actualSize == null ? () -> {} : actualSize;
+    }
+
+    /**
+     * Offers the menu bar as a checkbox in the right-click menu, reading and writing the same
+     * setting the View menu does.
+     *
+     * <p>Both halves in one call so they cannot be wired half-way — a checkbox that toggles but
+     * never reflects, or reflects but never toggles, looks like it works. Left unwired the item is
+     * omitted entirely, which is how macOS gets no entry: the menus are in the screen menu bar and
+     * there is nothing in the window to show or hide.
+     */
+    public void setMenuBarToggle(BooleanSupplier shown, Runnable toggle) {
+        this.menuBarShown = shown;
+        this.onToggleMenuBar = toggle;
     }
 
     /**
@@ -843,9 +886,13 @@ public final class TerminalView extends Region {
         if (!shouldShowMenu(display.getMouseMode(), shiftOnLastPress, e.isKeyboardTrigger())) return;
 
         if (contextMenu == null) contextMenu = buildContextMenu();
-        // Rebuilt per show: what Copy and Paste can act on changes long after the menu was created.
+        // Refreshed per show: the menu is built once and reused, while everything it reports on
+        // moves underneath it. Copy and Paste depend on the selection and the clipboard; the
+        // menu-bar checkbox on a setting the View menu, its own chord and the settings window can
+        // all change while this menu sits built and invisible.
         copyItem.setDisable(!hasSelection());
         pasteItem.setDisable(!Clipboard.getSystemClipboard().hasString());
+        if (menuBarItem != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
         contextMenu.show(this, e.getScreenX(), e.getScreenY());
         e.consume();
     }
@@ -868,10 +915,28 @@ public final class TerminalView extends Region {
         return contextMenu != null && contextMenu.isShowing();
     }
 
+    /**
+     * Fires the context-menu item with this label, and reports whether one was found. For the
+     * development capture hook: a menu item that renders correctly and does nothing when clicked
+     * looks exactly like one that works, and every item here delegates to a callback that could be
+     * left unwired.
+     */
+    public boolean fireContextMenuItemForCapture(String label) {
+        if (contextMenu == null) contextMenu = buildContextMenu();
+        for (MenuItem item : contextMenu.getItems()) {
+            if (label.equals(item.getText())) {
+                item.fire();
+                return true;
+            }
+        }
+        return false;
+    }
+
     private ContextMenu buildContextMenu() {
         copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
         pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
-        ContextMenu menu = new ContextMenu(
+
+        List<MenuItem> items = new ArrayList<>(List.of(
                 item(tr("menu.newTab"), MenuIcons.newTab(), () -> onNewTab.run()),
                 item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> onNewWindow.run()),
                 new SeparatorMenuItem(),
@@ -881,7 +946,29 @@ public final class TerminalView extends Region {
                 new SeparatorMenuItem(),
                 item(tr("menu.clearScrollback"), MenuIcons.clear(), this::clearScrollback),
                 new SeparatorMenuItem(),
-                item(tr("menu.settings"), MenuIcons.settings(), () -> onOpenSettings.run()));
+                item(tr("menu.zoomIn"), MenuIcons.zoomIn(), () -> onZoomIn.run()),
+                item(tr("menu.zoomOut"), MenuIcons.zoomOut(), () -> onZoomOut.run()),
+                item(tr("menu.actualSize"), MenuIcons.actualSize(), () -> onActualSize.run())));
+
+        if (onToggleMenuBar != null && menuBarShown != null) {
+            // "Show Menu Bar", checked — not the View menu's "Hide Menu Bar". The two menus are
+            // reached from different places: the View menu is inside the bar, so it can only ever
+            // be opened while the bar is showing and "Hide" is the only move it has. This menu is
+            // the way back once the bar is gone, so it has to state which of the two states you
+            // are in rather than name a direction.
+            //
+            // No leading glyph, against the convention the rest of these follow: a CheckMenuItem
+            // draws its tick in the graphic column, and an icon there either fights it or hides it.
+            menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
+            menuBarItem.setOnAction(e -> onToggleMenuBar.run());
+            items.add(new SeparatorMenuItem());
+            items.add(menuBarItem);
+        }
+
+        items.add(new SeparatorMenuItem());
+        items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> onOpenSettings.run()));
+
+        ContextMenu menu = new ContextMenu(items.toArray(MenuItem[]::new));
         menu.setAutoHide(true);
         return menu;
     }

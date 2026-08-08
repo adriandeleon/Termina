@@ -45,10 +45,23 @@ case "$(uname -s)" in
         build dmg --mac-package-name Termina
         ;;
     Linux)
-        # The resource directory overrides jpackage's generated desktop entry with ours, which
-        # carries StartupWMClass and the TerminalEmulator category. Without it the package installs
-        # an entry that no window can be matched to, and that desktops do not offer as a terminal.
-        resources="$(cd "$(dirname "$0")/../packaging/linux" && pwd)"
+        # The resource directory overrides two things jpackage would otherwise generate.
+        #
+        # The desktop entry, which carries StartupWMClass and the TerminalEmulator category —
+        # without it the package installs an entry that no window can be matched to, and that
+        # desktops do not offer as a terminal.
+        #
+        # And the icon. --icon above is enough for the app image and is ignored by the deb and rpm
+        # bundlers, which regenerate lib/<name>.png from their own resources: the 0.1.0 packages
+        # shipped a file byte-identical to jpackage's bundled 32x32 JavaApp.png, so the launcher
+        # showed a stock Java icon while the app image beside it had the right one. Supplying
+        # Termina.png here is the only override those bundlers honour.
+        #
+        # Staged into a copy rather than committed alongside the desktop entry, so branding/ stays
+        # the single source of the icon.
+        resources="$(mktemp -d)"
+        cp "$(dirname "$0")/../packaging/linux/"*.desktop "$resources/"
+        [ -n "$icon" ] && [ -f "$icon" ] && cp "$icon" "$resources/Termina.png"
         build deb \
             --linux-package-name termina \
             --linux-deb-maintainer "adrian.deleon@gmail.com" \

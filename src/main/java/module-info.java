@@ -16,6 +16,12 @@ module com.termina {
     requires kotlin.stdlib;
     requires org.slf4j;
 
+    // macOS has no /proc, so reading a shell's working directory means calling proc_pidinfo.
+    // JNA is already present transitively (it is how pty4j reaches its natives), but arriving
+    // through another module does not make it readable by us — hence this line, and the matching
+    // explicit dependency in the pom. See com.termina.pty.ProcessCwd.
+    requires com.sun.jna;
+
     // TtyConnector declares default resize(java.awt.Dimension) overloads. We never call them,
     // but the interface cannot be verified without java.desktop on the module path.
     // See App.main for why AWT is nonetheless forced headless.

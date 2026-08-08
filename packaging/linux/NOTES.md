@@ -26,3 +26,23 @@ notes about our build belong here.
 
 CI asserts all of this against a built `.deb` rather than against this file, because every failure
 above produces a package that looks fine from the outside.
+
+## The icon does not come through `--icon`
+
+`--icon` is enough for the app image: `-Pdist` produces `Termina/lib/Termina.png` holding the real
+512x512 branding. The **deb and rpm bundlers ignore it** and regenerate `lib/<name>.png` from their
+own resources — the 0.1.0 packages shipped a file byte-identical to jpackage's bundled 32x32
+`JavaApp.png`, so the launcher showed a stock Java icon while the app image they were wrapped from
+had the correct one. The `.desktop` then points `Icon=` at that generic file.
+
+Supplying `Termina.png` through the resource directory is the only override those bundlers honour.
+`build-installers.sh` stages it there from `branding/`, rather than committing a second copy beside
+this file, so the branding has one source.
+
+Verify against a built package rather than against the tree — nothing fails when this regresses:
+
+```bash
+dpkg-deb --fsys-tarfile target/installers/termina_*.deb \
+  | tar -xO ./opt/termina/lib/Termina.png | sha256sum
+sha256sum branding/termina.png
+```

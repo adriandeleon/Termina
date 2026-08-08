@@ -90,7 +90,26 @@ public final class UpdateCheck {
     public static boolean isNewer(String current, String latest) {
         if (latest == null || latest.isBlank()) return false;
         if (current == null || current.isBlank()) return true;
-        return compareVersions(normalizeVersion(latest), normalizeVersion(current)) > 0;
+        return compareVersions(normalizeVersion(latest), releaseOf(current)) > 0;
+    }
+
+    /**
+     * The release a version belongs to: {@code 0.1.0-SNAPSHOT} is the development of {@code 0.1.0},
+     * so for the purpose of "is there anything newer" it counts as {@code 0.1.0}.
+     *
+     * <p>Only releases are ever offered — {@link #parseLatest} discards drafts and pre-releases — so
+     * the same has to hold for the version being compared against, and a snapshot is not a release.
+     * Left to the plain semver rule a snapshot sorts <em>below</em> the version it names, so every
+     * development build off {@code master} would be told to update to the release it is already
+     * ahead of, once a day, forever.
+     *
+     * <p>Deliberately only {@code -SNAPSHOT}: an {@code -rc1} really is a distinct thing that
+     * precedes its release, and should still be told when that release lands.
+     */
+    static String releaseOf(String version) {
+        String normalized = normalizeVersion(version);
+        int suffix = normalized.toUpperCase(java.util.Locale.ROOT).indexOf("-SNAPSHOT");
+        return suffix < 0 ? normalized : normalized.substring(0, suffix);
     }
 
     /**

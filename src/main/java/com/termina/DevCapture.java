@@ -3,6 +3,8 @@ package com.termina;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
@@ -87,6 +89,10 @@ final class DevCapture {
         PauseTransition settle = new PauseTransition(Duration.millis(settleMs));
         settle.setOnFinished(e -> {
             openExtraTabsAndWindows(windows, window);
+            // Started here rather than beside the other input, so the network round trip has the
+            // whole afterCommand wait to land in. The interesting moment is *after* the second
+            // report, not during the first.
+            checkUpdatesIfRequested(windows, window);
             TerminalView terminal = window.activeTerminal();
             if (!command.isBlank() && terminal != null) {
                 sendUntilItTakes(terminal, command);
@@ -124,6 +130,8 @@ final class DevCapture {
                 TerminalView active = window.activeTerminal();
                 if (active != null) driveInput(window, active);
                 fireChordIfRequested(window);
+                typeAtFocusIfRequested(window, active);
+                fireMenuItemIfRequested(active, settings);
                 selectTabIfRequested(window);
                 closeTabsIfRequested(window);
                 if (settings != null) switchThemeIfRequested(settings);
@@ -202,7 +210,10 @@ final class DevCapture {
             System.out.println("[capture] layout " + w.layoutReport());
             System.out.println("[capture] menus " + w.menuReport());
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
+            System.out.println("[capture] " + w.focusReport());
+            reportTypedEcho(w.activeTerminal());
         }
+        reportDialogs();
     }
 
     /**
@@ -534,6 +545,111 @@ final class DevCapture {
             if (menu != null) return menu;
         }
         return fallback;
+    }
+
+    /**
+     * Activates a right-click menu item by its label, reporting the settings it was supposed to
+     * move.
+     *
+     * <pre>-Dtermina.captureMenuItem=Zoom In</pre>
+     *
+     * <p>Photographing the menu proves the item is there and reads correctly. It cannot prove the
+     * item does anything: every one of them delegates to a callback the owning window has to wire,
+     * and an unwired one renders identically to a working one and fails silently on click.
+     */
+    private static void fireMenuItemIfRequested(TerminalView terminal, com.termina.config.Settings settings) {
+        String label = System.getProperty("termina.captureMenuItem");
+        if (label == null || label.isBlank() || terminal == null) return;
+        String before = settingsDigest(settings);
+        boolean found = terminal.fireContextMenuItemForCapture(label.trim());
+        System.out.println("[capture] menu item \"" + label.trim() + "\" found=" + found + " before=" + before
+                + " after=" + settingsDigest(settings));
+    }
+
+    private static String settingsDigest(com.termina.config.Settings settings) {
+        if (settings == null) return "?";
+        return "fontSize=" + settings.fontSize() + " showMenuBar=" + settings.showMenuBar();
+    }
+
+    /**
+     * Runs the update check and reports every dialog left on screen.
+     *
+     * <pre>-Dtermina.captureCheckUpdates=true</pre>
+     *
+     * <p>The check reports twice — once to say it has started, once to say how it went — and the
+     * count is the thing worth asserting: two dialogs means the second was stacked on the first
+     * rather than replacing it, which the user meets as a stale "Checking for updates…" appearing
+     * *after* they dismiss the result.
+     */
+    private static void checkUpdatesIfRequested(WindowManager windows, TerminalWindow window) {
+        if (!Boolean.getBoolean("termina.captureCheckUpdates")) return;
+        windows.checkForUpdatesNow(window::reportForCapture);
+    }
+
+    /** Every dialog currently on screen, by its message. */
+    private static void reportDialogs() {
+        if (!Boolean.getBoolean("termina.captureCheckUpdates")) return;
+        List<String> open = new ArrayList<>();
+        for (javafx.stage.Window w : javafx.stage.Window.getWindows()) {
+            if (!w.isShowing()
+                    || !(w.getScene() != null
+                            && w.getScene().getRoot() instanceof javafx.scene.control.DialogPane pane)) {
+                continue;
+            }
+            open.add('"' + String.valueOf(pane.getContentText()) + '"');
+        }
+        System.out.println("[capture] dialogs open=" + open.size() + " " + open);
+    }
+
+    /**
+     * Types at whatever owns the keyboard, and reports whether the shell received it.
+     *
+     * <pre>-Dtermina.captureTypeAtFocus=hello</pre>
+     *
+     * <p>The distinction from {@code captureCommand} is the whole point: that writes into the PTY
+     * directly, and the other input options fire events at the view by name. Both work perfectly in
+     * a window where focus is sitting on the tab strip and nothing the user types reaches the shell
+     * — which is exactly the bug that shipped. Firing at the focus owner is the only route that
+     * exercises what a keyboard does.
+     */
+    private static void typeAtFocusIfRequested(TerminalWindow window, TerminalView terminal) {
+        String text = System.getProperty("termina.captureTypeAtFocus");
+        if (text == null || text.isEmpty() || terminal == null) return;
+        Scene scene = window.stage().getScene();
+        javafx.scene.Node target = scene == null ? null : scene.getFocusOwner();
+        if (target == null) {
+            System.out.println("[capture] typeAtFocus: nothing has focus");
+            return;
+        }
+        for (char c : text.toCharArray()) {
+            Event.fireEvent(
+                    target,
+                    new javafx.scene.input.KeyEvent(
+                            javafx.scene.input.KeyEvent.KEY_TYPED,
+                            String.valueOf(c),
+                            "",
+                            javafx.scene.input.KeyCode.UNDEFINED,
+                            false,
+                            false,
+                            false,
+                            false));
+        }
+        System.out.println("[capture] typeAtFocus \"" + text + "\" at "
+                + target.getClass().getSimpleName() + " (reached the shell: checked below)");
+    }
+
+    /** Whether text typed at the focus owner actually made it onto the emulated screen. */
+    private static void reportTypedEcho(TerminalView terminal) {
+        String text = System.getProperty("termina.captureTypeAtFocus");
+        if (text == null || text.isEmpty() || terminal == null) return;
+        var buffer = terminal.getSession().getTextBuffer();
+        buffer.lock();
+        try {
+            System.out.println(
+                    "[capture] typeAtFocus echoed=" + buffer.getScreenLines().contains(text));
+        } finally {
+            buffer.unlock();
+        }
     }
 
     /**
