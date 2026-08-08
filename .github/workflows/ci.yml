@@ -155,7 +155,11 @@ jobs:
           # reaching an assertion.
           deb=$(ls target/installers/*.deb)
           echo "inspecting $deb"
-          dpkg-deb --contents "$deb" | grep -qE "termina.aot" || {
+          # Listed to a file rather than piped into grep -q. grep -q exits at the first match, which
+          # closes the pipe under dpkg-deb, and pipefail then reports the whole pipeline as failed —
+          # so the check said "no AOT cache" about a package that contained one.
+          dpkg-deb --contents "$deb" > "$RUNNER_TEMP/deb-contents.txt"
+          grep -q "termina.aot" "$RUNNER_TEMP/deb-contents.txt" || {
             echo "::error::the package has no AOT cache — startup would be a quarter slower"; exit 1; }
 
           rm -rf "$RUNNER_TEMP/deb" && mkdir -p "$RUNNER_TEMP/deb"
