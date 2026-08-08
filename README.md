@@ -489,28 +489,30 @@ change fixes; it needs a paid Developer ID and a notarisation step.
 
 **The Windows build is unsigned**, so SmartScreen will warn on first run. "More info" → "Run anyway".
 
-**No installers yet** — the releases carry portable archives. A `.dmg` or `.msi` that nobody has
-ever installed is a worse first release than an archive that has been extracted and run.
+**Intel Macs get no Homebrew cask.** A cask accepts exactly one artifact, so the tap serves Apple
+Silicon; Intel users can take the `macos-x64` DMG from the release page.
 
-**Intel Macs get no Homebrew cask.** A cask accepts exactly one archive, so the tap serves Apple
-Silicon; Intel users can take the `macos-x64` archive from the release page.
+**The installers have not been installed by anybody yet.** They are built and their contents
+verified — the DMG was mounted and the app inside checked for the right version, a valid signature
+and its AOT cache — but no one has yet double-clicked an MSI or run `dpkg -i` on a real machine.
 
-## Installing on Linux
+## Installing
 
-The Linux archive carries the application image plus `install.sh` and a desktop entry:
+Releases carry native installers, built on the platform they target — jpackage and jlink are
+host-specific and there is no cross-building.
 
-```
-tar -xzf Termina-<version>-linux-x64.tar.gz
-./install.sh          # this user, into ~/.local
-sudo ./install.sh     # everyone, into /opt
-./install.sh --uninstall
-```
+| Platform | Download | Install |
+| --- | --- | --- |
+| macOS, Apple Silicon | `macos-arm64.dmg` | open, drag to Applications |
+| macOS, Intel | `macos-x64.dmg` | open, drag to Applications |
+| Windows | `windows-x64.msi` | run it |
+| Debian, Ubuntu | `linux-x64.deb`, `linux-arm64.deb` | `sudo dpkg -i` or `sudo apt install ./…` |
+| Fedora, RHEL, openSUSE | `linux-x64.rpm`, `linux-arm64.rpm` | `sudo rpm -i` or `sudo dnf install ./…` |
 
-It puts `termina` on PATH, installs the launcher entry and icon, and — as root on Debian and
-derivatives — registers Termina as an `x-terminal-emulator` alternative at a low priority, so it
-becomes available as the system terminal without silently taking the job. `update-alternatives
---config x-terminal-emulator` is how you choose it. That works because Termina accepts `-e command`,
-which is the interface everything expects of a system terminal.
+The Linux packages install a launcher entry carrying `StartupWMClass` and the `TerminalEmulator`
+category, so Termina appears in the application menu and desktops offer it where a terminal is
+wanted. That works because Termina accepts `-e command`, which is the interface everything expects
+of a system terminal.
 
 The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the module's
 main class rather than from the application name. Without it a running window cannot be matched to

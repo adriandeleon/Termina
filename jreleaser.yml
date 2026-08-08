@@ -67,9 +67,10 @@ distributions:
   termina:
     type: NATIVE_PACKAGE
     artifacts:
-      # ditto-made, so the code signature survives: jpackage ad-hoc-signs the app and a copy whose
-      # signature did not come through will not launch.
-      - path: 'artifacts/Termina-{{projectVersion}}-macos-arm64.zip'
+      # The DMG, which a Homebrew cask accepts directly. Verified that the app inside carries the
+      # corrected version and a valid signature — the wrap packages the finished bundle rather than
+      # rebuilding it.
+      - path: 'artifacts/Termina-{{projectVersion}}-macos-arm64.dmg'
         platform: osx-aarch_64
 
     brew:
@@ -97,15 +98,16 @@ distributions:
           Termina is not signed with an Apple Developer ID yet, so macOS refuses to open it the
           first time. Allow it once under System Settings > Privacy & Security > Open Anyway.
 
-  # BINARY, not NATIVE_PACKAGE: winget generates no manifest at all for a NATIVE_PACKAGE zip, and a
-  # packager that silently produces nothing is worse than one that errors.
+  # NATIVE_PACKAGE now that the artifact is an MSI rather than a zip. The pairing matters and fails
+  # quietly when it is wrong: winget writes no manifest at all and the build still succeeds, so the
+  # generated output is checked rather than assumed after any change here.
   termina-windows:
-    type: BINARY
+    type: NATIVE_PACKAGE
     executable:
       name: Termina
       windowsExtension: exe
     artifacts:
-      - path: 'artifacts/Termina-{{projectVersion}}-windows-x64.zip'
+      - path: 'artifacts/Termina-{{projectVersion}}-windows-x64.msi'
         platform: windows-x86_64
 
     winget:
@@ -122,7 +124,7 @@ distributions:
         supportUrl: https://github.com/adriandeleon/Termina/issues
       moniker: termina
       installer:
-        type: ZIP
+        type: MSI
         scope: USER
         upgradeBehavior: INSTALL
       # A fork of microsoft/winget-pkgs under this account; the pull request is opened from it.
@@ -140,5 +142,8 @@ distributions:
 # takes one zip) and Linux has no packager configured yet.
 files:
   artifacts:
-    - path: 'artifacts/Termina-{{projectVersion}}-macos-x64.zip'
-    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.tar.gz'
+    - path: 'artifacts/Termina-{{projectVersion}}-macos-x64.dmg'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.deb'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.rpm'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.deb'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.rpm'

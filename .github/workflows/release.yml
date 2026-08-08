@@ -26,16 +26,14 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux-x64
-            archive: tar.gz
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
           - os: macos-latest
             target: macos-arm64
-            archive: zip
           - os: macos-15-intel
             target: macos-x64
-            archive: zip
           - os: windows-latest
             target: windows-x64
-            archive: zip
 
     steps:
       - uses: actions/checkout@v5
@@ -70,53 +68,57 @@ jobs:
           fi
           echo "Building $public for ${{ matrix.target }}"
 
+      # jpackage shells out to each platform's own packaging tools, and none of them are a given on
+      # a fresh runner.
+      - name: Installer prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ runner.os }}" in
+            Linux)
+              # dpkg-deb is present; rpmbuild is not, and jpackage fails the rpm without it.
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq fakeroot rpm binutils
+              ;;
+            Windows)
+              # jpackage builds an MSI through WiX and cannot make one without it.
+              choco install wixtoolset --no-progress -y
+              echo "C:\\Program Files (x86)\\WiX Toolset v3.14\\bin" >> "$GITHUB_PATH"
+              ;;
+          esac
+
       - name: Package
-        run: ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests package
+        run: ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests -Dskip.installers=false package
         shell: bash
 
-      - name: Archive
-        id: archive
+      # jpackage names its output after the version it was given, which on macOS is the bumped
+      # placeholder (1.1.0 for a 0.1.0 release) and everywhere else carries no target. Renaming to
+      # one scheme is what makes four platforms' downloads legible on a single release page.
+      - name: Name the installers
+        id: installers
         shell: bash
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
-          name="Termina-$version-${{ matrix.target }}"
-          cd target/dist
-          case "${{ matrix.target }}" in
-            macos-*)
-              # ditto, not zip: it is Apple's own archiver and the only one that reliably carries
-              # the code signature and extended attributes through. jpackage ad-hoc-signs the app,
-              # and a copy whose signature did not survive the round trip will not launch at all.
-              # A Homebrew cask also accepts only .dmg, .pkg or .zip, never .tar.gz.
-              ditto -c -k --sequesterRsrc --keepParent Termina.app "../$name.zip"
-              ;;
-            windows-*)
-              # Compress-Archive is the one archiver reliably present on the Windows image.
-              powershell -Command "Compress-Archive -Path * -DestinationPath '../$name.zip'"
-              ;;
-            *)
-              # The desktop entry and its installer travel with the image. A terminal that is not in
-              # the application menu can only be started from another terminal, which rather defeats
-              # it — and the tarball is the only Linux delivery, so if they are not here they are
-              # nowhere.
-              cp "$GITHUB_WORKSPACE/packaging/linux/install.sh" .
-              cp "$GITHUB_WORKSPACE/packaging/linux/termina.desktop" .
-              cp "$GITHUB_WORKSPACE/branding/termina.png" . 2>/dev/null || true
-              chmod +x install.sh
-              # -p preserves the executable bit on the launcher, without which the extracted image
-              # cannot be started at all.
-              tar -czpf "../$name.tar.gz" *
-              ;;
-          esac
-          cd ..
-          echo "file=target/$name.${{ matrix.archive }}" >> "$GITHUB_OUTPUT"
-          ls -la "$name.${{ matrix.archive }}"
+          cd target/installers
+          shopt -s nullglob
+          produced=0
+          for file in *; do
+            ext="${file##*.}"
+            mv -v "$file" "Termina-$version-${{ matrix.target }}.$ext"
+            produced=$((produced + 1))
+          done
+          if [ "$produced" = 0 ]; then
+            echo "::error::no installer was produced for ${{ matrix.target }}"
+            exit 1
+          fi
+          ls -la
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: Termina-${{ matrix.target }}
-          path: ${{ steps.archive.outputs.file }}
+          path: target/installers/*
           retention-days: 14
           if-no-files-found: error
 

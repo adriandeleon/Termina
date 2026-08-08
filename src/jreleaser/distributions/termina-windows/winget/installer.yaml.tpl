@@ -1,22 +1,17 @@
 # {{jreleaserCreationStamp}}
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
 
-# Hand-written rather than JReleaser's stock template, which produced a manifest winget would
-# reject: empty Scope, InstallModes and UpgradeBehavior keys, and — the one that matters — no
-# NestedInstallerType/NestedInstallerFiles, which a zip installer is required to carry. An empty
-# key is not the same as an absent one to the schema validator.
+# Hand-written rather than JReleaser's stock template, which emitted empty Scope, InstallModes and
+# UpgradeBehavior keys — empty is not the same as absent to the schema validator.
 #
-# The relative path is the jpackage app-image layout: the zip contains a Termina/ folder with the
-# launcher at its root, beside app/ and runtime/. It is written literally because it is a property
-# of how jpackage lays an image out, not of anything JReleaser knows.
+# An MSI needs no NestedInstallerType or NestedInstallerFiles; those belong to the zip form this
+# replaced. ProductCode is deliberately omitted: winget derives it from the package itself, and a
+# wrong one makes upgrades and uninstalls silently fail to find what they installed.
 PackageIdentifier: {{wingetPackageIdentifier}}
 PackageVersion: {{wingetPackageVersion}}
 MinimumOSVersion: {{wingetMinimumOsVersion}}
-InstallerType: zip
-NestedInstallerType: portable
-NestedInstallerFiles:
-  - RelativeFilePath: Termina\Termina.exe
-    PortableCommandAlias: termina
+InstallerType: msi
+Scope: user
 UpgradeBehavior: install
 ReleaseDate: {{wingetReleaseDate}}
 Installers:

@@ -34,6 +34,8 @@
         <!-- Overridden per-OS below; jpackage wants .icns on macOS, .ico on Windows, .png on Linux. -->
         <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
         <skip.mac.version.fix>true</skip.mac.version.fix>
+        <!-- Installers are minutes of work the dev loop never wants; the release turns them on. -->
+        <skip.installers>true</skip.installers>
         <jpackage.imageName>Termina</jpackage.imageName>
 
         <!-- JediTerm: the VT/xterm emulation core (screen buffer + escape-sequence parser),
@@ -696,6 +698,28 @@
                             </arguments>
                             <!-- Nothing to fix where there is no bundle; the script exits 0 anyway. -->
                             <skip>${skip.mac.version.fix}</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!--
+                          Last, so it wraps a finished image: the AOT cache is already trained into
+                          it and, on macOS, the version corrected and the bundle re-signed. Opt-in
+                          via -Dtermina.installers=true, because building four installers takes
+                          minutes and the dev loop only ever wants the app image.
+                        -->
+                        <id>build-installers</id>
+                        <phase>package</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>${project.basedir}/scripts/build-installers.sh</argument>
+                                <argument>${project.build.directory}/dist/${jpackage.imageName}</argument>
+                                <argument>${jpackage.appVersion}</argument>
+                                <argument>${project.build.directory}/installers</argument>
+                                <argument>${jpackage.icon}</argument>
+                            </arguments>
+                            <skip>${skip.installers}</skip>
                         </configuration>
                     </execution>
                 </executions>
