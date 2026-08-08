@@ -3,7 +3,9 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.1.0 — 2026-08-07
+
+First release.
 
 ### Added
 
