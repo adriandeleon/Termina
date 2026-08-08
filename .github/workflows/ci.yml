@@ -128,43 +128,32 @@ jobs:
           grep -qi "$me" "$RUNNER_TEMP/smoke.log" || { echo "::error::the shell did not run the command"; exit 1; }
           echo "smoke test: a shell ran and printed in the packaged app"
 
-      # The Linux installer makes claims about where jpackage puts things. Checked by machine on the
-      # platform that produces the layout, rather than believed from a macOS desk.
-      - name: Check the Linux image layout and desktop entry
+      # The Linux packages carry a desktop entry that jpackage will happily replace with its own if
+      # the override is not named exactly after the launcher. That failure is silent — the package
+      # builds, installs, and simply has no StartupWMClass — so it is asserted against a real
+      # package rather than against the source file.
+      - name: Check the Linux package contents
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euo pipefail
-          echo "--- image layout ---"
-          find target/dist -maxdepth 2 | head -20
+          sudo apt-get update -qq && sudo apt-get install -y -qq fakeroot rpm desktop-file-utils
+          ./mvnw -B -q --no-transfer-progress -Pdist -DskipTests -Dskip.installers=false package
 
-          launcher=target/dist/Termina/bin/Termina
-          [ -x "$launcher" ] || { echo "::error::no executable launcher at $launcher"; exit 1; }
-          echo "launcher: OK"
+          deb=$(ls target/installers/*.deb)
+          echo "inspecting $deb"
+          dpkg-deb --contents "$deb" | grep -qE "termina.aot" || {
+            echo "::error::the package has no AOT cache — startup would be a quarter slower"; exit 1; }
 
-          # The installer prefers this icon and falls back to branding/. Not fatal either way, but
-          # worth knowing which path is actually being taken.
-          if [ -f target/dist/Termina/lib/Termina.png ]; then
-            echo "icon: jpackage supplied lib/Termina.png"
-          else
-            echo "::warning::no lib/Termina.png in the image; the installer will use branding/termina.png"
-          fi
+          rm -rf "$RUNNER_TEMP/deb" && mkdir -p "$RUNNER_TEMP/deb"
+          dpkg-deb -x "$deb" "$RUNNER_TEMP/deb"
+          entry=$(find "$RUNNER_TEMP/deb" -name "*.desktop" | head -1)
+          [ -n "$entry" ] || { echo "::error::the package installs no desktop entry"; exit 1; }
+          echo "--- shipped desktop entry ---"; cat "$entry"
 
-          sudo apt-get update -qq && sudo apt-get install -y -qq desktop-file-utils shellcheck
-          desktop-file-validate packaging/linux/termina.desktop
-          echo "desktop entry: valid"
-          shellcheck packaging/linux/install.sh
-          echo "installer: shellcheck clean"
-
-          # A dry run into a throwaway prefix: proves the script actually installs, rather than
-          # proving only that it parses.
-          cp -r target/dist/Termina packaging/linux/
-          ( cd packaging/linux && ./install.sh --prefix "$RUNNER_TEMP/prefix" )
-          test -x "$RUNNER_TEMP/prefix/bin/termina"
-          test -f "$RUNNER_TEMP/prefix/share/applications/termina.desktop"
-          desktop-file-validate "$RUNNER_TEMP/prefix/share/applications/termina.desktop"
-          grep -q "^Exec=$RUNNER_TEMP/prefix" "$RUNNER_TEMP/prefix/share/applications/termina.desktop"
-          echo "install: OK"
-          ( cd packaging/linux && ./install.sh --prefix "$RUNNER_TEMP/prefix" --uninstall )
-          test ! -e "$RUNNER_TEMP/prefix/bin/termina"
-          echo "uninstall: OK"
+          desktop-file-validate "$entry"
+          grep -q "^StartupWMClass=com.termina.App$" "$entry" || {
+            echo "::error::no StartupWMClass — the override was ignored, as it is when misnamed"; exit 1; }
+          grep -q "TerminalEmulator" "$entry" || {
+            echo "::error::not registered as a terminal emulator"; exit 1; }
+          echo "package contents: OK"
