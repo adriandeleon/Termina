@@ -1,14 +1,4 @@
 [Desktop Entry]
-# Overrides jpackage's generated menu entry. The filename must match the launcher exactly —
-# Termina.desktop, not termina.desktop — or jpackage ignores it without a word and ships its own.
-# That is how the first build of these packages came out with no StartupWMClass at all.
-#
-# Note for anyone editing this on macOS or Windows: those filesystems treat the two spellings as the
-# same file, so a rename between them can look like it worked while git still records the old case.
-# `git ls-files packaging/linux` is the check.
-#
-# The APPLICATION_* tokens are jpackage's; it substitutes them exactly as in its own template, so
-# the paths stay correct wherever the package installs.
 Name=APPLICATION_NAME
 GenericName=Terminal
 Comment=APPLICATION_DESCRIPTION
@@ -16,10 +6,6 @@ Exec=APPLICATION_LAUNCHER
 Icon=APPLICATION_ICON
 Terminal=false
 Type=Application
-Categories=APPLICATION_CATEGORIES
-MimeType=APPLICATION_MIMETYPES
+Categories=System;TerminalEmulator;
 Keywords=shell;prompt;command line;console;
-# The real WM_CLASS, which JavaFX derives from the module's main class rather than the application
-# name. Without it a running window cannot be matched to this entry, so the dock shows a second,
-# generic icon beside the launcher instead of highlighting it.
 StartupWMClass=com.termina.App

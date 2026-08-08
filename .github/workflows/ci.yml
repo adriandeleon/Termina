@@ -74,9 +74,21 @@ jobs:
       # jlink and jpackage are host-specific: there is no cross-building, so each platform's image
       # can only be produced by that platform. This is the step that says whether a release could
       # be cut today, which is why it runs on every push rather than only on a tag.
+      - name: Installer prerequisites
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fakeroot rpm binutils
+
       - name: Package
-        run: ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests package
         shell: bash
+        run: |
+          set -euo pipefail
+          # Linux builds the installers too, because that is where their contents get checked. The
+          # other platforms only need to prove the app image builds.
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests -Dskip.installers=false package
+          else
+            ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests package
+          fi
 
       - name: Check the image exists and is not empty
         shell: bash
@@ -137,9 +149,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq && sudo apt-get install -y -qq fakeroot rpm desktop-file-utils
-          ./mvnw -B -q --no-transfer-progress -Pdist -DskipTests -Dskip.installers=false package
-
+          sudo apt-get install -y -qq desktop-file-utils
+          # Uses what the Package step built. Rebuilding here fails outright — jpackage refuses to
+          # write over an existing image — which is how this check first went red without ever
+          # reaching an assertion.
           deb=$(ls target/installers/*.deb)
           echo "inspecting $deb"
           dpkg-deb --contents "$deb" | grep -qE "termina.aot" || {
@@ -154,6 +167,12 @@ jobs:
           desktop-file-validate "$entry"
           grep -q "^StartupWMClass=com.termina.App$" "$entry" || {
             echo "::error::no StartupWMClass — the override was ignored, as it is when misnamed"; exit 1; }
-          grep -q "TerminalEmulator" "$entry" || {
+          grep -q "^Categories=.*TerminalEmulator" "$entry" || {
             echo "::error::not registered as a terminal emulator"; exit 1; }
+          # jpackage substitutes only some of its own tokens; an unsubstituted one ships literally
+          # and makes the key invalid.
+          if grep -q "APPLICATION_" "$entry"; then
+            echo "::error::an APPLICATION_* placeholder was not substituted"
+            exit 1
+          fi
           echo "package contents: OK"
