@@ -119,6 +119,16 @@
             <version>${pty4j.version}</version>
         </dependency>
 
+        <!-- Reading a shell's working directory on macOS (there is no /proc) means proc_pidinfo,
+             which means JNA. pty4j already drags it in, but module-info has to require it by name,
+             and requiring a module that is only on the path by accident of someone else's
+             dependency is how a build breaks on an unrelated upgrade. See com.termina.pty.ProcessCwd.
+             Version from dependencyManagement, where the pty4j disagreement is already settled. -->
+        <dependency>
+            <groupId>net.java.dev.jna</groupId>
+            <artifactId>jna</artifactId>
+        </dependency>
+
         <!-- jediterm-core and pty4j both declare slf4j-api at runtime scope, which keeps it
              off the compile module path. We need it resolved as a real module (module-info
              wires it explicitly — see the note there), so declare it at compile scope. -->

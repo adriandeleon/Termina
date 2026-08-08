@@ -132,6 +132,11 @@ public final class TerminalSession {
         return !closed && process.isAlive();
     }
 
+    /** The shell's own pid — what the OS is asked about to find the working directory. */
+    public long pid() {
+        return process.pid();
+    }
+
     public void close() {
         if (closed) return;
         closed = true;

@@ -78,10 +78,27 @@ class UpdateCheckTest {
     }
 
     @Test
-    void aSnapshotIsOlderThanTheReleaseItBecomes() {
-        // Otherwise every development build reports itself as up to date against its own release.
-        assertTrue(UpdateCheck.isNewer("0.1.0-SNAPSHOT", "0.1.0"));
+    void aSnapshotCountsAsTheReleaseItNames() {
+        // This reverses an earlier decision, deliberately. Plain semver puts 0.1.0-SNAPSHOT below
+        // 0.1.0, which is true of the version strings and useless as behaviour: only releases are
+        // ever offered, so every development build off master was told once a day to update to the
+        // release it is already ahead of. A snapshot is not a release; it is the development of one.
+        assertFalse(UpdateCheck.isNewer("0.1.0-SNAPSHOT", "0.1.0"));
         assertFalse(UpdateCheck.isNewer("0.1.0", "0.1.0-SNAPSHOT"));
+    }
+
+    @Test
+    void aSnapshotIsStillOfferedAGenuinelyNewerRelease() {
+        // The point is to stop the nagging, not to stop the feature working on a dev build.
+        assertTrue(UpdateCheck.isNewer("0.1.0-SNAPSHOT", "0.2.0"));
+        assertTrue(UpdateCheck.isNewer("0.1.0-SNAPSHOT", "1.0.0"));
+        assertFalse(UpdateCheck.isNewer("0.2.0-SNAPSHOT", "0.1.0"));
+    }
+
+    @Test
+    void theSnapshotSuffixIsMatchedWhateverItsCase() {
+        assertFalse(UpdateCheck.isNewer("0.1.0-snapshot", "0.1.0"));
+        assertFalse(UpdateCheck.isNewer("v0.1.0-SNAPSHOT", "0.1.0"));
     }
 
     @Test

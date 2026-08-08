@@ -414,6 +414,11 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureCloseTabs=2         # close N tabs, reporting the child-process count
   -Dtermina.captureTheme=editora-light # switch theme after the windows exist
   -Dtermina.captureChord=T             # fire an application chord at the scene
+  -Dtermina.captureMenuItem='Zoom In'  # click a context-menu item, reporting the setting it moved
+  -Dtermina.captureTypeAtFocus=hello   # type at whatever owns the keyboard, and report whether the
+                                       # shell received it — the only input option that goes through
+                                       # focus rather than around it
+  -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful

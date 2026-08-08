@@ -67,6 +67,19 @@ public final class TerminalWindow {
         this.stage = stage;
 
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
+        // The scene hands initial focus to the first focus-traversable node it can find, and a
+        // TabPane is one by default. That is a race against the requestFocus below, and on a cold
+        // first launch — where the JVM has classes to load and a shell to start before the tab
+        // exists — the TabPane wins it and every keystroke goes to the tab strip, in a window that
+        // looks completely ready. Opening a second tab appeared to "fix" it only because by then
+        // the tab strip already had focus to give away.
+        //
+        // Nothing in the chrome should be a traversal target anyway: Tab belongs to the shell (the
+        // view consumes it), switching tabs has its own chords, and the new-tab button is already
+        // excluded above. That leaves the terminal as the only candidate, which removes the race
+        // rather than trying to win it. A click on a tab header still focuses the TabPane —
+        // requestFocus ignores this flag — and the selection listener hands it straight back.
+        tabs.setFocusTraversable(false);
         // Disposal is driven off the list rather than off the close button, so that every removal
         // path is covered — the button, Close Tab, the shell exiting, and closing the window. A
         // missed one leaks a PTY process, two pump threads and the emulator thread, per tab.
@@ -179,6 +192,18 @@ public final class TerminalWindow {
     }
 
     /**
+     * Whether to offer showing and hiding the menu bar at all.
+     *
+     * <p>Two menus ask this — the View menu, for its Hide item, and the right-click menu, for its
+     * checkbox — and they must agree: an app that offers the toggle in one place and not the other
+     * reads as a bug in whichever place you looked first. Under a system menu bar there is nothing
+     * in the window to hide, and an entry that does nothing when clicked is worse than no entry.
+     */
+    static boolean offersMenuBarToggle(boolean systemMenuBar) {
+        return !systemMenuBar;
+    }
+
+    /**
      * Applies the menu bar's visibility. The two platforms need different mechanisms.
      *
      * <p>Under a <b>system menu bar</b> the node has to stay live — that is what JavaFX forwards to
@@ -252,16 +277,24 @@ public final class TerminalWindow {
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
         terminal.setOnNewTab(this::openTab);
         terminal.setOnNewWindow(windows::openWindow);
+        // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
+        // which every tab and window shares, so a view cannot do this for itself.
+        terminal.setOnZoom(() -> zoom(1), () -> zoom(-1), () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE));
+        // Left unwired under a system menu bar, which is how the item stays out of the menu there.
+        if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
+            terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
+        }
 
         Tab tab = new Tab();
         tab.setContent(terminal);
         tab.setUserData(terminal);
         // The title goes on a Label graphic rather than on the Tab: a Tab is not a Node, so it has
-        // nowhere to attach drag handlers. The label still shows whatever the shell calls itself,
-        // which is what makes a row of tabs useful.
+        // nowhere to attach drag handlers. It binds to the *tab* title, which is the shell's own
+        // title if it set one and otherwise just the directory's name — a path would not fit, and
+        // JavaFX ellipsises from the end, keeping exactly the leading part every tab has in common.
         Label title = new Label();
         title.getStyleClass().add("tab-title");
-        title.textProperty().bind(terminal.getDisplay().windowTitleProperty());
+        title.textProperty().bind(terminal.getDisplay().tabTitleProperty());
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
         installTabDrag(tab, title);
@@ -515,6 +548,24 @@ public final class TerminalWindow {
         return stage;
     }
 
+    /**
+     * Who owns keyboard focus, and whether that is the terminal.
+     *
+     * <p>Worth reporting because nothing else in the capture harness can see it: input is driven
+     * either straight into the PTY or as events fired at the view, both of which bypass focus
+     * routing entirely. A window where every keystroke goes somewhere else looks identical to a
+     * working one in a screenshot and in every other line of this report.
+     */
+    public String focusReport() {
+        javafx.scene.Scene scene = stage.getScene();
+        javafx.scene.Node owner = scene == null ? null : scene.getFocusOwner();
+        TerminalView active = activeTerminal();
+        return "focusOwner=" + (owner == null ? "none" : owner.getClass().getSimpleName())
+                + " isTerminal=" + (owner != null && owner == active)
+                + " terminalFocused=" + (active != null && active.isFocused())
+                + " stageFocused=" + stage.isFocused();
+    }
+
     /** Heights of the chrome above the terminal, for diagnosing stray bands. */
     /** The menu bar as text, so a capture run can assert on what is in it. */
     public String menuReport() {
@@ -736,10 +787,12 @@ public final class TerminalWindow {
         // because it has room to explain itself; a menu item has none, and one that does nothing
         // when clicked is worse than one that is not there. Skipping it also leaves Shift+Cmd+M
         // free rather than bound to a no-op.
-        if (!SYSTEM_MENU_BAR) {
+        if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
             viewItems.add(null);
-            // Hiding it from the menu it lives in is only safe because the right-click menu
-            // reaches Settings, which is how it comes back.
+            // "Hide", not a checkbox: this menu is inside the bar, so it can only ever be
+            // opened while the bar is showing, and a checkbox you can only see when it is
+            // ticked says nothing. The way back is the right-click menu, which is reachable
+            // either way and therefore does carry a checkbox.
             viewItems.add(register(MenuAction.of(
                     tr("menu.hideMenuBar"),
                     new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
@@ -816,12 +869,38 @@ public final class TerminalWindow {
      * the user picking the menu item.
      */
     private void report(String message) {
+        // One dialog, reused, because reporting is a sequence rather than an event: the update
+        // check says "checking…" and then says how it went. Opening a second alert for the second
+        // message left the first sitting underneath it — the user dismissed the result and was
+        // handed a stale "Checking for updates…" to dismiss as well, in the wrong order, looking
+        // like the check had started over.
+        if (reportAlert != null && reportAlert.isShowing()) {
+            reportAlert.setContentText(message);
+            // The replacement text is a different length, and a DialogPane sized for the old one
+            // clips or strands it.
+            reportAlert.getDialogPane().getScene().getWindow().sizeToScene();
+            return;
+        }
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.initOwner(stage);
         alert.setTitle(com.termina.AppInfo.NAME);
         alert.setHeaderText(null);
         alert.setContentText(message);
+        // Dismissing it mid-sequence is allowed: the next message opens a fresh one rather than
+        // updating a dialog that is no longer on screen.
+        alert.setOnHidden(e -> {
+            if (reportAlert == alert) reportAlert = null;
+        });
+        reportAlert = alert;
         alert.show();
+    }
+
+    /** The live {@link #report} dialog, so a follow-up message replaces it instead of stacking. */
+    private Alert reportAlert;
+
+    /** Drives {@link #report} from the development capture hook. */
+    public void reportForCapture(String message) {
+        report(message);
     }
 
     /** Records the binding for the scene filter and hands the action back for the menu. */
