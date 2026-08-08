@@ -43,6 +43,10 @@ release:
   github:
     owner: adriandeleon
     name: Termina
+    # This repository is on master. JReleaser defaults to main and fails the publish outright with
+    # "Could not checkout branch main" — after every installer has been built, which is a late and
+    # expensive place to discover a one-word setting.
+    branch: master
     # A tag that carries a suffix (-rc1, -beta2) is published as a pre-release.
     prerelease:
       pattern: .*-.*

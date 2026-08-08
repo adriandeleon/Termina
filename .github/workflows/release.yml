@@ -130,6 +130,10 @@ jobs:
     if: github.ref_type == 'tag'
     steps:
       - uses: actions/checkout@v5
+        with:
+          # JReleaser reads the git history to build the changelog, and warns that a shallow copy
+          # may fail. The default checkout is depth 1.
+          fetch-depth: 0
 
       - uses: actions/download-artifact@v4
         with:
