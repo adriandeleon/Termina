@@ -3,6 +3,14 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Changed
+
+- **No rule between settings rows.** A line under every row turned a page of eight settings into
+  eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
+  now, as it is in Editora's settings — which is why the row padding grew as the border went.
+
 ## 0.3.0 — 2026-08-08
 
 ### Added
