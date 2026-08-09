@@ -3,7 +3,12 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.5.0 — 2026-08-08
+
+### Added
+
+- **A tooltip on each tab's close button**, naming the action and its chord, as the new-tab button
+  already did.
 
 ### Fixed
 
@@ -14,19 +19,27 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ### Known gaps
 
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
 - **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
   backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
   experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
   something other than the screen it was given. JavaFX reports the window as full screen and
   correctly sized throughout, which is why nothing inside the app can see it. Maximising is
   unaffected.
-
-## Unreleased
-
-### Added
-
-- **A tooltip on each tab's close button**, naming the action and its chord, as the new-tab button
-  already did.
+- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
+  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
+  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
+  a question nobody can act on.
+- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
+  inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
+  implemented.
+- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  same thing.
+- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+  its source.
+- No splits, no search in scrollback, no keybinding customisation.
 
 ## 0.4.0 — 2026-08-08
 
