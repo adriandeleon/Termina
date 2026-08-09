@@ -582,7 +582,8 @@ final class DevCapture {
         String before = settingsDigest(settings);
         boolean found = terminal.fireContextMenuItemForCapture(label.trim());
         System.out.println("[capture] menu item \"" + label.trim() + "\" found=" + found + " before=" + before
-                + " after=" + settingsDigest(settings));
+                + " after=" + settingsDigest(settings)
+                + " menuStillOpen=" + terminal.isContextMenuShowing());
     }
 
     private static String settingsDigest(com.termina.config.Settings settings) {

@@ -738,7 +738,15 @@ public final class TerminalWindow {
 
     public String layoutReport() {
         javafx.scene.Node header = tabs.lookup(".tab-header-area");
+        javafx.geometry.Rectangle2D screenBounds =
+                javafx.stage.Screen.getPrimary().getBounds();
         return "fullScreen=" + stage.isFullScreen()
+                + " stage=" + Math.round(stage.getX()) + "," + Math.round(stage.getY())
+                + " " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight())
+                + " screen=" + Math.round(screenBounds.getWidth()) + "x" + Math.round(screenBounds.getHeight())
+                + " scene=" + Math.round(stage.getScene().getWidth()) + "x"
+                + Math.round(stage.getScene().getHeight())
+                + " screens=" + javafx.stage.Screen.getScreens().size()
                 + " menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
                 + " boundsH="
                 + (menuBar == null ? "?" : menuBar.getBoundsInParent().getHeight())

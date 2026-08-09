@@ -3,6 +3,24 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Fixed
+
+- **Full screen from the zoom row looked like it did nothing.** The window went full screen, but the
+  menu stayed open on top of it — and the menu is the thing you are looking at. The row keeps itself
+  open on purpose, because zooming is two or three presses to find the right size; going full screen
+  is done once, so that button now closes the menu, as the same button does in Firefox's panel.
+
+### Known gaps
+
+- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
+  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
+  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
+  something other than the screen it was given. JavaFX reports the window as full screen and
+  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
+  unaffected.
+
 ## 0.4.0 — 2026-08-08
 
 ### Changed
