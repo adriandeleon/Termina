@@ -301,9 +301,60 @@ public final class TerminalWindow {
         // for the same reason the menu bar had to be: a hidden-but-managed node still paints.
         newTabButton.setVisible(show);
         newTabButton.setManaged(show);
+        // The strip appearing is what creates the close buttons, so this is where to catch them.
+        if (show) installCloseTooltips();
     }
 
     private static final String HIDE_TAB_BAR = "hide-tab-bar";
+
+    /** Marks a close button whose tooltip is already on, so a retry cannot install a second. */
+    private static final String CLOSE_TIP_INSTALLED = "termina.closeTooltip";
+
+    /** Pulses to wait for the skin to build the headers before giving up on them. */
+    private static final int CLOSE_TIP_ATTEMPTS = 20;
+
+    /**
+     * Puts a tooltip on each tab's close button.
+     *
+     * <p>The button belongs to the TabPane's skin, not to us — there is no {@code Tab} API for it.
+     * The obvious route, {@code tab.getStyleableNode()}, returns <b>null</b> here, so the buttons
+     * are found by looking up the style class on the pane itself; they are indistinguishable for
+     * this purpose anyway, since every one of them says the same thing. They are {@code StackPane}s
+     * rather than controls, so the tooltip is installed on the node rather than set on it.
+     *
+     * <p>Retried because the skin does not build a header in the pulse the tab is added, and
+     * because a new tab brings a new button with it.
+     */
+    private void installCloseTooltips() {
+        installCloseTooltips(0);
+    }
+
+    private void installCloseTooltips(int attempt) {
+        java.util.Set<javafx.scene.Node> buttons = tabs.lookupAll(".tab-close-button");
+        for (javafx.scene.Node close : buttons) {
+            if (close.getProperties().putIfAbsent(CLOSE_TIP_INSTALLED, Boolean.TRUE) != null) continue;
+            Tooltip tip = new Tooltip(
+                    tr("tooltip.closeTab", MenuAction.appChord(KeyCode.W).getDisplayText()));
+            tip.setShowDelay(Duration.millis(400));
+            Tooltip.install(close, tip);
+        }
+        // Fewer buttons than tabs means a header is still to be built — but only while the strip
+        // is shown. Hidden for a single tab, no header exists and none is coming, so retrying to
+        // the budget every time would be twenty pulses spent on a button nobody can hover.
+        boolean stripShown = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        if (stripShown && buttons.size() < tabs.getTabs().size() && attempt < CLOSE_TIP_ATTEMPTS) {
+            Platform.runLater(() -> installCloseTooltips(attempt + 1));
+        }
+    }
+
+    /** How many close buttons carry the tooltip — for the capture hook. */
+    public String closeTooltipReport() {
+        int withTip = 0;
+        for (javafx.scene.Node close : tabs.lookupAll(".tab-close-button")) {
+            if (close.getProperties().containsKey(CLOSE_TIP_INSTALLED)) withTip++;
+        }
+        return "closeTooltips=" + withTip + "/" + tabs.getTabs().size();
+    }
 
     // ---------------------------------------------------------------- tabs
 
@@ -362,6 +413,7 @@ public final class TerminalWindow {
         title.textProperty().bind(terminal.getDisplay().tabTitleProperty());
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
+        installCloseTooltips();
         // The close button is JavaFX's own and does not come through closeTab(); consuming the
         // request is the only way to stop it.
         tab.setOnCloseRequest(e -> {

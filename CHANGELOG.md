@@ -21,6 +21,13 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   correctly sized throughout, which is why nothing inside the app can see it. Maximising is
   unaffected.
 
+## Unreleased
+
+### Added
+
+- **A tooltip on each tab's close button**, naming the action and its chord, as the new-tab button
+  already did.
+
 ## 0.4.0 — 2026-08-08
 
 ### Changed
