@@ -90,6 +90,14 @@ Each of these cost real time, and none of them announces itself.
 - **The deb and rpm bundlers throw your icon away.** See `packaging/linux/NOTES.md` — `--icon`
   reaches the app image only, and the 0.1.0 packages shipped jpackage's generic Java icon as a
   result. Verify a built package, not the tree.
+- **Full-screen geometry cannot be diagnosed from inside the app on Wayland.** JavaFX has no
+  Wayland backend, so it runs through XWayland, and under GNOME's fractional scaling (and its
+  experimental `xwayland-native-scaling`) the compositor's idea of the surface and JavaFX's disagree.
+  `stage.isFullScreen()`, `stage.getX/Y/Width/Height` and `Screen.getPrimary()` all report a correct,
+  screen-filling window while the window on screen is smaller, offset, and clipped. Every probe we
+  can write reads JavaFX's own state, so it will agree with itself and say nothing. The check that
+  distinguishes it is outside the app: `xrandr` for the panel size against what `Screen` reports, and
+  `gsettings get org.gnome.mutter experimental-features`.
 - **Closing asks; shutting down does not.** `TerminalWindow.close()` is the user's request and
   prompts when a shell has children; `closeForShutdown()` is teardown and must not. `App.stop()`
   reaches `WindowManager.closeAll()` after the quit is already decided and while the toolkit is

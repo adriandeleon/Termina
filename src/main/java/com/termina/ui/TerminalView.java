@@ -954,10 +954,34 @@ public final class TerminalView extends Region {
      */
     public boolean fireContextMenuItemForCapture(String label) {
         if (contextMenu == null) contextMenu = buildContextMenu();
+        // Shown first, and left open: the row's buttons are pressed with the menu on screen, which
+        // is a different thing from firing a MenuItem and is exactly the gesture being tested.
+        if (!contextMenu.isShowing()) contextMenu.show(this, 300, 200);
         for (MenuItem item : contextMenu.getItems()) {
             if (label.equals(item.getText())) {
                 item.fire();
                 return true;
+            }
+            // A CustomMenuItem is a row of controls; its buttons carry the label in their tooltip.
+            if (item instanceof javafx.scene.control.CustomMenuItem custom
+                    && custom.getContent() != null
+                    && fireButtonIn(custom.getContent(), label)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean fireButtonIn(javafx.scene.Node node, String label) {
+        if (node instanceof javafx.scene.control.Button button
+                && button.getTooltip() != null
+                && label.equals(button.getTooltip().getText())) {
+            button.fire();
+            return true;
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                if (fireButtonIn(child, label)) return true;
             }
         }
         return false;

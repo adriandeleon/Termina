@@ -40,7 +40,7 @@ final class ZoomMenuRow {
         int percent();
     }
 
-    private final CustomMenuItem item;
+    private CustomMenuItem item;
     private final Label percent = new Label();
     private final Actions actions;
 
@@ -59,7 +59,15 @@ final class ZoomMenuRow {
         reset.getStyleClass().add("zoom-value");
         reset.setGraphic(percent);
 
-        Button fullScreen = button("⤢", tr("menu.fullScreen"), actions::toggleFullScreen);
+        // Closes the menu, unlike its neighbours. The row stays open because zooming is something
+        // you do two or three times to find the right size; going full screen is done once, and a
+        // menu left sitting over the newly full-screen window reads as nothing having happened —
+        // the menu being the thing you are looking at. Firefox's panel behaves the same way.
+        Button fullScreen = button("⤢", tr("menu.fullScreen"), () -> {
+            actions.toggleFullScreen();
+            if (item != null && item.getParentPopup() != null)
+                item.getParentPopup().hide();
+        });
 
         HBox row = new HBox(title, spacer, out, reset, in, fullScreen);
         row.setAlignment(Pos.CENTER_LEFT);
