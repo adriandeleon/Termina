@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Termina running a shell, with a tab bar and coloured output" width="820">
+  <img src="docs/screenshot.png" alt="Termina running a shell: two tabs, a git-aware prompt, and a directory listing with file-type icons and colour" width="820">
 </p>
 
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
