@@ -90,6 +90,12 @@ Each of these cost real time, and none of them announces itself.
 - **The deb and rpm bundlers throw your icon away.** See `packaging/linux/NOTES.md` — `--icon`
   reaches the app image only, and the 0.1.0 packages shipped jpackage's generic Java icon as a
   result. Verify a built package, not the tree.
+- **Closing asks; shutting down does not.** `TerminalWindow.close()` is the user's request and
+  prompts when a shell has children; `closeForShutdown()` is teardown and must not. `App.stop()`
+  reaches `WindowManager.closeAll()` after the quit is already decided and while the toolkit is
+  stopping — a modal dialog there asks a question nobody can act on, in a place where
+  `showAndWait` may never return. Quitting is therefore *not* guarded; doing that properly means
+  intercepting the quit before `Platform.exit`.
 - **Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
   pump threads and an emulator thread. Any removal path that skips disposal leaks all of it and
   nothing on screen looks wrong.
