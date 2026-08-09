@@ -3,7 +3,7 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.3.0 — 2026-08-08
 
 ### Added
 
@@ -43,6 +43,21 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   while a selection is handed to JediTerm, which indexes the line's `char[]`. Dragging across
   `Desktop … Downloads … Games` copied `…Game`. Whole-line and select-all were bounded by the
   column count too, which cut the tail off any line carrying more slots than the grid has columns.
+
+### Known gaps
+
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
+- **The working directory is not shown on Windows.** Reading another process's cwd there means
+  `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
+  the escape sequence a shell can send to report its directory — would cover Windows and any shell
+  configured to emit it, and is not implemented.
+- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  same thing.
+- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+  its source.
+- No splits, no search in scrollback, no keybinding customisation.
 
 ## 0.2.0 — 2026-08-08
 
