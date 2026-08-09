@@ -9,10 +9,19 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 - **No rule between settings rows.** A line under every row turned a page of eight settings into
   eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
-  now, as it is in Editora's settings — which is why the row padding grew as the border went.
+  now, as it is in Editora's settings — which is why the row padding grew as the border went. Row
+  titles and descriptions take Editora's sizes with them, stated in px for both rather than left to
+  inherit.
 
 ### Added
 
+- **A new tab opens in the current tab's directory**, instead of always starting at home. Read from
+  the shell process, the same way the tab titles are, so it needs nothing of the shell. Linux and
+  macOS; Windows keeps starting at home, as it did.
+- **Jump straight to a tab** with `Cmd+1`…`9` on macOS, `Alt+1`…`9` elsewhere — the convention both
+  platforms already use. The last digit means the *last* tab rather than the ninth, so it works in a
+  session with three tabs open. Chords and palette entries only: nine menu rows would be most of the
+  Window menu, and all but the first few dead most of the time.
 - **Closing a tab with something running asks first.** A tab always has a shell, so the question is
   whether the shell has *children* — an idle prompt has none, and one running `vim`, an ssh session
   or a build has one, which is what keeps this from becoming a confirmation people learn to dismiss
@@ -20,7 +29,7 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   dies with the tab just as surely. Every deliberate close goes through one place — the close
   button, the menu item, the chord, Close Others, Close to the Right, and closing the window, which
   ends every tab's programs at once. A reorder and a shell that exited on its own do not ask, since
-  neither ends anything.
+  neither ends anything. Settings → Terminal turns it off for anyone who would rather not be asked.
 
 ## 0.3.0 — 2026-08-08
 

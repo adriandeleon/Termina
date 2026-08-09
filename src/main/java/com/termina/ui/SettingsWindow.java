@@ -362,6 +362,7 @@ public final class SettingsWindow {
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
     private CheckBox showScrollBar;
+    private CheckBox confirmClose;
     private ComboBox<String> language;
     private Slider windowOpacity;
     private Label windowOpacityValue;
@@ -575,6 +576,19 @@ public final class SettingsWindow {
 
         VBox session = section(page, tr("settings.section.session"));
 
+        confirmClose = new CheckBox();
+        confirmClose.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setConfirmClose(value);
+        });
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.confirmClose"),
+                tr("settings.confirmClose.desc"),
+                confirmClose,
+                "close confirm running program prompt ask tab");
+
         scrollback = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
         scrollback.setEditable(true);
@@ -674,6 +688,7 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             bell.setSelected(settings.bell());
+            confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showMenuBar.setSelected(settings.showMenuBar());
             showScrollBar.setSelected(settings.showScrollBar());

@@ -29,6 +29,7 @@ public final class Settings {
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
+    public static final String CONFIRM_CLOSE = "ui.confirmClose";
     public static final String WINDOW_WIDTH = "window.width";
     public static final String WINDOW_HEIGHT = "window.height";
     public static final String WINDOW_MAXIMIZED = "window.maximized";
@@ -250,6 +251,21 @@ public final class Settings {
     }
 
     /** Show a scrollbar for the scrollback. The wheel works either way. */
+    /**
+     * Whether to ask before closing a tab that is running something.
+     *
+     * <p>On by default: the prompt only appears when a shell has children, so it is rare enough to
+     * be worth reading. Off for anyone who would rather not be asked — the same preference macOS
+     * Terminal offers, and the polite thing to give someone alongside a new interruption.
+     */
+    public boolean confirmClose() {
+        return readBoolean(CONFIRM_CLOSE, true);
+    }
+
+    public void setConfirmClose(boolean confirm) {
+        put(CONFIRM_CLOSE, String.valueOf(confirm));
+    }
+
     public boolean showScrollBar() {
         return readBoolean(SHOW_SCROLL_BAR, true);
     }

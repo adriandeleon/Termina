@@ -44,6 +44,25 @@ public record MenuAction(String label, KeyCombination accelerator, Runnable acti
                 : new KeyCodeCombination(key, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
     }
 
+    /**
+     * The platform's chord for jumping to a tab by number.
+     *
+     * <p>Not {@link #appChord}: Ctrl+Shift+1 is not what anyone reaches for, and both platforms
+     * already have a convention — Cmd+1 on macOS, Alt+1 everywhere else, which is what GNOME
+     * Terminal and Konsole use. It costs the shell Alt+digit (readline's digit-argument), which is
+     * the trade every terminal that offers this has already made.
+     */
+    public static KeyCombination tabChord(KeyCode digit) {
+        return tabChord(digit, MAC);
+    }
+
+    /** Package-visible so both platform branches are testable. */
+    static KeyCombination tabChord(KeyCode digit, boolean mac) {
+        return mac
+                ? new KeyCodeCombination(digit, KeyCombination.SHORTCUT_DOWN)
+                : new KeyCodeCombination(digit, KeyCombination.ALT_DOWN);
+    }
+
     /** A chord that already includes Shift on every platform (tab navigation, for instance). */
     public static KeyCombination shiftChord(KeyCode key) {
         return new KeyCodeCombination(key, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);

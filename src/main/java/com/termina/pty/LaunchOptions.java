@@ -32,6 +32,11 @@ public record LaunchOptions(String shell, String workingDirectory, List<String> 
         return !command.isEmpty();
     }
 
+    /** The same options started somewhere else — a new tab inheriting the current one's directory. */
+    public LaunchOptions withWorkingDirectory(String directory) {
+        return new LaunchOptions(shell, directory, command);
+    }
+
     /** The same options with a different shell, used when settings change but the CLI still applies. */
     public LaunchOptions withShell(String newShell) {
         return new LaunchOptions(newShell, workingDirectory, command);

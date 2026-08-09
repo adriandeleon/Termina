@@ -309,7 +309,23 @@ public final class TerminalWindow {
 
     /** Opens a tab and starts a shell in it. */
     public void openTab() {
-        openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()));
+        openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()).withWorkingDirectory(currentDirectory()));
+    }
+
+    /**
+     * Where a new tab should start: wherever the current one is.
+     *
+     * <p>Starting every tab in the home directory means retyping the `cd` that got you here, which
+     * is why every other terminal inherits instead. Read from the shell process rather than from a
+     * shell that would have to be asked — the same read the tab titles use.
+     *
+     * <p>Blank when there is no tab to inherit from, or on a platform that cannot say, and
+     * {@link com.termina.pty.ShellLauncher#workingDirectory} falls back to home.
+     */
+    private String currentDirectory() {
+        TerminalView terminal = activeTerminal();
+        if (terminal == null || terminal.getSession() == null) return "";
+        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid()).orElse("");
     }
 
     /**
@@ -552,6 +568,7 @@ public final class TerminalWindow {
      * learn to dismiss without reading, which is worse than not asking.
      */
     private boolean confirmClose(List<Tab> doomed) {
+        if (!settings.confirmClose()) return true;
         List<String> running = new ArrayList<>();
         for (Tab tab : doomed) {
             TerminalView terminal = terminalOf(tab);
@@ -935,6 +952,15 @@ public final class TerminalWindow {
                 this::resetZoom));
         command(MenuAction.of(tr("menu.fullScreen"), fullScreenChord(), this::toggleFullScreen));
 
+        // Chords and palette entries, but no menu items: nine rows would be most of the Window
+        // menu, and all but the first few dead whenever fewer tabs are open.
+        for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
+            int selected = number;
+            KeyCode digit = KeyCode.valueOf("DIGIT" + number);
+            String title = number == TAB_CHORD_COUNT ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
+            command(MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected)));
+        }
+
         List<MenuAction> viewItems = new java.util.ArrayList<>();
         // Omitted entirely on macOS, where the menus live in the screen menu bar and there is
         // nothing in the window to hide. The Settings checkbox is disabled-with-a-reason instead,
@@ -1063,6 +1089,28 @@ public final class TerminalWindow {
     }
 
     /** Records the binding for the scene filter and hands the action back for the menu. */
+    /**
+     * The tab a number selects, or -1 when there is none.
+     *
+     * <p>The last digit means the <em>last</em> tab rather than the ninth, which is the convention
+     * every browser and terminal follows: with four tabs open, Alt+9 goes to the fourth. A number
+     * past the end selects nothing rather than the nearest, because silently landing somewhere else
+     * is worse than not moving.
+     */
+    static int tabIndexFor(int number, int tabCount) {
+        if (tabCount <= 0 || number < 1 || number > TAB_CHORD_COUNT) return -1;
+        if (number == TAB_CHORD_COUNT) return tabCount - 1;
+        return number <= tabCount ? number - 1 : -1;
+    }
+
+    /** 1 through 9, the range every terminal binds. */
+    static final int TAB_CHORD_COUNT = 9;
+
+    private void selectTabByNumber(int number) {
+        int index = tabIndexFor(number, tabs.getTabs().size());
+        if (index >= 0) tabs.getSelectionModel().select(index);
+    }
+
     /**
      * Records a command that has no menu item of its own.
      *

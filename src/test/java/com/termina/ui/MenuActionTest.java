@@ -3,6 +3,7 @@ package com.termina.ui;
 import java.util.Locale;
 
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 
@@ -85,5 +86,17 @@ class MenuActionTest {
         MenuAction action = MenuAction.of("X", MenuAction.appChord(KeyCode.X), () -> calls[0]++);
         action.toMenuItem().fire();
         assertEquals(1, calls[0]);
+    }
+
+    @Test
+    void aTabChordIsThePlatformConvention() {
+        // Not appChord: Ctrl+Shift+1 is not what anyone reaches for, and both platforms already
+        // have a convention — Cmd+1 on macOS, Alt+1 everywhere else.
+        assertEquals(
+                new KeyCodeCombination(KeyCode.DIGIT1, KeyCombination.SHORTCUT_DOWN),
+                MenuAction.tabChord(KeyCode.DIGIT1, true));
+        assertEquals(
+                new KeyCodeCombination(KeyCode.DIGIT1, KeyCombination.ALT_DOWN),
+                MenuAction.tabChord(KeyCode.DIGIT1, false));
     }
 }
