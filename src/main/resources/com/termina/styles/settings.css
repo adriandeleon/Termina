@@ -43,9 +43,14 @@
     -fx-padding: 0 0 2 0;
 }
 
+/*
+ * No rule between rows, as Editora's settings have none: a line under every row turns a page of
+ * eight settings into eight boxes, and the eye ends up reading the lines rather than the text.
+ * Separation comes from the space instead, which is why the padding grows as the border goes —
+ * without that the rows simply run together.
+ */
 .settings-row {
-    -fx-padding: 8 2 8 2;
-    -fx-border-color: transparent transparent -color-border-subtle transparent;
+    -fx-padding: 13 2 13 2;
 }
 
 .settings-row-title {
