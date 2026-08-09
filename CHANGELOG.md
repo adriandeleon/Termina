@@ -3,7 +3,7 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.4.0 — 2026-08-08
 
 ### Changed
 
@@ -30,6 +30,25 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   button, the menu item, the chord, Close Others, Close to the Right, and closing the window, which
   ends every tab's programs at once. A reorder and a shell that exited on its own do not ask, since
   neither ends anything. Settings → Terminal turns it off for anyone who would rather not be asked.
+
+### Known gaps
+
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
+- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
+  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
+  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
+  a question nobody can act on. Doing it properly means intercepting the quit before `Platform.exit`.
+- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
+  inheriting. Reading another process's cwd means `NtQueryInformationProcess`, a different order of
+  undertaking from a `readlink`. Handling OSC 7 would cover Windows and any shell configured to
+  emit it, and is not implemented.
+- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  same thing.
+- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+  its source.
+- No splits, no search in scrollback, no keybinding customisation.
 
 ## 0.3.0 — 2026-08-08
 
