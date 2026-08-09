@@ -160,6 +160,49 @@ public final class TerminalWindow {
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });
         bindTitleTo(null);
+        installFocusGuard(scene);
+    }
+
+    /** True while a reclaim is already queued, so a failed one cannot spin. */
+    private boolean reclaimPending;
+
+    /**
+     * Hands focus back to the terminal whenever nothing else has a claim on it.
+     *
+     * <p>The one-path-at-a-time approach does not converge here. The tab strip was the path that
+     * shipped, but a click on the *already selected* tab header takes focus without changing the
+     * selection, so the listener above never runs; the same is true of the strip's empty space, a
+     * drag that reorders nothing, and anything else in the chrome that calls {@code requestFocus}.
+     * They are indistinguishable to the user — a window that looks ready and swallows typing — and
+     * the report that prompted this could not be reproduced, which is exactly the shape of a set of
+     * rare paths rather than one common one.
+     */
+    private void installFocusGuard(Scene scene) {
+        scene.focusOwnerProperty().addListener((o, was, now) -> {
+            TerminalView terminal = activeTerminal();
+            boolean ownerIsTerminal = terminal != null && now == terminal;
+            if (!FocusGuard.shouldReclaim(terminal != null, ownerIsTerminal, overlayWantsKeys(terminal))) return;
+            // Deferred, because this runs inside the focus change that provoked it, and queued at
+            // most once: if the terminal cannot take focus, retrying on our own signal would spin.
+            if (reclaimPending) return;
+            reclaimPending = true;
+            Platform.runLater(() -> {
+                reclaimPending = false;
+                focusActiveTerminal();
+            });
+        });
+    }
+
+    /** Whether something on screen is entitled to the keyboard instead of the terminal. */
+    private boolean overlayWantsKeys(TerminalView terminal) {
+        if (palette != null && palette.isShowing()) return true;
+        // A context menu is a popup that dismisses when focus moves, so reclaiming under it would
+        // make right-click unusable rather than merely rude.
+        if (terminal != null && terminal.isContextMenuShowing()) return true;
+        for (Menu menu : menuBar.getMenus()) {
+            if (menu.isShowing()) return true;
+        }
+        return false;
     }
 
     /**
@@ -279,7 +322,7 @@ public final class TerminalWindow {
         terminal.setOnNewWindow(windows::openWindow);
         // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
         // which every tab and window shares, so a view cannot do this for itself.
-        terminal.setOnZoom(() -> zoom(1), () -> zoom(-1), () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE));
+        terminal.setZoomActions(zoomActions());
         // Left unwired under a system menu bar, which is how the item stays out of the menu there.
         if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
             terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
@@ -522,6 +565,21 @@ public final class TerminalWindow {
         tabs.getSelectionModel().select(Math.floorMod(index + delta, count));
     }
 
+    /**
+     * A menu item as the report names it.
+     *
+     * <p>A {@link javafx.scene.control.CustomMenuItem} is a row of controls with no text of its
+     * own, and printing its null was a report that said less the more the menu did.
+     */
+    private static String labelOf(MenuItem item) {
+        if (item instanceof SeparatorMenuItem) return "-";
+        if (item.getText() != null) return item.getText();
+        if (item instanceof javafx.scene.control.CustomMenuItem custom && custom.getContent() != null) {
+            return "<" + String.join(" ", custom.getContent().getStyleClass()) + ">";
+        }
+        return "<custom>";
+    }
+
     private static TerminalView terminalOf(Tab tab) {
         return (TerminalView) tab.getUserData();
     }
@@ -573,8 +631,7 @@ public final class TerminalWindow {
         for (Menu m : menuBar.getMenus()) {
             out.append(m.getText()).append('[');
             for (MenuItem item : m.getItems()) {
-                out.append(item instanceof SeparatorMenuItem ? "-" : item.getText())
-                        .append('|');
+                out.append(labelOf(item)).append('|');
             }
             out.append("] ");
         }
@@ -583,7 +640,8 @@ public final class TerminalWindow {
 
     public String layoutReport() {
         javafx.scene.Node header = tabs.lookup(".tab-header-area");
-        return "menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
+        return "fullScreen=" + stage.isFullScreen()
+                + " menuBar h=" + (menuBar == null ? "?" : menuBar.getHeight())
                 + " boundsH="
                 + (menuBar == null ? "?" : menuBar.getBoundsInParent().getHeight())
                 + " managed=" + (menuBar != null && menuBar.isManaged())
@@ -769,19 +827,22 @@ public final class TerminalWindow {
                         MenuAction.appChord(KeyCode.K),
                         () -> withActiveTerminal(TerminalView::clearScrollback))));
 
-        List<MenuAction> viewItems = new java.util.ArrayList<>(List.of(
-                register(MenuAction.of(
-                        tr("menu.zoomIn"),
-                        new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN),
-                        () -> zoom(1))),
-                register(MenuAction.of(
-                        tr("menu.zoomOut"),
-                        new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
-                        () -> zoom(-1))),
-                register(MenuAction.of(
-                        tr("menu.actualSize"),
-                        new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
-                        () -> settings.setFontSize(Settings.DEFAULT_FONT_SIZE)))));
+        // The three zoom actions are still commands — they keep their chords and their place in the
+        // palette — but the View menu shows them as one row instead of three items. They go through
+        // command() rather than the menu builder, which is what records a command by rendering it.
+        command(MenuAction.of(
+                tr("menu.zoomIn"), new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1)));
+        command(MenuAction.of(
+                tr("menu.zoomOut"),
+                new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
+                () -> zoom(-1)));
+        command(MenuAction.of(
+                tr("menu.actualSize"),
+                new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
+                this::resetZoom));
+        command(MenuAction.of(tr("menu.fullScreen"), fullScreenChord(), this::toggleFullScreen));
+
+        List<MenuAction> viewItems = new java.util.ArrayList<>();
         // Omitted entirely on macOS, where the menus live in the screen menu bar and there is
         // nothing in the window to hide. The Settings checkbox is disabled-with-a-reason instead,
         // because it has room to explain itself; a menu item has none, and one that does nothing
@@ -806,6 +867,11 @@ public final class TerminalWindow {
                 new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                 this::showPalette)));
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
+        ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
+        view.getItems().add(0, zoomRow.item());
+        // The level can have moved since the row was last shown — from a chord, the other menu, or
+        // another window entirely.
+        view.setOnShowing(e -> zoomRow.refresh());
         commands.remove(viewItems.get(viewItems.size() - 1));
 
         Menu window = menu(
@@ -904,6 +970,19 @@ public final class TerminalWindow {
     }
 
     /** Records the binding for the scene filter and hands the action back for the menu. */
+    /**
+     * Records a command that has no menu item of its own.
+     *
+     * <p>Everything else reaches the palette by being in a menu, which is what keeps the two from
+     * drifting. The zoom actions are the exception: they are shown as a row of buttons rather than
+     * as items, and losing their chords and their palette entries along with their items would be
+     * a regression dressed as a redesign.
+     */
+    private void command(MenuAction action) {
+        register(action);
+        commands.add(action);
+    }
+
     private MenuAction register(MenuAction action) {
         if (action.accelerator() != null) bindings.add(action);
         return action;
@@ -948,8 +1027,60 @@ public final class TerminalWindow {
     }
 
     /** Zoom writes through the settings so it persists and shows up in the settings window. */
+    /**
+     * Steps the zoom, which is no longer the font size.
+     *
+     * <p>It used to add a pixel to the configured size, which meant zooming quietly rewrote the
+     * preference and there was no level to show in the zoom row — and no meaning for resetting one.
+     */
     private void zoom(double delta) {
-        settings.setFontSize(settings.fontSize() + delta);
+        double current = settings.fontZoom();
+        settings.setFontZoom(delta > 0 ? ZoomLevels.in(current) : ZoomLevels.out(current));
+    }
+
+    private void resetZoom() {
+        settings.setFontZoom(ZoomLevels.DEFAULT);
+    }
+
+    private void toggleFullScreen() {
+        stage.setFullScreen(!stage.isFullScreen());
+    }
+
+    /** macOS has its own convention and gives F11 to the desktop. */
+    private static KeyCombination fullScreenChord() {
+        return MAC
+                ? new KeyCodeCombination(KeyCode.F, KeyCombination.CONTROL_DOWN, KeyCombination.META_DOWN)
+                : new KeyCodeCombination(KeyCode.F11);
+    }
+
+    /** Shared by the View menu's row and every tab's right-click row. */
+    private ZoomMenuRow.Actions zoomActions() {
+        return new ZoomMenuRow.Actions() {
+            @Override
+            public void zoomIn() {
+                zoom(1);
+            }
+
+            @Override
+            public void zoomOut() {
+                zoom(-1);
+            }
+
+            @Override
+            public void reset() {
+                resetZoom();
+            }
+
+            @Override
+            public void toggleFullScreen() {
+                TerminalWindow.this.toggleFullScreen();
+            }
+
+            @Override
+            public int percent() {
+                return ZoomLevels.percent(settings.fontZoom());
+            }
+        };
     }
 
     // ---------------------------------------------------------------- settings
@@ -974,7 +1105,7 @@ public final class TerminalWindow {
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
         terminal.setPalette(theme.palette());
         terminal.setFontFamily(settings.fontFamily());
-        terminal.setFontSize(settings.fontSize());
+        terminal.setFontSize(settings.effectiveFontSize());
         terminal.setPreferredCursor(settings.cursorShape());
         terminal.setAltIsMeta(settings.altIsMeta());
         terminal.setBellEnabled(settings.bell());
@@ -999,6 +1130,27 @@ public final class TerminalWindow {
     private void focusActiveTerminal() {
         TerminalView terminal = activeTerminal();
         if (terminal != null) terminal.requestFocus();
+    }
+
+    /**
+     * Gives focus to a named piece of chrome, for the capture hook.
+     *
+     * <p>This is how the focus guard is tested at all: the paths that take focus in the wild are
+     * clicks on chrome that are awkward to synthesise and, in the case that prompted the guard,
+     * could not be reproduced by hand. Taking focus directly is the same end state by a route that
+     * can be asked for on the command line.
+     */
+    public boolean stealFocusForCapture(String what) {
+        javafx.scene.Node target =
+                switch (what) {
+                    case "tabs" -> tabs;
+                    case "newtab" -> newTabButton;
+                    case "menubar" -> menuBar;
+                    default -> null;
+                };
+        if (target == null) return false;
+        target.requestFocus();
+        return true;
     }
 
     /** Public so a capture run can open the palette without a keystroke. */

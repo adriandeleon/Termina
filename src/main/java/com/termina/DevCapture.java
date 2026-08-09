@@ -130,6 +130,7 @@ final class DevCapture {
                 TerminalView active = window.activeTerminal();
                 if (active != null) driveInput(window, active);
                 fireChordIfRequested(window);
+                stealFocusIfRequested(window);
                 typeAtFocusIfRequested(window, active);
                 fireMenuItemIfRequested(active, settings);
                 selectTabIfRequested(window);
@@ -360,6 +361,10 @@ final class DevCapture {
         String[] parts = spec.split(",");
         javafx.scene.input.KeyCode code = javafx.scene.input.KeyCode.valueOf(parts[0].trim());
         boolean shift = parts.length > 1 && Boolean.parseBoolean(parts[1].trim());
+        // A third field of "plain" fires the key with no shortcut modifier. Not every binding is an
+        // application chord — F11 is a bare key — and firing Ctrl+F11 at it matches nothing, which
+        // reads exactly like the binding not working.
+        boolean plain = parts.length > 2 && "plain".equalsIgnoreCase(parts[2].trim());
         boolean mac = System.getProperty("os.name", "")
                 .toLowerCase(java.util.Locale.ROOT)
                 .startsWith("mac");
@@ -369,9 +374,9 @@ final class DevCapture {
                 "",
                 code,
                 shift,
-                !mac,
+                !mac && !plain,
                 false,
-                mac); // shift, control, alt, meta
+                mac && !plain); // shift, control, alt, meta
         Event.fireEvent(window.stage().getScene(), event);
         System.out.println("[capture] fired chord " + spec);
     }
@@ -602,6 +607,28 @@ final class DevCapture {
     }
 
     /**
+     * Gives focus to a piece of chrome and lets the guard take it back.
+     *
+     * <pre>-Dtermina.captureStealFocus=tabs|newtab|menubar</pre>
+     *
+     * <p>The focus report at the end of the run is the assertion: whatever this hands focus to, the
+     * terminal should own it again by the time the window settles.
+     */
+    private static void stealFocusIfRequested(TerminalWindow window) {
+        String what = System.getProperty("termina.captureStealFocus");
+        if (what == null || what.isBlank()) return;
+        boolean found = window.stealFocusForCapture(what.trim());
+        System.out.println(
+                "[capture] stole focus for \"" + what.trim() + "\" found=" + found + " ownerNow=" + owner(window));
+    }
+
+    private static String owner(TerminalWindow window) {
+        Scene scene = window.stage().getScene();
+        javafx.scene.Node node = scene == null ? null : scene.getFocusOwner();
+        return node == null ? "none" : node.getClass().getSimpleName();
+    }
+
+    /**
      * Types at whatever owns the keyboard, and reports whether the shell received it.
      *
      * <pre>-Dtermina.captureTypeAtFocus=hello</pre>
@@ -725,7 +752,11 @@ final class DevCapture {
         Event.fireEvent(terminal, mouse(MouseEvent.MOUSE_RELEASED, x2, y2, 1, shift));
 
         boolean copied = terminal.copySelection();
-        System.out.println("[capture] selection copied=" + copied);
+        // The text, not just that something was copied: a selection that lands a column off from
+        // what it highlighted copies successfully and returns the wrong thing.
+        String text = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+        System.out.println("[capture] selection copied=" + copied + " text=\""
+                + (text == null ? "" : text.replace("\n", "\\n")) + "\"");
         if (copied) {
             System.out.println("[capture] clipboard<<<"
                     + javafx.scene.input.Clipboard.getSystemClipboard().getString() + ">>>");
