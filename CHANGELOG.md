@@ -11,6 +11,17 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
   now, as it is in Editora's settings — which is why the row padding grew as the border went.
 
+### Added
+
+- **Closing a tab with something running asks first.** A tab always has a shell, so the question is
+  whether the shell has *children* — an idle prompt has none, and one running `vim`, an ssh session
+  or a build has one, which is what keeps this from becoming a confirmation people learn to dismiss
+  without reading. The dialog names what it is about to end. Background jobs count: `sleep 60 &`
+  dies with the tab just as surely. Every deliberate close goes through one place — the close
+  button, the menu item, the chord, Close Others, Close to the Right, and closing the window, which
+  ends every tab's programs at once. A reorder and a shell that exited on its own do not ask, since
+  neither ends anything.
+
 ## 0.3.0 — 2026-08-08
 
 ### Added

@@ -343,7 +343,18 @@ final class DevCapture {
         int count = Integer.getInteger("termina.captureCloseTabs", 0);
         if (count <= 0) return;
         System.out.println("[capture] descendants before close=" + descendants());
+        // A modal dialog would block the FX thread for the rest of the run, so the answer is
+        // supplied up front: cancel to check the close is refused, close to check it is not.
+        String answer = System.getProperty("termina.captureCloseAnswer");
+        if (answer != null && !answer.isBlank()) {
+            window.setCloseAnswerForCapture("close".equalsIgnoreCase(answer.trim()));
+        }
+        int before = window.tabTitles().size();
         for (int i = 0; i < count; i++) window.closeCurrentTab();
+        // The count, not just the act: a close that was refused because something is running looks
+        // exactly like one that happened, unless the tabs are counted on the way out.
+        System.out.println(
+                "[capture] tabs " + before + " -> " + window.tabTitles().size());
     }
 
     /**
@@ -527,7 +538,10 @@ final class DevCapture {
     private static Scene sceneToCapture(WindowManager windows, TerminalWindow window, TerminalView terminal) {
         Scene fallback = window.stage().getScene();
         if (System.getProperty("termina.captureSettings") != null) {
-            return windows.showSettingsForCapture(window.stage(), System.getProperty("termina.captureSettings"));
+            Scene settings =
+                    windows.showSettingsForCapture(window.stage(), System.getProperty("termina.captureSettings"));
+            probeFonts(settings);
+            return settings;
         }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
@@ -592,6 +606,25 @@ final class DevCapture {
     }
 
     /** Every dialog currently on screen, by its message. */
+    /** What a window's text is actually drawn in — an unresolved family falls back in silence. */
+    private static void probeFonts(Scene scene) {
+        if (scene == null) return;
+        scene.getRoot().applyCss();
+        scene.getRoot().layout();
+        java.util.Map<String, Integer> byFont = new java.util.LinkedHashMap<>();
+        collectFonts(scene.getRoot(), byFont);
+        System.out.println("[capture] fonts " + byFont);
+    }
+
+    private static void collectFonts(javafx.scene.Node node, java.util.Map<String, Integer> into) {
+        if (node instanceof javafx.scene.control.Labeled labeled && labeled.getFont() != null) {
+            into.merge(labeled.getFont().getName(), 1, Integer::sum);
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) collectFonts(child, into);
+        }
+    }
+
     private static void reportDialogs() {
         if (!Boolean.getBoolean("termina.captureCheckUpdates")) return;
         List<String> open = new ArrayList<>();

@@ -412,6 +412,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureWindows=1           # ...and N extra windows
   -Dtermina.captureWindowIndex=1       # photograph a window other than the first
   -Dtermina.captureCloseTabs=2         # close N tabs, reporting the child-process count
+  -Dtermina.captureCloseAnswer=cancel  # ...answering the running-program prompt (cancel|close)
   -Dtermina.captureTheme=editora-light # switch theme after the windows exist
   -Dtermina.captureChord=T             # fire an application chord at the scene
                                        # ...,plain for a bare key (F11) with no shortcut modifier

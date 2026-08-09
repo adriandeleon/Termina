@@ -10,6 +10,8 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -32,6 +34,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import com.termina.config.Settings;
+import com.termina.process.RunningProgram;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -154,6 +157,9 @@ public final class TerminalWindow {
         if (settings.windowMaximized()) stage.setMaximized(true);
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         trackGeometry();
+        stage.setOnCloseRequest(e -> {
+            if (!confirmClose(new ArrayList<>(tabs.getTabs()))) e.consume();
+        });
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
@@ -340,6 +346,11 @@ public final class TerminalWindow {
         title.textProperty().bind(terminal.getDisplay().tabTitleProperty());
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
+        // The close button is JavaFX's own and does not come through closeTab(); consuming the
+        // request is the only way to stop it.
+        tab.setOnCloseRequest(e -> {
+            if (!confirmClose(List.of(tab))) e.consume();
+        });
         installTabDrag(tab, title);
 
         tabs.getTabs().add(tab);
@@ -477,10 +488,7 @@ public final class TerminalWindow {
         ContextMenu menu = new ContextMenu(
                 tabItem(tr("menu.newTab"), MenuIcons.newTab(), this::openTab),
                 new SeparatorMenuItem(),
-                tabItem(
-                        tr("menu.closeTab"),
-                        MenuIcons.close(),
-                        () -> tabs.getTabs().remove(tab)),
+                tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> closeTab(tab)),
                 closeOthers,
                 closeRight,
                 new SeparatorMenuItem(),
@@ -506,18 +514,91 @@ public final class TerminalWindow {
     }
 
     private void closeOtherTabs(Tab keep) {
-        for (Tab other : new ArrayList<>(tabs.getTabs())) {
-            if (other != keep) tabs.getTabs().remove(other);
-        }
+        List<Tab> doomed = new ArrayList<>(tabs.getTabs());
+        doomed.remove(keep);
+        closeTabs(doomed);
     }
 
     private void closeTabsToTheRight(Tab from) {
         int index = tabs.getTabs().indexOf(from);
         if (index < 0) return;
-        // Backwards, so removing one does not shift the indices of those still to be removed.
-        for (int i = tabs.getTabs().size() - 1; i > index; i--) {
-            tabs.getTabs().remove(i);
+        closeTabs(
+                new ArrayList<>(tabs.getTabs().subList(index + 1, tabs.getTabs().size())));
+    }
+
+    /**
+     * Closes a tab, having asked first if something is running in it.
+     *
+     * <p>Every deliberate close goes through here — the X, the menu item, the chord, both bulk
+     * items — because a guard on one of them is a guard the other four walk around. The two
+     * removals that do <em>not</em> are the ones where nothing is being ended: a reorder, which is
+     * a remove and an add, and a shell that exited on its own.
+     */
+    private void closeTab(Tab tab) {
+        if (confirmClose(List.of(tab))) tabs.getTabs().remove(tab);
+    }
+
+    /** One question for the whole set: closing eight tabs should not ask eight times. */
+    private void closeTabs(List<Tab> doomed) {
+        if (doomed.isEmpty() || !confirmClose(doomed)) return;
+        for (Tab tab : doomed) tabs.getTabs().remove(tab);
+    }
+
+    /**
+     * Asks before ending programs, and only then.
+     *
+     * <p>A tab always has a shell, so the question is whether the shell has children — an idle
+     * prompt has none. Asking on every close regardless would be the kind of confirmation people
+     * learn to dismiss without reading, which is worse than not asking.
+     */
+    private boolean confirmClose(List<Tab> doomed) {
+        List<String> running = new ArrayList<>();
+        for (Tab tab : doomed) {
+            TerminalView terminal = terminalOf(tab);
+            if (terminal == null || terminal.getSession() == null) continue;
+            running.addAll(RunningProgram.in(terminal.getSession().pid()));
         }
+        if (running.isEmpty()) return true;
+        return closeConfirmer.test(running, doomed.size());
+    }
+
+    /**
+     * Answers the close prompt. Replaced by the capture hook, which cannot click a modal dialog —
+     * and a run that opened one would block the FX thread until the harness timed out, which is
+     * indistinguishable from a hang.
+     */
+    private java.util.function.BiPredicate<List<String>, Integer> closeConfirmer = this::askBeforeClosing;
+
+    /** @param answer what the prompt should return, for the capture hook */
+    public void setCloseAnswerForCapture(boolean answer) {
+        closeConfirmer = (running, tabCount) -> {
+            System.out.println("[capture] close prompt for " + running + " -> " + (answer ? "close" : "cancel"));
+            return answer;
+        };
+    }
+
+    private boolean askBeforeClosing(List<String> running, int tabCount) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(stage);
+        alert.setTitle(com.termina.AppInfo.NAME);
+        alert.setHeaderText(tabCount == 1 ? tr("dialog.closeRunning") : tr("dialog.closeRunningTabs"));
+        alert.setContentText(runningSummary(running));
+        ButtonType close = new ButtonType(tr("dialog.closeAnyway"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(cancel, close);
+        // Cancel is the default, so dismissing the dialog by any route keeps the program alive.
+        ((javafx.scene.control.Button) alert.getDialogPane().lookupButton(cancel)).setDefaultButton(true);
+        ((javafx.scene.control.Button) alert.getDialogPane().lookupButton(close)).setDefaultButton(false);
+        return alert.showAndWait().orElse(cancel) == close;
+    }
+
+    /** Names a few, then counts: a dialog listing forty processes is not telling anyone anything. */
+    private static String runningSummary(List<String> running) {
+        if (running.size() <= RunningProgram.MAX_NAMED) {
+            return tr("dialog.closeRunningDetail", String.join(", ", running));
+        }
+        List<String> named = running.subList(0, RunningProgram.MAX_NAMED);
+        return tr("dialog.closeRunningMore", String.join(", ", named), running.size() - RunningProgram.MAX_NAMED);
     }
 
     private void moveTabBy(Tab tab, int delta) {
@@ -544,7 +625,7 @@ public final class TerminalWindow {
 
     public void closeCurrentTab() {
         Tab selected = tabs.getSelectionModel().getSelectedItem();
-        if (selected != null) tabs.getTabs().remove(selected);
+        if (selected != null) closeTab(selected);
     }
 
     /** Shifts the selected tab one place, stopping at the ends rather than wrapping. */
@@ -771,7 +852,19 @@ public final class TerminalWindow {
         stage.show();
     }
 
+    /**
+     * Closes the window at the user's request, asking first if anything is running.
+     *
+     * <p>Not {@link #closeForShutdown()}: that runs from {@code App.stop()}, after the decision to
+     * quit has already been taken and while the toolkit is stopping. A modal dialog there is asking
+     * a question nobody can act on, in a place where {@code showAndWait} may never return.
+     */
     public void close() {
+        if (confirmClose(new ArrayList<>(tabs.getTabs()))) stage.close();
+    }
+
+    /** Teardown. Ends everything without asking, because the answer is no longer available. */
+    public void closeForShutdown() {
         stage.close();
     }
 

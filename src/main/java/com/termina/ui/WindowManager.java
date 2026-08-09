@@ -205,7 +205,8 @@ public final class WindowManager {
     }
 
     public void closeAll() {
-        for (TerminalWindow window : List.copyOf(windows)) window.close();
+        // Shutdown, not a user action: App.stop() reaches here after the quit is already decided.
+        for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();
         updates.shutdown();
     }
 }
