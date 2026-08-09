@@ -20,6 +20,7 @@ public final class Settings {
     public static final String THEME = "theme";
     public static final String FONT_FAMILY = "font.family";
     public static final String FONT_SIZE = "font.size";
+    public static final String FONT_ZOOM = "font.zoom";
     public static final String SCROLLBACK_LINES = "terminal.scrollback";
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
@@ -48,6 +49,9 @@ public final class Settings {
     public static final String DEFAULT_FONT_FAMILY = "";
 
     public static final double DEFAULT_FONT_SIZE = 13;
+    public static final double DEFAULT_FONT_ZOOM = 1.0;
+    public static final double MIN_FONT_ZOOM = 0.3;
+    public static final double MAX_FONT_ZOOM = 3.0;
     public static final double MIN_FONT_SIZE = 7;
     public static final double MAX_FONT_SIZE = 40;
 
@@ -146,6 +150,29 @@ public final class Settings {
 
     public void setFontSize(double size) {
         put(FONT_SIZE, String.valueOf(clamp(size, MIN_FONT_SIZE, MAX_FONT_SIZE)));
+    }
+
+    /**
+     * The zoom multiplier, which is not the font size.
+     *
+     * <p>Kept apart so that 100% means the size the user chose rather than the one shipped, and so
+     * that resetting the zoom returns to their preference instead of overwriting it. They were one
+     * number until the zoom row needed a percentage to show.
+     */
+    public double fontZoom() {
+        return clamp(readDouble(FONT_ZOOM, DEFAULT_FONT_ZOOM), MIN_FONT_ZOOM, MAX_FONT_ZOOM);
+    }
+
+    public void setFontZoom(double zoom) {
+        put(FONT_ZOOM, String.valueOf(clamp(zoom, MIN_FONT_ZOOM, MAX_FONT_ZOOM)));
+    }
+
+    /**
+     * What the terminal is actually rendered at. Clamped to the font-size range as well as the
+     * zoom range: three times a large preferred size is past anything worth laying out.
+     */
+    public double effectiveFontSize() {
+        return clamp(fontSize() * fontZoom(), MIN_FONT_SIZE, MAX_FONT_SIZE);
     }
 
     public int scrollbackLines() {

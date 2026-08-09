@@ -248,3 +248,31 @@
     -fx-font-family: "JetBrains Mono", monospace;
     -fx-font-size: 0.85em;
 }
+
+/* The zoom row: one menu item that behaves like a browser's, so its buttons have to read as
+   controls inside a menu rather than as menu items of their own. */
+.zoom-row {
+    -fx-spacing: 4;
+    -fx-padding: 0 0 0 0;
+    -fx-min-width: 220;
+}
+
+.zoom-button {
+    -fx-background-radius: 4;
+    -fx-min-width: 26;
+    -fx-min-height: 22;
+    -fx-padding: 1 6 1 6;
+    -fx-cursor: hand;
+}
+
+/* The percentage is a button — it resets the zoom — but a bordered one would read as a third
+   step control rather than as the value the two beside it are changing. */
+.zoom-value {
+    -fx-background-color: transparent;
+    -fx-min-width: 52;
+    -fx-cursor: hand;
+}
+
+.zoom-value:hover {
+    -fx-background-color: -color-bg-subtle;
+}

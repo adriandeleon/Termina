@@ -494,10 +494,14 @@ public final class TerminalView extends Region {
         // internally consistent rather than a mix of two states.
         buffer.lock();
         try {
+            // x arrives as an index into the line's char[], which is not its column: see
+            // RunColumns. Translating here rather than inside drawRun keeps every consumer
+            // callback on the same footing, including the background-only one.
+            RunColumns columns = new RunColumns();
             buffer.processHistoryAndScreenLines(scrollOrigin, rows, new StyledTextConsumer() {
                 @Override
                 public void consume(int x, int y, TextStyle style, CharBuffer characters, int startRow) {
-                    drawRun(g, x, y - startRow, style, characters);
+                    drawRun(g, columns.columnOf(y, x, characters), y - startRow, style, characters);
                 }
 
                 @Override
@@ -505,7 +509,7 @@ public final class TerminalView extends Region {
                         int x, int y, int nulIndex, TextStyle style, CharBuffer characters, int startRow) {
                     // Cells past the last written column. Only the background is meaningful —
                     // drawing NUL as text would paint boxes across every short line.
-                    drawBackground(g, x, y - startRow, characters.length(), style);
+                    drawBackground(g, columns.columnOf(y, x, characters), y - startRow, characters.length(), style);
                 }
 
                 @Override
@@ -743,13 +747,42 @@ public final class TerminalView extends Region {
         markDirty();
     }
 
-    /** The buffer cell under a mouse position, clamped to the grid. */
+    /**
+     * The buffer cell under a mouse position, clamped to the grid.
+     *
+     * <p>The x it returns is a <b>slot</b>, not the column the pointer is over: a selection is
+     * handed to JediTerm, which indexes the line's array. The two differ by one for every astral
+     * character to the left — a Nerd Font icon before each name in an `ls` listing — so without
+     * the translation a drag selects text a column off from the one it highlighted.
+     *
+     * <p>Mouse <i>reporting</i> is the opposite case and deliberately does not come through here:
+     * xterm's protocol speaks columns, and a program being told where its own cursor should go
+     * wants what the user pointed at.
+     */
     private Point cellAt(MouseEvent e) {
         int column = (int) Math.floor(e.getX() / charWidth);
         int row = (int) Math.floor(e.getY() / lineHeight);
         column = Math.max(0, Math.min(columns, column));
         row = Math.max(0, Math.min(rows - 1, row));
-        return new Point(column, scrollOrigin + row);
+        int line = scrollOrigin + row;
+        return new Point(ColumnMap.slotAt(lineTextAt(line), column), line);
+    }
+
+    /** A row's raw characters, or empty when it is not there. Callers already hold the lock. */
+    private String lineTextAt(int row) {
+        if (buffer == null) return "";
+        try {
+            var line = buffer.getLine(row);
+            return line == null ? "" : line.getText();
+        } catch (RuntimeException e) {
+            // Out of range: the row scrolled away between the event and this read.
+            return "";
+        }
+    }
+
+    /** Slots in a row — the bound a selection clamps to, which is not the column count. */
+    private int slotsInRow(int row) {
+        return Math.max(columns, lineTextAt(row).length());
     }
 
     // ---------------------------------------------------------------- mouse reporting
@@ -813,9 +846,8 @@ public final class TerminalView extends Region {
     private Runnable onOpenSettings = () -> {};
     private Runnable onNewTab = () -> {};
     private Runnable onNewWindow = () -> {};
-    private Runnable onZoomIn = () -> {};
-    private Runnable onZoomOut = () -> {};
-    private Runnable onActualSize = () -> {};
+    private ZoomMenuRow.Actions zoomActions;
+    private ZoomMenuRow zoomRow;
     private BooleanSupplier menuBarShown;
     private Runnable onToggleMenuBar;
 
@@ -836,10 +868,8 @@ public final class TerminalView extends Region {
     }
 
     /** Zoom is the window's, not the view's: it writes through the settings, which every tab shares. */
-    public void setOnZoom(Runnable zoomIn, Runnable zoomOut, Runnable actualSize) {
-        this.onZoomIn = zoomIn == null ? () -> {} : zoomIn;
-        this.onZoomOut = zoomOut == null ? () -> {} : zoomOut;
-        this.onActualSize = actualSize == null ? () -> {} : actualSize;
+    public void setZoomActions(ZoomMenuRow.Actions zoomActions) {
+        this.zoomActions = zoomActions;
     }
 
     /**
@@ -893,6 +923,7 @@ public final class TerminalView extends Region {
         copyItem.setDisable(!hasSelection());
         pasteItem.setDisable(!Clipboard.getSystemClipboard().hasString());
         if (menuBarItem != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
+        if (zoomRow != null) zoomRow.refresh();
         contextMenu.show(this, e.getScreenX(), e.getScreenY());
         e.consume();
     }
@@ -944,11 +975,14 @@ public final class TerminalView extends Region {
                 pasteItem,
                 item(tr("menu.selectAll"), MenuIcons.selectAll(), this::selectAll),
                 new SeparatorMenuItem(),
-                item(tr("menu.clearScrollback"), MenuIcons.clear(), this::clearScrollback),
-                new SeparatorMenuItem(),
-                item(tr("menu.zoomIn"), MenuIcons.zoomIn(), () -> onZoomIn.run()),
-                item(tr("menu.zoomOut"), MenuIcons.zoomOut(), () -> onZoomOut.run()),
-                item(tr("menu.actualSize"), MenuIcons.actualSize(), () -> onActualSize.run())));
+                item(tr("menu.clearScrollback"), MenuIcons.clear(), this::clearScrollback)));
+
+        if (zoomActions != null) {
+            // The same row the View menu carries, built again: a Node cannot be in two menus.
+            zoomRow = new ZoomMenuRow(zoomActions);
+            items.add(new SeparatorMenuItem());
+            items.add(zoomRow.item());
+        }
 
         if (onToggleMenuBar != null && menuBarShown != null) {
             // "Show Menu Bar", checked — not the View menu's "Hide Menu Bar". The two menus are
@@ -986,7 +1020,7 @@ public final class TerminalView extends Region {
         try {
             int history = buffer.getHistoryLinesCount();
             TerminalSelection all = new TerminalSelection(new Point(0, -history));
-            all.updateEnd(new Point(columns, rows - 1));
+            all.updateEnd(new Point(slotsInRow(rows - 1), rows - 1));
             selection = all;
             selectionAnchor = new Point(0, -history);
         } finally {
@@ -1116,7 +1150,7 @@ public final class TerminalView extends Region {
 
     private void selectLineAt(Point at) {
         TerminalSelection line = new TerminalSelection(new Point(0, at.y));
-        line.updateEnd(new Point(columns, at.y));
+        line.updateEnd(new Point(slotsInRow(at.y), at.y));
         selection = line;
         selectionAnchor = new Point(0, at.y);
     }
@@ -1160,12 +1194,17 @@ public final class TerminalView extends Region {
         if (current == null) return;
         g.setFill(selectionWash);
         for (int row = 0; row < rows; row++) {
-            kotlin.Pair<Integer, Integer> span = current.intersect(0, scrollOrigin + row, columns);
+            int line = scrollOrigin + row;
+            kotlin.Pair<Integer, Integer> span = current.intersect(0, line, slotsInRow(line));
             if (span == null) continue;
             int from = span.getFirst();
             int length = span.getSecond();
             if (length <= 0) continue;
-            g.fillRect(from * charWidth, row * lineHeight, length * charWidth, lineHeight);
+            // The span is in slots; the rectangle is in columns.
+            String text = lineTextAt(line);
+            double x = ColumnMap.columnAt(text, from);
+            double to = ColumnMap.columnAt(text, from + length);
+            g.fillRect(x * charWidth, row * lineHeight, (to - x) * charWidth, lineHeight);
         }
     }
 

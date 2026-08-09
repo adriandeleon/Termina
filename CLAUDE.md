@@ -68,7 +68,12 @@ Each of these cost real time, and none of them announces itself.
   with every keystroke going to the tab strip. Opening a second tab appeared to fix it only because
   the strip then had focus to give away. `tabs` and `newTabButton` are both
   `setFocusTraversable(false)`. Traversal into chrome is unwanted here anyway — Tab belongs to the
-  shell.
+  shell. **That is not sufficient on its own**: `requestFocus` ignores the flag, and a click on the
+  already-selected tab header takes focus without changing the selection, so the listener that
+  follows a tab switch never runs. `FocusGuard` is the backstop — the terminal takes focus back
+  whenever nothing else has a claim on it. The claim is the load-bearing half: while the palette, a
+  menu or the context menu is open, focus is left alone, because reclaiming would make the palette
+  untypable and dismiss the context menu on the way to showing it.
 - **Driving input in a capture run mostly goes *around* focus.** `captureCommand` writes into the
   PTY and the mouse/key options fire at the view by name, so all of them pass in a window where
   nothing the user types reaches the shell. `captureTypeAtFocus` is the one that fires at the focus

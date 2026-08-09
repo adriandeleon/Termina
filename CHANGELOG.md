@@ -3,6 +3,47 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **Zoom is one row in the menus, as a browser does it** — `Zoom  −  110%  +  ⤢` — in both the View
+  menu and the right-click menu, replacing the three separate Zoom In / Zoom Out / Actual Size
+  items. The menu stays open while the buttons are pressed, because zooming is something you do two
+  or three times to find the size you want. The percentage is itself the reset. The three actions
+  keep their chords and their places in the command palette.
+- **Zoom is now a level, separate from the configured font size.** It used to add a pixel to the
+  font-size preference, so there was no "100%" to show and resetting the zoom silently discarded the
+  size the user had chosen. `font.zoom` multiplies `font.size`; Settings still edits the size, and
+  the zoom row moves through a browser's ladder (30% to 300%). **On upgrade, whatever size you had
+  becomes your base at 100%** — a size previously arrived at by zooming cannot be told from one that
+  was chosen.
+- **Full screen** (`F11`, `Ctrl+Cmd+F` on macOS), from the zoom row and the command palette.
+
+### Fixed
+
+- **The terminal could still lose focus, by paths other than the one already fixed.** Making the
+  tab strip non-traversable stopped it being *traversed* to; it did not stop anything calling
+  `requestFocus`, which ignores that flag. A click on the already-selected tab header takes focus
+  without changing the selection, so the listener that follows a tab switch never runs — and the
+  strip's empty space, a drag that reorders nothing, and the menu bar after its menu closes all do
+  the same. Every one of them presents as a window that looks ready and swallows typing, which is
+  why the report behind this could not be reproduced. The terminal now takes focus back whenever
+  nothing else has a claim on it; while the palette, a menu or the context menu is open, focus is
+  left exactly where it is.
+
+- **A directory listing's columns still did not line up.** Fixing the advance *within* a style run
+  left the run's *starting* position measured in the wrong unit: JediTerm hands the renderer an
+  index into the line's `char[]`, not its column, and the two disagree by one for every astral
+  character earlier in the line — which with `eza --icons` is one per name. The drift accumulates,
+  so a row with two icons ended two columns right of a row with one and the listing diverged the
+  further right you looked. The emulated grid was correct throughout; only the drawing was wrong.
+- **Selecting a line with icons copied text a column off from what it highlighted.** The same
+  disagreement in the other direction: a mouse position and a highlight rectangle are columns,
+  while a selection is handed to JediTerm, which indexes the line's `char[]`. Dragging across
+  `Desktop … Downloads … Games` copied `…Game`. Whole-line and select-all were bounded by the
+  column count too, which cut the tail off any line carrying more slots than the grid has columns.
+
 ## 0.2.0 — 2026-08-08
 
 ### Added
