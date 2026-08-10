@@ -130,6 +130,7 @@ final class DevCapture {
                 TerminalView active = window.activeTerminal();
                 if (active != null) driveInput(window, active);
                 fireChordIfRequested(window);
+                fireNativeChordIfRequested(window);
                 stealFocusIfRequested(window);
                 typeAtFocusIfRequested(window, active);
                 fireMenuItemIfRequested(active, settings);
@@ -212,7 +213,7 @@ final class DevCapture {
             System.out.println("[capture] menus " + w.menuReport());
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
             System.out.println("[capture] " + w.focusReport());
-            System.out.println("[capture] " + w.closeTooltipReport());
+            System.out.println("[capture] " + w.closeTooltipReport() + " tabTooltip=<" + w.tabTooltipReport() + ">");
             reportTypedEcho(w.activeTerminal());
         }
         reportDialogs();
@@ -650,6 +651,42 @@ final class DevCapture {
      * <p>The focus report at the end of the run is the assertion: whatever this hands focus to, the
      * terminal should own it again by the time the window settles.
      */
+    /**
+     * Presses a chord through the operating system, not through JavaFX's event queue.
+     *
+     * <pre>-Dtermina.captureNativeChord=A;B;CONTROL+A;CONTROL+F</pre>
+     *
+     * <p>The difference from {@code captureChord} is the whole reason this exists. A synthetic
+     * KeyEvent is one we built, so it can only confirm what we already believe the OS sends. macOS
+     * binds Ctrl+A, Ctrl+F and their neighbours to its own text commands before an application sees
+     * them, and whether that arrives as a press, as a typed character, as both, or as something
+     * nobody typed is a question about AppKit — which only a real key press can answer.
+     *
+     * <p>Fires only while the window has focus, because the keystroke goes wherever the OS is
+     * looking rather than where we point it.
+     */
+    private static void fireNativeChordIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureNativeChord");
+        if (spec == null || spec.isBlank()) return;
+        if (!window.stage().isFocused()) {
+            System.out.println("[capture] native chord skipped: the window does not have focus");
+            return;
+        }
+        javafx.scene.robot.Robot robot = new javafx.scene.robot.Robot();
+        // Several chords per run, semicolon-separated: a keyboard bug is usually a *sequence* — what
+        // one chord leaves behind is what the next one trips over — and one shell start per chord
+        // makes that expensive to explore.
+        for (String chord : spec.split(";")) {
+            List<javafx.scene.input.KeyCode> keys = new ArrayList<>();
+            for (String part : chord.split("\\+")) {
+                keys.add(javafx.scene.input.KeyCode.valueOf(part.trim().toUpperCase(java.util.Locale.ROOT)));
+            }
+            for (javafx.scene.input.KeyCode key : keys) robot.keyPress(key);
+            for (int i = keys.size() - 1; i >= 0; i--) robot.keyRelease(keys.get(i));
+        }
+        System.out.println("[capture] fired native chord " + spec);
+    }
+
     private static void stealFocusIfRequested(TerminalWindow window) {
         String what = System.getProperty("termina.captureStealFocus");
         if (what == null || what.isBlank()) return;

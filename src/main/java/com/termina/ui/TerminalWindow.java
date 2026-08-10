@@ -393,6 +393,34 @@ public final class TerminalWindow {
         }
     }
 
+    /**
+     * Shows a tab's directory on hover, and stops showing it when there is none.
+     *
+     * <p>Attached and detached rather than left in place with empty text: a Tooltip bound to "" is
+     * still a tooltip, and hovering produces a small empty box — which reads as something broken
+     * rather than as nothing to say. Windows has no {@code ProcessCwd}, so that is the state there
+     * for every tab, not an edge case.
+     */
+    private void installDirectoryTooltip(Label label, javafx.beans.property.StringProperty directory) {
+        Tooltip tip = new Tooltip();
+        tip.setShowDelay(Duration.millis(400));
+        tip.textProperty().bind(directory);
+        directory.addListener((o, was, now) -> applyDirectoryTooltip(label, tip, now));
+        applyDirectoryTooltip(label, tip, directory.get());
+    }
+
+    private static void applyDirectoryTooltip(Label label, Tooltip tip, String directory) {
+        label.setTooltip(directory == null || directory.isBlank() ? null : tip);
+    }
+
+    /** The active tab's hover text, or "" — for the capture hook. */
+    public String tabTooltipReport() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null || !(tab.getGraphic() instanceof Label label)) return "";
+        Tooltip tip = label.getTooltip();
+        return tip == null ? "" : tip.getText();
+    }
+
     /** How many close buttons carry the tooltip — for the capture hook. */
     public String closeTooltipReport() {
         int withTip = 0;
@@ -460,6 +488,10 @@ public final class TerminalWindow {
         Label title = new Label();
         title.getStyleClass().add("tab-title");
         title.textProperty().bind(terminal.getDisplay().tabTitleProperty());
+        // What the label had to leave out. The tab shows a name; the hover shows the path it is a
+        // name for — and when a program has set a title, the path is the only place left to say
+        // where that program is running.
+        installDirectoryTooltip(title, terminal.getDisplay().tabTooltipProperty());
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
         installCloseTooltips();

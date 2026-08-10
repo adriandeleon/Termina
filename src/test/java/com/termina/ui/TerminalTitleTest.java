@@ -65,6 +65,32 @@ class TerminalTitleTest {
         assertEquals(AppInfo.NAME, TerminalTitle.tab(null, null, HOME));
     }
 
+    // --- the tab's hover ------------------------------------------------------------------------
+
+    @Test
+    void theTooltipIsThePathTheTabHadNoRoomFor() {
+        assertEquals("~/src/Editora", TerminalTitle.tooltip("", "/home/adl/src/Editora", HOME));
+        assertEquals("Editora", TerminalTitle.tab("", "/home/adl/src/Editora", HOME));
+    }
+
+    @Test
+    void theTooltipKeepsThePathWhenTheShellHasSetATitle() {
+        // The one place shellTitle is deliberately ignored, and the case the hover exists for: the
+        // tab has already spent its width saying "vim", so repeating it adds nothing, while the
+        // directory that program is running in has nowhere else to appear.
+        assertEquals("~/src/Editora", TerminalTitle.tooltip("vim README.md", "/home/adl/src/Editora", HOME));
+        assertEquals("vim README.md", TerminalTitle.tab("vim README.md", "/home/adl/src/Editora", HOME));
+    }
+
+    @Test
+    void thereIsNoTooltipWhenTheDirectoryIsUnknown() {
+        // Windows has no ProcessCwd, so this is every tab there rather than an edge case. Nothing is
+        // shown for it at all — a tooltip bound to "" is a small empty box, which reads as broken.
+        assertEquals("", TerminalTitle.tooltip("vim", "", HOME));
+        assertEquals("", TerminalTitle.tooltip("", "", HOME));
+        assertEquals("", TerminalTitle.tooltip("", null, HOME));
+    }
+
     // --- collapseHome, where the tempting implementation is wrong ------------------------------
 
     @Test

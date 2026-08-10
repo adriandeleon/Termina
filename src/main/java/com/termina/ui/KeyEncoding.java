@@ -105,7 +105,49 @@ public final class KeyEncoding {
             if (control != null) return withMeta(control, e, altIsMeta);
         }
 
+        // Meta: ESC then the key's *unmodified* character. Handled from KEY_PRESSED precisely
+        // because KEY_TYPED reports the composed one, and composing is what this mode turns off.
+        //
+        // macOS makes Option a compose key — Option+F is ƒ. Prefixing ESC to that sends the escape
+        // plus ƒ's two UTF-8 bytes; a shell reads ESC as the meta prefix, consumes the first byte
+        // along with it, and is left holding a lone continuation byte, which is invalid UTF-8 and
+        // renders as an unprintable box. So M-f arrived as garbage inserted at the cursor instead
+        // of forward-word, and every other M-<letter> with it.
+        //
+        // Not while Ctrl is held: that combination is AltGr on Windows and Linux, where composing
+        // is the only way a keyboard reaches some characters at all.
+        if (altIsMeta && e.isAltDown() && !e.isControlDown() && !e.isMetaDown()) {
+            byte[] base = metaBase(e);
+            if (base != null) return prefixEsc(base);
+        }
+
         return null;
+    }
+
+    /**
+     * The ASCII byte for Meta-&lt;key&gt;, or null when the key has no plain character.
+     *
+     * <p>Prefers the event's own text, which is right on layouts where the modifier does not
+     * compose, and falls back to the key's character when that text is something the OS invented —
+     * {@code ƒ} for Option+F, which is not what {@code M-f} means.
+     */
+    static byte[] metaBase(KeyEvent e) {
+        char c = plainAscii(e.getText());
+        if (c == 0) c = plainAscii(e.getCode().getChar());
+        if (c == 0) return null;
+        // A KeyCode's character is upper case; readline's bindings are lower case, and Shift is what
+        // asks for the other one — M-u and M-U are different widgets.
+        if (Character.isLetter(c)) {
+            c = e.isShiftDown() ? Character.toUpperCase(c) : Character.toLowerCase(c);
+        }
+        return new byte[] {(byte) c};
+    }
+
+    /** A single printable ASCII character, or 0 for anything else. */
+    private static char plainAscii(String text) {
+        if (text == null || text.length() != 1) return 0;
+        char c = text.charAt(0);
+        return c >= 0x20 && c < 0x7f ? c : 0;
     }
 
     /**
@@ -124,8 +166,14 @@ public final class KeyEncoding {
         // Ctrl held means this is the character form of a chord KEY_PRESSED already emitted.
         if (e.isControlDown() || e.isMetaDown()) return null;
 
-        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
-        return altIsMeta && e.isAltDown() ? prefixEsc(bytes) : bytes;
+        // The same is now true of Alt in Meta mode: KEY_PRESSED has sent ESC and the unmodified
+        // key, and this event carries the composed character that mode exists to suppress. Sending
+        // it too would both duplicate the keystroke and put the composed bytes on the wire.
+        //
+        // Alt with Ctrl is AltGr, which is not Meta and does belong here.
+        if (altIsMeta && e.isAltDown() && !e.isControlDown()) return null;
+
+        return text.getBytes(StandardCharsets.UTF_8);
     }
 
     /** Wraps text for bracketed paste, which lets the shell tell a paste from typing. */
