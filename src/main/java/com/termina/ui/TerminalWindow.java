@@ -241,6 +241,26 @@ public final class TerminalWindow {
     }
 
     /**
+     * Whether the View menu shows zoom as one row of buttons rather than as plain items.
+     *
+     * <p>False under a system menu bar, and that is not a matter of taste. The row is a {@link
+     * javafx.scene.control.CustomMenuItem}, and macOS's menus are drawn by AppKit, which cannot
+     * render a JavaFX node — so {@code MenuBarSkin} refuses {@code useSystemMenuBar} for the
+     * <em>whole</em> bar if any menu anywhere in it holds one, printing "MenuBar ignored property
+     * useSystemMenuBar because menus contain CustomMenuItem" to stderr and falling back to the
+     * in-window bar. Which this window collapses to zero height on macOS, on the assumption that
+     * the screen bar has the menus. The two together left a Mac with no menus at all: nothing in
+     * the screen bar, nothing in the window, and the only ways to any of it were the chords, the
+     * palette and the right-click menu.
+     *
+     * <p>The row survives everywhere it can actually be drawn. The right-click menu keeps it on
+     * every platform — it is a window popup JavaFX draws itself, not a screen menu.
+     */
+    static boolean showsZoomRow(boolean systemMenuBar) {
+        return !systemMenuBar;
+    }
+
+    /**
      * Whether to offer showing and hiding the menu bar at all.
      *
      * <p>Two menus ask this — the View menu, for its Hide item, and the right-click menu, for its
@@ -250,6 +270,31 @@ public final class TerminalWindow {
      */
     static boolean offersMenuBarToggle(boolean systemMenuBar) {
         return !systemMenuBar;
+    }
+
+    /**
+     * Whether JavaFX will really hand these menus to the screen bar, rather than what we asked for.
+     *
+     * <p>{@code MenuBarSkin} silently declines {@code useSystemMenuBar} — a warning on stderr, no
+     * API — when any menu in the bar holds a {@link javafx.scene.control.CustomMenuItem}, because
+     * AppKit draws those menus and cannot render a JavaFX node. Asked rather than assumed because
+     * the answer decides whether the in-window bar is collapsed: collapsing it after JavaFX has
+     * declined leaves the window with no menus at all, which is the bug this came from. A rogue
+     * custom item should cost a Mac its screen menus, not all of them.
+     *
+     * <p>Separators are the one custom item JavaFX itself allows, and {@link
+     * javafx.scene.control.SeparatorMenuItem} extends CustomMenuItem, so it has to be excluded here
+     * too — every menu below has one.
+     */
+    static boolean menusFitASystemMenuBar(List<? extends MenuItem> items) {
+        for (MenuItem item : items) {
+            if (item instanceof Menu submenu) {
+                if (!menusFitASystemMenuBar(submenu.getItems())) return false;
+            } else if (item instanceof javafx.scene.control.CustomMenuItem && !(item instanceof SeparatorMenuItem)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -267,8 +312,9 @@ public final class TerminalWindow {
      */
     private void applyMenuBarVisibility() {
         if (menuBar == null) return;
-        boolean occupies = menuBarOccupiesSpace(SYSTEM_MENU_BAR, settings.showMenuBar());
-        if (SYSTEM_MENU_BAR) {
+        boolean systemBar = SYSTEM_MENU_BAR && menusFitASystemMenuBar(menuBar.getMenus());
+        boolean occupies = menuBarOccupiesSpace(systemBar, settings.showMenuBar());
+        if (systemBar) {
             menuBar.getStyleClass().removeAll(COLLAPSED_MENU_BAR);
             menuBar.getStyleClass().add(COLLAPSED_MENU_BAR);
             menuBar.setVisible(true);
@@ -997,20 +1043,26 @@ public final class TerminalWindow {
                         MenuAction.appChord(KeyCode.K),
                         () -> withActiveTerminal(TerminalView::clearScrollback))));
 
-        // The three zoom actions are still commands — they keep their chords and their place in the
-        // palette — but the View menu shows them as one row instead of three items. They go through
-        // command() rather than the menu builder, which is what records a command by rendering it.
-        command(MenuAction.of(
-                tr("menu.zoomIn"), new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1)));
-        command(MenuAction.of(
+        // The four view actions, built once and shown one of two ways. Where the row can be drawn
+        // the View menu shows it instead of four items, and these keep their chords and their place
+        // in the palette through command(), which is what records a command with no item of its own.
+        // Under a system menu bar they are the items — see showsZoomRow.
+        MenuAction zoomIn = MenuAction.of(
+                tr("menu.zoomIn"), new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1));
+        MenuAction zoomOut = MenuAction.of(
                 tr("menu.zoomOut"),
                 new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
-                () -> zoom(-1)));
-        command(MenuAction.of(
+                () -> zoom(-1));
+        MenuAction actualSize = MenuAction.of(
                 tr("menu.actualSize"),
                 new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
-                this::resetZoom));
-        command(MenuAction.of(tr("menu.fullScreen"), fullScreenChord(), this::toggleFullScreen));
+                this::resetZoom);
+        MenuAction fullScreen = MenuAction.of(tr("menu.fullScreen"), fullScreenChord(), this::toggleFullScreen);
+        List<MenuAction> viewActions = List.of(zoomIn, zoomOut, actualSize, fullScreen);
+        // Only the row's actions need recording here. As items they reach the palette the ordinary
+        // way, by being in a menu, and recording them twice would list each of them twice.
+        if (showsZoomRow(SYSTEM_MENU_BAR)) viewActions.forEach(this::command);
+        else viewActions.forEach(this::register);
 
         // Chords and palette entries, but no menu items: nine rows would be most of the Window
         // menu, and all but the first few dead whenever fewer tabs are open.
@@ -1022,6 +1074,14 @@ public final class TerminalWindow {
         }
 
         List<MenuAction> viewItems = new java.util.ArrayList<>();
+        if (!showsZoomRow(SYSTEM_MENU_BAR)) {
+            // Full Screen last and on its own, which is where macOS's own View menus put it.
+            viewItems.add(zoomIn);
+            viewItems.add(zoomOut);
+            viewItems.add(actualSize);
+            viewItems.add(null);
+            viewItems.add(fullScreen);
+        }
         // Omitted entirely on macOS, where the menus live in the screen menu bar and there is
         // nothing in the window to hide. The Settings checkbox is disabled-with-a-reason instead,
         // because it has room to explain itself; a menu item has none, and one that does nothing
@@ -1046,11 +1106,13 @@ public final class TerminalWindow {
                 new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                 this::showPalette)));
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
-        ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
-        view.getItems().add(0, zoomRow.item());
-        // The level can have moved since the row was last shown — from a chord, the other menu, or
-        // another window entirely.
-        view.setOnShowing(e -> zoomRow.refresh());
+        if (showsZoomRow(SYSTEM_MENU_BAR)) {
+            ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
+            view.getItems().add(0, zoomRow.item());
+            // The level can have moved since the row was last shown — from a chord, the other menu,
+            // or another window entirely.
+            view.setOnShowing(e -> zoomRow.refresh());
+        }
         commands.remove(viewItems.get(viewItems.size() - 1));
 
         Menu window = menu(
