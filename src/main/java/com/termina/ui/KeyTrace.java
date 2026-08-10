@@ -59,13 +59,19 @@ final class KeyTrace {
         return out.toString();
     }
 
+    /**
+     * The keys actually held.
+     *
+     * <p>Deliberately not {@code isShortcutDown}, which is derived rather than held — it is Ctrl on
+     * Windows and Linux and Meta on macOS, so reporting it prints one physical key twice and reads
+     * as two. In a diagnostic about which modifier arrived, that is the one confusion to avoid.
+     */
     static String modifiers(KeyEvent e) {
         StringBuilder mods = new StringBuilder();
         if (e.isShiftDown()) mods.append("shift ");
         if (e.isControlDown()) mods.append("ctrl ");
         if (e.isAltDown()) mods.append("alt ");
         if (e.isMetaDown()) mods.append("meta ");
-        if (e.isShortcutDown()) mods.append("shortcut ");
         return mods.toString().trim();
     }
 

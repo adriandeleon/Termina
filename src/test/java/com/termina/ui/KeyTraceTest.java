@@ -47,6 +47,8 @@ class KeyTraceTest {
         assertTrue(line.contains("KEY_PRESSED"), line);
         assertTrue(line.contains("code=F"), line);
         assertTrue(line.contains("text=U+0006"), line);
+        // The physical key, and only it: isShortcutDown is Ctrl here and Meta on macOS, so
+        // including it would print one key twice on one platform and not the other.
         assertTrue(line.contains("mods=[ctrl]"), line);
         assertTrue(line.contains("sent=06"), line);
     }
