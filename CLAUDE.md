@@ -109,8 +109,19 @@ Each of these cost real time, and none of them announces itself.
   nothing on screen looks wrong.
 - **The macOS system menu bar still occupies layout.** `setUseSystemMenuBar(true)` moves the menus
   to the screen bar but leaves the node in the scene graph with its own padding — measured 8px of
-  empty chrome above the terminal. Collapsed in CSS (`system-menu-bar-host`) rather than hidden or
+  empty chrome above the terminal. Collapsed in CSS (`collapsed-menu-bar`) rather than hidden or
   unmanaged, so the registration that depends on it being live is untouched.
+- **One `CustomMenuItem` costs the whole screen menu bar.** `MenuBarSkin` walks every menu in the
+  bar and, on finding one, declines `useSystemMenuBar` for all of them — AppKit draws those menus
+  and cannot render a JavaFX node. It says so only as `Warning: MenuBar ignored property
+  useSystemMenuBar because menus contain CustomMenuItem` on stderr; there is no API to ask, and a
+  packaged app has no stderr anyone reads. Together with the collapse above, the zoom row left macOS
+  with **no menus anywhere** — none in the screen bar, and the window's at zero height. So the row
+  is built only where it can be drawn (`TerminalWindow.showsZoomRow`), and the collapse now asks
+  `menusFitASystemMenuBar` first, which mirrors JavaFX's rule — including that `SeparatorMenuItem`
+  extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
+  rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on
+  every platform.
 - **Hiding the tab strip needs min, pref *and* max height at zero.** `visibility: hidden` alone
   leaves the row's height behind as a blank band, because `TabPaneSkin` lays the header out from its
   own computed size.

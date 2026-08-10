@@ -3,6 +3,20 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Fixed
+
+- **macOS had no menus at all.** Not in the screen menu bar and not in the window: File, Edit, View,
+  Window and Help were unreachable, leaving only the chords, the command palette and the right-click
+  menu. JavaFX refuses `useSystemMenuBar` for the whole bar when any menu holds a custom item —
+  AppKit draws those menus and cannot render a JavaFX node — and the zoom row is one, so the menus
+  fell back into the window, where macOS collapses the bar to nothing on the assumption that the
+  screen has them. The View menu now shows Zoom In, Zoom Out, Actual Size and Full Screen as
+  ordinary items on macOS, which is what the platform can draw, and keeps the row everywhere else
+  and in the right-click menu on every platform. Should a custom item reach the bar again, the
+  in-window bar is no longer collapsed, so the cost is a Mac's screen menus rather than all of them.
+
 ## 0.5.0 — 2026-08-08
 
 ### Added
