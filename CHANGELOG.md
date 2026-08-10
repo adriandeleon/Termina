@@ -3,14 +3,11 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.5.1 — 2026-08-10
+
+Two fixes, no new behaviour, so the patch number moves rather than the minor.
 
 ### Fixed
-
-- **The settings pages ran into the scrollbar.** Every control on the right — the combos, the
-  checkboxes, the opacity readout — ended flush against it, and the preview's border appeared to
-  pass underneath. The page now keeps the same margin from the scrollbar that it keeps from the
-  sidebar, whether or not it is long enough to scroll.
 
 - **macOS had no menus at all.** Not in the screen menu bar and not in the window: File, Edit, View,
   Window and Help were unreachable, leaving only the chords, the command palette and the right-click
@@ -21,6 +18,37 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   ordinary items on macOS, which is what the platform can draw, and keeps the row everywhere else
   and in the right-click menu on every platform. Should a custom item reach the bar again, the
   in-window bar is no longer collapsed, so the cost is a Mac's screen menus rather than all of them.
+
+- **The settings pages ran into the scrollbar.** Every control on the right — the combos, the
+  checkboxes, the opacity readout — ended flush against it, and the preview's border appeared to
+  pass underneath. The page now keeps the same margin from the scrollbar that it keeps from the
+  sidebar, whether or not it is long enough to scroll.
+
+### Known gaps
+
+Unchanged from 0.5.0, less the macOS menus above.
+
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
+- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
+  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
+  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
+  something other than the screen it was given. JavaFX reports the window as full screen and
+  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
+  unaffected.
+- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
+  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
+  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
+  a question nobody can act on.
+- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
+  inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
+  implemented.
+- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  same thing.
+- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+  its source.
+- No splits, no search in scrollback, no keybinding customisation.
 
 ## 0.5.0 — 2026-08-08
 
