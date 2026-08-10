@@ -103,6 +103,11 @@ public final class WindowManager {
         this.openLink = openLink == null ? url -> {} : openLink;
     }
 
+    /** Opens a URL in the desktop's browser — the About window's links, and clicked ones. */
+    void openLink(String url) {
+        openLink.accept(url);
+    }
+
     public void showAbout(Window owner) {
         if (aboutWindow == null) aboutWindow = new AboutWindow(settings, openLink);
         aboutWindow.setUpdate(availableUpdate);

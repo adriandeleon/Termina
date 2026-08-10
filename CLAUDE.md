@@ -122,6 +122,21 @@ Each of these cost real time, and none of them announces itself.
   extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
   rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on
   every platform.
+- **JediTerm's hyperlink layer is deliberately unused, and its OSC 8 support is inert.** The
+  dependency has a whole one: a `TextProcessing` handed to `TerminalTextBuffer` runs filters over
+  each line as it is written and marks the runs with a `HyperlinkStyle`. We do not use it. Links here
+  are found *under the pointer* instead (`com.termina.link.LinkScanner`), because a path is only a
+  link if it names a file that exists, and that check has to happen somewhere: through JediTerm it
+  would run for every token of every line as output streams past, on the emulator thread. Under the
+  pointer it runs once per hover. **OSC 8 is a separate gap**: `JediEmulator` parses it, but
+  `JediTerminal.setLinkUriStarted` drops it unless `setUrlHyperlinkFilter` has been called, which
+  nothing does — so an explicit hyperlink whose text is not itself a URL is not clickable. The
+  capabilities doc's "OSC 8: yes" is about the dependency, not about us.
+- **Asking for a row above the scrollback is an ERROR line, not an exception.**
+  `TerminalTextBuffer.getLine(-1)` with no history logs `Attempt to get line out of bounds` through
+  slf4j and returns. On a path that runs per mouse move — walking back to find the start of a wrapped
+  line — that is a log flood rather than a crash, which is why the walk is bounded by
+  `getHistoryLinesCount()` as well as by a row count.
 - **Hiding the tab strip needs min, pref *and* max height at zero.** `visibility: hidden` alone
   leaves the row's height behind as a blank band, because `TabPaneSkin` lays the header out from its
   own computed size.

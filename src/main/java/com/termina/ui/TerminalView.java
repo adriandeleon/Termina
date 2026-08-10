@@ -42,6 +42,9 @@ import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.util.CharUtils;
 import com.termina.config.Settings;
+import com.termina.link.LinkGesture;
+import com.termina.link.LinkMatch;
+import com.termina.link.LinkScanner;
 import com.termina.pty.CwdWatcher;
 import com.termina.pty.ProcessCwd;
 import com.termina.term.TerminalSession;
@@ -196,7 +199,14 @@ public final class TerminalView extends Region {
         addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
         addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
         addEventFilter(MouseEvent.MOUSE_RELEASED, this::onMouseReleased);
+        addEventFilter(MouseEvent.MOUSE_MOVED, this::onMouseMoved);
+        addEventFilter(MouseEvent.MOUSE_EXITED, e -> updateHover(-1, -1, false));
         addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
+        // The modifier can go down and up without the mouse moving at all, and the underline has to
+        // follow it either way — that is how the gesture announces itself to someone who has not
+        // been told about it. Registered as its own filter because KEY_RELEASED is otherwise
+        // unhandled here, and it never consumes.
+        addEventFilter(KeyEvent.KEY_RELEASED, this::onKeyReleased);
         addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
         setOnContextMenuRequested(this::onContextMenuRequested);
@@ -516,6 +526,7 @@ public final class TerminalView extends Region {
                 public void consumeQueue(int x, int y, int nulIndex, int startRow) {}
             });
             drawSelection(g);
+            drawLinkUnderline(g);
             drawCursor(g);
             updateScrollBar();
         } finally {
@@ -837,9 +848,249 @@ public final class TerminalView extends Region {
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.RELEASED)) e.consume();
     }
 
+    // ---------------------------------------------------------------- links
+
+    /**
+     * The link under the pointer, with everything the click and the underline need.
+     *
+     * <p>{@code file} is null for a URL and non-null for a path that was found on disk — a path
+     * that was not is never a hover at all, so nothing here can be opened that does not exist.
+     *
+     * @param spans the run split across the rows it occupies, since a wrapped URL is one link drawn
+     *     on two lines
+     */
+    private record Hover(LinkMatch match, java.nio.file.Path file, java.util.List<LinkSpan> spans) {}
+
+    /** One row's worth of an underline: a line index and the slots it covers. */
+    private record LinkSpan(int line, int fromSlot, int toSlot) {}
+
+    private static final boolean MAC =
+            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+
+    /**
+     * How far to look either side for the rest of a wrapped line.
+     *
+     * <p>A URL that fills eight rows is not a URL anyone is going to click, and the bound is what
+     * keeps the hover check O(1) rather than O(scrollback) on a screen full of wrapped output.
+     */
+    private static final int MAX_WRAP_ROWS = 8;
+
+    private com.termina.link.LinkActions linkActions;
+    private Hover hover;
+    private Hover menuLink;
+    private double lastMouseX = -1;
+    private double lastMouseY = -1;
+
+    /** Where a link goes once clicked. Supplied by the window; without it links are inert. */
+    public void setLinkActions(com.termina.link.LinkActions linkActions) {
+        this.linkActions = linkActions;
+    }
+
+    /**
+     * Recomputes what is under the pointer.
+     *
+     * <p>Only while the modifier is held, which is what keeps this off the ordinary mouse-move
+     * path: with no modifier the answer is "nothing" after one boolean, and the filesystem is never
+     * asked. Terminals that underline on hover regardless have to decorate text you are only
+     * reading, and pay for it on every move.
+     */
+    private void updateHover(double x, double y, boolean modifierDown) {
+        Hover previous = hover;
+        hover = modifierDown ? linkAt(x, y) : null;
+        setCursor(hover == null ? javafx.scene.Cursor.DEFAULT : javafx.scene.Cursor.HAND);
+        if (!sameHover(previous, hover)) markDirty();
+    }
+
+    private static boolean sameHover(Hover a, Hover b) {
+        if (a == null || b == null) return a == b;
+        return a.spans().equals(b.spans()) && a.match().equals(b.match());
+    }
+
+    /** The link at a point in the view, or null. Reads the buffer, so it takes the lock. */
+    private Hover linkAt(double x, double y) {
+        if (buffer == null || linkActions == null) return null;
+        if (x < 0 || y < 0 || x >= getWidth() || y >= getHeight()) return null;
+
+        int row = (int) Math.floor(y / lineHeight);
+        if (row < 0 || row >= rows) return null;
+        int line = scrollOrigin + row;
+        int column = (int) Math.floor(x / charWidth);
+        if (column < 0 || column >= columns) return null;
+
+        buffer.lock();
+        try {
+            LogicalLine logical = logicalLineAt(line);
+            if (logical == null) return null;
+            int slot = ColumnMap.slotAt(lineTextAt(line), column);
+            int index = logical.offsetOf(line) + slot;
+            LinkMatch match = LinkScanner.at(logical.text(), index);
+            if (match == null) return null;
+
+            // Moving along a link with the modifier held asks the same question of the filesystem
+            // for every pixel of travel. The answer cannot change within one hover, so it is asked
+            // once per link rather than once per event.
+            Hover previous = hover;
+            java.nio.file.Path file =
+                    previous != null && previous.match().equals(match) ? previous.file() : fileFor(match);
+            if (match.kind() == LinkMatch.Kind.PATH && file == null) return null;
+            return new Hover(match, file, logical.spansOf(match.start(), match.end()));
+        } catch (RuntimeException e) {
+            // The rows moved under us between the event and the read. There is no link here now.
+            return null;
+        } finally {
+            buffer.unlock();
+        }
+    }
+
+    /**
+     * The file a match names, or null when it names none.
+     *
+     * <p>This is the whole safety story for paths: a candidate is any word under the pointer, and
+     * what makes it a link is that it resolves — against <em>this tab's</em> shell directory — to
+     * something that is actually there. A pattern cannot tell a filename from a word; the
+     * filesystem can.
+     */
+    private java.nio.file.Path fileFor(LinkMatch match) {
+        String target = match.target();
+        if (match.kind() == LinkMatch.Kind.URL) {
+            java.nio.file.Path fromUri = com.termina.link.LinkPaths.fromFileUri(target);
+            return fromUri != null && java.nio.file.Files.exists(fromUri) ? fromUri : null;
+        }
+        String cwd = display.getCwd();
+        java.nio.file.Path resolved = com.termina.link.LinkPaths.resolve(
+                target, cwd == null || cwd.isBlank() ? null : java.nio.file.Path.of(cwd));
+        return resolved != null && java.nio.file.Files.exists(resolved) ? resolved : null;
+    }
+
+    /** Opens the hovered link. */
+    private void openLink(Hover target) {
+        if (target == null || linkActions == null) return;
+        if (target.file() != null) {
+            linkActions.openFile(
+                    target.file(), target.match().line(), target.match().column());
+        } else if (target.match().isUrl()) {
+            linkActions.openUrl(target.match().target());
+        }
+    }
+
+    /** What the link points at, for the clipboard: the URL, or the resolved file. */
+    private String linkAddress(Hover target) {
+        if (target == null) return "";
+        if (target.match().isUrl() && target.file() == null)
+            return target.match().target();
+        return target.file() == null ? target.match().target() : target.file().toString();
+    }
+
+    /**
+     * A logical line — one row, or the several a soft wrap spread it over.
+     *
+     * <p>Joined because a URL that reaches the right edge continues on the next row and is still
+     * one URL. Terminals that scan a row at a time cut it in half, which fails on exactly the long
+     * URLs most worth clicking.
+     */
+    private record LogicalLine(int firstLine, java.util.List<String> rowTexts, String text) {
+
+        int offsetOf(int line) {
+            int offset = 0;
+            for (int i = 0; i < line - firstLine; i++) offset += rowTexts.get(i).length();
+            return offset;
+        }
+
+        /** The range split into the rows it crosses, so the underline can be drawn per row. */
+        java.util.List<LinkSpan> spansOf(int from, int to) {
+            java.util.List<LinkSpan> spans = new ArrayList<>();
+            int offset = 0;
+            for (int i = 0; i < rowTexts.size(); i++) {
+                int length = rowTexts.get(i).length();
+                int start = Math.max(from, offset);
+                int end = Math.min(to, offset + length);
+                if (start < end) spans.add(new LinkSpan(firstLine + i, start - offset, end - offset));
+                offset += length;
+            }
+            return spans;
+        }
+    }
+
+    /** Builds the logical line containing a row. Caller holds the buffer lock. */
+    private LogicalLine logicalLineAt(int line) {
+        // Bounded by the history that exists as well as by MAX_WRAP_ROWS: asking for row -1 with an
+        // empty scrollback is not an exception but an ERROR line in JediTerm's own log, once per
+        // mouse move, which turns a hover into a log flood.
+        int floor = -buffer.getHistoryLinesCount();
+        int first = line;
+        int back = 0;
+        while (back < MAX_WRAP_ROWS && first - 1 >= floor && isWrapped(first - 1)) {
+            first--;
+            back++;
+        }
+        java.util.List<String> texts = new ArrayList<>();
+        StringBuilder joined = new StringBuilder();
+        int row = first;
+        while (true) {
+            String text = lineTextAt(row);
+            texts.add(text);
+            joined.append(text);
+            if (!isWrapped(row) || row - first >= MAX_WRAP_ROWS) break;
+            row++;
+        }
+        if (line < first || line > row) return null;
+        return new LogicalLine(first, texts, joined.toString());
+    }
+
+    /** Whether a row continues onto the next one. Caller holds the buffer lock. */
+    private boolean isWrapped(int row) {
+        if (buffer == null) return false;
+        try {
+            var line = buffer.getLine(row);
+            return line != null && line.isWrapped();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Hovers a point as though the modifier were held, and describes what is there.
+     *
+     * <p>For the development capture hook. What a link resolves to depends on the shell's output,
+     * the tab's own directory and the filesystem — none of which a unit test has, so the only
+     * honest check is against a real one.
+     */
+    public String hoverLinkForCapture(double x, double y) {
+        updateHover(x, y, true);
+        Hover target = hover;
+        if (target == null) return "none at " + x + "," + y;
+        LinkMatch match = target.match();
+        return match.kind() + " text=<" + match.text() + "> opens=<" + linkAddress(target) + ">"
+                + (match.line() > 0 ? " line=" + match.line() : "")
+                + (match.column() > 0 ? " column=" + match.column() : "")
+                + " rows=" + target.spans().size();
+    }
+
+    /** Underlines the hovered link, in the text's own colour. */
+    private void drawLinkUnderline(GraphicsContext g) {
+        Hover target = hover;
+        if (target == null) return;
+        g.setStroke(palette.foreground());
+        g.setLineWidth(1);
+        for (LinkSpan span : target.spans()) {
+            int row = span.line() - scrollOrigin;
+            if (row < 0 || row >= rows) continue;
+            String text = lineTextAt(span.line());
+            double from = ColumnMap.columnAt(text, span.fromSlot()) * charWidth;
+            double to = ColumnMap.columnAt(text, span.toSlot()) * charWidth;
+            // Half a pixel down the grid line, or a 1px stroke straddles it and paints two grey rows
+            // instead of one solid one.
+            double y = Math.floor((row + 1) * lineHeight) - 1.5;
+            g.strokeLine(from, y, to, y);
+        }
+    }
+
     // ---------------------------------------------------------------- context menu
 
     private ContextMenu contextMenu;
+    private MenuItem openLinkItem;
+    private MenuItem copyLinkItem;
+    private SeparatorMenuItem linkSeparator;
     private MenuItem copyItem;
     private MenuItem pasteItem;
     private CheckMenuItem menuBarItem;
@@ -922,6 +1173,14 @@ public final class TerminalView extends Region {
         // all change while this menu sits built and invisible.
         copyItem.setDisable(!hasSelection());
         pasteItem.setDisable(!Clipboard.getSystemClipboard().hasString());
+        // The link items are the menu's answer to a gesture nobody was told about: they need no
+        // modifier and they say what is there. Computed for the right-clicked cell, not the last
+        // hovered one — the menu can be raised from the keyboard, and the pointer may be elsewhere.
+        menuLink = linkAt(e.getX(), e.getY());
+        boolean onLink = menuLink != null;
+        openLinkItem.setVisible(onLink);
+        copyLinkItem.setVisible(onLink);
+        linkSeparator.setVisible(onLink);
         if (menuBarItem != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
         if (zoomRow != null) zoomRow.refresh();
         contextMenu.show(this, e.getScreenX(), e.getScreenY());
@@ -990,8 +1249,21 @@ public final class TerminalView extends Region {
     private ContextMenu buildContextMenu() {
         copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
         pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
+        openLinkItem = item(tr("menu.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
+        copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> {
+            ClipboardContent content = new ClipboardContent();
+            content.putString(linkAddress(menuLink));
+            Clipboard.getSystemClipboard().setContent(content);
+        });
+
+        // Hidden together with the items they divide: a separator left behind when the pointer was
+        // not over a link is a rule across the top of the menu with nothing above it.
+        linkSeparator = new SeparatorMenuItem();
 
         List<MenuItem> items = new ArrayList<>(List.of(
+                openLinkItem,
+                copyLinkItem,
+                linkSeparator,
                 item(tr("menu.newTab"), MenuIcons.newTab(), () -> onNewTab.run()),
                 item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> onNewWindow.run()),
                 new SeparatorMenuItem(),
@@ -1103,6 +1375,20 @@ public final class TerminalView extends Region {
 
         requestFocus();
         shiftOnLastPress = e.isShiftDown();
+
+        // Before mouse reporting, deliberately. A program that has grabbed the mouse would
+        // otherwise swallow the click, and the modifier is precisely the gesture that means "this
+        // one is the terminal's". Only when something is actually under the pointer, so the
+        // modifier is not taken away from the program the rest of the time.
+        if (e.getButton() == MouseButton.PRIMARY && LinkGesture.opensLink(MAC, e.isMetaDown(), e.isControlDown())) {
+            Hover target = linkAt(e.getX(), e.getY());
+            if (target != null) {
+                openLink(target);
+                e.consume();
+                return;
+            }
+        }
+
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {
             e.consume();
             return;
@@ -1121,6 +1407,22 @@ public final class TerminalView extends Region {
             }
         }
         markDirty();
+    }
+
+    private void onMouseMoved(MouseEvent e) {
+        lastMouseX = e.getX();
+        lastMouseY = e.getY();
+        updateHover(lastMouseX, lastMouseY, LinkGesture.opensLink(MAC, e.isMetaDown(), e.isControlDown()));
+    }
+
+    /** Follows the modifier going down or up while the pointer sits still. */
+    private void onLinkModifierChanged(KeyEvent e) {
+        if (lastMouseX < 0) return;
+        updateHover(lastMouseX, lastMouseY, LinkGesture.opensLink(MAC, e.isMetaDown(), e.isControlDown()));
+    }
+
+    private void onKeyReleased(KeyEvent e) {
+        onLinkModifierChanged(e);
     }
 
     private void onMouseDragged(MouseEvent e) {

@@ -35,6 +35,7 @@ public final class Settings {
     public static final String WINDOW_MAXIMIZED = "window.maximized";
     public static final String WINDOW_OPACITY = "window.opacity";
     public static final String UI_LANGUAGE = "ui.language";
+    public static final String LINK_OPEN_COMMAND = "links.openCommand";
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
@@ -212,6 +213,22 @@ public final class Settings {
 
     public void setShell(String shell) {
         put(SHELL, shell == null ? "" : shell.trim());
+    }
+
+    /**
+     * What to run to open a clicked file. Blank means the desktop's own opener.
+     *
+     * <p>Blank by default because a terminal has no business deciding which application owns a
+     * user's files. Set to something like {@code editora {file}:{line}} and a clicked stack-trace
+     * frame lands on the line it names — which the desktop opener cannot do, since {@code open} and
+     * {@code xdg-open} take a file and nothing else.
+     */
+    public String linkOpenCommand() {
+        return properties.getProperty(LINK_OPEN_COMMAND, "");
+    }
+
+    public void setLinkOpenCommand(String command) {
+        put(LINK_OPEN_COMMAND, command == null ? "" : command.trim());
     }
 
     public boolean bell() {

@@ -530,6 +530,7 @@ final class DevCapture {
         scrollIfRequested(terminal);
         dragSelectIfRequested(terminal);
         dragScrollBarWithMouseIfRequested(terminal);
+        hoverLinkIfRequested(terminal);
     }
 
     /**
@@ -847,6 +848,34 @@ final class DevCapture {
                     + javafx.scene.input.Clipboard.getSystemClipboard().getString() + ">>>");
         } else {
             System.out.println("[capture] click-selection: nothing selected");
+        }
+    }
+
+    /**
+     * Hovers a point with the link modifier held, and says what was found there.
+     *
+     * <pre>-Dtermina.captureLinkAt=x,y[;x,y…]</pre>
+     *
+     * <p>A link is the one feature whose whole answer is "what is under the pointer", and that
+     * depends on the shell's real output, the real working directory and the real filesystem —
+     * none of which a unit test has. This drives the actual hover, so the screenshot shows the
+     * underline and the report says what would be opened.
+     *
+     * <p>Several points per run, because one line of output usually holds several kinds of link and
+     * a run costs a shell start apiece. The last one wins the underline.
+     */
+    private static void hoverLinkIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.captureLinkAt");
+        if (spec == null || spec.isBlank()) return;
+        for (String point : spec.split(";")) {
+            String[] parts = point.split(",");
+            if (parts.length != 2) {
+                System.err.println("[capture] captureLinkAt needs x,y");
+                return;
+            }
+            double x = Double.parseDouble(parts[0].trim());
+            double y = Double.parseDouble(parts[1].trim());
+            System.out.println("[capture] link@" + point.trim() + " " + terminal.hoverLinkForCapture(x, y));
         }
     }
 
