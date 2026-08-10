@@ -7,6 +7,11 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ### Fixed
 
+- **The settings pages ran into the scrollbar.** Every control on the right — the combos, the
+  checkboxes, the opacity readout — ended flush against it, and the preview's border appeared to
+  pass underneath. The page now keeps the same margin from the scrollbar that it keeps from the
+  sidebar, whether or not it is long enough to scroll.
+
 - **macOS had no menus at all.** Not in the screen menu bar and not in the window: File, Edit, View,
   Window and Help were unreachable, leaving only the chords, the command palette and the right-click
   menu. JavaFX refuses `useSystemMenuBar` for the whole bar when any menu holds a custom item —

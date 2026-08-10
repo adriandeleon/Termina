@@ -161,7 +161,7 @@ public final class SettingsWindow {
             if (item instanceof Category category) showPage(category);
         });
 
-        pageHost.setPadding(new Insets(4, 0, 0, 14));
+        pageHost.setPadding(new Insets(4, 0, 0, PAGE_GUTTER));
         pageHost.setAlignment(Pos.TOP_LEFT);
 
         Button reset = new Button(tr("settings.reset"));
@@ -304,6 +304,9 @@ public final class SettingsWindow {
 
     // ---------------------------------------------------------------- page building
 
+    /** The page's margin from the sidebar on one side and from the scrollbar on the other. */
+    private static final double PAGE_GUTTER = 14;
+
     private Region buildPage(Category category) {
         VBox page = new VBox(4);
         page.setFillWidth(true);
@@ -312,6 +315,13 @@ public final class SettingsWindow {
             case TERMINAL -> buildTerminal(page);
             case ADVANCED -> buildAdvanced(page);
         }
+        // A gutter on the right, matching the one the page host leaves on the left. Without it every
+        // control on the page — the combos, the checkboxes, the opacity readout, the preview's own
+        // border — ends flush against the scrollbar, and the preview appears to run underneath it.
+        // On the content rather than the ScrollPane, so it is inside the scrolled area and the gap
+        // is to the bar itself. Kept when the page is short enough not to scroll, because a page
+        // that gains and loses its right margin as it grows reads as the window mis-sizing itself.
+        page.setPadding(new Insets(0, PAGE_GUTTER, 0, 0));
         ScrollPane scroll = new ScrollPane(page);
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
