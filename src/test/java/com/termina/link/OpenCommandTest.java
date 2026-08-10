@@ -11,10 +11,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Turning a configured command into an argv, and the desktop opener into one. */
 class OpenCommandTest {
 
+    /**
+     * The file as this platform writes it.
+     *
+     * <p>A substituted path is whatever {@code Path.toString()} gives, which is the form the command
+     * being launched expects — and on Windows that is backslashes. Writing the expectation as a
+     * literal would pin a POSIX separator and fail there, having tested nothing about the code.
+     */
+    private static String native_(String posix) {
+        return Path.of(posix).toString();
+    }
+
     @Test
     void substitutesTheFileAndPosition() {
         assertEquals(
-                List.of("editora", "/src/Foo.java:42:7"),
+                List.of("editora", native_("/src/Foo.java") + ":42:7"),
                 OpenCommand.forTemplate("editora {file}:{line}:{column}", Path.of("/src/Foo.java"), 42, 7));
     }
 
@@ -24,7 +35,7 @@ class OpenCommandTest {
         // user could write would survive being torn apart here, because which file they click
         // decides where the spaces are.
         assertEquals(
-                List.of("editora", "/My Files/a b.txt:1"),
+                List.of("editora", native_("/My Files/a b.txt") + ":1"),
                 OpenCommand.forTemplate("editora {file}:{line}", Path.of("/My Files/a b.txt"), 0, 0));
     }
 
@@ -33,7 +44,7 @@ class OpenCommandTest {
         // Not 0, which is a line no file has, and not empty, which leaves a dangling colon that
         // several editors take for part of the filename.
         assertEquals(
-                List.of("code", "-g", "/src/Foo.java:1:1"),
+                List.of("code", "-g", native_("/src/Foo.java") + ":1:1"),
                 OpenCommand.forTemplate("code -g {file}:{line}:{column}", Path.of("/src/Foo.java"), 0, 0));
     }
 
@@ -48,7 +59,7 @@ class OpenCommandTest {
     @Test
     void quotesInTheTemplateGroupItsOwnArguments() {
         assertEquals(
-                List.of("/Applications/My Editor.app/Contents/MacOS/edit", "/a"),
+                List.of("/Applications/My Editor.app/Contents/MacOS/edit", native_("/a")),
                 OpenCommand.forTemplate(
                         "'/Applications/My Editor.app/Contents/MacOS/edit' {file}", Path.of("/a"), 0, 0));
     }

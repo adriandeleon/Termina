@@ -12,6 +12,15 @@ class LinkPathsTest {
 
     private static final Path CWD = Path.of("/home/dev/project");
 
+    /**
+     * An absolute path on whichever platform is running.
+     *
+     * <p>{@code /etc/hosts} is absolute on Unix and <em>not</em> on Windows, where a path without a
+     * drive letter is relative to the current one — so a literal would be testing the platform's
+     * definition of absolute rather than this code.
+     */
+    private static final Path ABSOLUTE = Path.of("/etc/hosts").toAbsolutePath();
+
     @Test
     void aRelativeTokenResolvesAgainstTheShellsDirectory() {
         // The whole point: a build's output names files relative to where the build ran, and every
@@ -21,7 +30,7 @@ class LinkPathsTest {
 
     @Test
     void anAbsoluteTokenIgnoresIt() {
-        assertEquals(Path.of("/etc/hosts"), LinkPaths.resolve("/etc/hosts", CWD));
+        assertEquals(ABSOLUTE, LinkPaths.resolve(ABSOLUTE.toString(), CWD));
     }
 
     @Test
@@ -46,7 +55,7 @@ class LinkPathsTest {
     @Test
     void aRelativeTokenWithNoDirectoryToResolveAgainstIsNotAPath() {
         assertNull(LinkPaths.resolve("src/Foo.java", null));
-        assertEquals(Path.of("/etc/hosts"), LinkPaths.resolve("/etc/hosts", null));
+        assertEquals(ABSOLUTE, LinkPaths.resolve(ABSOLUTE.toString(), null));
     }
 
     @Test
