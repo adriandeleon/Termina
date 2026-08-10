@@ -398,6 +398,14 @@ java --module-path <deps> --add-modules com.termina \
   -m com.termina/com.termina.App
 ```
 
+`-Dtermina.captureNativeChord=A;CONTROL+F` presses those keys through the **operating system**, via
+a JavaFX `Robot`, rather than firing a KeyEvent we built. That distinction is the point: macOS binds
+Ctrl+A, Ctrl+F and their neighbours to its own text commands before an application sees them, so a
+synthetic event can only confirm what we already believe the OS sends. Pair it with
+`-Dtermina.keyTrace=true`, which logs every key event and the bytes it put on the pseudo-terminal,
+flagging any that are not valid UTF-8 — a shell renders an invalid byte and an unknown glyph
+identically, and only one of those is a bug on this side.
+
 `-Dtermina.captureLinkAt=x,y[;x,y…]` hovers those points with the link modifier held and prints what
 each one resolves to. What a link means depends on the shell's output, the tab's directory and the
 filesystem, none of which a unit test has, so this is the only honest check of it.

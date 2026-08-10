@@ -59,6 +59,15 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     private final StringProperty windowTitle = new SimpleStringProperty(AppInfo.NAME);
     private final StringProperty tabTitle = new SimpleStringProperty(AppInfo.NAME);
 
+    /**
+     * What the tab's hover says: the directory, in full.
+     *
+     * <p>Deliberately the directory even when the shell has set a title, which is the case where it
+     * is worth the most. A tab reading {@code vim} says what is running and nothing about where, and
+     * the tab is too narrow to say both — so the label takes the title and the hover takes the path.
+     */
+    private final StringProperty tabTooltip = new SimpleStringProperty("");
+
     private Runnable onBell = () -> {};
     private Runnable onRepaint = () -> {};
     private Runnable onAlternateScreenChanged = () -> {};
@@ -159,9 +168,11 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     private void refreshTitles() {
         String window = TerminalTitle.window(shellTitle, cwd, home);
         String tab = TerminalTitle.tab(shellTitle, cwd, home);
+        String tooltip = TerminalTitle.tooltip(shellTitle, cwd, home);
         Platform.runLater(() -> {
             windowTitle.set(window);
             tabTitle.set(tab);
+            tabTooltip.set(tooltip);
         });
     }
 
@@ -173,6 +184,16 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     /** The directory's own name, for the tab strip, where a path does not fit. */
     public StringProperty tabTitleProperty() {
         return tabTitle;
+    }
+
+    /**
+     * The shell's directory in full, for the tab's hover — where a path does fit.
+     *
+     * <p>Empty is a real answer rather than a failure: {@code ProcessCwd} has no Windows
+     * implementation, so there the hover has nothing to add and is not shown at all.
+     */
+    public StringProperty tabTooltipProperty() {
+        return tabTooltip;
     }
 
     /**

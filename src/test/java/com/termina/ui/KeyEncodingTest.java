@@ -37,6 +37,16 @@ class KeyEncodingTest {
         return new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, ctrl, alt, meta);
     }
 
+    /**
+     * A press carrying the text the platform reports, which for a composed chord is not the key.
+     *
+     * <p>Option+F on macOS arrives as {@code \u0192} — the ƒ the OS composed — on both the press
+     * and the typed event. Recorded from a real key press through {@code -Dtermina.keyTrace}.
+     */
+    private static KeyEvent pressedWithText(KeyCode code, String text, boolean shift, boolean alt) {
+        return new KeyEvent(KeyEvent.KEY_PRESSED, "", text, code, shift, false, alt, false);
+    }
+
     private static KeyEvent typed(String character, boolean ctrl, boolean alt, boolean meta) {
         return new KeyEvent(KeyEvent.KEY_TYPED, character, character, KeyCode.UNDEFINED, false, ctrl, alt, meta);
     }
@@ -139,8 +149,15 @@ class KeyEncodingTest {
 
     @Test
     void altPrefixesEscapeWhenActingAsMeta() {
-        byte[] out = KeyEncoding.encodeTyped(typed("b", false, true, false), true);
+        // From the press, not the typed event. Both produce 1b 62 where the platform leaves the
+        // character alone, but only the press still does where the OS composes it: macOS turns
+        // Option+B into ∫, and ESC-prefixing that sends bytes no shell can read as M-b.
+        byte[] out = KeyEncoding.encodePressed(
+                pressedWithText(KeyCode.B, "\u222b", false, true), new RecordingLookup(null), true);
         assertArrayEquals(new byte[] {0x1b, 'b'}, out); // M-b, readline's backward-word
+
+        // And the typed twin is dropped, so the keystroke is not also sent as the composed glyph.
+        assertNull(KeyEncoding.encodeTyped(typed("\u222b", false, true, false), true));
     }
 
     @Test
@@ -167,5 +184,55 @@ class KeyEncodingTest {
     void bracketedPasteWrapsTheTextWhenTheShellAskedForIt() {
         String out = new String(KeyEncoding.encodePaste("ls", true), StandardCharsets.UTF_8);
         assertEquals("[200~ls[201~", out);
+    }
+
+    // --- Alt as Meta, where the composed character is the trap ----------------------------------
+
+    @Test
+    void metaSendsEscapeAndTheUnmodifiedKey() {
+        // M-f is forward-word: ESC then 'f'. Not ESC then whatever Option composed.
+        byte[] out = KeyEncoding.encodePressed(
+                pressedWithText(KeyCode.F, "\u0192", false, true), new RecordingLookup(null), true);
+        assertArrayEquals(new byte[] {0x1b, 'f'}, out);
+    }
+
+    @Test
+    void theComposedCharacterIsNeverSentInMetaMode() {
+        // The bug this pins: prefixing ESC to ƒ's UTF-8 put 1b c6 92 on the wire, the shell ate c6
+        // with the escape, and the leftover 92 is a lone continuation byte — invalid UTF-8, which
+        // renders as an unprintable box wherever the cursor happened to be.
+        assertNull(KeyEncoding.encodeTyped(typed("\u0192", false, true, false), true));
+    }
+
+    @Test
+    void shiftPicksTheUpperCaseWidget() {
+        // M-u and M-U are different readline widgets, so the case has to survive.
+        byte[] out = KeyEncoding.encodePressed(
+                pressedWithText(KeyCode.U, "\u00a8", true, true), new RecordingLookup(null), true);
+        assertArrayEquals(new byte[] {0x1b, 'U'}, out);
+    }
+
+    @Test
+    void withAltAsMetaOffTheComposedCharacterIsTheWholePoint() {
+        // Option is a compose key then, and ƒ is what the user asked for.
+        assertNull(KeyEncoding.encodePressed(
+                pressedWithText(KeyCode.F, "\u0192", false, true), new RecordingLookup(null), false));
+        assertArrayEquals(
+                "\u0192".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                KeyEncoding.encodeTyped(typed("\u0192", false, true, false), false));
+    }
+
+    @Test
+    void altGrIsNotMeta() {
+        // Ctrl+Alt is how Windows and Linux keyboards reach @ \ and friends. Reading it as Meta
+        // would make those layouts unable to type characters they have no other key for.
+        assertNull(KeyEncoding.encodeTyped(typed("@", true, true, false), true));
+        assertArrayEquals(new byte[] {'@'}, KeyEncoding.encodeTyped(typed("@", false, true, false), false));
+    }
+
+    @Test
+    void aKeyWithNoPlainCharacterHasNoMetaForm() {
+        // Nothing to prefix, and inventing a byte would send a keystroke the user never made.
+        assertNull(KeyEncoding.metaBase(pressedWithText(KeyCode.SHIFT, "", false, true)));
     }
 }

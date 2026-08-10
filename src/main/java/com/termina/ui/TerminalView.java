@@ -712,6 +712,7 @@ public final class TerminalView extends Region {
         if (session == null || !session.isRunning()) return;
 
         byte[] encoded = KeyEncoding.encodePressed(e, session::keyCode, altIsMeta);
+        if (KeyTrace.enabled()) KeyTrace.log(e, encoded);
         if (encoded != null) {
             snapToLive();
             clearSelection();
@@ -723,6 +724,7 @@ public final class TerminalView extends Region {
     private void onKeyTyped(KeyEvent e) {
         if (session == null || !session.isRunning()) return;
         byte[] encoded = KeyEncoding.encodeTyped(e, altIsMeta);
+        if (KeyTrace.enabled()) KeyTrace.log(e, encoded);
         if (encoded != null) {
             snapToLive();
             clearSelection();

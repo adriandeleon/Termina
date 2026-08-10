@@ -43,6 +43,19 @@ final class TerminalTitle {
     }
 
     /**
+     * The tab's hover: the directory, in full, whatever the shell has called itself.
+     *
+     * <p>The one place that deliberately ignores {@code shellTitle}, and the reason is that the tab
+     * beside it does not. A tab reading {@code vim} has already spent its width saying what is
+     * running, so a hover repeating it adds nothing, while the directory it is running in has
+     * nowhere else to appear. Empty when the OS will not say where the shell is, which is a state
+     * the caller shows nothing for rather than an empty box.
+     */
+    static String tooltip(String shellTitle, String cwd, String home) {
+        return collapseHome(cwd, home);
+    }
+
+    /**
      * {@code /home/adl/src} becomes {@code ~/src}. Whole segments only — a sibling directory named
      * {@code /home/adliterally} must not be rewritten into {@code ~iterally}.
      */

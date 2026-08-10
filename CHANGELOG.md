@@ -24,6 +24,26 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   command instead — `editora {file}:{line}` — which is the only way the line number survives, since
   `open` and `xdg-open` take a file and nothing else.
 
+- **Hovering a tab shows its directory**, in full, with the home directory abbreviated as a shell
+  writes it. The tab itself is a hundred-odd pixels and JavaFX ellipsises from the end, so it can
+  only carry a name; the hover is where the path fits. It keeps showing the directory even when a
+  program has set the tab's title — a tab reading `vim` has already said what is running, and where
+  it is running has nowhere else to appear. Nothing is shown on Windows, which cannot yet report a
+  shell's directory at all.
+
+### Fixed
+
+- **`M-f` and every other Meta chord typed garbage instead of running its command.** On macOS Option
+  is a compose key — Option+F is `ƒ` — and the escape was being prefixed to *that*, so `M-f` went out
+  as `1b c6 92`. A shell reads the escape as the meta prefix, takes the `c6` with it, and is left
+  holding a lone UTF-8 continuation byte, which it renders as an unprintable box wherever the cursor
+  was. So the whole readline word-movement and word-killing set — `M-f`, `M-b`, `M-d`, `M-u`, `M-l`
+  and the rest — inserted a stray character instead of doing anything.
+
+  Meta is now encoded from the key press, where the key is still the key, rather than from the typed
+  event, which by then reports whatever the OS composed. Alt with Ctrl is left alone, because that
+  combination is AltGr on Windows and Linux and composing is exactly what it is for.
+
 ## 0.5.1 — 2026-08-10
 
 Two fixes, no new behaviour, so the patch number moves rather than the minor.
