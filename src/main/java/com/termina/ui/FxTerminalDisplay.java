@@ -145,6 +145,17 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         refreshTitles();
     }
 
+    /**
+     * The shell's working directory, empty when the OS will not say.
+     *
+     * <p>Read by the link layer, which resolves a relative path against it: {@code src/Foo.java} in
+     * a build's output means that file where the build ran, and every tab is somewhere different.
+     * Volatile because the watcher's thread writes it and the FX thread reads it.
+     */
+    public String getCwd() {
+        return cwd;
+    }
+
     private void refreshTitles() {
         String window = TerminalTitle.window(shellTitle, cwd, home);
         String tab = TerminalTitle.tab(shellTitle, cwd, home);

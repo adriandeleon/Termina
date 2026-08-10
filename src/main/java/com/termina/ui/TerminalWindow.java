@@ -442,6 +442,9 @@ public final class TerminalWindow {
         // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
         // which every tab and window shares, so a view cannot do this for itself.
         terminal.setZoomActions(zoomActions());
+        // The command is read at each click rather than captured, so changing it in the settings
+        // applies to the next link without every open tab having to be re-wired.
+        terminal.setLinkActions(new LinkOpener(windows::openLink, settings::linkOpenCommand, this::reportOpenFailed));
         // Left unwired under a system menu bar, which is how the item stays out of the menu there.
         if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
             terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
@@ -1200,6 +1203,17 @@ public final class TerminalWindow {
         });
         reportAlert = alert;
         alert.show();
+    }
+
+    /**
+     * Says that opening a link failed, which is otherwise invisible.
+     *
+     * <p>The usual cause is a configured command that is not on PATH — a typo in a setting made
+     * once and not looked at since. Without this the click simply does nothing, which reads as the
+     * link not having been a link.
+     */
+    private void reportOpenFailed(String command) {
+        javafx.application.Platform.runLater(() -> report(tr("status.openFailed", command)));
     }
 
     /** The live {@link #report} dialog, so a follow-up message replaces it instead of stacking. */

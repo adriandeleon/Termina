@@ -21,8 +21,8 @@ A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real 
 renders the emulated screen to a canvas.
 
 Status: **early**. A working terminal — tabs, multiple windows, a menu bar, colour and styling,
-scrollback, selection and copy, mouse-aware full-screen programs (vim, less, htop), themes and font
-settings — with a short list of known gaps at the bottom of this file.
+scrollback, selection and copy, clickable URLs and file paths, mouse-aware full-screen programs (vim,
+less, htop), themes and font settings — with a short list of known gaps at the bottom of this file.
 
 ## Running
 
@@ -398,6 +398,10 @@ java --module-path <deps> --add-modules com.termina \
   -m com.termina/com.termina.App
 ```
 
+`-Dtermina.captureLinkAt=x,y[;x,y…]` hovers those points with the link modifier held and prints what
+each one resolves to. What a link means depends on the shell's output, the tab's directory and the
+filesystem, none of which a unit test has, so this is the only honest check of it.
+
 It can also drive the mouse, firing real events at the view so the whole path is exercised — pixel
 to cell, anchor to drag, buffer coordinates to extracted text — and printing what copying yields:
 
@@ -459,6 +463,10 @@ an app icon has to work hardest at.
 - **Tabs and splits.** One session per window.
 - **Configuration.** No keybinding customisation, no custom themes beyond the two built in, and no
   per-profile settings.
+- **OSC 8 hyperlinks.** URLs and paths are found by looking at the text, so a link an application
+  declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its visible text
+  happens to be the target. JediTerm parses the sequence and discards it unless a filter is
+  installed; installing one is the work.
 - **Search in scrollback.**
 - **Installers.** `-Pdist` builds an app image, not a `.dmg`/`.msi`/`.deb`, and it is unsigned —
   macOS will refuse to launch a downloaded copy until it is signed and notarised.

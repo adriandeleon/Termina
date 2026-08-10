@@ -15,7 +15,7 @@ The emulator decides which of the gaps in
 | Alternate screen, bracketed paste | yes |
 | Mouse | five modes across four wire formats (X10, xterm-ext, URXVT, SGR), plus focus reporting |
 | Synchronised output (mode 2026) | **yes** — 500 ms timeout, 1 MiB buffer cap |
-| OSC 8 hyperlinks | yes |
+| OSC 8 hyperlinks | parsed, but dropped unless `setUrlHyperlinkFilter` is called — which we do not, so this is **not** wired up |
 | Type-ahead prediction | `TerminalTypeAheadManager` — local echo to hide SSH latency |
 | Double width | wcwidth tables, surrogate pairs counted correctly |
 

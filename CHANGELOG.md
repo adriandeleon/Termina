@@ -3,6 +3,27 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **Clickable links.** Cmd-click on macOS, Ctrl-click elsewhere, opens what is under the pointer:
+  URLs go to the browser, and **paths go to the file** — including a `Foo.java:42:7` out of a stack
+  trace or a compiler error. Hold the modifier and a link underlines itself and the pointer becomes
+  a hand, so the gesture announces itself; the right-click menu carries **Open Link** and **Copy
+  Link Address** for anyone who never finds it. A URL that wraps at the right edge is one link, not
+  two.
+
+  A path is only a link when it names a file that **exists**, resolved against that tab's own shell
+  directory — which is what makes it usable rather than a screen full of underlined words, since no
+  pattern can tell a filename from an ordinary word but the filesystem can. Only `http`, `https`,
+  `ftp`, `ftps`, `file` and `mailto` are ever opened as URLs: terminal output is untrusted text, and
+  a `javascript:` or an `app://` handler would be a click away from running something.
+
+  Files open in whatever the desktop opens them with. **Settings ▸ Terminal ▸ Links** takes a
+  command instead — `editora {file}:{line}` — which is the only way the line number survives, since
+  `open` and `xdg-open` take a file and nothing else.
+
 ## 0.5.1 — 2026-08-10
 
 Two fixes, no new behaviour, so the patch number moves rather than the minor.

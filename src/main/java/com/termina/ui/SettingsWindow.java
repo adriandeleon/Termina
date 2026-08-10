@@ -377,6 +377,7 @@ public final class SettingsWindow {
     private Slider windowOpacity;
     private Label windowOpacityValue;
     private TextField shellField;
+    private TextField linkCommandField;
     private Label settingsPath;
 
     private void buildAppearance(VBox page) {
@@ -632,6 +633,27 @@ public final class SettingsWindow {
                 shellField,
                 "shell zsh bash program command login");
 
+        VBox links = section(page, tr("settings.section.links"));
+
+        linkCommandField = new TextField();
+        linkCommandField.setPromptText("editora {file}:{line}");
+        linkCommandField.setPrefWidth(260);
+        linkCommandField.focusedProperty().addListener((o, was, focused) -> {
+            if (!focused && !loading) settings.setLinkOpenCommand(linkCommandField.getText());
+        });
+        linkCommandField.setOnAction(e -> {
+            if (!loading) settings.setLinkOpenCommand(linkCommandField.getText());
+        });
+        row(
+                Category.TERMINAL,
+                links,
+                tr("settings.linkOpenCommand"),
+                // tr(), not tr(key, arg): the text shows the literal {file} placeholders, and
+                // MessageFormat would try to read those as argument indexes and fail.
+                tr("settings.linkOpenCommand.desc").replace("%s", shortcutName()),
+                linkCommandField,
+                "link url path click open editor command file line");
+
         VBox input = section(page, tr("settings.section.input"));
 
         altIsMeta = new CheckBox();
@@ -705,6 +727,7 @@ public final class SettingsWindow {
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             language.setValue(settings.uiLanguage());
             shellField.setText(settings.shell());
+            linkCommandField.setText(settings.linkOpenCommand());
             settingsPath.setText(settings.file().toString());
         } finally {
             loading = false;
