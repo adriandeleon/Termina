@@ -14,10 +14,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Finding the program a configured command names. */
 class CommandPathTest {
 
-    /** Stands in for the filesystem, so the rule is the only thing under test. */
+    /**
+     * Stands in for the filesystem, so the rule is the only thing under test.
+     *
+     * <p>Compares {@code Path}s rather than their strings. A path written here with forward slashes
+     * comes back with backslashes once Windows has printed it, so a string comparison would answer
+     * "not there" for every candidate and test nothing at all.
+     */
     private static java.util.function.Predicate<Path> exists(String... paths) {
-        Set<String> present = Set.of(paths);
-        return path -> present.contains(path.toString());
+        Set<Path> present = java.util.Arrays.stream(paths).map(Path::of).collect(java.util.stream.Collectors.toSet());
+        return present::contains;
     }
 
     @Test
