@@ -1068,6 +1068,14 @@ public final class TerminalView extends Region {
                 + " rows=" + target.spans().size();
     }
 
+    /** Opens whatever {@link #hoverLinkForCapture} last found. For the development capture hook. */
+    public String openHoveredLinkForCapture() {
+        Hover target = hover;
+        if (target == null) return "nothing hovered";
+        openLink(target);
+        return linkAddress(target);
+    }
+
     /** Underlines the hovered link, in the text's own colour. */
     private void drawLinkUnderline(GraphicsContext g) {
         Hover target = hover;

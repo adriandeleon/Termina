@@ -913,6 +913,12 @@ final class DevCapture {
             double x = Double.parseDouble(parts[0].trim());
             double y = Double.parseDouble(parts[1].trim());
             System.out.println("[capture] link@" + point.trim() + " " + terminal.hoverLinkForCapture(x, y));
+            // -Dtermina.captureOpenLink actually opens the last one. The report proves what was
+            // found; only this proves the thing found can be opened, which is a different claim and
+            // the one a user makes when they say the feature does not work.
+            if (System.getProperty("termina.captureOpenLink") != null) {
+                System.out.println("[capture] opening " + terminal.openHoveredLinkForCapture());
+            }
         }
     }
 
