@@ -43,22 +43,22 @@
         <jediterm.version>3.74</jediterm.version>
         <!-- pty4j: the PTY. One jar carries natives for every platform we ship:
              macOS universal dylib, 7 Linux arches, Windows ConPTY + winpty fallback. -->
-        <pty4j.version>0.13.10</pty4j.version>
+        <pty4j.version>0.13.12</pty4j.version>
 
         <!-- Both jediterm-core and pty4j are Kotlin, and they disagree on the stdlib
              version (2.4.0 vs 2.1.21). Pinned in <dependencyManagement> so the choice is
              ours rather than Maven's nearest-wins. Likewise JNA: pty4j asks for 5.14.0. -->
         <kotlin.version>2.4.0</kotlin.version>
-        <jna.version>5.17.0</jna.version>
+        <jna.version>5.19.1</jna.version>
         <slf4j.version>2.0.17</slf4j.version>
 
         <!-- The release-check response is a large JSON document with user-authored text in it, so
              it gets a real parser. Hand-rolling one to save a dependency would mean hand-rolling
              string-escape handling, which is the entire hard part. jackson-core only — no
              databind, and it is already a proper JPMS module, so jlink links it without moditect. -->
-        <jackson.version>2.19.0</jackson.version>
+        <jackson.version>2.22.1</jackson.version>
 
-        <junit.version>5.11.4</junit.version>
+        <junit.version>5.14.4</junit.version>
 
         <!-- dist profile only -->
         <moditect.version>1.2.2.Final</moditect.version>
