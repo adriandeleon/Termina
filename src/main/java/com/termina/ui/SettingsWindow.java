@@ -636,7 +636,7 @@ public final class SettingsWindow {
         VBox links = section(page, tr("settings.section.links"));
 
         linkCommandField = new TextField();
-        linkCommandField.setPromptText("editora {file}:{line}");
+        linkCommandField.setPromptText("/path/to/editor {file}:{line}");
         linkCommandField.setPrefWidth(260);
         linkCommandField.focusedProperty().addListener((o, was, focused) -> {
             if (!focused && !loading) settings.setLinkOpenCommand(linkCommandField.getText());

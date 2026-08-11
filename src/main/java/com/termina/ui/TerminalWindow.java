@@ -1238,14 +1238,16 @@ public final class TerminalWindow {
     }
 
     /**
-     * Says that opening a link failed, which is otherwise invisible.
+     * Says that opening a link failed, and what to do about it.
      *
-     * <p>The usual cause is a configured command that is not on PATH — a typo in a setting made
-     * once and not looked at since. Without this the click simply does nothing, which reads as the
-     * link not having been a link.
+     * <p>Naming only the command was not enough to act on: the overwhelmingly common cause is a
+     * command that names nothing on this machine — an application's display name typed into a field
+     * that wants a program — and "could not run Editora" reads as the app being broken rather than
+     * as the setting being wrong. The two messages differ because the fixes do.
      */
-    private void reportOpenFailed(String command) {
-        javafx.application.Platform.runLater(() -> report(tr("status.openFailed", command)));
+    private void reportOpenFailed(String command, boolean missing) {
+        String message = missing ? tr("status.openNotFound", command) : tr("status.openFailed", command);
+        javafx.application.Platform.runLater(() -> report(message));
     }
 
     /** The live {@link #report} dialog, so a follow-up message replaces it instead of stacking. */

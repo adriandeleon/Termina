@@ -3,6 +3,21 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Fixed
+
+- **"Could not run Editora" said nothing about what to do.** Typing an application's name into
+  *Open files with* is the obvious thing to try, and on macOS there is usually no command by that
+  name — the program lives inside the bundle. The message now distinguishes a command that names
+  nothing on this machine from one that would not start, and says what a working value looks like.
+
+- **A configured command is now found the way the user's shell would find it.** An application
+  launched from Finder or a desktop entry inherits a stripped `PATH` — no Homebrew, no
+  `~/.local/bin`, nothing a version manager added — so a command that runs perfectly in a terminal
+  was simply not there from a click. The PATH is taken from a login shell, asked once and only when
+  a bare command actually has to be resolved.
+
 ## 0.6.0 — 2026-08-10
 
 The minor number moves for the clickable links; the Meta fix goes with it, and it is the one to read
