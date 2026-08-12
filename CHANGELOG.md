@@ -3,6 +3,50 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **Shell profiles.** A terminal on Windows is not one program — Command Prompt, Windows PowerShell,
+  PowerShell 7 and every installed WSL distribution are separate shells with separate command lines,
+  and a single "path to your shell" setting can only ever name one of them. A profile is a name, a
+  command and optionally a directory, and a window now offers all of them: a chevron beside the `+`
+  drops the list, **File ▸ New Tab With** carries the same entries, the command palette lists them by
+  name, and `Ctrl/Cmd+Shift+1` through `9` open the first nine.
+
+  What is on the list is **found, not configured**. On Windows that is both PowerShells (7 first — it
+  is the one somebody installed on purpose), Command Prompt, Git Bash, and each WSL distribution, with
+  Docker Desktop's and Rancher's internal pseudo-distributions left out. On macOS and Linux it is the
+  shells named in `/etc/shells` and on the path — zsh, bash, fish, nushell and the rest — one entry
+  per shell rather than one per binary, and each started with the login flag it actually understands
+  rather than a blanket `-l`. Nothing found is written down: uninstall a shell and it leaves the menu
+  rather than becoming an entry that fails to start.
+
+  Your own shell is always first and can never be hidden, so a machine where nothing is found offers
+  exactly what it did before this existed. Anything else can be hidden, and you can add profiles of
+  your own — `wsl.exe -d Ubuntu`, a shell on a server, a directory you keep coming back to — in
+  **Settings ▸ Profiles** or by hand in `settings.properties`, which is where the whole list lives.
+
+- **Marks in the profile menu.** Each entry carries its shell's or distribution's own glyph, so the
+  list reads as a set of shells rather than a column of words — recognising the Ubuntu circle is
+  faster than reading "Ubuntu (WSL)". The marks are Simple Icons, CC0 (see NOTICE). Microsoft's are
+  not among them: PowerShell, Windows and Windows Terminal have been withdrawn from that collection
+  over trademark, so Command Prompt and both PowerShells carry a generic prompt drawn for Termina
+  rather than a lookalike.
+
+- **`-Dtermina.captureProfiles=true`** opens the profile dropdown and reports what is in it. The list
+  is assembled from what a machine has, so on Windows this is the only way to see the entries the
+  feature exists for.
+
+### Changed
+
+- **The chevron beside the `+` is a stroked glyph rather than a filled triangle.** Everything else on
+  the tab strip — the `+`, every close button — is a thin outline, and a solid ▼ among them read as
+  the heaviest thing in the row, which is backwards for the subordinate half of a pair.
+
+- **A command given with `-e` still replaces the shell, and `-d` still wins over a profile's own
+  starting directory.** One is an instruction for this launch; the other is a standing preference.
+
 ## 0.6.2 — 2026-08-11
 
 Interface fixes and polish. No new behaviour, so the patch number moves.

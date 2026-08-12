@@ -55,3 +55,18 @@ unmodified, each under the SIL Open Font License 1.1 (OFL-1.1):
 The full SIL Open Font License 1.1 text is available at
 https://openfontlicense.org. The OFL permits bundling and redistribution within
 this application.
+
+The shell and distribution marks in the profile menu
+(src/main/java/com/termina/ui/ProfileIcons.java) are single-path glyphs taken
+from Simple Icons — https://github.com/simple-icons/simple-icons — which is
+released under CC0 1.0 Universal (public domain dedication). The paths are
+reproduced unmodified apart from being wrapped across source lines:
+
+    GNU Bash, Z shell, fish, Ubuntu, Debian, Arch Linux, Fedora,
+    Alpine Linux, openSUSE, Kali Linux, Linux (Tux)
+
+Each mark remains a trademark of its respective project; they are used here only
+to identify the shell or distribution a profile starts. Microsoft's marks
+(PowerShell, Windows, Windows Terminal) have been withdrawn from Simple Icons
+over trademark and are deliberately not reproduced — those profiles carry a
+generic prompt glyph drawn for this project instead.

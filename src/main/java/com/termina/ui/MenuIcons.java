@@ -111,6 +111,11 @@ public final class MenuIcons {
                 + " 3.6z");
     }
 
+    /** Marks the default profile. A tick rather than a radio button, which JavaFX cannot draw here. */
+    static Node check() {
+        return of("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z");
+    }
+
     private static Node of(String path) {
         SVGPath svg = new SVGPath();
         svg.setContent(path);

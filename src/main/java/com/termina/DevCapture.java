@@ -550,6 +550,16 @@ final class DevCapture {
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
         }
+        if (System.getProperty("termina.captureProfiles") != null) {
+            System.out.println("[capture] profiles " + window.profileMenuForCapture());
+            javafx.stage.Window popup = window.stage().getScene().getWindow();
+            // The dropdown is a popup with a scene of its own, like the context menu. Photographed
+            // through it rather than through the window, or the shot is of the window it covers.
+            for (javafx.stage.Window open : javafx.stage.Window.getWindows()) {
+                if (open instanceof javafx.stage.PopupWindow && open.isShowing()) popup = open;
+            }
+            if (popup.getScene() != null) return popup.getScene();
+        }
         String tabMenu = System.getProperty("termina.captureTabMenu");
         if (tabMenu != null && !tabMenu.isBlank()) {
             Scene menu = window.showTabMenuForCapture(Integer.parseInt(tabMenu.trim()), 200, 120);

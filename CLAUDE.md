@@ -36,6 +36,13 @@ is **not on Maven Central** — see the `<repositories>` block.
 ConPTY). One jar carries macOS, seven Linux arches, and Windows ConPTY + winpty, so there is **no
 per-OS native build step**.
 
+**Which shell is a fourth thing, in `com.termina.shell`.** A `Profile` is a name, a command and
+optionally a directory; `ShellDiscovery` enumerates what a machine has (both PowerShells, Command
+Prompt, Git Bash and every WSL distribution on Windows; `/etc/shells` and the path elsewhere) and
+`ShellProfiles` merges that with the system shell and the user's own list. Discovery's probes are
+parameters rather than static calls, because the Windows branch is the one the feature exists for and
+the one that cannot be run here.
+
 `com.termina.term.TerminalSession` wires them together and owns the read loop.
 `com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); `WindowManager` owns the
 window set and what they share — settings, the preferences window, the theme, the update check.
@@ -147,6 +154,28 @@ Each of these cost real time, and none of them announces itself.
   maps to a valid package name. `resources/com/pty4j/native/…` does not, because `native` is a
   reserved word. JNA is covered by the same accident (a hyphen in `darwin-aarch64`). A rename
   upstream would break the packaged build only.
+- **`wsl.exe --list --quiet` writes UTF-16LE.** Even redirected. Read as UTF-8 every distribution
+  name comes back with a NUL between each of its letters, and that survives all the way to a menu
+  entry that starts nothing. `ShellDiscovery.decode` sniffs rather than assumes, because newer builds
+  have been reported writing UTF-8. The call is also not gated on the exit code — `wsl --list` exits
+  non-zero when there are no distributions, and parsing an empty answer already gives the right
+  result.
+- **A `StackPane` resizes a child up to its *maximum*, and an `HBox` reports an unbounded one.** The
+  new-tab `+` was aligned `TOP_RIGHT` and stayed there for as long as it was a lone `Button`, whose
+  maximum is its preferred width. Putting it in a box with the profile chevron stretched the box the
+  full width of the strip and packed both buttons against its left edge, over the first tab. Pin the
+  width — but **not** the height: the buttons take the strip's height from a binding installed after
+  the first layout, and a box pinned to its preferred height never grows to it, leaving the glyphs
+  eight pixels above the close buttons they line up with.
+- **JavaFX has no structural pseudo-classes.** `:last-child` parses without complaint and matches
+  nothing, so anything positional needs a style class of its own.
+- **An SVG path JavaFX cannot read draws nothing and says nothing.** No exception, no log line — the
+  node simply has no geometry, and the row shows a gap. `ProfileIconsTest` builds every glyph and
+  asserts it has bounds, which is the only way to find out. Two things it settled: packed
+  elliptical-arc flags (`a1 1 0 000-.5`) *do* parse here, and the real hazard is transcription —
+  wrapping path data across source lines with a whitespace-aware wrapper consumed the space it
+  wrapped at and joined two numbers. One of eleven glyphs failed loudly; the rest would have drawn
+  quietly distorted. Slice path strings at a fixed width, never wrap them on whitespace.
 - **Double-width characters occupy two cells.** JediTerm marks the second with `CharUtils.DWC`;
   drawing it produces a stray bar between every pair of CJK characters. Runs containing non-ASCII
   fall back to per-glyph drawing, because a wide glyph's natural advance would otherwise push the
@@ -177,5 +206,11 @@ Each of these cost real time, and none of them announces itself.
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is
-signed. No tab reordering, splits, scrollback search, or keybinding customisation. See
-`CHANGELOG.md` for the current list.
+signed. No splits, scrollback search, or keybinding customisation. See `CHANGELOG.md` for the
+current list.
+
+**The shell profiles' Windows half has never run on Windows.** Every branch of it is driven in
+`ShellDiscoveryTest` with the filesystem and `wsl.exe` probes replaced, and the macOS half is
+device-tested, but "PowerShell 7 is found at that path" and "`wsl --list` answers in that shape" are
+claims about a machine rather than about the code. Check it with
+`-Dtermina.captureProfiles=true`, which reports every entry and the command it runs.
