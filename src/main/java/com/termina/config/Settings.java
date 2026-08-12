@@ -25,6 +25,11 @@ public final class Settings {
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String SHELL = "terminal.shell";
+    public static final String PROFILE_DEFAULT = "profiles.default";
+    public static final String PROFILE_HIDDEN = "profiles.hidden";
+    /** Everything under here belongs to {@code com.termina.shell}; see {@link #profileBlock()}. */
+    public static final String PROFILE_PREFIX = "profile.";
+
     public static final String BELL = "terminal.bell";
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
@@ -213,6 +218,65 @@ public final class Settings {
 
     public void setShell(String shell) {
         put(SHELL, shell == null ? "" : shell.trim());
+    }
+
+    /**
+     * Which profile a new tab opens as. Blank means the first one, which is the system shell.
+     *
+     * <p>An id rather than an index, so that installing a shell — which changes what discovery
+     * finds and therefore where everything sits in the list — does not silently change which
+     * profile the {@code +} button opens.
+     */
+    public String defaultProfileId() {
+        return properties.getProperty(PROFILE_DEFAULT, "");
+    }
+
+    public void setDefaultProfileId(String id) {
+        put(PROFILE_DEFAULT, id == null ? "" : id.trim());
+    }
+
+    /** Comma-separated ids of discovered profiles to leave out of the menu. */
+    public String hiddenProfileIds() {
+        return properties.getProperty(PROFILE_HIDDEN, "");
+    }
+
+    public void setHiddenProfileIds(String ids) {
+        put(PROFILE_HIDDEN, ids == null ? "" : ids.trim());
+    }
+
+    /**
+     * Every {@code profile.*} key, for the package that owns their shape.
+     *
+     * <p>Settings holds the storage and {@code com.termina.shell} holds the format. The alternative
+     * — typed accessors here returning profiles — would have the configuration package and the
+     * shell package each importing the other, to describe a block of keys only one of them ever
+     * reads.
+     */
+    public java.util.Map<String, String> profileBlock() {
+        java.util.Map<String, String> block = new java.util.LinkedHashMap<>();
+        for (String name : properties.stringPropertyNames()) {
+            if (name.startsWith(PROFILE_PREFIX)) block.put(name, properties.getProperty(name));
+        }
+        return block;
+    }
+
+    /**
+     * Replaces every {@code profile.*} key at once.
+     *
+     * <p>One write and one change broadcast for the whole list. Setting them one at a time would
+     * save the file and re-apply every setting to every terminal in every window per key, which for
+     * a handful of profiles is dozens of full re-applications for one edit.
+     */
+    public void replaceProfileBlock(java.util.Map<String, String> block) {
+        java.util.Map<String, String> previous = profileBlock();
+        java.util.Map<String, String> next = block == null ? java.util.Map.of() : block;
+        if (previous.equals(next)) return;
+        for (String name : previous.keySet()) properties.remove(name);
+        for (java.util.Map.Entry<String, String> entry : next.entrySet()) {
+            if (entry.getValue() != null) properties.setProperty(entry.getKey(), entry.getValue());
+        }
+        save();
+        onChange.run();
     }
 
     /**

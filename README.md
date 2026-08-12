@@ -328,6 +328,43 @@ Two settings deliberately do **not** apply live, and say so on their own row: sc
 buffer that already exists, and the shell is a process already running. Both take effect in the next
 session.
 
+### Shell profiles
+
+A terminal on Windows is not one program. Command Prompt, Windows PowerShell, PowerShell 7 and every
+installed WSL distribution are separate shells with separate command lines, and a single "path to
+your shell" setting can only ever name one of them. So a **profile** — a name, a command, optionally
+a directory — is the unit a tab is opened as. The chevron beside the `+` drops the list, **File ▸ New
+Tab With** carries the same entries, the command palette lists them by name, and `Ctrl/Cmd+Shift+1`
+through `9` open the first nine.
+
+What is on the list is **found, not configured**: someone who has just installed PowerShell 7 or a
+second WSL distribution should find it in the menu rather than have to describe it in a settings file
+first. On Windows that means both PowerShells (7 first — it is the one somebody installed on
+purpose), Command Prompt, Git Bash, and each distribution `wsl.exe --list` reports; on macOS and
+Linux, the shells named in `/etc/shells` and on the path. Nothing found is written down, so
+uninstalling a shell removes it rather than leaving an entry that fails to start.
+
+Four decisions in there are less obvious than they look:
+
+- **`wsl.exe --list` writes UTF-16, not UTF-8**, even when its output is redirected. Read as UTF-8
+  every distribution name comes back with a NUL between each of its letters, which survives far
+  enough to become a menu entry that starts nothing. The encoding is sniffed rather than assumed,
+  since newer builds have been reported writing UTF-8 instead.
+- **Docker Desktop and Rancher register pseudo-distributions** that `wsl --list` reports and nobody
+  wants a terminal in. They are filtered by name, which is what Windows Terminal does too.
+- **The login flag is per shell.** Every shell in the POSIX family plus fish and tcsh takes `-l`; the
+  newer ones vary, and passing one an option it does not understand turns a menu entry into a tab
+  that prints usage and exits — which reads as the shell being broken rather than as us guessing.
+- **One entry per shell, not per binary.** A machine with Homebrew has two zsh executables, and a
+  menu offering "Zsh" twice with no way to tell them apart is worse than one that picks the first.
+  Discovery also drops whichever shell is already your own, so the list does not carry "Default
+  Shell" and "Zsh" running the identical command.
+
+Your own shell is always first and is the one profile that cannot be hidden — a settings file that
+hid it would leave a window with no way to open a tab at all. Everything is keyed by a stable id
+rather than by position, so installing a shell does not silently change which profile the `+` opens,
+and a default naming something since uninstalled falls back rather than refusing to start.
+
 Font choices are restricted to **monospace faces**, filtered by measuring whether `i` and `M` have
 the same advance. That is not tidiness — the renderer places every glyph on a fixed cell grid, so a
 proportional face misaligns every column on screen.
@@ -420,6 +457,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
   -Dtermina.captureMenu=300,300,false  # screenX, screenY, shift — photographs the context menu
   -Dtermina.captureSettings=true       # ...the settings window instead
+  -Dtermina.captureProfiles=true       # ...the profile dropdown, listing every entry and what it
+                                       # runs — the only way to see what a machine actually found
   -Dtermina.captureTabs=2              # open N extra tabs first
   -Dtermina.captureWindows=1           # ...and N extra windows
   -Dtermina.captureWindowIndex=1       # photograph a window other than the first

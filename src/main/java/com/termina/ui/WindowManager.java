@@ -33,9 +33,27 @@ public final class WindowManager {
     private final List<Runnable> updateListeners = new ArrayList<>();
     private java.util.function.Consumer<String> openLink = url -> {};
 
+    /**
+     * The shell profiles, app-wide.
+     *
+     * <p>One list for the whole application rather than one per window: discovery starts a
+     * subprocess on Windows, and doing that again for every window would be paying for the same
+     * answer repeatedly. Started here so it is already running by the time a menu is opened.
+     */
+    private final com.termina.shell.ShellProfiles profiles;
+
     public WindowManager(Settings settings) {
         this.settings = settings;
+        this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
+        // Nothing to do when it finishes: every menu that lists profiles is built when it is shown,
+        // so the next one to open picks up whatever discovery found. The callback exists because a
+        // menu already on screen when the answer lands would otherwise keep the shorter list.
+        profiles.discoverInBackground(found -> {});
         settings.setOnChange(this::applySettingsEverywhere);
+    }
+
+    public com.termina.shell.ShellProfiles profiles() {
+        return profiles;
     }
 
     /** Opens the first window on the primary stage, so the app owns no spare empty stage. */
@@ -74,10 +92,22 @@ public final class WindowManager {
         }
 
         window.show();
-        window.openTab(
-                cli != null
-                        ? cli.withShell(settings.shell())
-                        : com.termina.pty.LaunchOptions.ofShell(settings.shell()));
+        // A command line with something to run wins outright; otherwise the default profile decides
+        // what a window opens as, which is the whole point of having chosen one.
+        String cliDirectory = cli == null ? "" : cli.workingDirectory();
+        com.termina.pty.LaunchOptions options;
+        if (cli != null && cli.hasCommand()) {
+            options = cli.withShell(settings.shell());
+        } else {
+            com.termina.shell.Profile profile = profiles.defaultProfile();
+            options = profile == null
+                    ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                    : profile.toLaunchOptions("");
+            // -d is an instruction for this launch and a profile's directory is a standing
+            // preference, so the one typed just now wins.
+            if (!cliDirectory.isBlank()) options = options.withWorkingDirectory(cliDirectory);
+        }
+        window.openTab(options);
         return window;
     }
 
@@ -185,7 +215,7 @@ public final class WindowManager {
 
     /** One settings window for the whole application, re-parented to whoever asked for it. */
     public void showSettings(Window owner) {
-        if (settingsWindow == null) settingsWindow = new SettingsWindow(settings);
+        if (settingsWindow == null) settingsWindow = new SettingsWindow(settings, profiles);
         settingsWindow.show(owner);
     }
 

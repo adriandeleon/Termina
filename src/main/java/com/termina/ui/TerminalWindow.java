@@ -119,8 +119,33 @@ public final class TerminalWindow {
                 new Tooltip(tr("tooltip.newTab", MenuAction.appChord(KeyCode.T).getDisplayText()));
         newTabTip.setShowDelay(Duration.millis(400));
         newTabButton.setTooltip(newTabTip);
-        StackPane.setAlignment(newTabButton, Pos.TOP_RIGHT);
-        StackPane tabHost = new StackPane(tabs, newTabButton);
+
+        // The chevron beside it, which is how every terminal with more than one kind of shell offers
+        // the others. Separate from the + rather than a long-press or a right-click on it: the whole
+        // point is that the other shells are discoverable, and a gesture nobody performs is not.
+        profileButton.setFocusTraversable(false);
+        profileButton.getStyleClass().addAll("new-tab-button", "profile-button");
+        javafx.scene.layout.Region chevron = new javafx.scene.layout.Region();
+        chevron.getStyleClass().add("tab-strip-chevron");
+        profileButton.setGraphic(chevron);
+        profileButton.setOnAction(e -> showProfileMenu());
+        Tooltip profileTip = new Tooltip(tr("tooltip.profiles"));
+        profileTip.setShowDelay(Duration.millis(400));
+        profileButton.setTooltip(profileTip);
+
+        tabStripButtons.getStyleClass().add("tab-strip-buttons");
+        tabStripButtons.setPickOnBounds(false);
+        // Pinned to its preferred size, or the alignment below does nothing: a StackPane resizes a
+        // child up to its maximum and an HBox reports an unbounded one, so the box stretched the
+        // full width of the strip and packed both buttons against its left edge, on top of the
+        // first tab. The lone + never showed this — a Button's maximum is its preferred width.
+        // Width only. Constraining the height too left the box at the buttons' unbound preferred
+        // height and the glyphs eight pixels above the close buttons they are meant to line up
+        // with — the buttons take the strip's height from a binding installed after the first
+        // layout, which a pinned box never grows to.
+        tabStripButtons.setMaxWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        StackPane.setAlignment(tabStripButtons, Pos.TOP_RIGHT);
+        StackPane tabHost = new StackPane(tabs, tabStripButtons);
 
         tabs.widthProperty().addListener((o, was, now) -> applyTabWidths());
         tabs.getTabs().addListener((ListChangeListener<Tab>) c -> applyTabWidths());
@@ -203,8 +228,10 @@ public final class TerminalWindow {
     private boolean overlayWantsKeys(TerminalView terminal) {
         if (palette != null && palette.isShowing()) return true;
         // A context menu is a popup that dismisses when focus moves, so reclaiming under it would
-        // make right-click unusable rather than merely rude.
+        // make right-click unusable rather than merely rude. The profile dropdown is the same kind
+        // of popup and would be dismissed on the way to being shown.
         if (terminal != null && terminal.isContextMenuShowing()) return true;
+        if (profileMenu.isShowing()) return true;
         for (Menu menu : menuBar.getMenus()) {
             if (menu.isShowing()) return true;
         }
@@ -343,10 +370,10 @@ public final class TerminalWindow {
         boolean show = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
         tabs.getStyleClass().removeAll(HIDE_TAB_BAR);
         if (!show) tabs.getStyleClass().add(HIDE_TAB_BAR);
-        // The button lives in the strip, so it goes with it — and unmanaged as well as invisible,
+        // The buttons live in the strip, so they go with it — and unmanaged as well as invisible,
         // for the same reason the menu bar had to be: a hidden-but-managed node still paints.
-        newTabButton.setVisible(show);
-        newTabButton.setManaged(show);
+        tabStripButtons.setVisible(show);
+        tabStripButtons.setManaged(show);
         // The strip appearing is what creates the close buttons, so this is where to catch them.
         if (show) installCloseTooltips();
     }
@@ -432,9 +459,148 @@ public final class TerminalWindow {
 
     // ---------------------------------------------------------------- tabs
 
-    /** Opens a tab and starts a shell in it. */
+    /** Opens a tab and starts the default profile's shell in it. */
     public void openTab() {
-        openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()).withWorkingDirectory(currentDirectory()));
+        openTab(windows.profiles().defaultProfile());
+    }
+
+    /**
+     * Opens a tab running one profile.
+     *
+     * <p>The directory is inherited from the current tab unless the profile names one of its own —
+     * the same rule a plain new tab has always followed, and the reason a profile's directory is
+     * blank by default rather than set to home.
+     */
+    public void openTab(com.termina.shell.Profile profile) {
+        if (profile == null) {
+            openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()).withWorkingDirectory(currentDirectory()));
+            return;
+        }
+        openTab(profile.toLaunchOptions(currentDirectory()));
+    }
+
+    /**
+     * Opens the profile whose place in the list is {@code number}, if there is one.
+     *
+     * <p>Bound to a chord for 1 through 9 and silently nothing beyond the end of the list, which is
+     * the same thing the tab chords do — a chord that reports an error for a profile the user has
+     * not created is noise.
+     */
+    private void openProfileByNumber(int number) {
+        List<com.termina.shell.Profile> all = windows.profiles().all();
+        if (number >= 1 && number <= all.size()) openTab(all.get(number - 1));
+    }
+
+    /**
+     * The profile entries, rebuilt each time a menu is about to show.
+     *
+     * <p>Never cached. The list changes underneath a window in three ordinary ways — discovery
+     * finishing after the menus were built, a profile added in the settings window, and a shell
+     * installed while the application is running and found at the next launch — and a menu built
+     * once would show the list as it was at construction in the first two of those.
+     */
+    private List<MenuItem> profileMenuItems() {
+        List<MenuItem> items = new ArrayList<>();
+        List<com.termina.shell.Profile> all = windows.profiles().all();
+        String defaultId = windows.profiles().defaultProfileId();
+        int number = 1;
+        for (com.termina.shell.Profile profile : all) {
+            MenuItem item = new MenuItem(profile.name());
+            // The command as a tooltip has nowhere to live on a MenuItem, so the accelerator column
+            // carries the chord and the name carries the rest. Nine of them get a chord; the tenth
+            // profile onwards is menu-only, which is where every terminal draws this line too.
+            if (number <= TAB_CHORD_COUNT) item.setAccelerator(MenuAction.shiftChord(digitKey(number)));
+            com.termina.shell.Profile opened = profile;
+            item.setOnAction(e -> openTab(opened));
+            // The default is marked rather than reordered: moving it to the top would change the
+            // numbering of everything else, and the numbers are bound to chords.
+            boolean isDefault = profile.id().equals(defaultId) || (defaultId.isBlank() && number == 1);
+            item.setGraphic(profileGraphic(profile, isDefault));
+            if (isDefault) item.getProperties().put(DEFAULT_PROFILE_ITEM, Boolean.TRUE);
+            items.add(item);
+            number++;
+        }
+        return items;
+    }
+
+    private static KeyCode digitKey(int number) {
+        return KeyCode.valueOf("DIGIT" + number);
+    }
+
+    /**
+     * A profile's mark, with a fixed slot in front of it for the default's tick.
+     *
+     * <p>The slot is there whether or not it holds anything, so every mark in the menu lines up.
+     * Sizing it only on the one row that has a tick would step the other rows left by the width of
+     * a checkmark, which reads as the list being misaligned rather than as one row being special.
+     */
+    private static javafx.scene.Node profileGraphic(com.termina.shell.Profile profile, boolean isDefault) {
+        StackPane tick = new StackPane();
+        tick.setMinWidth(TICK_SLOT_WIDTH);
+        tick.setPrefWidth(TICK_SLOT_WIDTH);
+        tick.setMaxWidth(TICK_SLOT_WIDTH);
+        if (isDefault) tick.getChildren().add(MenuIcons.check());
+        javafx.scene.layout.HBox graphic = new javafx.scene.layout.HBox(6, tick, ProfileIcons.forProfile(profile));
+        graphic.setAlignment(Pos.CENTER_LEFT);
+        return graphic;
+    }
+
+    private static final double TICK_SLOT_WIDTH = 14;
+
+    /** Drops the profile list under the chevron beside the {@code +}. */
+    private void showProfileMenu() {
+        if (profileMenu.isShowing()) {
+            profileMenu.hide();
+            return;
+        }
+        profileMenu.getItems().setAll(profileMenuItems());
+        profileMenu.getItems().add(new SeparatorMenuItem());
+        MenuItem configure = new MenuItem(tr("menu.configureProfiles"), MenuIcons.settings());
+        configure.setOnAction(e -> windows.showSettings(stage));
+        profileMenu.getItems().add(configure);
+        profileMenu.show(profileButton, javafx.geometry.Side.BOTTOM, 0, 0);
+    }
+
+    /** Reused rather than rebuilt, so that clicking the chevron a second time closes it. */
+    private final ContextMenu profileMenu = new ContextMenu();
+
+    /** Marks the item standing for the default profile, so a capture run can say which it is. */
+    private static final String DEFAULT_PROFILE_ITEM = "termina.defaultProfile";
+
+    /**
+     * Opens the profile dropdown and reports what is in it, for the capture hook.
+     *
+     * <p>The only way to see this list. It is assembled at show time from discovery, which on
+     * Windows means whichever PowerShells and WSL distributions that machine has — so the entries
+     * this feature exists for can only be checked on a machine that has them, by asking it.
+     */
+    public String profileMenuForCapture() {
+        showProfileMenu();
+        StringBuilder out = new StringBuilder();
+        for (MenuItem item : profileMenu.getItems()) {
+            if (item instanceof SeparatorMenuItem) {
+                out.append("| ");
+                continue;
+            }
+            out.append(item.getText());
+            if (item.getProperties().containsKey(DEFAULT_PROFILE_ITEM)) out.append("*");
+            if (item.getAccelerator() != null) {
+                out.append(" [").append(item.getAccelerator().getDisplayText()).append(']');
+            }
+            out.append("  ");
+        }
+        StringBuilder commands = new StringBuilder();
+        for (com.termina.shell.Profile profile : windows.profiles().all()) {
+            commands.append("\n[capture]   ")
+                    .append(profile.id())
+                    .append(" (")
+                    .append(profile.source())
+                    .append(") ")
+                    .append(profile.commandLine());
+        }
+        return out.toString().trim()
+                + "\n[capture]   discovery finished=" + windows.profiles().discoveryFinished()
+                + commands;
     }
 
     /**
@@ -683,8 +849,13 @@ public final class TerminalWindow {
         MenuItem moveLeft = tabItem(tr("menu.moveTabLeft"), MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
         MenuItem moveRight = tabItem(tr("menu.moveTabRight"), MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
 
+        Menu newTabAs = new Menu(tr("menu.newTabProfile"), MenuIcons.newTab());
+        newTabAs.getItems().add(new MenuItem(""));
+        newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
+
         ContextMenu menu = new ContextMenu(
                 tabItem(tr("menu.newTab"), MenuIcons.newTab(), this::openTab),
+                newTabAs,
                 new SeparatorMenuItem(),
                 tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> closeTab(tab)),
                 closeOthers,
@@ -998,6 +1169,17 @@ public final class TerminalWindow {
 
     private final Button newTabButton = new Button();
 
+    /** Opens the profile menu — the other shells this machine has. */
+    private final Button profileButton = new Button();
+
+    /**
+     * The two strip buttons as one node.
+     *
+     * <p>Boxed rather than positioned individually because they are shown, hidden and height-bound
+     * together, and because the width the tab arithmetic has to keep clear is the width of both.
+     */
+    private final javafx.scene.layout.HBox tabStripButtons = new javafx.scene.layout.HBox(newTabButton, profileButton);
+
     /**
      * Space kept clear at the right end of the strip for the new-tab button, and the per-tab
      * padding and close button that sit outside the width JavaFX lets us set.
@@ -1012,7 +1194,14 @@ public final class TerminalWindow {
 
     private double restoredHeight;
 
-    private static final double NEW_TAB_RESERVED = 40;
+    /**
+     * Width kept clear at the right end of the strip for the two buttons that float over it.
+     *
+     * <p>Raised from 40 when the profile chevron joined the {@code +}. It is a reservation rather
+     * than a measurement: the tabs are sized before the buttons are laid out, so reading their
+     * width here would be reading it a frame late, on the frame that matters.
+     */
+    private static final double NEW_TAB_RESERVED = 62;
 
     /**
      * Measured, not guessed: JavaFX renders a tab at the width set here plus about 17px of its own
@@ -1034,6 +1223,7 @@ public final class TerminalWindow {
         if (newTabButton.prefHeightProperty().isBound()) return;
         if (tabs.lookup(".tab-header-area") instanceof javafx.scene.layout.Region header) {
             newTabButton.prefHeightProperty().bind(header.heightProperty());
+            profileButton.prefHeightProperty().bind(header.heightProperty());
         }
     }
 
@@ -1123,6 +1313,28 @@ public final class TerminalWindow {
                         tr("menu.settings"),
                         new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
                         () -> windows.showSettings(stage))));
+
+        // Added by hand rather than through menu(): a submenu is a Menu, not a MenuAction, and its
+        // contents are not known until it is opened. Its entries reach the palette through
+        // showPalette instead, by name, which is more use there than "New Tab with Profile 3".
+        Menu newTabAs = new Menu(tr("menu.newTabProfile"), MenuIcons.newTab());
+        // A Menu with no items renders as a dead entry with no arrow, and the items are only known
+        // at show time — so it is seeded with one that is replaced before it is ever drawn.
+        newTabAs.getItems().add(new MenuItem(""));
+        newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
+        file.getItems().add(1, newTabAs);
+
+        // The chords the submenu advertises. They have to be registered here because the menu's own
+        // accelerators never fire in this window — TerminalView consumes Ctrl+<key> first, which is
+        // the whole reason bindings are a scene filter. A submenu item showing a chord that does
+        // nothing would be worse than showing none.
+        for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
+            int chosen = number;
+            register(MenuAction.of(
+                    tr("menu.newTabProfileNumber", number),
+                    MenuAction.shiftChord(digitKey(number)),
+                    () -> openProfileByNumber(chosen)));
+        }
 
         Menu edit = menu(
                 tr("menu.edit"),
@@ -1497,6 +1709,11 @@ public final class TerminalWindow {
      */
     private void showPalette() {
         List<MenuAction> all = new ArrayList<>(commands);
+        // By name rather than by number. The submenu's chords are "profile 3"; here there is room to
+        // say "Ubuntu (WSL)", which is the only form anybody would search for.
+        for (com.termina.shell.Profile profile : windows.profiles().all()) {
+            all.add(MenuAction.of(tr("palette.newTabProfile", profile.name()), () -> openTab(profile)));
+        }
         for (Theme theme : Theme.values()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
             all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id())));

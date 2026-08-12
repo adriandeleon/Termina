@@ -56,35 +56,10 @@ public final class OpenCommand {
      * not for the substituted values, which are handled by the split-first rule above.
      */
     static List<String> tokenize(String template) {
-        List<String> tokens = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        char quote = 0;
-        boolean started = false;
-        for (int i = 0; i < template.length(); i++) {
-            char c = template.charAt(i);
-            if (quote != 0) {
-                if (c == quote) quote = 0;
-                else current.append(c);
-                continue;
-            }
-            if (c == '"' || c == '\'') {
-                quote = c;
-                started = true;
-                continue;
-            }
-            if (Character.isWhitespace(c)) {
-                if (started) {
-                    tokens.add(current.toString());
-                    current.setLength(0);
-                    started = false;
-                }
-                continue;
-            }
-            current.append(c);
-            started = true;
-        }
-        if (started) tokens.add(current.toString());
-        return tokens;
+        // The same parser the shell profiles are stored with. Two of them would agree on every case
+        // anyone thought to write down and drift on the rest, and both are reading a command line
+        // the user typed into a settings field.
+        return com.termina.cli.Argv.split(template);
     }
 
     /**

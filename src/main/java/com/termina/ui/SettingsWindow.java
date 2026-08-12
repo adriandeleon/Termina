@@ -77,6 +77,7 @@ public final class SettingsWindow {
     private enum Category {
         APPEARANCE(Group.GENERAL, "settings.cat.appearance"),
         TERMINAL(Group.GENERAL, "settings.cat.terminal"),
+        PROFILES(Group.GENERAL, "settings.cat.profiles"),
         ADVANCED(Group.SYSTEM, "settings.cat.advanced");
 
         final Group group;
@@ -110,10 +111,13 @@ public final class SettingsWindow {
 
     private PalettePreview preview;
 
-    public SettingsWindow(Settings settings) {
+    public SettingsWindow(Settings settings, com.termina.shell.ShellProfiles profiles) {
         this.settings = settings;
+        this.profiles = profiles;
         build();
     }
+
+    private final com.termina.shell.ShellProfiles profiles;
 
     /** The window's scene, for the development capture hook. */
     /** Types into the search box as the user would, so a capture can reach any page. */
@@ -313,6 +317,7 @@ public final class SettingsWindow {
         switch (category) {
             case APPEARANCE -> buildAppearance(page);
             case TERMINAL -> buildTerminal(page);
+            case PROFILES -> buildProfiles(page);
             case ADVANCED -> buildAdvanced(page);
         }
         // A gutter on the right, matching the one the page host leaves on the left. Without it every
@@ -670,6 +675,308 @@ public final class SettingsWindow {
                 "alt option meta escape readline compose");
     }
 
+    // ---------------------------------------------------------------- profiles
+
+    private ComboBox<com.termina.shell.Profile> defaultProfile;
+    private ListView<com.termina.shell.Profile> profileList;
+    private TextField profileName;
+    private TextField profileCommand;
+    private TextField profileDirectory;
+    private CheckBox profileShown;
+    private Button removeProfile;
+    private Label profileSource;
+
+    /**
+     * The profile list and its editor.
+     *
+     * <p>A list beside a form rather than a row per field, because the number of profiles is not
+     * known in advance — which is the whole reason this page exists. Discovered profiles appear in
+     * the same list as written ones and are read-only there: they are re-derived at every launch, so
+     * an edit to one would be silently discarded, which is worse than a field that will not take it.
+     */
+    private void buildProfiles(VBox page) {
+        VBox defaults = section(page, tr("settings.section.defaultProfile"));
+
+        defaultProfile = new ComboBox<>();
+        defaultProfile.setPrefWidth(260);
+        defaultProfile.setCellFactory(list -> new ProfileCell(false));
+        defaultProfile.setButtonCell(new ProfileCell(false));
+        defaultProfile.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            profiles.setDefaultProfileId(value.id());
+            refreshProfileList();
+        });
+        row(
+                Category.PROFILES,
+                defaults,
+                tr("settings.defaultProfile"),
+                tr("settings.defaultProfile.desc"),
+                defaultProfile,
+                "default profile shell new tab startup powershell cmd wsl bash zsh");
+
+        VBox list = section(page, tr("settings.section.profiles"));
+
+        profileList = new ListView<>();
+        // Tall enough for the shells a normal machine finds plus a few of the user's own. At 200 the
+        // list scrolled at seven entries, which on macOS it reaches from discovery alone — so the
+        // profiles somebody had actually written were the ones below the fold, on the page whose
+        // whole purpose is editing them. The page has the room.
+        profileList.setPrefHeight(340);
+        profileList.setMinHeight(140);
+        profileList.setCellFactory(l -> new ProfileCell(true));
+        profileList.getSelectionModel().selectedItemProperty().addListener((o, old, value) -> {
+            // Committed before the form is repopulated, and against the profile the form was
+            // showing rather than the one now selected. Clicking another row moves focus to the
+            // list and changes the selection in the same mouse press, and the order of those two is
+            // not ours to decide — so keying the write off the live selection would rename whichever
+            // profile had just been clicked, using the text typed for the previous one.
+            commitProfileEdit();
+            showProfile(value);
+        });
+
+        profileName = new TextField();
+        profileName.setPromptText(tr("settings.profileName"));
+        profileCommand = new TextField();
+        profileCommand.setPromptText("wsl.exe -d Ubuntu");
+        profileDirectory = new TextField();
+        profileDirectory.setPromptText(tr("settings.profileDirectory.prompt"));
+        // Committed on Enter and on losing focus, which is how the shell and link fields on the
+        // Terminal page already behave — a keystroke-by-keystroke write would save the settings file
+        // and re-apply every setting in every window once per character.
+        for (TextField field : List.of(profileName, profileCommand, profileDirectory)) {
+            field.setPrefWidth(320);
+            field.focusedProperty().addListener((o, was, focused) -> {
+                if (!focused) commitProfileEdit();
+            });
+            field.setOnAction(e -> commitProfileEdit());
+        }
+
+        profileShown = new CheckBox(tr("settings.profileShown"));
+        profileShown.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            com.termina.shell.Profile selected = editing;
+            if (selected == null) return;
+            profiles.setHidden(selected.id(), !value);
+            refreshProfileList();
+        });
+
+        profileSource = new Label();
+        profileSource.getStyleClass().add("settings-row-description");
+        profileSource.setWrapText(true);
+
+        Button addProfile = new Button(tr("settings.profileAdd"));
+        addProfile.setOnAction(e -> addUserProfile());
+        removeProfile = new Button(tr("settings.profileRemove"));
+        removeProfile.setOnAction(e -> removeSelectedProfile());
+
+        HBox buttons = new HBox(8, addProfile, removeProfile);
+        buttons.setAlignment(Pos.CENTER_LEFT);
+
+        VBox form = new VBox(
+                6,
+                labelled(tr("settings.profileName"), profileName),
+                labelled(tr("settings.profileCommand"), profileCommand),
+                labelled(tr("settings.profileDirectory"), profileDirectory),
+                profileShown,
+                profileSource,
+                buttons);
+        HBox.setHgrow(form, Priority.ALWAYS);
+
+        HBox editor = new HBox(14, profileList, form);
+        HBox.setHgrow(profileList, Priority.SOMETIMES);
+        profileList.setPrefWidth(240);
+        editor.getStyleClass().add("settings-row");
+
+        list.getChildren().add(editor);
+        rows.add(new Row(
+                Category.PROFILES,
+                editor,
+                tr("settings.section.profiles") + " profile shell command wsl powershell cmd bash zsh fish add remove",
+                list));
+
+        Label note = new Label(tr("settings.profiles.note"));
+        note.getStyleClass().add("settings-row-description");
+        note.setWrapText(true);
+        list.getChildren().add(note);
+    }
+
+    private static VBox labelled(String title, Region control) {
+        Label name = new Label(title);
+        name.getStyleClass().add("settings-row-title");
+        return new VBox(2, name, control);
+    }
+
+    /** Name on one line, with what it runs under it — the command is what tells two WSLs apart. */
+    private static final class ProfileCell extends ListCell<com.termina.shell.Profile> {
+        private final boolean showCommand;
+
+        ProfileCell(boolean showCommand) {
+            this.showCommand = showCommand;
+        }
+
+        @Override
+        protected void updateItem(com.termina.shell.Profile item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+                setGraphic(null);
+                return;
+            }
+            if (!showCommand) {
+                setText(item.name());
+                return;
+            }
+            Label name = new Label(item.name());
+            Label command = new Label(item.commandLine());
+            command.getStyleClass().add("settings-row-description");
+            setText(null);
+            setGraphic(new VBox(1, name, command));
+        }
+    }
+
+    /** Fills the form from the selected profile, and decides what may be edited. */
+    private void showProfile(com.termina.shell.Profile profile) {
+        // Saved and restored rather than set to false: this runs from the list's selection
+        // listener, which fires in the middle of refreshProfileList's own guarded block. Clearing
+        // the flag here would leave the rest of that rebuild unguarded, and the default-profile
+        // picker being repopulated would write a new default the user never chose.
+        boolean was = loading;
+        loading = true;
+        try {
+            boolean present = profile != null;
+            boolean editable = present && profile.isEditable();
+            profileName.setText(present ? profile.name() : "");
+            profileCommand.setText(present ? profile.commandLine() : "");
+            profileDirectory.setText(present ? profile.workingDirectory() : "");
+            profileName.setDisable(!editable);
+            profileCommand.setDisable(!editable);
+            profileDirectory.setDisable(!editable);
+            removeProfile.setDisable(!editable);
+            // The system shell is what a window falls back to, so it is the one entry that cannot be
+            // hidden — a settings file that hid it would leave the menu with nothing guaranteed.
+            boolean hideable = present && !com.termina.shell.ShellProfiles.SYSTEM_ID.equals(profile.id());
+            profileShown.setDisable(!hideable);
+            profileShown.setSelected(!present || !profiles.hiddenIds().contains(profile.id()));
+            profileSource.setText(present ? sourceNote(profile) : "");
+        } finally {
+            loading = was;
+        }
+        editing = profile;
+    }
+
+    /**
+     * The profile the form is currently showing.
+     *
+     * <p>Not the list's selection: the two differ for exactly as long as it takes a click to move
+     * focus and change the selection, which is the window in which an edit is committed.
+     */
+    private com.termina.shell.Profile editing;
+
+    private static String sourceNote(com.termina.shell.Profile profile) {
+        return switch (profile.source()) {
+            case SYSTEM -> tr("settings.profileSource.system");
+            case DISCOVERED -> tr("settings.profileSource.discovered");
+            case USER -> tr("settings.profileSource.user");
+        };
+    }
+
+    /**
+     * Writes the form back, if it is on a profile that can take it.
+     *
+     * <p>A blank command deletes nothing and saves nothing: the field is committed on focus loss, so
+     * clearing it on the way to clicking Remove would otherwise drop the profile out of the list
+     * before the click landed.
+     */
+    private void commitProfileEdit() {
+        if (loading) return;
+        com.termina.shell.Profile selected = editing;
+        if (selected == null || !selected.isEditable()) return;
+        if (profileName.getText().isBlank() || profileCommand.getText().isBlank()) return;
+
+        List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
+        boolean changed = false;
+        for (int i = 0; i < user.size(); i++) {
+            if (!user.get(i).id().equals(selected.id())) continue;
+            com.termina.shell.Profile edited = user.get(i)
+                    .withName(profileName.getText().trim())
+                    .withCommandLine(profileCommand.getText())
+                    .withWorkingDirectory(profileDirectory.getText());
+            if (edited.equals(user.get(i))) return;
+            user.set(i, edited);
+            changed = true;
+            break;
+        }
+        if (!changed) return;
+        profiles.setUserProfiles(user);
+        refreshProfileList(selected.id());
+    }
+
+    private void addUserProfile() {
+        com.termina.shell.Profile created = profiles.newUserProfile(tr("settings.profileNewName"))
+                .withName(tr("settings.profileNewName"))
+                // Seeded with the system shell rather than left empty: a profile with no command is
+                // not saved, so an empty one would vanish the moment the list was rebuilt.
+                .withCommandLine(profiles.systemProfile().commandLine());
+        List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
+        user.add(created);
+        profiles.setUserProfiles(user);
+        refreshProfileList(created.id());
+        profileName.requestFocus();
+        profileName.selectAll();
+    }
+
+    private void removeSelectedProfile() {
+        com.termina.shell.Profile selected = editing;
+        if (selected == null || !selected.isEditable()) return;
+        List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
+        user.removeIf(profile -> profile.id().equals(selected.id()));
+        profiles.setUserProfiles(user);
+        refreshProfileList();
+    }
+
+    private void refreshProfileList() {
+        com.termina.shell.Profile selected = profileList.getSelectionModel().getSelectedItem();
+        refreshProfileList(selected == null ? null : selected.id());
+    }
+
+    /** Rebuilds the list and the default picker, keeping the selection on {@code selectId}. */
+    private void refreshProfileList(String selectId) {
+        loading = true;
+        try {
+            List<com.termina.shell.Profile> all = profiles.all();
+            // The picker offers only what is on the menu; the list shows hidden ones too, since
+            // hiding one is done from the list and there would otherwise be no way back.
+            List<com.termina.shell.Profile> listed = new ArrayList<>(all);
+            for (com.termina.shell.Profile hidden : hiddenProfiles()) {
+                if (listed.stream().noneMatch(p -> p.id().equals(hidden.id()))) listed.add(hidden);
+            }
+            profileList.getItems().setAll(listed);
+            defaultProfile.getItems().setAll(all);
+            defaultProfile.setValue(profiles.defaultProfile());
+        } finally {
+            loading = false;
+        }
+        for (com.termina.shell.Profile profile : profileList.getItems()) {
+            if (profile.id().equals(selectId)) {
+                profileList.getSelectionModel().select(profile);
+                return;
+            }
+        }
+        profileList.getSelectionModel().selectFirst();
+    }
+
+    /** Hidden entries still have to be listed, or unhiding one would be impossible from here. */
+    private List<com.termina.shell.Profile> hiddenProfiles() {
+        List<com.termina.shell.Profile> hidden = new ArrayList<>();
+        Set<String> ids = profiles.hiddenIds();
+        if (ids.isEmpty()) return hidden;
+        // Rebuilt without the hide filter, which is the only way to see what is being hidden.
+        for (com.termina.shell.Profile profile : profiles.allIncludingHidden()) {
+            if (ids.contains(profile.id())) hidden.add(profile);
+        }
+        return hidden;
+    }
+
     private void buildAdvanced(VBox page) {
         VBox files = section(page, tr("settings.section.files"));
 
@@ -732,6 +1039,9 @@ public final class SettingsWindow {
         } finally {
             loading = false;
         }
+        // Outside the guarded block: it guards itself, and it has to run with the flag in the state
+        // it leaves rather than inherit one that is about to be cleared.
+        refreshProfileList();
         refreshPreview();
     }
 

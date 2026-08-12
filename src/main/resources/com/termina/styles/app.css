@@ -93,6 +93,7 @@
  * separate context, and unifying them would mean styling menu items from here.
  */
 .tab-strip-glyph,
+.tab-strip-chevron,
 .tab-close-button {
     -fx-background-color: -color-fg-muted;
     -fx-min-width: 11;
@@ -114,6 +115,26 @@
     -fx-shape: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
 }
 
+/*
+ * The profile dropdown's chevron.
+ *
+ * A stroked chevron rather than a filled triangle. The + and the close buttons are thin outlines on
+ * this strip, and a solid ▼ beside them reads as the heaviest thing in the row — which is backwards,
+ * since it is the subordinate half of the pair.
+ *
+ * Wider than tall, and sized to match: -fx-scale-shape stretches the path to the box, so an 11×11
+ * box would fatten a chevron whose natural proportions are about two to one.
+ */
+.tab-strip-chevron {
+    -fx-shape: "M6.4 8.6 L12 14.2 L17.6 8.6 L19.4 10.4 L12 17.8 L4.6 10.4 Z";
+    -fx-min-width: 11;
+    -fx-pref-width: 11;
+    -fx-max-width: 11;
+    -fx-min-height: 6;
+    -fx-pref-height: 6;
+    -fx-max-height: 6;
+}
+
 .tab:selected .tab-close-button,
 .tab-close-button:hover {
     -fx-background-color: -color-fg-default;
@@ -131,8 +152,22 @@
     -fx-background-color: -color-bg-subtle;
 }
 
-.new-tab-button:hover .tab-strip-glyph {
+.new-tab-button:hover .tab-strip-glyph,
+.new-tab-button:hover .tab-strip-chevron {
     -fx-background-color: -color-fg-default;
+}
+
+/*
+ * The chevron's own button is narrower than the +: together they take a corner of the tab strip,
+ * and two 32px buttons there is a lot of chrome for one of them being a dropdown arrow. The box
+ * holds no background of its own so the two hover independently.
+ *
+ * A class of its own rather than a structural selector: JavaFX supports no structural
+ * pseudo-classes, so :last-child parses without complaint and matches nothing.
+ */
+.profile-button {
+    -fx-min-width: 22;
+    -fx-padding: 2 6 2 4;
 }
 
 
