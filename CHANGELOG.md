@@ -16,6 +16,15 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **"Colour theme" is now "Color theme."** The only British spelling in the interface. Its Settings
   search still matches both, so typing either word finds the row.
 
+### Fixed
+
+- **Tabs can be dragged to reorder them.** They always could, in principle: the gesture, the drop-side
+  detection and the accent edge showing where the tab would land have been there since tabs were. It was
+  installed on the title *label*, though, and a tab is a great deal wider than its name — measured on a
+  three-tab window, 286 pixels of tab and 13 of label. Unless you caught the two characters of text,
+  nothing happened, which from the outside is a terminal that cannot reorder tabs. The gesture now covers
+  the whole tab, and what follows the pointer is the tab rather than its text.
+
 ## 0.6.1 — 2026-08-11
 
 Two fixes to the clickable links 0.6.0 introduced, and a set of dependency bumps. No new behaviour, so
