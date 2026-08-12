@@ -18,6 +18,16 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   was simply not there from a click. The PATH is taken from a login shell, asked once and only when
   a bare command actually has to be resolved.
 
+### Internal
+
+- Routine dependency bumps: pty4j 0.13.10 → 0.13.12, JNA 5.17.0 → 5.19.1, Jackson 2.22.1, JUnit 5.14.4.
+  All patch or minor.
+
+  Checked against a packaged build rather than the suite alone, because pty4j ships the native libraries
+  for every platform and JNA is how they are found — and those survive packaging by an accident of JPMS
+  rather than by design (see the note in the README). The built app image starts a real shell and runs a
+  command in it.
+
 ## 0.6.0 — 2026-08-10
 
 The minor number moves for the clickable links; the Meta fix goes with it, and it is the one to read
