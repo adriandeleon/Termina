@@ -168,10 +168,25 @@ class ShellDiscoveryTest {
                 List.of("shell-zsh", "shell-bash", "shell-fish", "shell-nu"),
                 found.stream().map(Profile::id).toList(),
                 "the declared order, not the order the filesystem happened to answer in");
-        assertEquals(List.of("/bin/zsh", "-l"), byId(found, "shell-zsh").command());
+        assertCommand(byId(found, "shell-zsh"), "/bin/zsh", "-l");
         // nu has no -l on every version that ships it, and a shell handed an option it does not
         // understand prints usage and exits — which reads as the menu entry being broken.
-        assertEquals(List.of("/usr/bin/nu"), byId(found, "shell-nu").command());
+        assertCommand(byId(found, "shell-nu"), "/usr/bin/nu");
+    }
+
+    /**
+     * Asserts a profile's command, comparing the executable as a path rather than as a string.
+     *
+     * <p>This branch is pure and its probes are injected, so it is exercised on every platform — and
+     * on Windows {@code Path.of("/bin/zsh")} renders as {@code \bin\zsh}. The separator is not what
+     * these tests are about, and asserting on one spelling of a path fails on the CI runner that
+     * uses the other.
+     */
+    private static void assertCommand(Profile profile, String executable, String... args) {
+        assertNotNull(profile);
+        assertEquals(Path.of(executable), Path.of(profile.command().get(0)), "executable");
+        assertEquals(
+                List.of(args), profile.command().subList(1, profile.command().size()), "arguments");
     }
 
     @Test
@@ -183,7 +198,7 @@ class ShellDiscoveryTest {
         List<Profile> found = ShellDiscovery.onUnix(env, isExecutable, () -> List.of("/bin/zsh"));
 
         assertEquals(1, found.size());
-        assertEquals("/bin/zsh", found.get(0).command().get(0), "the one /etc/shells named");
+        assertEquals(Path.of("/bin/zsh"), Path.of(found.get(0).command().get(0)), "the one /etc/shells named");
     }
 
     @Test
