@@ -3,7 +3,9 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.6.2 — 2026-08-11
+
+Interface fixes and polish. No new behaviour, so the patch number moves.
 
 ### Changed
 
@@ -24,6 +26,35 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   three-tab window, 286 pixels of tab and 13 of label. Unless you caught the two characters of text,
   nothing happened, which from the outside is a terminal that cannot reorder tabs. The gesture now covers
   the whole tab, and what follows the pointer is the tab rather than its text.
+
+### Known gaps
+
+Unchanged from 0.6.1.
+
+- **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
+  application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
+  visible text happens to be the target. See issue #11.
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
+- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
+  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
+  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
+  something other than the screen it was given. JavaFX reports the window as full screen and
+  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
+  unaffected.
+- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
+  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
+  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
+  a question nobody can act on.
+- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
+  inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
+  would cover Windows and any shell configured to emit it, and is not implemented.
+- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  same thing.
+- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+  its source.
+- No splits, no search in scrollback, no keybinding customisation.
 
 ## 0.6.1 — 2026-08-11
 
