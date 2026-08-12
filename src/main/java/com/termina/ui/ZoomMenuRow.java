@@ -1,5 +1,6 @@
 package com.termina.ui;
 
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CustomMenuItem;
@@ -40,6 +41,9 @@ final class ZoomMenuRow {
         int percent();
     }
 
+    /** Separates full screen from the zoom trio. The row's own spacing is 4. */
+    private static final double FULL_SCREEN_GAP = 10;
+
     private CustomMenuItem item;
     private final Label percent = new Label();
     private final Actions actions;
@@ -70,6 +74,12 @@ final class ZoomMenuRow {
         });
 
         HBox row = new HBox(title, spacer, out, reset, in, fullScreen);
+        // A gap before full screen, wider than the 4px between the zoom controls. Those three are one
+        // control — a value with a decrement and an increment — and full screen is a different action
+        // that happens to live on the same row: it is the one button here that closes the menu. Set
+        // as a layout margin rather than in CSS because JavaFX has no -fx-margin; spacing between
+        // children belongs to the parent.
+        HBox.setMargin(fullScreen, new Insets(0, 0, 0, FULL_SCREEN_GAP));
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("zoom-row");
 

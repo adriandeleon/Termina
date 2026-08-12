@@ -3,6 +3,19 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Changed
+
+- **The zoom row separates full screen from the zoom controls.** The minus, the percentage and the plus
+  are one control — a value with a decrement and an increment — while full screen is a different action
+  that happens to share the row, and the only button there that closes the menu. It now sits a little
+  apart instead of flush against the plus. The row does not get wider: the gap comes out of the space
+  between the label and the controls.
+
+- **"Colour theme" is now "Color theme."** The only British spelling in the interface. Its Settings
+  search still matches both, so typing either word finds the row.
+
 ## 0.6.1 — 2026-08-11
 
 Two fixes to the clickable links 0.6.0 introduced, and a set of dependency bumps. No new behaviour, so
