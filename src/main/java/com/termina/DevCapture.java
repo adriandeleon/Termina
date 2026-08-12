@@ -214,6 +214,7 @@ final class DevCapture {
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
             System.out.println("[capture] " + w.focusReport());
             System.out.println("[capture] " + w.closeTooltipReport() + " tabTooltip=<" + w.tabTooltipReport() + ">");
+            System.out.println("[capture] " + w.tabDragReport());
             reportTypedEcho(w.activeTerminal());
         }
         reportDialogs();

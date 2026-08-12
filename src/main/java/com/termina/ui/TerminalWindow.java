@@ -500,10 +500,11 @@ public final class TerminalWindow {
         tab.setOnCloseRequest(e -> {
             if (!confirmClose(List.of(tab))) e.consume();
         });
-        installTabDrag(tab, title);
-
         tabs.getTabs().add(tab);
         tabs.getSelectionModel().select(tab);
+        // After the tab is in the list: the header this attaches to is built by the skin, and does
+        // not exist until the tab does.
+        installTabDrag(0);
 
         try {
             terminal.start();
@@ -530,36 +531,83 @@ public final class TerminalWindow {
      * drag source, the drop side is decided by which half of the target it lands on, and an accent
      * edge shows where it would go.
      */
-    private void installTabDrag(Tab tab, Label title) {
-        title.setOnDragDetected(e -> {
+    /**
+     * Installs the reorder gesture on a tab's whole header.
+     *
+     * <p><b>Not on the title label</b>, which is where this started and why the feature was
+     * effectively missing: measured on a three-tab window, each header was 286px wide and the label
+     * 13px. The gesture was there, and you had to catch two characters of text to find it — which
+     * from the outside is indistinguishable from a terminal that cannot reorder tabs at all.
+     *
+     * <p>The header is JavaFX's own node rather than one of ours, so it is looked up from the skin
+     * once the skin exists, on the retry the close-button tooltips already use.
+     */
+    private void installTabDrag(int attempt) {
+        int found = 0;
+        for (Tab tab : tabs.getTabs()) {
+            javafx.scene.Node header = headerOf(tab);
+            if (header == null) continue;
+            found++;
+            if (header.getProperties().putIfAbsent(TAB_DRAG_INSTALLED, Boolean.TRUE) != null) continue;
+            installTabDrag(tab, header);
+        }
+        // Same reasoning as the tooltips: a missing header means the skin is still building it, but
+        // only while the strip is shown. Hidden for a single tab there is no header and none coming.
+        boolean stripShown = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        if (stripShown && found < tabs.getTabs().size() && attempt < CLOSE_TIP_ATTEMPTS) {
+            Platform.runLater(() -> installTabDrag(attempt + 1));
+        }
+    }
+
+    /**
+     * The header node JavaFX built for a tab, found from our own title graphic upwards.
+     *
+     * <p>Not by position in {@code lookupAll(".tab")}: that returns an unordered set, so pairing by
+     * index would sometimes hand the gesture the wrong tab and reorder something the user was not
+     * dragging — rarely enough to look random.
+     */
+    private static javafx.scene.Node headerOf(Tab tab) {
+        javafx.scene.Node node = tab.getGraphic();
+        while (node != null && !node.getStyleClass().contains("tab")) {
+            node = node.getParent();
+        }
+        return node;
+    }
+
+    private void installTabDrag(Tab tab, javafx.scene.Node header) {
+        header.setOnDragDetected(e -> {
             if (tabs.getTabs().size() < 2) return;
             draggedTab = tab;
-            var board = title.startDragAndDrop(TransferMode.MOVE);
+            var board = header.startDragAndDrop(TransferMode.MOVE);
             ClipboardContent content = new ClipboardContent();
             // The payload is a marker, not the data: identifying our drag is all it is for.
             content.put(TAB_DRAG, "tab");
             board.setContent(content);
-            board.setDragView(title.snapshot(null, null));
-            title.getStyleClass().add("tab-dragging");
+            // The whole tab, not just its text — what is being moved is what should follow the
+            // pointer.
+            board.setDragView(header.snapshot(null, null));
+            header.getStyleClass().add("tab-dragging");
             e.consume();
         });
 
-        title.setOnDragOver(e -> {
-            if (draggedTab == null || e.getGestureSource() == title) return;
+        header.setOnDragOver(e -> {
+            if (draggedTab == null || e.getGestureSource() == header) return;
             if (!e.getDragboard().hasContent(TAB_DRAG)) return;
             e.acceptTransferModes(TransferMode.MOVE);
-            markDropSide(title, e.getX() > title.getWidth() / 2);
+            markDropSide(header, e.getX() > header.getBoundsInLocal().getWidth() / 2);
             e.consume();
         });
 
-        title.setOnDragExited(e -> clearDropMarks(title));
+        header.setOnDragExited(e -> clearDropMarks(header));
 
-        title.setOnDragDropped(e -> {
-            clearDropMarks(title);
+        header.setOnDragDropped(e -> {
+            clearDropMarks(header);
             if (draggedTab == null || !e.getDragboard().hasContent(TAB_DRAG)) return;
             int from = tabs.getTabs().indexOf(draggedTab);
             int over = tabs.getTabs().indexOf(tab);
-            boolean after = e.getX() > title.getWidth() / 2;
+            // Either can have closed mid-drag; a negative index would move the wrong tab.
+            if (from < 0 || over < 0) return;
+            boolean after = e.getX() > header.getBoundsInLocal().getWidth() / 2;
             moveTab(
                     from,
                     TabReorder.insertIndex(from, over, after, tabs.getTabs().size()));
@@ -567,23 +615,24 @@ public final class TerminalWindow {
             e.consume();
         });
 
-        title.setOnDragDone(e -> {
-            title.getStyleClass().remove("tab-dragging");
+        header.setOnDragDone(e -> {
+            header.getStyleClass().remove("tab-dragging");
             draggedTab = null;
-            for (Tab other : tabs.getTabs()) {
-                if (other.getGraphic() instanceof Label l) clearDropMarks(l);
-            }
+            for (javafx.scene.Node other : tabs.lookupAll(".tab")) clearDropMarks(other);
         });
     }
 
-    private static void markDropSide(Label title, boolean after) {
-        title.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
-        title.getStyleClass().add(after ? "tab-drop-after" : "tab-drop-before");
+    private static void markDropSide(javafx.scene.Node header, boolean after) {
+        header.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
+        header.getStyleClass().add(after ? "tab-drop-after" : "tab-drop-before");
     }
 
-    private static void clearDropMarks(Label title) {
-        title.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
+    private static void clearDropMarks(javafx.scene.Node header) {
+        header.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
     }
+
+    /** Marks a header as already carrying the gesture, so a retry does not install it twice. */
+    private static final String TAB_DRAG_INSTALLED = "termina.tabDragInstalled";
 
     /** True while a drag is rewriting the tab list, so removals are not treated as closes. */
     private boolean reordering;
@@ -865,6 +914,23 @@ public final class TerminalWindow {
                 out.append(labelOf(item)).append('|');
             }
             out.append("] ");
+        }
+        return out.toString().trim();
+    }
+
+    /**
+     * How much of each tab header the drag source actually covers.
+     *
+     * <p>Reports the header's width and whether the gesture is armed on it. The two failure modes —
+     * no gesture at all, and a gesture on something far smaller than the tab — look identical from
+     * the outside, and the second is what this feature shipped as.
+     */
+    public String tabDragReport() {
+        StringBuilder out = new StringBuilder("tabDrag ");
+        for (javafx.scene.Node header : tabs.lookupAll(".tab")) {
+            out.append(String.format(
+                    "[header=%.0f armed=%s] ",
+                    header.getBoundsInLocal().getWidth(), header.getOnDragDetected() != null));
         }
         return out.toString().trim();
     }
