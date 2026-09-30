@@ -58,10 +58,10 @@ class ProcessCwdPtyTest {
             try (CwdWatcher watcher = CwdWatcher.watch(session.pid(), reported::set)) {
                 assertTrue(await(() -> reported.get() != null), "the watcher never reported at all");
 
-                session.sendString("cd " + target + "\r");
-
+                // Login startup output can precede input readiness. Retry this idempotent command
+                // until the watcher observes the actual directory, rather than trusting first output.
                 assertTrue(
-                        await(() -> target.toString().equals(reported.get())),
+                        awaitDirectory(session, reported, target),
                         () -> "the watcher did not follow the cd. Last reported: " + reported.get());
             }
 
@@ -90,6 +90,17 @@ class ProcessCwdPtyTest {
         while (Instant.now().isBefore(deadline)) {
             if (condition.getAsBoolean()) return true;
             Thread.sleep(50);
+        }
+        return false;
+    }
+
+    private static boolean awaitDirectory(TerminalSession session, AtomicReference<String> reported, Path target)
+            throws InterruptedException {
+        Instant deadline = Instant.now().plus(TIMEOUT);
+        while (Instant.now().isBefore(deadline)) {
+            session.sendString("cd '" + target.toString().replace("'", "'\"'\"'") + "'\r");
+            Thread.sleep(1000);
+            if (target.toString().equals(reported.get())) return true;
         }
         return false;
     }

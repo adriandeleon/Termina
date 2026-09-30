@@ -1,10 +1,9 @@
 package com.termina.shell;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -12,10 +11,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+
+import com.termina.process.CommandOutput;
 
 /**
  * What shells are installed on this machine.
@@ -159,20 +159,11 @@ public final class ShellDiscovery {
      */
     private static List<String> wslDistributions() {
         try {
-            Process process = new ProcessBuilder("wsl.exe", "--list", "--quiet")
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start();
-            byte[] output;
-            try (InputStream in = process.getInputStream()) {
-                output = readAll(in);
-            }
-            if (!process.waitFor(WSL_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                return List.of();
-            }
-            // Not gated on the exit code: `wsl --list` reports a non-zero status when there are no
-            // distributions, and parsing an empty answer already gives the right result.
-            return parseWslDistributions(output);
+            // Non-zero exit codes are valid when no distributions are installed.
+            return CommandOutput.read(
+                            new ProcessBuilder("wsl.exe", "--list", "--quiet"), Duration.ofSeconds(WSL_TIMEOUT_SECONDS))
+                    .map(ShellDiscovery::parseWslDistributions)
+                    .orElse(List.of());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return List.of();
@@ -219,12 +210,6 @@ public final class ShellDiscovery {
             if (bytes[i] == 0) return new String(bytes, StandardCharsets.UTF_16LE);
         }
         return new String(bytes, StandardCharsets.UTF_8);
-    }
-
-    private static byte[] readAll(InputStream in) throws java.io.IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        in.transferTo(buffer);
-        return buffer.toByteArray();
     }
 
     // ---------------------------------------------------------------- macOS and Linux
