@@ -100,7 +100,7 @@ public final class KeyEncoding {
 
         // Ctrl+<key> produces a C0 control byte. Handled here rather than in KEY_TYPED because
         // platforms disagree about whether a control combination produces a typed character at all.
-        if (e.isControlDown() && !e.isMetaDown()) {
+        if (e.isControlDown() && !e.isAltDown() && !e.isMetaDown()) {
             byte[] control = controlByte(code);
             if (control != null) return withMeta(control, e, altIsMeta);
         }
@@ -164,7 +164,7 @@ public final class KeyEncoding {
         if (text.length() == 1 && (first < 0x20 || first == 0x7f)) return null;
 
         // Ctrl held means this is the character form of a chord KEY_PRESSED already emitted.
-        if (e.isControlDown() || e.isMetaDown()) return null;
+        if ((e.isControlDown() && !e.isAltDown()) || e.isMetaDown()) return null;
 
         // The same is now true of Alt in Meta mode: KEY_PRESSED has sent ESC and the unmodified
         // key, and this event carries the composed character that mode exists to suppress. Sending

@@ -94,20 +94,23 @@ public final class WindowManager {
         window.show();
         // A command line with something to run wins outright; otherwise the default profile decides
         // what a window opens as, which is the whole point of having chosen one.
-        String cliDirectory = cli == null ? "" : cli.workingDirectory();
-        com.termina.pty.LaunchOptions options;
         if (cli != null && cli.hasCommand()) {
-            options = cli.withShell(settings.shell());
+            window.openTab(cli.withShell(settings.shell()));
         } else {
-            com.termina.shell.Profile profile = profiles.defaultProfile();
-            options = profile == null
-                    ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
-                    : profile.toLaunchOptions("");
-            // -d is an instruction for this launch and a profile's directory is a standing
-            // preference, so the one typed just now wins.
-            if (!cliDirectory.isBlank()) options = options.withWorkingDirectory(cliDirectory);
+            profiles.whenDefaultReady(profile -> {
+                // A window closed while discovery was running must not spawn a session afterward.
+                if (!windows.contains(window)
+                        || !stage.isShowing()
+                        || !window.terminals().isEmpty()) return;
+                com.termina.pty.LaunchOptions options = profile == null
+                        ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                        : profile.toLaunchOptions("");
+                if (cli != null && !cli.workingDirectory().isBlank()) {
+                    options = options.withWorkingDirectory(cli.workingDirectory());
+                }
+                window.openTab(options);
+            });
         }
-        window.openTab(options);
         return window;
     }
 

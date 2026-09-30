@@ -36,6 +36,8 @@ final class LinkOpener implements LinkActions {
         return thread;
     });
 
+    private final Executor launcher;
+    private final java.util.function.Function<List<String>, List<String>> resolver;
     private final Consumer<String> openUrl;
     private final Supplier<String> fileCommand;
     private final BiConsumer<String, Boolean> onError;
@@ -50,6 +52,17 @@ final class LinkOpener implements LinkActions {
      *     only the first is the common one
      */
     LinkOpener(Consumer<String> openUrl, Supplier<String> fileCommand, BiConsumer<String, Boolean> onError) {
+        this(openUrl, fileCommand, onError, LAUNCHER, LinkOpener::resolved);
+    }
+
+    LinkOpener(
+            Consumer<String> openUrl,
+            Supplier<String> fileCommand,
+            BiConsumer<String, Boolean> onError,
+            Executor launcher,
+            java.util.function.Function<List<String>, List<String>> resolver) {
+        this.launcher = launcher;
+        this.resolver = resolver;
         this.openUrl = openUrl;
         this.fileCommand = fileCommand;
         this.onError = onError;
@@ -70,7 +83,7 @@ final class LinkOpener implements LinkActions {
             // a file and nothing else. The file still opens, at the top.
             argv = OpenCommand.systemOpen(System.getProperty("os.name", ""), file.toString());
         }
-        launch(resolved(argv));
+        launch(argv);
     }
 
     /**
@@ -96,9 +109,10 @@ final class LinkOpener implements LinkActions {
 
     private void launch(List<String> argv) {
         if (argv.isEmpty()) return;
-        LAUNCHER.execute(() -> {
+        launcher.execute(() -> {
             try {
-                new ProcessBuilder(argv)
+                // Resolution can start a login shell, so it belongs on the worker too.
+                new ProcessBuilder(resolver.apply(argv))
                         // An undrained pipe is this codebase's recurring way to wedge a child. We
                         // never read either stream, so neither may be one.
                         .redirectOutput(ProcessBuilder.Redirect.DISCARD)

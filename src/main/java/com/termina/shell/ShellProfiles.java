@@ -42,6 +42,8 @@ public final class ShellProfiles {
 
     private volatile boolean discoveryFinished;
 
+    private final List<java.util.function.Consumer<Profile>> pendingDefaults = new ArrayList<>();
+
     private ProfileConsumer onDiscovered = profiles -> {};
 
     /** Notified once discovery has an answer, so a menu built before then can be rebuilt. */
@@ -63,23 +65,43 @@ public final class ShellProfiles {
     /** Runs discovery once, off the toolkit thread, and reports back through {@code onDone}. */
     public void discoverInBackground(ProfileConsumer onDone) {
         this.onDiscovered = onDone == null ? profiles -> {} : onDone;
+        discoverInBackground(ShellDiscovery::discover, javafx.application.Platform::runLater);
+    }
+
+    void discoverInBackground(
+            java.util.function.Supplier<List<Profile>> discovery, java.util.function.Consumer<Runnable> dispatch) {
         Thread thread = new Thread(
                 () -> {
                     List<Profile> found;
                     try {
-                        found = ShellDiscovery.discover();
+                        found = discovery.get();
                     } catch (RuntimeException e) {
                         // A machine that cannot be probed still gets its system and user profiles.
                         found = List.of();
                     }
-                    discovered = found;
-                    discoveryFinished = true;
-                    List<Profile> all = all();
-                    javafx.application.Platform.runLater(() -> onDiscovered.accept(all));
+                    List<Profile> result = found;
+                    dispatch.accept(() -> {
+                        discovered = result;
+                        discoveryFinished = true;
+                        List<java.util.function.Consumer<Profile>> waiting = List.copyOf(pendingDefaults);
+                        pendingDefaults.clear();
+                        for (var callback : waiting) callback.accept(defaultProfile());
+                        onDiscovered.accept(all());
+                    });
                 },
                 "termina-shell-discovery");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /** Called on the toolkit thread; waits only when the requested default still needs discovery. */
+    public void whenDefaultReady(java.util.function.Consumer<Profile> callback) {
+        String id = settings.defaultProfileId();
+        if (!discoveryFinished && !id.isBlank() && byId(id) == null) {
+            pendingDefaults.add(callback);
+        } else {
+            callback.accept(defaultProfile());
+        }
     }
 
     public boolean discoveryFinished() {

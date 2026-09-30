@@ -175,6 +175,16 @@ class KeyEncodingTest {
     }
 
     @Test
+    void altGrComposesCharactersWithoutSendingControlBytes() {
+        for (boolean meta : new boolean[] {false, true}) {
+            assertNull(KeyEncoding.encodePressed(
+                    pressed(KeyCode.Q, false, true, true, false), new RecordingLookup(null), meta));
+            assertArrayEquals(
+                    "@".getBytes(StandardCharsets.UTF_8), KeyEncoding.encodeTyped(typed("@", true, true, false), meta));
+        }
+    }
+
+    @Test
     void pasteNormalisesNewlinesToCarriageReturns() {
         // A shell reading a line wants CR; sending LF submits nothing and looks like a hang.
         assertEquals("a\rb\rc", new String(KeyEncoding.encodePaste("a\r\nb\nc", false), StandardCharsets.UTF_8));
@@ -226,7 +236,7 @@ class KeyEncodingTest {
     void altGrIsNotMeta() {
         // Ctrl+Alt is how Windows and Linux keyboards reach @ \ and friends. Reading it as Meta
         // would make those layouts unable to type characters they have no other key for.
-        assertNull(KeyEncoding.encodeTyped(typed("@", true, true, false), true));
+        assertArrayEquals(new byte[] {'@'}, KeyEncoding.encodeTyped(typed("@", true, true, false), true));
         assertArrayEquals(new byte[] {'@'}, KeyEncoding.encodeTyped(typed("@", false, true, false), false));
     }
 

@@ -3,11 +3,12 @@ package com.termina.ui;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import com.termina.link.CommandPath;
+import com.termina.process.CommandOutput;
 
 /**
  * Where to look for a program the user named by bare command.
@@ -53,19 +54,11 @@ final class LoginShellPath {
         String shell = System.getenv("SHELL");
         if (shell == null || shell.isBlank() || !Files.isExecutable(Path.of(shell))) return "";
         try {
-            Process process = new ProcessBuilder(
-                            shell, "-l", "-i", "-c", "printf '" + MARKER + "%s" + MARKER + "' \"$PATH\"")
-                    // stdin from nowhere, so a profile that reads it cannot wait forever; stderr
-                    // discarded, since a banner is not an error and an undrained pipe would block.
-                    .redirectInput(ProcessBuilder.Redirect.from(new java.io.File("/dev/null")))
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start();
-            String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            if (!process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                return "";
-            }
-            return CommandPath.extractMarked(out, MARKER);
+            var output = CommandOutput.read(
+                    new ProcessBuilder(shell, "-l", "-i", "-c", "printf '" + MARKER + "%s" + MARKER + "' \"$PATH\""),
+                    Duration.ofSeconds(TIMEOUT_SECONDS));
+            return output.map(bytes -> CommandPath.extractMarked(new String(bytes, StandardCharsets.UTF_8), MARKER))
+                    .orElse("");
         } catch (InterruptedException e) {
             // Restored rather than swallowed: this runs on a caller's thread, and eating the flag
             // would hide a shutdown from whatever is above.

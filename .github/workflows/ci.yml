@@ -164,7 +164,7 @@ jobs:
 
           rm -rf "$RUNNER_TEMP/deb" && mkdir -p "$RUNNER_TEMP/deb"
           dpkg-deb -x "$deb" "$RUNNER_TEMP/deb"
-          entry=$(find "$RUNNER_TEMP/deb" -name "*.desktop" | head -1)
+          entry=$(find "$RUNNER_TEMP/deb" -type f -name "*.desktop" -print -quit)
           [ -n "$entry" ] || { echo "::error::the package installs no desktop entry"; exit 1; }
           echo "--- shipped desktop entry ---"; cat "$entry"
 
