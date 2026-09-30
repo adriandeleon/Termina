@@ -3,6 +3,34 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## 0.7.1 — 2026-09-30
+
+Fixes for keyboard input, shell-profile startup, and commands that could hang discovery or the
+interface. No new features, so the patch number moves.
+
+### Fixed
+
+- **Opening a file link no longer blocks the interface.** Resolving the configured editor command
+  can start a login shell to read its PATH; that work now runs on the launcher worker.
+- **AltGr characters reach the shell.** Ctrl+Alt combinations used to compose characters such as
+  `@` are no longer sent as control chords or discarded by the typed-character handler.
+- **Startup respects the selected shell profile.** When the saved default needs discovery, the
+  first session waits for the result instead of opening the system shell prematurely. Command-line
+  commands still launch immediately, and `-d` still takes precedence over a profile's directory.
+- **Login-shell PATH and WSL discovery enforce their five-second deadlines.** A command that keeps
+  stdout open can no longer bypass the timeout. Timed-out processes are terminated.
+
+### Maintenance
+
+- Added regressions for AltGr input, deferred profile startup, asynchronous link-command resolution,
+  and subprocess timeouts and output limits.
+- Made the working-directory integration test retry its harmless `cd` command until shell startup
+  accepts input.
+- Corrected Linux installer validation to select a regular desktop-entry file rather than the
+  bundled JDK's `java.desktop` directory.
+- Updated release-page installation instructions for the native installers and published checksum
+  filename.
+
 ## 0.7.0 — 2026-08-12
 
 A tab can be opened as any shell the machine has, rather than only as the one shell a setting could
