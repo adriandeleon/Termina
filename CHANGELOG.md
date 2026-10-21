@@ -3,7 +3,11 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.9.0 — 2026-10-21
+
+The command palette is now Editora's: the same card, the same matcher and ranking, and Emacs keys
+to drive it. It opens on Alt+X instead of Shift+Ctrl/Cmd+P, and the chord is a setting. The
+default chord changed, so the minor number moves.
 
 ### Changed
 
