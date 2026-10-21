@@ -288,7 +288,13 @@ public final class WindowManager {
      * to open it. See {@link SecondaryWindows}.
      */
     public void showSettings(Window from) {
-        if (settingsWindow == null) settingsWindow = new SettingsWindow(settings, profiles);
+        if (settingsWindow == null) {
+            // Every window binds the same chords, so the first one answers for all of them.
+            settingsWindow = new SettingsWindow(
+                    settings,
+                    profiles,
+                    chord -> windows.isEmpty() ? null : windows.get(0).labelBoundTo(chord));
+        }
         settingsWindow.show(from);
     }
 

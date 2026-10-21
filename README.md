@@ -257,11 +257,23 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
-A **command palette** on Shift+Cmd/Ctrl+P lists every command in the window, found by typing part of
-its name — "nw" reaches New Window, "ct" Close Tab. The commands are the menu bar's own actions
-rather than a parallel list that could disagree with it, so an entry is in the palette because it is
-in a menu, and its shortcut is shown because the action already carries one. The colour themes are
-appended, since a menu listing every theme is a submenu nobody opens.
+A **command palette** on Alt+X — Emacs's M-x, and the chord Editora's palette answers to — lists every
+command in the window, found by typing part of its name: "nw" reaches New Window, "ct" Close Tab,
+"tab close" finds Close Tab with the words in either order, and "file new" reaches New Tab through
+the menu it lives in. It is Editora's palette in shape and behaviour: the query row is led by a chip
+naming the chord that opened it, the characters that matched are emboldened so the ranking explains
+itself, a line under the list says what the highlighted command does, and a legend names the keys.
+Those keys are Emacs's as well as the arrows: Ctrl+N and Ctrl+P move, Ctrl+V and Alt+V page,
+Alt+< and Alt+> jump to the ends, Ctrl+G cancels, and the query field takes Ctrl+A, Ctrl+E,
+Ctrl+K and the rest of the Emacs editing chords. A command that cannot run right now — Reopen
+Closed Tab with nothing to reopen — is listed greyed with the reason as its tooltip rather than
+dropped, and the cursor steps over it. The commands are the menu bar's own actions rather than a
+parallel list that could disagree with it, so an entry is in the palette because it is in a menu,
+and its shortcut is shown because the action already carries one. The colour themes are appended,
+since a menu listing every theme is a submenu nobody opens. The chord is Terminal → Keyboard in
+Settings: click the field and press another one. A bare key is refused — the shell owns it — and
+so is a chord another command already has, since the first binding on a chord is the only one
+that runs.
 
 A **debug log** (Advanced → Diagnostics) keeps this session's warnings, errors and uncaught
 exceptions, and mirrors them to `termina-session.log` beside the settings. A packaged application
@@ -494,6 +506,11 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureTheme=editora-light # switch theme after the windows exist
   -Dtermina.captureChord=T             # fire an application chord at the scene
                                        # ...,plain for a bare key (F11) with no shortcut modifier
+                                       # ...,alt for Alt+key (X,false,alt is the palette's M-x)
+  -Dtermina.capturePalette=reo         # open the command palette with that query, listing the rows
+  -Dtermina.capturePaletteKeys=C-n,C-p # fire chords at the open palette by Emacs token, reporting
+                                       # the highlighted row after each — the only check of the
+                                       # navigation that goes through the real filters
   -Dtermina.captureMenuItem='Zoom In'  # click a context-menu item, reporting the setting it moved
   -Dtermina.captureTypeAtFocus=hello   # type at whatever owns the keyboard, and report whether the
                                        # shell received it — the only input option that goes through
