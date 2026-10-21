@@ -81,4 +81,16 @@ class CommandMatcherTest {
     void aNullLabelIsNotAMatchRatherThanACrash() {
         assertEquals(CommandMatcher.NO_MATCH, CommandMatcher.score("c", null));
     }
+
+    @Test
+    void aFailingPlacementIsRememberedAsWellAsASucceedingOne() {
+        // Every a in the query can sit on any a in the label and none of them lead anywhere,
+        // because the final c is never there. With failures not memoised that is 2^n placements
+        // retried; with them it is n^2 cells. Typing into the palette must not hang on it.
+        String label = "a".repeat(60) + "b";
+        String query = "a".repeat(28) + "c";
+        org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(2),
+                () -> assertEquals(CommandMatcher.NO_MATCH, CommandMatcher.score(query, label)));
+    }
 }
