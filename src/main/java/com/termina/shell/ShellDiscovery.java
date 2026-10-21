@@ -50,6 +50,11 @@ public final class ShellDiscovery {
      * family, plus fish and tcsh, takes it; the newer ones vary, and passing an option a shell does
      * not understand turns a menu entry into a tab that prints usage and exits — which reads as the
      * shell being broken rather than as us having guessed.
+     *
+     * <p>{@code sh}, {@code dash} and {@code rbash} are deliberately absent. They are in
+     * {@code /etc/shells} on every Debian, and they were the first two entries a Linux user saw in
+     * the menu — but nobody opens a tab as a scripting shell, and {@code sh} is a symlink to one of
+     * the others anyway. Someone who wants one adds a profile naming it.
      */
     private static final List<UnixShell> UNIX_SHELLS = List.of(
             new UnixShell("zsh", "Zsh", List.of("-l")),
@@ -59,9 +64,7 @@ public final class ShellDiscovery {
             new UnixShell("elvish", "Elvish", List.of()),
             new UnixShell("xonsh", "Xonsh", List.of()),
             new UnixShell("ksh", "Ksh", List.of("-l")),
-            new UnixShell("tcsh", "Tcsh", List.of("-l")),
-            new UnixShell("dash", "Dash", List.of("-l")),
-            new UnixShell("sh", "Sh", List.of("-l")));
+            new UnixShell("tcsh", "Tcsh", List.of("-l")));
 
     private record UnixShell(String executable, String name, List<String> loginArgs) {}
 
@@ -84,7 +87,16 @@ public final class ShellDiscovery {
         if (windows) {
             return onWindows(System::getenv, executable, ShellDiscovery::wslDistributions);
         }
-        return onUnix(System::getenv, executable, ShellDiscovery::readEtcShells);
+        return onUnix(System::getenv, executable, ShellDiscovery::readEtcShells, ShellDiscovery::realPath);
+    }
+
+    /** The path with every symlink followed, or the path itself when that cannot be answered. */
+    private static Path realPath(Path path) {
+        try {
+            return path.toRealPath();
+        } catch (Exception e) {
+            return path;
+        }
     }
 
     // ---------------------------------------------------------------- Windows
@@ -224,11 +236,28 @@ public final class ShellDiscovery {
      * <p><b>One entry per shell, not per binary.</b> A machine with Homebrew has two zsh
      * executables and a menu offering "Zsh" twice with no way to tell them apart is worse than one
      * that picks the first. Someone who wants the other one adds a profile naming it.
+     *
+     * <p><b>And one entry per real file.</b> Two names that resolve to the same binary — a
+     * distribution that ships {@code ksh} as a symlink to {@code mksh}, say — are one shell wearing
+     * two names, and the first name wins.
      */
     static List<Profile> onUnix(
             Function<String, String> env, Predicate<Path> isExecutable, Supplier<List<String>> etcShells) {
+        return onUnix(env, isExecutable, etcShells, path -> path);
+    }
+
+    /**
+     * @param realPath resolves symlinks, so two spellings of one binary collapse. Injected because
+     *     the test machine's {@code /bin} is not the one being described.
+     */
+    static List<Profile> onUnix(
+            Function<String, String> env,
+            Predicate<Path> isExecutable,
+            Supplier<List<String>> etcShells,
+            Function<Path, Path> realPath) {
         // Insertion-ordered and keyed by executable name, which is what enforces one entry each.
         Map<String, Profile> byExecutable = new LinkedHashMap<>();
+        Set<Path> realPaths = new LinkedHashSet<>();
 
         List<Path> candidates = new ArrayList<>();
         for (String line : etcShells.get()) {
@@ -250,6 +279,7 @@ public final class ShellDiscovery {
             if (fileName == null) continue;
             UnixShell shell = unixShell(fileName.toString());
             if (shell == null || byExecutable.containsKey(shell.executable())) continue;
+            if (!realPaths.add(realPath.apply(candidate))) continue;
             List<String> command = new ArrayList<>();
             command.add(candidate.toString());
             command.addAll(shell.loginArgs());

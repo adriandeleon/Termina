@@ -121,4 +121,24 @@ public final class Messages {
         }
         return "en";
     }
+
+    /**
+     * The JVM default locale to run with, given what the user asked for.
+     *
+     * <p>Only an explicit choice moves the default off the OS locale. "Automatic" means "follow
+     * the system", and the system's locale carries more than a language — the country decides
+     * number and date formats, and {@code de_AT} collapsed to {@code de} loses it. Someone whose OS
+     * speaks a language we do not bundle sees English menus either way; that is no reason to also
+     * change how their dates are written. An explicit choice keeps the country when the language is
+     * the system's own, for the same reason.
+     *
+     * @param pref the stored language preference, blank for automatic
+     * @param resolved the language the catalogue was initialised with
+     * @param system the OS locale
+     */
+    public static java.util.Locale defaultLocale(String pref, String resolved, java.util.Locale system) {
+        if (pref == null || pref.isBlank()) return system;
+        if (system != null && system.getLanguage().equals(resolved)) return system;
+        return java.util.Locale.forLanguageTag(resolved);
+    }
 }

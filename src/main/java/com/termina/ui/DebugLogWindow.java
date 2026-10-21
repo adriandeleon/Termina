@@ -49,6 +49,7 @@ final class DebugLogWindow {
         });
         Button close = new Button(tr("debuglog.close"));
         close.setOnAction(e -> stage.close());
+        close.setDefaultButton(true);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -62,6 +63,7 @@ final class DebugLogWindow {
         var css = DebugLogWindow.class.getResource("/com/termina/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
+        SecondaryWindows.closeOnEscape(stage, scene);
 
         stage.setTitle(tr("debuglog.title"));
         stage.setScene(scene);

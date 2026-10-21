@@ -77,6 +77,23 @@ class MessagesTest {
     }
 
     @Test
+    void automaticKeepsTheOperatingSystemsLocaleWhole() {
+        // The country decides dates and numbers; de_AT reduced to de loses it, and a Klingon OS
+        // that falls back to English menus is no reason to also change how its dates are written.
+        java.util.Locale austria = java.util.Locale.forLanguageTag("de-AT");
+        assertEquals(austria, Messages.defaultLocale("", "de", austria));
+        java.util.Locale klingon = java.util.Locale.forLanguageTag("tlh-US");
+        assertEquals(klingon, Messages.defaultLocale(null, "en", klingon));
+    }
+
+    @Test
+    void anExplicitChoiceMovesTheLocaleButKeepsAMatchingCountry() {
+        java.util.Locale austria = java.util.Locale.forLanguageTag("de-AT");
+        assertEquals(java.util.Locale.forLanguageTag("fr"), Messages.defaultLocale("fr", "fr", austria));
+        assertEquals(austria, Messages.defaultLocale("de", "de", austria), "same language: the OS country stays");
+    }
+
+    @Test
     void aTranslationIsActuallyUsed() {
         Messages.init("es");
         assertEquals("Copiar", Messages.tr("menu.copy"));

@@ -3,6 +3,10 @@ package com.termina.ui;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +15,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -27,17 +32,29 @@ import java.util.logging.Logger;
  * covers "it is misbehaving right now". A file beside the settings covers "it died", since a
  * crashed process cannot show its own window; it is truncated per session, so it stays the story of
  * this run rather than growing without limit.
+ *
+ * <p><b>The file is locked for the life of the process.</b> Truncating per session is right for
+ * one instance and wrong for two: a dev run without {@code TERMINA_CONFIG_DIR} wiped the packaged
+ * app's log, which is the one with the crash in it. So the file is taken with {@code tryLock}, and a
+ * second instance that finds it held writes to a sibling named after its own pid instead.
  */
 public final class DebugLog {
 
     /** Enough to hold a session's worth of trouble without holding a session's worth of memory. */
     private static final int MAX_ENTRIES = 2000;
 
+    private static final String FILE_NAME = "termina-session.log";
+
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
     private static final Deque<String> ENTRIES = new ArrayDeque<>();
 
     private static Path file;
+
+    /** Held open so the lock stays held; closing it would release the file to the next instance. */
+    private static FileChannel channel;
+
+    private static FileLock lock;
 
     private DebugLog() {}
 
@@ -65,29 +82,78 @@ public final class DebugLog {
         });
     }
 
-    /** Also mirror to {@code <configDir>/termina-session.log}, truncated for this run. */
+    /**
+     * Also mirror to {@code <configDir>/termina-session.log}, truncated for this run — or, when
+     * another instance holds that file, to {@code termina-session-<pid>.log} beside it.
+     */
     public static synchronized void attachFile(Path configDir) {
+        attachFile(configDir, ProcessHandle.current().pid());
+    }
+
+    static synchronized void attachFile(Path configDir, long pid) {
+        detachFile();
         try {
             Files.createDirectories(configDir);
-            file = configDir.resolve("termina-session.log");
-            Files.writeString(file, "", StandardCharsets.UTF_8);
+            for (Path candidate : List.of(configDir.resolve(FILE_NAME), configDir.resolve(siblingName(pid)))) {
+                if (claim(candidate)) return;
+            }
         } catch (IOException e) {
             // A log that cannot be written is not worth failing a launch over.
-            file = null;
+            detachFile();
         }
+    }
+
+    /** The name a second instance falls back to. */
+    static String siblingName(long pid) {
+        return "termina-session-" + pid + ".log";
+    }
+
+    /**
+     * Takes the file if nobody else has it. Truncation happens only after the lock is held, which
+     * is the whole point: the first version truncated first and asked no questions.
+     */
+    private static boolean claim(Path candidate) throws IOException {
+        FileChannel opened = FileChannel.open(
+                candidate, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.READ);
+        FileLock held;
+        try {
+            held = opened.tryLock();
+        } catch (OverlappingFileLockException e) {
+            // The same JVM already holds it — which, outside a test, means this very class.
+            held = null;
+        }
+        if (held == null) {
+            opened.close();
+            return false;
+        }
+        opened.truncate(0);
+        channel = opened;
+        lock = held;
+        file = candidate;
+        return true;
+    }
+
+    /** Releases the file. For tests, and for nothing else: a running app keeps its log to the end. */
+    static synchronized void detachFile() {
+        try {
+            if (lock != null) lock.release();
+            if (channel != null) channel.close();
+        } catch (IOException ignored) {
+            // Nothing left to do with a channel that will not close.
+        }
+        lock = null;
+        channel = null;
+        file = null;
     }
 
     static synchronized void append(String line) {
         ENTRIES.addLast(line);
         while (ENTRIES.size() > MAX_ENTRIES) ENTRIES.removeFirst();
-        if (file == null) return;
+        if (channel == null) return;
         try {
-            Files.writeString(
-                    file,
-                    line + System.lineSeparator(),
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.APPEND);
+            ByteBuffer bytes = ByteBuffer.wrap((line + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
+            channel.position(channel.size());
+            while (bytes.hasRemaining()) channel.write(bytes);
         } catch (IOException ignored) {
             // Same again: the in-memory copy is still there.
         }

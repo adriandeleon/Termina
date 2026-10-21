@@ -12,7 +12,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
@@ -44,17 +43,22 @@ public final class AboutWindow {
         refreshUpdateRow();
     }
 
-    public void show(Window owner) {
-        if (owner != null && stage.getOwner() == null) {
-            stage.initOwner(owner);
-            stage.initModality(Modality.NONE);
-        }
+    /**
+     * Shows the window near {@code from}, without being owned by it.
+     *
+     * <p>An owned stage closes with its owner, and an owner can be set only once — so the first
+     * version died with whichever terminal window happened to open it first, while others were
+     * still up. Unowned, it outlives any one window; it is placed beside the one that asked, which
+     * is the part of ownership that was wanted.
+     */
+    public void show(Window from) {
         refreshUpdateRow();
         if (stage.isShowing()) {
             stage.toFront();
             stage.requestFocus();
             return;
         }
+        SecondaryWindows.placeNear(stage, from);
         stage.show();
     }
 
@@ -100,6 +104,7 @@ public final class AboutWindow {
 
         Button close = new Button(tr("about.close"));
         close.setOnAction(e -> stage.hide());
+        close.setDefaultButton(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox footer = new HBox(spacer, close);
@@ -113,11 +118,13 @@ public final class AboutWindow {
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = new Scene(root, 460, 380);
+        Scene scene = new Scene(root, 460, 400);
         var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
+        SecondaryWindows.closeOnEscape(stage, scene);
         stage.setScene(scene);
+        Icons.applyTo(stage);
 
         refreshUpdateRow();
     }
@@ -128,15 +135,35 @@ public final class AboutWindow {
             Label upToDate = new Label(tr("about.upToDate"));
             upToDate.getStyleClass().add("about-uptodate");
             updateRow.getChildren().add(upToDate);
-            return;
+        } else {
+            Label headline = new Label(tr("about.updateHeadline", update.version()));
+            headline.getStyleClass().add("about-update-headline");
+            Hyperlink download = new Hyperlink(tr("about.openReleasePage"));
+            download.setOnAction(e -> {
+                String url = update.url() == null || update.url().isBlank() ? AppInfo.RELEASES_PAGE : update.url();
+                openLink.accept(url);
+            });
+            updateRow.getChildren().addAll(headline, download);
         }
-        Label headline = new Label(tr("about.updateHeadline", update.version()));
-        headline.getStyleClass().add("about-update-headline");
-        Hyperlink download = new Hyperlink(tr("about.openReleasePage"));
-        download.setOnAction(e -> {
-            String url = update.url() == null || update.url().isBlank() ? AppInfo.RELEASES_PAGE : update.url();
-            openLink.accept(url);
-        });
-        updateRow.getChildren().addAll(headline, download);
+        // When the last check ran, so "up to date" can be read as "as of when". Absent until a
+        // check has happened at all — on a fresh install with the check turned off, there is no
+        // time to show and no claim to qualify.
+        String checked = lastChecked(settings.lastUpdateCheck());
+        if (checked != null) {
+            Label when = new Label(tr("about.lastChecked", checked));
+            when.getStyleClass().add("about-details");
+            updateRow.getChildren().add(when);
+        }
+    }
+
+    /** The last check as a local date and time in the UI's locale, or null when there was none. */
+    static String lastChecked(long epochMs) {
+        if (epochMs <= 0) return null;
+        try {
+            return java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM)
+                    .format(java.time.Instant.ofEpochMilli(epochMs).atZone(java.time.ZoneId.systemDefault()));
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 }

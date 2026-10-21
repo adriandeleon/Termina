@@ -174,4 +174,35 @@ public final class UpdateCheck {
         if (lastCheckMs > nowMs) return true;
         return nowMs - lastCheckMs >= intervalMs;
     }
+
+    /**
+     * Why a check failed, in terms a sentence can be built from.
+     *
+     * <p>The exception's class name is what the first version showed, and {@code
+     * UnknownHostException} means nothing to the person reading it. The UI maps each of these to a
+     * line in its own language; the detail is a status code or a class name for the bug report.
+     */
+    public enum ErrorKind {
+        /** No network, no DNS, nothing listening: the request never reached GitHub. */
+        OFFLINE,
+        /** GitHub was reached and did not answer in time. */
+        TIMEOUT,
+        /** GitHub answered with something other than a release — rate-limited, most often. */
+        HTTP,
+        OTHER
+    }
+
+    /** Classifies the exception a request died with. */
+    public static ErrorKind classify(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof java.net.http.HttpTimeoutException) return ErrorKind.TIMEOUT;
+            if (t instanceof java.net.UnknownHostException
+                    || t instanceof java.net.ConnectException
+                    || t instanceof java.net.NoRouteToHostException
+                    || t instanceof java.net.SocketException) {
+                return ErrorKind.OFFLINE;
+            }
+        }
+        return ErrorKind.OTHER;
+    }
 }

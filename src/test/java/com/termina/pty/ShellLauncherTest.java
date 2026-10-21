@@ -79,4 +79,77 @@ class ShellLauncherTest {
         assertFalse(env.get("TERM").isBlank());
         assertTrue(env.containsKey("PATH"), "the child shell needs a PATH to find anything");
     }
+
+    @Test
+    void aChildWithNoLocaleGetsOneThatAlwaysExists() {
+        // en_US.UTF-8 has to have been generated; on a minimal image it has not been, and bash
+        // printed a setlocale warning at every prompt. C.UTF-8 ships with glibc.
+        Map<String, String> env = new java.util.HashMap<>();
+        ShellLauncher.ensureUtf8Locale(env);
+        assertEquals("C.UTF-8", env.get("LANG"));
+    }
+
+    @Test
+    void anyLocaleVariableTheUserSetIsRespected() {
+        // LC_ALL, LC_CTYPE and LANG all decide the character set; any one of them means someone
+        // chose, and a terminal that overrides a choice is a terminal with a mystery setting.
+        for (String variable : java.util.List.of("LC_ALL", "LC_CTYPE", "LANG")) {
+            Map<String, String> env = new java.util.HashMap<>(Map.of(variable, "de_DE.ISO-8859-1"));
+            ShellLauncher.ensureUtf8Locale(env);
+            assertEquals(Map.of(variable, "de_DE.ISO-8859-1"), env, variable);
+        }
+    }
+
+    // ---------------------------------------------------------------- validation
+
+    private static java.util.function.Predicate<java.nio.file.Path> present(String... paths) {
+        java.util.Set<java.nio.file.Path> set = new java.util.HashSet<>();
+        for (String p : paths) set.add(java.nio.file.Path.of(p));
+        return set::contains;
+    }
+
+    @Test
+    void theShellFieldIsToldWhyItsPathWillBeIgnored() {
+        var exists = present("/bin/zsh", "/etc/passwd");
+        var executable = present("/bin/zsh");
+        assertEquals(ShellLauncher.PathStatus.EMPTY, ShellLauncher.validateShellPath("  ", exists, executable));
+        assertEquals(ShellLauncher.PathStatus.OK, ShellLauncher.validateShellPath("/bin/zsh", exists, executable));
+        assertEquals(
+                ShellLauncher.PathStatus.NOT_FOUND, ShellLauncher.validateShellPath("/bin/zshh", exists, executable));
+        assertEquals(
+                ShellLauncher.PathStatus.NOT_EXECUTABLE,
+                ShellLauncher.validateShellPath("/etc/passwd", exists, executable));
+    }
+
+    @Test
+    void aProfileCommandIsJudgedByItsProgramAlone() {
+        var exists = present("/usr/bin/ssh", "/opt/tools/wsl.exe");
+        var executable = present("/usr/bin/ssh", "/opt/tools/wsl.exe");
+        java.util.function.Function<String, String> env = Map.of("PATH", "/usr/bin")::get;
+        // A bare name is looked up on the path, the way the shell would.
+        assertEquals(
+                ShellLauncher.PathStatus.OK,
+                ShellLauncher.validateCommand("ssh -t work tmux", env, exists, executable));
+        assertEquals(
+                ShellLauncher.PathStatus.NOT_FOUND,
+                ShellLauncher.validateCommand("wsl -d Ubuntu", env, exists, executable));
+        // A path is checked as a path; the arguments after it are not ours to judge.
+        assertEquals(
+                ShellLauncher.PathStatus.OK,
+                ShellLauncher.validateCommand("/opt/tools/wsl.exe -d Ubuntu", env, exists, executable));
+        assertEquals(ShellLauncher.PathStatus.EMPTY, ShellLauncher.validateCommand("", env, exists, executable));
+    }
+
+    @Test
+    void aStartingDirectoryHasToBeOne() {
+        var exists = present("/home/me", "/home/me/notes.txt");
+        var isDirectory = present("/home/me");
+        assertEquals(ShellLauncher.PathStatus.OK, ShellLauncher.validateDirectory("/home/me", exists, isDirectory));
+        assertEquals(
+                ShellLauncher.PathStatus.NOT_A_DIRECTORY,
+                ShellLauncher.validateDirectory("/home/me/notes.txt", exists, isDirectory));
+        assertEquals(
+                ShellLauncher.PathStatus.NOT_FOUND, ShellLauncher.validateDirectory("/home/you", exists, isDirectory));
+        assertEquals(ShellLauncher.PathStatus.EMPTY, ShellLauncher.validateDirectory(null, exists, isDirectory));
+    }
 }
