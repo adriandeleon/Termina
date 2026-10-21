@@ -68,8 +68,18 @@ class OpenCommandTest {
     void theDesktopOpenerIsPerPlatform() {
         assertEquals(List.of("open", "https://x"), OpenCommand.systemOpen("Mac OS X", "https://x"));
         assertEquals(List.of("xdg-open", "https://x"), OpenCommand.systemOpen("Linux", "https://x"));
-        // The empty title is not a typo: without it `start` reads the target as the window title.
-        assertEquals(List.of("cmd", "/c", "start", "", "https://x"), OpenCommand.systemOpen("Windows 11", "https://x"));
+        assertEquals(
+                List.of("rundll32", "url.dll,FileProtocolHandler", "https://x"),
+                OpenCommand.systemOpen("Windows 11", "https://x"));
+    }
+
+    @Test
+    void theWindowsOpenerDoesNotGoThroughCmd() {
+        // `cmd /c start "" <file>` parsed the file name first, so & | ^ and %VAR% in it ran as a
+        // command on Ctrl+click. The target has to reach the handler as one untouched argument.
+        List<String> argv = OpenCommand.systemOpen("Windows 10", "C:\\out\\a&b %TEMP%.txt");
+        assertEquals("C:\\out\\a&b %TEMP%.txt", argv.get(argv.size() - 1));
+        assertTrue(argv.stream().noneMatch(a -> a.equalsIgnoreCase("cmd")));
     }
 
     @Test

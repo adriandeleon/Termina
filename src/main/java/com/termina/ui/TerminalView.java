@@ -3,9 +3,12 @@ package com.termina.ui;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 import javafx.animation.AnimationTimer;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.VPos;
 import javafx.scene.Node;
@@ -29,6 +32,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontSmoothingType;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.util.Duration;
 
 import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.CursorShape;
@@ -46,7 +50,6 @@ import com.termina.link.LinkGesture;
 import com.termina.link.LinkMatch;
 import com.termina.link.LinkScanner;
 import com.termina.pty.CwdWatcher;
-import com.termina.pty.ProcessCwd;
 import com.termina.term.TerminalSession;
 
 import static com.termina.i18n.Messages.tr;
@@ -142,8 +145,8 @@ public final class TerminalView extends Region {
      * Rows scrolled back. 0 is the live screen; negative values reach into history. Named after
      * JediTerm's own term for the coordinate {@code processHistoryAndScreenLines} expects.
      *
-     * <p>Volatile because the history listener adjusts it from the emulator thread — see
-     * {@link #onHistoryLineCountChanged()}.
+     * <p>Volatile because the model listener adjusts it from the emulator thread — see
+     * {@link #onModelChanged()}.
      */
     private volatile int scrollOrigin;
 
@@ -159,12 +162,50 @@ public final class TerminalView extends Region {
     /** Where the current drag began, so a backwards drag extends rather than restarts. */
     private Point selectionAnchor;
 
-    /** Lines already in history, to derive the delta the history listener does not supply. */
-    private int knownHistoryLines;
+    /**
+     * How far the text moved on each change, so the selection and viewport can follow it. When the
+     * history goes, everything measured against it goes too, or the viewport scrolls into rows
+     * that no longer exist.
+     */
+    private final HistoryFollow follow = new HistoryFollow(() -> {
+        selection = null;
+        scrollOrigin = 0;
+    });
+
+    /** Fractions of a line the wheel has scrolled but not yet shown. */
+    private final WheelScroll wheel = new WheelScroll();
 
     private volatile boolean dirty = true;
     private int columns = 80;
     private int rows = 24;
+
+    /**
+     * Holds the terminal resize back until the window has stopped moving.
+     *
+     * <p>The canvas follows every layout pulse — the window must look live while it is dragged —
+     * but reflowing the whole scrollback under the buffer lock and ioctl-ing the PTY on every pulse
+     * is work the shell cannot use, since it redraws for the last size only. Each change restarts
+     * the pause; the handler reads {@link #columns} and {@link #rows} when it fires, so whatever
+     * size the drag ended at is the one applied.
+     */
+    private final PauseTransition resizeSettle = new PauseTransition(Duration.millis(60));
+
+    /** Set while a flash is queued, so a thousand BELs in one read are one flash and not a thousand. */
+    private final AtomicBoolean bellPending = new AtomicBoolean();
+
+    /** Clears the bell wash. One instance, restarted, rather than one per BEL. */
+    private final PauseTransition bellClear = new PauseTransition(Duration.millis(80));
+
+    /**
+     * Asked before a paste that contains a newline; the window supplies the dialog and the setting.
+     * Accepts everything until it is wired, so a paste is never silently dropped.
+     */
+    private Predicate<String> pasteConfirmer = text -> true;
+
+    /** The cell last reported as pointer motion, so mode 1003 hears about cells and not pixels. */
+    private int reportedMotionColumn = -1;
+
+    private int reportedMotionRow = -1;
 
     /** Alt/Option prefixes ESC rather than composing a character; see {@link KeyEncoding}. */
     private boolean altIsMeta = true;
@@ -200,7 +241,13 @@ public final class TerminalView extends Region {
         addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
         addEventFilter(MouseEvent.MOUSE_RELEASED, this::onMouseReleased);
         addEventFilter(MouseEvent.MOUSE_MOVED, this::onMouseMoved);
-        addEventFilter(MouseEvent.MOUSE_EXITED, e -> updateHover(-1, -1, false));
+        addEventFilter(MouseEvent.MOUSE_EXITED, e -> {
+            // Forgotten, not kept: a modifier pressed with the pointer elsewhere must not underline
+            // whatever happened to be under the last point it was seen at in here.
+            lastMouseX = -1;
+            lastMouseY = -1;
+            updateHover(-1, -1, false);
+        });
         addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
         // The modifier can go down and up without the mouse moving at all, and the underline has to
         // follow it either way — that is how the gesture announces itself to someone who has not
@@ -215,13 +262,24 @@ public final class TerminalView extends Region {
         display.setSelectionSupplier(() -> selection);
         // Visual bell. An audible one would mean java.awt.Toolkit.beep(), which initialises AWT —
         // see App.main for why that is off the table.
+        //
+        // Coalesced: `cat` of a binary file rings the bell thousands of times in one read, and each
+        // used to queue its own runLater and its own transition. One flash is pending at a time;
+        // the rest are the same flash.
         display.setOnBell(() -> {
-            if (bellEnabled) Platform.runLater(this::flashBell);
+            if (bellEnabled && bellPending.compareAndSet(false, true)) Platform.runLater(this::flashBell);
+        });
+        bellClear.setOnFinished(e -> markDirty());
+        resizeSettle.setOnFinished(e -> {
+            if (session != null) session.resize(columns, rows);
         });
         display.setOnAlternateScreenChanged(() -> {
             // Scrollback belongs to the primary buffer; entering or leaving the alternate screen
-            // must snap back to the live view or a full-screen program renders at an offset.
+            // must snap back to the live view or a full-screen program renders at an offset. The
+            // selection goes with it: its coordinates named text on the other screen, and left in
+            // place it was drawn over vim and copied vim's cells.
             scrollOrigin = 0;
+            selection = null;
             markDirty();
         });
     }
@@ -247,17 +305,19 @@ public final class TerminalView extends Region {
     public void start() throws IOException {
         session = new TerminalSession(display, columns, rows, scrollbackLines, launchOptions);
         buffer = session.getTextBuffer();
-        // Fires on the emulator thread for every buffer mutation — cheap by design.
-        buffer.addModelListener(this::markDirty);
-        buffer.addHistoryBufferListener(this::onHistoryLineCountChanged);
+        // Both fire on the emulator thread for every buffer mutation — cheap by design. The
+        // changes listener sees what moved; the model listener is where the view catches up.
+        buffer.addChangesListener(follow);
+        buffer.addModelListener(this::onModelChanged);
         session.setOnSessionEnded(() -> Platform.runLater(() -> {
             if (onSessionEnded != null) onSessionEnded.run();
         }));
         session.start();
-        // Started here rather than inside the session: what the directory is *for* is a UI
-        // question. The term layer reports the shell's state; it does not decide what a tab is
-        // called. Skipped outright where the OS cannot answer, so no thread runs to find out.
-        if (ProcessCwd.isSupported()) cwdWatch = CwdWatcher.watch(session.pid(), display::setCwd);
+        // Started here rather than inside the session: what the directory and the program are
+        // *for* is a UI question. The term layer reports the shell's state; it does not decide what
+        // a tab is called. On every platform, since the program half needs only ProcessHandle; the
+        // watcher skips the directory where the OS cannot answer.
+        cwdWatch = CwdWatcher.watch(session.pid(), display::setCwd, display::setProgram);
         painter.start();
         markDirty();
     }
@@ -280,6 +340,7 @@ public final class TerminalView extends Region {
 
     public void close() {
         painter.stop();
+        resizeSettle.stop();
         // Before the session: the watcher polls by pid, and a pid is reused. Left running past the
         // process it was watching, it would eventually start reporting some unrelated process's
         // directory into a tab that no longer exists.
@@ -293,12 +354,11 @@ public final class TerminalView extends Region {
 
     /** Visual bell: a brief wash over the canvas, cleared by the next frame. */
     private void flashBell() {
+        bellPending.set(false);
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.color(1, 1, 1, 0.18));
         g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        javafx.animation.PauseTransition clear = new javafx.animation.PauseTransition(javafx.util.Duration.millis(80));
-        clear.setOnFinished(e -> markDirty());
-        clear.play();
+        bellClear.playFromStart();
     }
 
     // ---------------------------------------------------------------- font & layout
@@ -452,7 +512,11 @@ public final class TerminalView extends Region {
         // it is why a proportional fallback would misalign every column.
         charWidth = probe.getLayoutBounds().getWidth();
         ascent = probe.getBaselineOffset();
-        lineHeight = Math.ceil(fontSize * LINE_SPACING);
+        // The taller of the leading we want and the height the face needs. A fixed ratio alone
+        // clipped faces with deep descenders — JetBrains Mono wants about 1.32 em — and the row
+        // below, drawn after, painted its background over the tails of every g and y above it.
+        double measured = Math.ceil(probe.getLayoutBounds().getHeight());
+        lineHeight = Math.max(Math.ceil(fontSize * LINE_SPACING), measured > 0 ? measured : 0);
         if (charWidth <= 0) charWidth = fontSize * 0.6;
     }
 
@@ -471,7 +535,10 @@ public final class TerminalView extends Region {
         if (newColumns != columns || newRows != rows) {
             columns = newColumns;
             rows = newRows;
-            if (session != null) session.resize(columns, rows);
+            // The canvas has already taken the new size above; the shell hears about it once the
+            // size has held still — see resizeSettle. Before start() there is no session to tell,
+            // and start() reads the fields directly.
+            if (session != null) resizeSettle.playFromStart();
         }
         render();
     }
@@ -584,11 +651,15 @@ public final class TerminalView extends Region {
      * bar between every pair of CJK characters, and drawing the run with one {@code fillText} also
      * lets the wide glyph's natural advance push the rest of the line off the grid.
      *
-     * <p>The all-ASCII fast path is the one that matters for throughput: it is what almost every
-     * run is, and it stays a single draw call.
+     * <p>The one-cell-per-char fast path is the one that matters for throughput: it is what almost
+     * every run is — including every box-drawing border and braille bar a TUI draws, which an
+     * earlier ASCII-only test sent down the slow path — and it stays a single draw call. The one
+     * thing it trusts is that the face, or its fallback, gives those glyphs a one-cell advance; a
+     * fallback that does not would walk a long border off the grid, and per-glyph drawing is the
+     * answer for that face rather than for every run.
      */
     private void drawGlyphs(GraphicsContext g, String text, double x, double baseline) {
-        if (isPlainAscii(text)) {
+        if (CellWidth.isOneCellPerChar(text)) {
             g.fillText(text, x, baseline);
             return;
         }
@@ -615,14 +686,6 @@ public final class TerminalView extends Region {
             cell++;
             i += slots;
         }
-    }
-
-    private static boolean isPlainAscii(String text) {
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c < 0x20 || c > 0x7e) return false;
-        }
-        return true;
     }
 
     private Font fontFor(TextStyle style) {
@@ -654,9 +717,13 @@ public final class TerminalView extends Region {
         if (!display.isCursorVisible()) return;
         // JediTerm reports the cursor row 1-based against the live screen; scrolling back moves it
         // out of view rather than dragging it along.
-        int row = display.getCursorY() - 1 - scrollOrigin;
-        int column = display.getCursorX();
-        if (row < 0 || row >= rows || column < 0 || column >= columns) return;
+        int cursorRow = display.getCursorY() - 1;
+        int row = cursorRow - scrollOrigin;
+        // After a line is written to exactly its full width the cursor is *at* the width, pending
+        // the wrap that the next character will cause. xterm draws it on the last column; bailing
+        // on it made the cursor vanish on every exactly-full line.
+        int column = Math.min(display.getCursorX(), columns - 1);
+        if (row < 0 || row >= rows || column < 0) return;
 
         double x = column * charWidth;
         double y = row * lineHeight;
@@ -667,15 +734,20 @@ public final class TerminalView extends Region {
             case BAR -> g.fillRect(x, y, 2, lineHeight);
             default -> {
                 g.fillRect(x, y, charWidth, lineHeight);
-                // Re-draw the glyph underneath in the background colour so a block cursor does not
-                // hide the character it is sitting on.
-                char ch = buffer.getCharAt(column, display.getCursorY() - 1);
-                if (ch != '\0' && ch != ' ') {
-                    g.setFill(palette.background());
-                    g.setFont(font);
-                    g.setTextBaseline(VPos.BASELINE);
-                    g.fillText(String.valueOf(ch), x, y + ascent);
-                }
+                // Re-draw the glyph underneath in the cell's background colour, so a block cursor
+                // does not hide the character it is sitting on. By slot, not column — the two
+                // differ past any astral character on the line — and in the cell's own font, or a
+                // bold cursor character came back regular for the duration.
+                String text = lineTextAt(cursorRow);
+                int slot = ColumnMap.slotAt(text, column);
+                if (slot >= text.length()) return;
+                int codePoint = text.codePointAt(slot);
+                if (codePoint == 0 || codePoint == ' ' || codePoint == CharUtils.DWC) return;
+                TextStyle style = buffer.getStyleAt(slot, cursorRow);
+                g.setFill(style == null ? palette.background() : backgroundOf(style));
+                g.setFont(style == null ? font : fontFor(style));
+                g.setTextBaseline(VPos.BASELINE);
+                g.fillText(new String(Character.toChars(codePoint)), x, y + ascent);
             }
         }
     }
@@ -709,6 +781,16 @@ public final class TerminalView extends Region {
                 return;
             }
         }
+        // The link underline follows the modifier down as well as up. Only modifier keys, so an
+        // ordinary keystroke never pays for a hover test.
+        if (e.getCode().isModifierKey()) onLinkModifierChanged(e);
+
+        // The view's own keys come before the encoder, or the shell gets CSI 5;2~ for Shift+PageUp
+        // and the scrollback never moves.
+        if (buffer != null && handleViewKey(e)) {
+            e.consume();
+            return;
+        }
         if (session == null || !session.isRunning()) return;
 
         byte[] encoded = KeyEncoding.encodePressed(e, session::keyCode, altIsMeta);
@@ -719,6 +801,26 @@ public final class TerminalView extends Region {
             session.send(encoded);
             e.consume();
         }
+    }
+
+    /** Performs a {@link ViewKeys} action, returning false when the key is not one. */
+    private boolean handleViewKey(KeyEvent e) {
+        ViewKeys.Action action = ViewKeys.of(e, display.isAlternateScreen());
+        switch (action) {
+            case NONE -> {
+                return false;
+            }
+            case PASTE -> paste();
+            case COPY -> copySelection();
+            default -> {
+                int next = ViewKeys.scrolledOrigin(action, scrollOrigin, rows, buffer.getHistoryLinesCount());
+                if (next != scrollOrigin) {
+                    scrollOrigin = next;
+                    markDirty();
+                }
+            }
+        }
+        return true;
     }
 
     private void onKeyTyped(KeyEvent e) {
@@ -739,24 +841,23 @@ public final class TerminalView extends Region {
      * Keeps the viewport and any selection pinned to their text as lines age out of the screen and
      * into history.
      *
-     * <p>Called on the emulator thread. The listener carries no delta, so it is derived from the
-     * history line count. Without this, output arriving while the user is scrolled back slides the
-     * text under them, and a selection made moments earlier silently comes to refer to different
-     * characters — which matters because copying it would then produce the wrong text.
+     * <p>Called on the emulator thread for every buffer mutation. Without this, output arriving
+     * while the user is scrolled back slides the text under them, and a selection made moments
+     * earlier silently comes to refer to different characters — which matters because copying it
+     * would then produce the wrong text. {@link HistoryFollow} says how far things moved and
+     * whether JediTerm has already moved the selection itself, which it does on a resize.
      */
-    private void onHistoryLineCountChanged() {
+    private void onModelChanged() {
         if (buffer == null) return;
-        int now = buffer.getHistoryLinesCount();
-        int delta = now - knownHistoryLines;
-        knownHistoryLines = now;
-        if (delta <= 0) return;
-
-        // At the live view (origin 0) staying pinned to the bottom is what is wanted, so only a
-        // scrolled-back viewport moves.
-        if (scrollOrigin < 0) scrollOrigin = Math.max(-now, scrollOrigin - delta);
-
-        TerminalSelection current = selection;
-        if (current != null) current.shiftY(-delta);
+        int history = buffer.getHistoryLinesCount();
+        HistoryFollow.Change change = follow.sync(history, buffer.getHeight());
+        if (change.resize()) {
+            scrollOrigin = HistoryFollow.origin(scrollOrigin, 0, history);
+        } else if (change.delta() != 0) {
+            scrollOrigin = HistoryFollow.origin(scrollOrigin, change.delta(), history);
+            TerminalSelection current = selection;
+            if (current != null) current.shiftY(-change.delta());
+        }
         markDirty();
     }
 
@@ -774,6 +875,19 @@ public final class TerminalView extends Region {
      */
     private Point cellAt(MouseEvent e) {
         int column = (int) Math.floor(e.getX() / charWidth);
+        int row = (int) Math.floor(e.getY() / lineHeight);
+        column = Math.max(0, Math.min(columns, column));
+        row = Math.max(0, Math.min(rows - 1, row));
+        int line = scrollOrigin + row;
+        return new Point(ColumnMap.slotAt(lineTextAt(line), column), line);
+    }
+
+    /**
+     * The cell boundary nearest a mouse position, as a slot — the end of a drag, where "past the
+     * middle of a cell" means the cell is in. See {@link SelectionGeometry#drag}.
+     */
+    private Point boundaryAt(MouseEvent e) {
+        int column = (int) Math.round(e.getX() / charWidth);
         int row = (int) Math.floor(e.getY() / lineHeight);
         column = Math.max(0, Math.min(columns, column));
         row = Math.max(0, Math.min(rows - 1, row));
@@ -1347,12 +1461,10 @@ public final class TerminalView extends Region {
         } finally {
             buffer.unlock();
         }
-        // Everything measured against the history that just went away has to be reset with it, or
-        // the viewport scrolls into rows that no longer exist.
-        selection = null;
+        // The model listener has already dropped the selection and the scroll offset, since the
+        // buffer announces a cleared history; the anchor is the view's own and goes here.
         selectionAnchor = null;
-        scrollOrigin = 0;
-        knownHistoryLines = 0;
+        wheel.reset();
         markDirty();
     }
 
@@ -1400,10 +1512,26 @@ public final class TerminalView extends Region {
         }
 
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {
+            // The program has this press, so nothing local may grow out of it. In mode 1000 the
+            // program hears press and release only, the drag between them is not reported, and a
+            // drag that falls through to selection must not find an anchor from some earlier
+            // plain click waiting for it.
+            selectionAnchor = null;
             e.consume();
             return;
         }
-        if (e.getButton() != MouseButton.PRIMARY || buffer == null) return;
+        if (buffer == null) return;
+        if (e.getButton() == MouseButton.MIDDLE) {
+            // Middle-click pastes, as on every X11 terminal — but the system clipboard, not the
+            // PRIMARY selection, because JavaFX has no API for PRIMARY: its Clipboard is the
+            // CLIPBOARD selection and nothing else. Selecting text here does not fill PRIMARY
+            // either, so pasting it would be the one thing this could not do anyway. Reached only
+            // when the program did not take the press, or Shift bypassed it.
+            paste();
+            e.consume();
+            return;
+        }
+        if (e.getButton() != MouseButton.PRIMARY) return;
 
         Point at = cellAt(e);
         switch (e.getClickCount()) {
@@ -1423,6 +1551,24 @@ public final class TerminalView extends Region {
         lastMouseX = e.getX();
         lastMouseY = e.getY();
         updateHover(lastMouseX, lastMouseY, LinkGesture.opensLink(MAC, e.isMetaDown(), e.isControlDown()));
+        reportMotion(e);
+    }
+
+    /**
+     * Pointer motion for a program in any-motion mode (1003), by cell rather than by pixel.
+     *
+     * <p>Gated on the mode first, so the common case is one comparison and no call into the
+     * encoder. Repeated within a cell it would be noise the protocol does not expect — xterm sends
+     * motion when the cell changes, not when the pointer does.
+     */
+    private void reportMotion(MouseEvent e) {
+        if (session == null || display.getMouseMode() != MouseMode.MOUSE_REPORTING_ALL_MOTION) return;
+        int column = column(e);
+        int row = visibleRow(e);
+        if (column == reportedMotionColumn && row == reportedMotionRow) return;
+        reportedMotionColumn = column;
+        reportedMotionRow = row;
+        reportMouse(e, com.jediterm.core.input.MouseEvent.Type.MOVED);
     }
 
     /** Follows the modifier going down or up while the pointer sits still. */
@@ -1442,15 +1588,12 @@ public final class TerminalView extends Region {
             return;
         }
         if (e.getButton() != MouseButton.PRIMARY || selectionAnchor == null) return;
-        Point at = cellAt(e);
-        TerminalSelection current = selection;
-        if (current == null) {
-            // Only on the first drag event, so a plain click never leaves an empty selection.
-            if (at.x == selectionAnchor.x && at.y == selectionAnchor.y) return;
-            current = new TerminalSelection(new Point(selectionAnchor.x, selectionAnchor.y));
-            selection = current;
-        }
-        current.updateEnd(at);
+        Point to = boundaryAt(e);
+        // Nothing until the pointer has left the cell it pressed in, so a plain click never leaves
+        // a one-cell selection behind — unless one exists already, in which case the drag is
+        // extending it and every movement counts.
+        if (selection == null && !SelectionGeometry.leftPressCell(selectionAnchor, to.y, to.x)) return;
+        selection = SelectionGeometry.drag(selectionAnchor, to.y, to.x);
         markDirty();
     }
 
@@ -1461,9 +1604,9 @@ public final class TerminalView extends Region {
      * arithmetic below is exactly the kind that looks right and is wrong by one.
      *
      * <p>{@code getNextSeparator} returns the <em>last character of the word</em>, while a
-     * selection's end is exclusive. Passing it through unadjusted drops the final character, so
-     * double-clicking "india" yields "indi" — which looks like working selection until someone
-     * pastes it.
+     * selection's end is exclusive — the one convention, see {@link SelectionGeometry}. Passing it
+     * through unadjusted drops the final character, so double-clicking "india" yields "indi" —
+     * which looks like working selection until someone pastes it.
      */
     static TerminalSelection wordSelection(Point at, TerminalTextBuffer buffer) {
         buffer.lock();
@@ -1531,15 +1674,14 @@ public final class TerminalView extends Region {
         g.setFill(selectionWash);
         for (int row = 0; row < rows; row++) {
             int line = scrollOrigin + row;
-            kotlin.Pair<Integer, Integer> span = current.intersect(0, line, slotsInRow(line));
+            // Ours, not TerminalSelection.intersect: that one counts the end column in, and the
+            // copy does not, so the highlight was a cell wider than the text it stood for.
+            int[] span = SelectionGeometry.onRow(current, line, slotsInRow(line));
             if (span == null) continue;
-            int from = span.getFirst();
-            int length = span.getSecond();
-            if (length <= 0) continue;
             // The span is in slots; the rectangle is in columns.
             String text = lineTextAt(line);
-            double x = ColumnMap.columnAt(text, from);
-            double to = ColumnMap.columnAt(text, from + length);
+            double x = ColumnMap.columnAt(text, span[0]);
+            double to = ColumnMap.columnAt(text, span[1]);
             g.fillRect(x * charWidth, row * lineHeight, (to - x) * charWidth, lineHeight);
         }
     }
@@ -1561,7 +1703,10 @@ public final class TerminalView extends Region {
         // No scrollback exists on the alternate screen; a full-screen program owns the viewport.
         if (display.isAlternateScreen()) return;
 
-        int lines = (int) Math.signum(e.getDeltaY()) * 3;
+        // By distance, with the remainder carried — see WheelScroll. The event is the view's
+        // either way; it is consumed even when it did not amount to a whole line yet.
+        int lines = wheel.lines(e.getDeltaY(), lineHeight);
+        e.consume();
         if (lines == 0) return;
         int history = buffer.getHistoryLinesCount();
         int next = Math.max(-history, Math.min(0, scrollOrigin - lines));
@@ -1569,13 +1714,26 @@ public final class TerminalView extends Region {
             scrollOrigin = next;
             markDirty();
         }
-        e.consume();
     }
 
-    /** Pastes the clipboard, honouring bracketed-paste mode if the shell enabled it. */
+    /**
+     * Supplies the question asked before a multi-line paste — the dialog, and the setting that
+     * turns it off. Returns true to go ahead. See {@link PasteSafety}.
+     */
+    public void setPasteConfirmer(Predicate<String> confirmer) {
+        this.pasteConfirmer = confirmer == null ? text -> true : confirmer;
+    }
+
+    /**
+     * Pastes the clipboard, honouring bracketed-paste mode if the shell enabled it.
+     *
+     * <p>Sanitised first and confirmed second, in that order, so what the user is asked about is
+     * what will be sent.
+     */
     public void paste() {
-        String text = Clipboard.getSystemClipboard().getString();
-        if (text == null || text.isEmpty() || session == null) return;
+        String text = KeyEncoding.sanitise(Clipboard.getSystemClipboard().getString());
+        if (text.isEmpty() || session == null) return;
+        if (PasteSafety.needsConfirmation(text) && !pasteConfirmer.test(text)) return;
         snapToLive();
         session.send(KeyEncoding.encodePaste(text, display.isBracketedPaste()));
     }

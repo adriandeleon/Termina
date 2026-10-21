@@ -65,15 +65,16 @@ public final class OpenCommand {
     /**
      * The desktop's own opener for a URL or a file.
      *
-     * <p>The Windows form is {@code cmd /c start "" <target>} — the empty string is a title for the
-     * console window {@code start} would otherwise take the target for, which turns opening a link
-     * into opening a window called that link.
+     * <p>On Windows that is the shell's file-protocol handler reached through {@code rundll32},
+     * which takes the target as a plain argument. The obvious {@code cmd /c start "" <target>} is
+     * not that: {@code cmd} parses its command line before {@code start} sees it, so a file named
+     * with {@code &}, {@code |}, {@code ^} or a {@code %VAR%} ran as a command on Ctrl+click.
      */
     public static List<String> systemOpen(String osName, String target) {
         if (target == null || target.isBlank()) return List.of();
         String os = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
         if (os.startsWith("mac")) return List.of("open", target);
-        if (os.startsWith("windows")) return List.of("cmd", "/c", "start", "", target);
+        if (os.startsWith("windows")) return List.of("rundll32", "url.dll,FileProtocolHandler", target);
         return List.of("xdg-open", target);
     }
 }
