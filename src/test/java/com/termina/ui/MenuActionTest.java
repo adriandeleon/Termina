@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -98,5 +99,23 @@ class MenuActionTest {
         assertEquals(
                 new KeyCodeCombination(KeyCode.DIGIT1, KeyCombination.ALT_DOWN),
                 MenuAction.tabChord(KeyCode.DIGIT1, false));
+    }
+
+    @Test
+    void closeWindowNeverSharesCloseTabsChord() {
+        // Off macOS appChord(W) is Ctrl+Shift+W and shiftChord(W) was the same chord, so Close
+        // Window's binding was dead while two menus and the palette advertised it.
+        for (boolean mac : new boolean[] {true, false}) {
+            assertNotEquals(MenuAction.appChord(KeyCode.W, mac), MenuAction.closeWindowChord(mac), "mac=" + mac);
+        }
+        assertTrue(MenuAction.closeWindowChord(false).match(shortcutPress(KeyCode.Q, true)));
+    }
+
+    @Test
+    void duplicateAcceleratorsAreNamedOnceEach() {
+        KeyCombination w = MenuAction.shiftChord(KeyCode.W);
+        KeyCombination t = MenuAction.shiftChord(KeyCode.T);
+        assertTrue(MenuAction.duplicateAccelerators(java.util.List.of(w, t)).isEmpty());
+        assertEquals(java.util.List.of(w), MenuAction.duplicateAccelerators(java.util.Arrays.asList(w, null, t, w, w)));
     }
 }

@@ -24,6 +24,22 @@ final class TerminalTitle {
 
     private TerminalTitle() {}
 
+    /**
+     * The title bar when the user has named the tab: the name. A name the user typed outranks
+     * anything the shell or the directory have to say — it is the one explicit instruction here —
+     * and the window follows its selected tab, as it always has.
+     */
+    static String window(String userTitle, String shellTitle, String cwd, String home) {
+        if (isSet(userTitle)) return userTitle.trim();
+        return window(shellTitle, cwd, home);
+    }
+
+    /** The tab when the user has named it: the name, whatever is running or where. */
+    static String tab(String userTitle, String shellTitle, String program, String cwd, String home) {
+        if (isSet(userTitle)) return userTitle.trim();
+        return tab(shellTitle, program, cwd, home);
+    }
+
     /** The title bar: the full path, with the home directory abbreviated the way a shell does. */
     static String window(String shellTitle, String cwd, String home) {
         if (isSet(shellTitle)) return shellTitle;

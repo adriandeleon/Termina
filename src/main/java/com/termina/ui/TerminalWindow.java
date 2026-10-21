@@ -178,6 +178,20 @@ public final class TerminalWindow {
         restoredWidth = width;
         restoredHeight = height;
         Scene scene = new Scene(overlay, width, height);
+        // The last position too, pulled back onto a screen that still exists — a monitor that has
+        // gone leaves coordinates that would put the window where nobody can reach its title bar.
+        // Another window cascading from this one overrides it afterwards (WindowManager).
+        settings.windowX()
+                .ifPresent(x -> settings.windowY().ifPresent(y -> {
+                    // Against the screen the window was on, not the primary one: clamping a second
+                    // monitor's coordinates to the primary drags every window back to it at launch.
+                    var screens = javafx.stage.Screen.getScreensForRectangle(x, y, width, height);
+                    javafx.geometry.Rectangle2D bounds =
+                            screens.isEmpty() ? screen : screens.get(0).getVisualBounds();
+                    double[] at = WindowPlacement.offsetWithin(x, y, 0, width, height, bounds);
+                    stage.setX(at[0]);
+                    stage.setY(at[1]);
+                }));
         Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
         scene.setFill(theme.palette().background());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
@@ -190,6 +204,12 @@ public final class TerminalWindow {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
 
         stage.setScene(scene);
+        // JavaFX's default full-screen exit key is Escape, handled before the scene sees the key,
+        // and it paints a "Press ESC to exit full screen" banner over the terminal. Escape belongs
+        // to the shell — vim, less and fzf all live on it — so the toggle is the only way out, both
+        // ways. Verified by driving it: F11 then an OS-level Escape left full screen until this.
+        stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+        stage.setFullScreenExitHint("");
         Icons.applyTo(stage);
         if (settings.windowMaximized()) stage.setMaximized(true);
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
@@ -199,6 +219,7 @@ public final class TerminalWindow {
         });
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
+            if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });
@@ -662,12 +683,22 @@ public final class TerminalWindow {
      * navigated away from — is not what anybody means by it.
      */
     public void openTab(com.termina.pty.LaunchOptions options) {
+        openTab(options, tabs.getTabs().size(), "");
+    }
+
+    /**
+     * @param index where in the strip the tab goes — the end for a new tab, its old place for a
+     *     reopened one, right after its original for a duplicate
+     * @param userTitle the name the user gave the tab this one stands in for, or ""
+     */
+    private void openTab(com.termina.pty.LaunchOptions options, int index, String userTitle) {
         TerminalView terminal = new TerminalView(settings.fontSize());
         applySettingsTo(terminal);
         terminal.setSessionOptions(settings.scrollbackLines(), options);
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
+        terminal.setPasteConfirmer(this::confirmPaste);
         terminal.setOnNewTab(this::openTab);
-        terminal.setOnNewWindow(windows::openWindow);
+        terminal.setOnNewWindow(() -> windows.openWindow(this));
         // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
         // which every tab and window shares, so a view cannot do this for itself.
         terminal.setZoomActions(zoomActions());
@@ -693,6 +724,17 @@ public final class TerminalWindow {
         // name for — and when a program has set a title, the path is the only place left to say
         // where that program is running.
         installDirectoryTooltip(title, terminal.getDisplay().tabTooltipProperty());
+        // A dot after the title when something happened here while another tab was selected:
+        // a bell, or output after a quiet spell. See TabMarks for the rule.
+        TabMarkState marks = new TabMarkState(title);
+        marks.setColours(Theme.byId(settings.themeId(), Theme.EDITORA_DARK).palette());
+        tab.getProperties().put(TAB_MARKS, marks);
+        terminal.setOnBellRung(() -> marks.apply(TabMarks.onBell(isSelected(tab), marks.mark)));
+        terminal.setOnOutput(() -> {
+            long now = System.currentTimeMillis();
+            marks.apply(TabMarks.onOutput(isSelected(tab), marks.mark, now, marks.lastOutputMs, TabMarks.QUIET_MS));
+            marks.lastOutputMs = now;
+        });
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
         installCloseTooltips();
@@ -700,8 +742,10 @@ public final class TerminalWindow {
         // request is the only way to stop it.
         tab.setOnCloseRequest(e -> {
             if (!confirmClose(List.of(tab))) e.consume();
+            else rememberClosed(tab);
         });
-        tabs.getTabs().add(tab);
+        terminal.getDisplay().setUserTitle(userTitle);
+        tabs.getTabs().add(Math.max(0, Math.min(index, tabs.getTabs().size())), tab);
         tabs.getSelectionModel().select(tab);
         // After the tab is in the list: the header this attaches to is built by the skin, and does
         // not exist until the tab does.
@@ -710,8 +754,17 @@ public final class TerminalWindow {
         try {
             terminal.start();
         } catch (IOException e) {
+            // Report first and remove last. Removing first fired the list listener: an empty
+            // window closed itself, the last window closing exited the toolkit, and the dialog then
+            // opened on a dead owner — so a default profile whose command had gone away left nobody
+            // a window to fix it from, and the only way back was editing the settings file.
+            boolean fallBack = shouldFallBackToDefaultShell(tabs.getTabs().size(), !options.hasCommand());
+            reportShellFailure(options, e, fallBack);
+            if (fallBack) {
+                openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                        .withWorkingDirectory(options.workingDirectory()));
+            }
             tabs.getTabs().remove(tab);
-            reportShellFailure(e);
             return;
         }
         // The shell exiting closes its own tab, not the window — the other tabs are still alive.
@@ -776,6 +829,11 @@ public final class TerminalWindow {
     }
 
     private void installTabDrag(Tab tab, javafx.scene.Node header) {
+        // Double-click renames, which is what every tabbed application teaches the hand. On the
+        // header rather than the label, for the reason the drag gesture moved there.
+        header.setOnMouseClicked(e -> {
+            if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.getClickCount() == 2) renameTab(tab);
+        });
         header.setOnDragDetected(e -> {
             if (tabs.getTabs().size() < 2) return;
             draggedTab = tab;
@@ -891,6 +949,9 @@ public final class TerminalWindow {
         ContextMenu menu = new ContextMenu(
                 tabItem(tr("menu.newTab"), MenuIcons.newTab(), this::openTab),
                 newTabAs,
+                tabItem(tr("menu.duplicateTab"), MenuIcons.duplicate(), () -> duplicateTab(tab)),
+                new SeparatorMenuItem(),
+                tabItem(tr("menu.renameTab"), MenuIcons.rename(), () -> renameTab(tab)),
                 new SeparatorMenuItem(),
                 tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> closeTab(tab)),
                 closeOthers,
@@ -939,13 +1000,259 @@ public final class TerminalWindow {
      * a remove and an add, and a shell that exited on its own.
      */
     private void closeTab(Tab tab) {
-        if (confirmClose(List.of(tab))) tabs.getTabs().remove(tab);
+        if (!confirmClose(List.of(tab))) return;
+        rememberClosed(tab);
+        tabs.getTabs().remove(tab);
     }
 
     /** One question for the whole set: closing eight tabs should not ask eight times. */
     private void closeTabs(List<Tab> doomed) {
         if (doomed.isEmpty() || !confirmClose(doomed)) return;
+        // Remembered in strip order, so reopening brings the rightmost back first and each lands
+        // in a strip that already holds the ones to its left.
+        for (Tab tab : doomed) rememberClosed(tab);
         for (Tab tab : doomed) tabs.getTabs().remove(tab);
+    }
+
+    // ---------------------------------------------------------------- tab marks
+
+    private static final String TAB_MARKS = "termina.tabMarks";
+
+    /**
+     * A tab's mark: the dot after its title, and what it currently means.
+     *
+     * <p>Attached to the label when there is something to say and detached otherwise, never merely
+     * hidden: {@code LabeledSkinBase} ignores a graphic that is unmanaged when it is set and does
+     * not revisit it, so a dot created hidden and shown later was laid out by nothing, joined no
+     * scene, and painted nowhere — measured as a mark the report called visible and the screenshot
+     * did not show. Coloured in code from the terminal palette for the same reason: a stylesheet
+     * never reaches a node that is not in the scene at the moment it is styled.
+     */
+    private static final class TabMarkState {
+        final Label title;
+        final javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(3);
+        TabMarks.Mark mark = TabMarks.Mark.NONE;
+        javafx.scene.paint.Color activity = javafx.scene.paint.Color.GRAY;
+        javafx.scene.paint.Color bell = javafx.scene.paint.Color.GRAY;
+
+        /** Opening the tab counts as output: its first prompt is not news. */
+        long lastOutputMs = System.currentTimeMillis();
+
+        TabMarkState(Label title) {
+            this.title = title;
+            title.setContentDisplay(javafx.scene.control.ContentDisplay.RIGHT);
+            title.setGraphicTextGap(6);
+        }
+
+        /** Yellow for a bell and cyan for activity, in the theme's own rendering of each. */
+        void setColours(TerminalPalette palette) {
+            activity = palette.ansi()[6];
+            bell = palette.ansi()[3];
+            paint();
+        }
+
+        void apply(TabMarks.Mark next) {
+            if (next == mark) return;
+            mark = next;
+            paint();
+            title.setGraphic(next == TabMarks.Mark.NONE ? null : dot);
+        }
+
+        private void paint() {
+            dot.setFill(mark == TabMarks.Mark.BELL ? bell : activity);
+        }
+    }
+
+    private static TabMarkState marksOf(Tab tab) {
+        return (TabMarkState) tab.getProperties().get(TAB_MARKS);
+    }
+
+    private boolean isSelected(Tab tab) {
+        return tabs.getSelectionModel().getSelectedItem() == tab;
+    }
+
+    /** Each tab's mark, in strip order — for the capture hook. */
+    public String tabMarkReport() {
+        List<String> marks = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) {
+            TabMarkState state = marksOf(tab);
+            marks.add(
+                    state == null
+                            ? "?"
+                            : state.mark.name().toLowerCase(java.util.Locale.ROOT)
+                                    + (state.title.getGraphic() == state.dot ? "(" + state.dot.getFill() + ")" : ""));
+        }
+        return "marks=" + marks;
+    }
+
+    /** Rings the bell in a tab by index, as a program would — for the capture hook. */
+    public void ringBellInTabForCapture(int index) {
+        if (index < 0 || index >= tabs.getTabs().size()) return;
+        terminalOf(tabs.getTabs().get(index)).getSession().send(new byte[] {7});
+    }
+
+    /** Runs a command in a tab by index, without selecting it — for the capture hook. */
+    public void typeInTabForCapture(int index, String text) {
+        if (index < 0 || index >= tabs.getTabs().size()) return;
+        terminalOf(tabs.getTabs().get(index)).getSession().sendString(text);
+    }
+
+    // ---------------------------------------------------------------- shortcut reference
+
+    /** The groups bindings registered outside a menu are listed under in the reference. */
+    private final java.util.Map<MenuAction, String> bindingGroups = new java.util.IdentityHashMap<>();
+
+    private MenuAction registerIn(String group, MenuAction action) {
+        bindingGroups.put(action, group);
+        return register(action);
+    }
+
+    private ShortcutsWindow shortcutsWindow;
+
+    private void showShortcuts() {
+        if (shortcutsWindow == null) shortcutsWindow = new ShortcutsWindow();
+        shortcutsWindow.show(stage, shortcuts());
+    }
+
+    /** Opens the reference, filters it, prints its rows and returns its scene — for the capture hook. */
+    public javafx.scene.Scene showShortcutsForCapture(String query) {
+        showShortcuts();
+        if (query != null && !query.isBlank()) shortcutsWindow.setQueryForCapture(query);
+        System.out.println("[capture] shortcuts " + String.join(" | ", shortcutsWindow.rows()));
+        return shortcutsWindow.scene();
+    }
+
+    /**
+     * Every shortcut this window answers to, built from what it actually has.
+     *
+     * <p>The menus first, so the list reads in menu order and says what the menus say; then the
+     * bindings that have no item of their own — the zoom row's, the tab and profile chords — under
+     * the menu they belong to; then the keys the terminal view handles by itself, which no menu
+     * lists because they are not commands.
+     */
+    List<ShortcutReference.Shortcut> shortcuts() {
+        List<ShortcutReference.Shortcut> out = new ArrayList<>();
+        java.util.Set<KeyCombination> listed = new java.util.HashSet<>();
+        for (Menu menu : menuBar.getMenus()) {
+            for (MenuItem item : menu.getItems()) {
+                if (item.getAccelerator() == null || item.getText() == null) continue;
+                out.add(new ShortcutReference.Shortcut(
+                        menu.getText(), item.getText(), item.getAccelerator().getDisplayText()));
+                listed.add(item.getAccelerator());
+            }
+        }
+        for (MenuAction binding : bindings) {
+            if (!listed.add(binding.accelerator())) continue;
+            out.add(new ShortcutReference.Shortcut(
+                    bindingGroups.getOrDefault(binding, tr("menu.window")),
+                    binding.label(),
+                    binding.accelerator().getDisplayText()));
+        }
+        String terminal = tr("shortcuts.group.terminal");
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.pageUp"), shifted(KeyCode.PAGE_UP)));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.pageDown"), shifted(KeyCode.PAGE_DOWN)));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.top"), shifted(KeyCode.HOME)));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.bottom"), shifted(KeyCode.END)));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.pasteInsert"), shifted(KeyCode.INSERT)));
+        out.add(new ShortcutReference.Shortcut(
+                terminal,
+                tr("shortcuts.copyInsert"),
+                new KeyCodeCombination(KeyCode.INSERT, KeyCombination.CONTROL_DOWN).getDisplayText()));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.pasteClipboard"), tr("shortcuts.middleClick")));
+        out.add(new ShortcutReference.Shortcut(
+                terminal, tr("shortcuts.openLink"), tr("shortcuts.modifierClick", MAC ? "Cmd" : "Ctrl")));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.selectionBypass"), tr("shortcuts.shiftDrag")));
+        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.renameTab"), tr("shortcuts.doubleClick")));
+        return out;
+    }
+
+    private static String shifted(KeyCode code) {
+        return new KeyCodeCombination(code, KeyCombination.SHIFT_DOWN).getDisplayText();
+    }
+
+    // ---------------------------------------------------------------- rename, reopen, duplicate
+
+    /**
+     * The tabs this window has closed on purpose. A shell that exited on its own is not here: the
+     * user ended it from inside, and bringing it back unasked would be a tab nobody closed.
+     */
+    private final ClosedTabs closedTabs = new ClosedTabs();
+
+    private void rememberClosed(Tab tab) {
+        TerminalView terminal = terminalOf(tab);
+        if (terminal == null) return;
+        FxTerminalDisplay display = terminal.getDisplay();
+        closedTabs.remember(new ClosedTabs.Entry(
+                ClosedTabs.inDirectory(terminal.launchOptions(), display.getCwd()),
+                display.getUserTitle(),
+                tabs.getTabs().indexOf(tab)));
+    }
+
+    /** Brings back the most recently closed tab: same shell, its last directory, its old place. */
+    public void reopenClosedTab() {
+        closedTabs
+                .pop()
+                .ifPresent(entry -> openTab(
+                        entry.options(),
+                        ClosedTabs.reopenIndex(entry.index(), tabs.getTabs().size()),
+                        entry.userTitle()));
+    }
+
+    /** Opens a second tab like this one — same shell, where it is now — right after it. */
+    private void duplicateTab(Tab tab) {
+        TerminalView terminal = terminalOf(tab);
+        if (terminal == null) return;
+        FxTerminalDisplay display = terminal.getDisplay();
+        openTab(
+                ClosedTabs.inDirectory(terminal.launchOptions(), display.getCwd()),
+                tabs.getTabs().indexOf(tab) + 1,
+                display.getUserTitle());
+    }
+
+    /** Asks for a name and sets it; an empty answer clears the name, cancelling changes nothing. */
+    private void renameTab(Tab tab) {
+        TerminalView terminal = terminalOf(tab);
+        if (terminal == null) return;
+        FxTerminalDisplay display = terminal.getDisplay();
+        renamer.apply(display.getUserTitle(), display.automaticTabTitle()).ifPresent(display::setUserTitle);
+    }
+
+    /** Supplies the name. Replaced by the capture hook, which cannot type into a modal dialog. */
+    private java.util.function.BiFunction<String, String, java.util.Optional<String>> renamer = this::askForTabName;
+
+    private java.util.Optional<String> askForTabName(String current, String automatic) {
+        javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(current);
+        dialog.initOwner(stage);
+        dialog.setTitle(com.termina.AppInfo.NAME);
+        dialog.setHeaderText(tr("dialog.renameTab"));
+        dialog.setContentText(tr("dialog.renameTabDetail"));
+        dialog.setGraphic(null);
+        // The automatic title as the placeholder, so an empty field shows what clearing gives.
+        dialog.getEditor().setPromptText(automatic);
+        javafx.scene.Node ok = dialog.getDialogPane().lookupButton(ButtonType.OK);
+        if (ok instanceof Button button) button.setText(tr("dialog.rename"));
+        return dialog.showAndWait().map(String::trim);
+    }
+
+    private void withActiveTab(java.util.function.Consumer<Tab> action) {
+        Tab selected = tabs.getSelectionModel().getSelectedItem();
+        if (selected != null) action.accept(selected);
+    }
+
+    /** Names the active tab without the dialog — for the capture hook. */
+    public void renameActiveTabForCapture(String name) {
+        renamer = (current, automatic) -> java.util.Optional.ofNullable(name);
+        withActiveTab(this::renameTab);
+    }
+
+    /** Duplicates the active tab — for the capture hook. */
+    public void duplicateActiveTabForCapture() {
+        withActiveTab(this::duplicateTab);
+    }
+
+    /** How many closed tabs could be reopened — for the capture hook. */
+    public int closedTabCount() {
+        return closedTabs.size();
     }
 
     /**
@@ -980,6 +1287,61 @@ public final class TerminalWindow {
             System.out.println("[capture] close prompt for " + running + " -> " + (answer ? "close" : "cancel"));
             return answer;
         };
+    }
+
+    /**
+     * Asks before a paste that contains a line break, when the setting says to.
+     *
+     * <p>At a prompt every line of a paste runs the moment it lands, which is how a copied snippet
+     * with a stray newline becomes an executed command. Paste is the default button all the same:
+     * most multi-line pastes are meant, and the dialog's job is to show the text, not to stall it.
+     * Replaced by the capture hook, which cannot click a modal dialog.
+     */
+    private boolean confirmPaste(String text) {
+        if (!settings.confirmPaste()) return true;
+        return pasteConfirmer.test(text);
+    }
+
+    private java.util.function.Predicate<String> pasteConfirmer = this::askBeforePasting;
+
+    /** @param answer what the paste prompt should return, for the capture hook */
+    public void setPasteAnswerForCapture(boolean answer) {
+        pasteConfirmer = text -> {
+            System.out.println("[capture] paste prompt for " + lineCount(text) + " lines -> " + answer);
+            return answer;
+        };
+    }
+
+    /** Lines a paste holds, as the dialog counts them: a trailing break still ends a line. */
+    static int lineCount(String text) {
+        if (text == null || text.isEmpty()) return 0;
+        int count = 1;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || (c == '\r' && (i + 1 >= text.length() || text.charAt(i + 1) != '\n'))) count++;
+        }
+        return count;
+    }
+
+    private boolean askBeforePasting(String text) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.initOwner(stage);
+        alert.setTitle(com.termina.AppInfo.NAME);
+        alert.setHeaderText(tr("dialog.pasteMultiline", lineCount(text)));
+        alert.setContentText(tr("dialog.pasteMultilineDetail"));
+        // The text itself, so the decision is made on what will actually be sent rather than on
+        // a count. Monospace and bounded: a thousand-line paste must not become a screen-high box.
+        javafx.scene.control.TextArea preview = new javafx.scene.control.TextArea(text);
+        preview.setEditable(false);
+        preview.setWrapText(false);
+        preview.getStyleClass().add("paste-preview");
+        preview.setPrefRowCount(Math.min(12, Math.max(3, lineCount(text))));
+        alert.getDialogPane().setExpandableContent(preview);
+        alert.getDialogPane().setExpanded(true);
+        ButtonType paste = new ButtonType(tr("dialog.paste"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(cancel, paste);
+        return alert.showAndWait().orElse(cancel) == paste;
     }
 
     private boolean askBeforeClosing(List<String> running, int tabCount) {
@@ -1244,6 +1606,11 @@ public final class TerminalWindow {
 
     private double restoredHeight;
 
+    /** The window's position ignoring maximization; NaN until the stage has reported one. */
+    private double restoredX = Double.NaN;
+
+    private double restoredY = Double.NaN;
+
     /**
      * Width kept clear at the right end of the strip for the two buttons that float over it.
      *
@@ -1307,9 +1674,17 @@ public final class TerminalWindow {
         scene.heightProperty().addListener((o, was, now) -> {
             if (!stage.isMaximized()) restoredHeight = now.doubleValue();
         });
+        // The position as well, on the same terms: a maximized window reports the screen's corner.
+        stage.xProperty().addListener((o, was, now) -> {
+            if (!stage.isMaximized()) restoredX = now.doubleValue();
+        });
+        stage.yProperty().addListener((o, was, now) -> {
+            if (!stage.isMaximized()) restoredY = now.doubleValue();
+        });
         // Hiding, not hidden: WindowManager's own onHidden handler ends the app when the last
         // window goes, and the write has to have happened by then.
-        stage.setOnHiding(e -> settings.setWindowGeometry(restoredWidth, restoredHeight, stage.isMaximized()));
+        stage.setOnHiding(e ->
+                settings.setWindowGeometry(restoredX, restoredY, restoredWidth, restoredHeight, stage.isMaximized()));
     }
 
     public void show() {
@@ -1376,10 +1751,15 @@ public final class TerminalWindow {
         Menu file = menu(
                 tr("menu.file"),
                 register(MenuAction.of(tr("menu.newTab"), MenuAction.appChord(KeyCode.T), this::openTab)),
-                register(MenuAction.of(tr("menu.newWindow"), MenuAction.appChord(KeyCode.N), windows::openWindow)),
+                register(MenuAction.of(
+                        tr("menu.newWindow"), MenuAction.appChord(KeyCode.N), () -> windows.openWindow(this))),
                 null,
                 register(MenuAction.of(tr("menu.closeTab"), MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
-                register(MenuAction.of(tr("menu.closeWindow"), MenuAction.shiftChord(KeyCode.W), this::close)),
+                register(MenuAction.of(tr("menu.closeWindow"), MenuAction.closeWindowChord(), this::close)),
+                // Cmd+Z on macOS, which is iTerm2's "Undo Close"; Ctrl+Shift+Z elsewhere, where the
+                // browsers' Ctrl+Shift+T is already New Tab.
+                register(MenuAction.of(
+                        tr("menu.reopenClosedTab"), MenuAction.appChord(KeyCode.Z), this::reopenClosedTab)),
                 null,
                 register(MenuAction.of(
                         tr("menu.settings"),
@@ -1395,6 +1775,13 @@ public final class TerminalWindow {
         newTabAs.getItems().add(new MenuItem(""));
         newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
         file.getItems().add(1, newTabAs);
+        // Greyed when there is nothing to bring back — an item that does nothing when clicked is
+        // worse than one that says it cannot.
+        file.setOnShowing(e -> {
+            for (MenuItem item : file.getItems()) {
+                if (tr("menu.reopenClosedTab").equals(item.getText())) item.setDisable(closedTabs.isEmpty());
+            }
+        });
 
         // The chords the submenu advertises. They have to be registered here because the menu's own
         // accelerators never fire in this window — TerminalView consumes Ctrl+<key> first, which is
@@ -1402,10 +1789,12 @@ public final class TerminalWindow {
         // nothing would be worse than showing none.
         for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
             int chosen = number;
-            register(MenuAction.of(
-                    tr("menu.newTabProfileNumber", number),
-                    MenuAction.shiftChord(digitKey(number)),
-                    () -> openProfileByNumber(chosen)));
+            registerIn(
+                    tr("menu.file"),
+                    MenuAction.of(
+                            tr("menu.newTabProfileNumber", number),
+                            MenuAction.shiftChord(digitKey(number)),
+                            () -> openProfileByNumber(chosen)));
         }
 
         Menu edit = menu(
@@ -1432,8 +1821,11 @@ public final class TerminalWindow {
         // the View menu shows it instead of four items, and these keep their chords and their place
         // in the palette through command(), which is what records a command with no item of its own.
         // Under a system menu bar they are the items — see showsZoomRow.
+        // EQUALS, not PLUS: on every common layout + is Shift+=, so the key JavaFX reports for
+        // Ctrl and that key is EQUALS, and a menu saying "Ctrl++" named a chord no keyboard
+        // produces. PLUS and the numeric keypad's ADD stay accepted in onKeyPressed.
         MenuAction zoomIn = MenuAction.of(
-                tr("menu.zoomIn"), new KeyCodeCombination(KeyCode.PLUS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1));
+                tr("menu.zoomIn"), new KeyCodeCombination(KeyCode.EQUALS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1));
         MenuAction zoomOut = MenuAction.of(
                 tr("menu.zoomOut"),
                 new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
@@ -1446,16 +1838,26 @@ public final class TerminalWindow {
         List<MenuAction> viewActions = List.of(zoomIn, zoomOut, actualSize, fullScreen);
         // Only the row's actions need recording here. As items they reach the palette the ordinary
         // way, by being in a menu, and recording them twice would list each of them twice.
-        if (showsZoomRow(SYSTEM_MENU_BAR)) viewActions.forEach(this::command);
-        else viewActions.forEach(this::register);
+        if (showsZoomRow(SYSTEM_MENU_BAR)) {
+            viewActions.forEach(action -> {
+                bindingGroups.put(action, tr("menu.view"));
+                command(action);
+            });
+        } else {
+            viewActions.forEach(this::register);
+        }
 
-        // Chords and palette entries, but no menu items: nine rows would be most of the Window
-        // menu, and all but the first few dead whenever fewer tabs are open.
+        // Chords only: no menu items — nine rows would be most of the Window menu, and all but the
+        // first few dead whenever fewer tabs are open — and no palette entries here either. The
+        // palette lists the tabs that exist, by title, when it opens (showPalette); nine numbered
+        // rows that were mostly dead drowned the entries people actually searched for.
         for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
             int selected = number;
             KeyCode digit = KeyCode.valueOf("DIGIT" + number);
             String title = number == TAB_CHORD_COUNT ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
-            command(MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected)));
+            registerIn(
+                    tr("menu.window"),
+                    MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected)));
         }
 
         List<MenuAction> viewItems = new java.util.ArrayList<>();
@@ -1478,10 +1880,11 @@ public final class TerminalWindow {
             // opened while the bar is showing, and a checkbox you can only see when it is
             // ticked says nothing. The way back is the right-click menu, which is reachable
             // either way and therefore does carry a checkbox.
-            viewItems.add(register(MenuAction.of(
+            menuBarToggle = register(MenuAction.of(
                     tr("menu.hideMenuBar"),
                     new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                    () -> settings.setShowMenuBar(!settings.showMenuBar()))));
+                    () -> settings.setShowMenuBar(!settings.showMenuBar())));
+            viewItems.add(menuBarToggle);
         }
         // Added to the list by hand rather than through menu(): a palette that offers to open the
         // palette is noise in every search.
@@ -1518,7 +1921,12 @@ public final class TerminalWindow {
                 register(MenuAction.of(
                         tr("menu.moveTabRight"),
                         new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                        () -> moveSelectedTab(1))));
+                        () -> moveSelectedTab(1))),
+                null,
+                // No chords: neither has one anywhere else, and a tab's own menu is where the hand
+                // goes. They are here for the palette, and so the keyboard can reach them at all.
+                MenuAction.of(tr("menu.renameTab"), () -> withActiveTab(this::renameTab)),
+                MenuAction.of(tr("menu.duplicateTab"), () -> withActiveTab(this::duplicateTab)));
 
         // Help is built by hand rather than through menu(), because its update entry is a MenuItem
         // this class relabels later. Its two actions are added to the palette explicitly.
@@ -1527,9 +1935,14 @@ public final class TerminalWindow {
                 MenuAction.of(tr("menu.checkForUpdates"), () -> windows.checkForUpdatesNow(this::report));
         updateItem = checkForUpdates.toMenuItem();
         Menu help = new Menu(tr("menu.help"));
+        // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
+        // which is the "?" key under the usual modifier.
+        MenuAction shortcutsRef = register(
+                MenuAction.of(tr("menu.keyboardShortcuts"), MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
+        commands.add(shortcutsRef);
         commands.add(about);
         commands.add(checkForUpdates);
-        help.getItems().addAll(about.toMenuItem(), updateItem);
+        help.getItems().addAll(shortcutsRef.toMenuItem(), new SeparatorMenuItem(), about.toMenuItem(), updateItem);
 
         // The Help menu is where an available update shows up. Termina has no status bar, which is
         // where Editora puts its badge, and a banner over the terminal would cost a row of the
@@ -1626,6 +2039,25 @@ public final class TerminalWindow {
     /** 1 through 9, the range every terminal binds. */
     static final int TAB_CHORD_COUNT = 9;
 
+    /** The View menu's hide/show entry, relabelled for the palette to say which one it is. */
+    private MenuAction menuBarToggle;
+
+    /**
+     * The number whose chord selects a tab, or 0 when none does — the inverse of {@link
+     * #tabIndexFor}. The last tab answers to 9 whatever its index; a tab past the eighth that is
+     * not last has no chord.
+     */
+    static int tabNumberFor(int index, int tabCount) {
+        if (index < 0 || index >= tabCount) return 0;
+        if (index == tabCount - 1) return TAB_CHORD_COUNT;
+        return index < TAB_CHORD_COUNT - 1 ? index + 1 : 0;
+    }
+
+    private static KeyCombination tabChordFor(int index, int tabCount) {
+        int number = tabNumberFor(index, tabCount);
+        return number == 0 ? null : MenuAction.tabChord(digitKey(number));
+    }
+
     private void selectTabByNumber(int number) {
         int index = tabIndexFor(number, tabs.getTabs().size());
         if (index >= 0) tabs.getSelectionModel().select(index);
@@ -1645,7 +2077,17 @@ public final class TerminalWindow {
     }
 
     private MenuAction register(MenuAction action) {
-        if (action.accelerator() != null) bindings.add(action);
+        if (action.accelerator() != null) {
+            bindings.add(action);
+            // Loud, because the quiet form already shipped: a second binding on a chord is never
+            // reached, while its menu item and palette row go on advertising it.
+            List<KeyCombination> taken =
+                    bindings.stream().map(MenuAction::accelerator).toList();
+            List<KeyCombination> duplicates = MenuAction.duplicateAccelerators(taken);
+            if (!duplicates.isEmpty()) {
+                throw new IllegalStateException("chord bound twice: " + duplicates + " (" + action.label() + ")");
+            }
+        }
         return action;
     }
 
@@ -1680,8 +2122,8 @@ public final class TerminalWindow {
                 return;
             }
         }
-        // Zoom-in reaches here as EQUALS on most layouts, since + is the shifted key.
-        if (e.isShortcutDown() && !e.isShiftDown() && (e.getCode() == KeyCode.EQUALS || e.getCode() == KeyCode.ADD)) {
+        // The bound chord is Ctrl+=; a layout with a real + key, and the keypad's +, zoom too.
+        if (e.isShortcutDown() && (e.getCode() == KeyCode.PLUS || e.getCode() == KeyCode.ADD)) {
             zoom(1);
             e.consume();
         }
@@ -1765,6 +2207,10 @@ public final class TerminalWindow {
         // for.
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
+        for (Tab tab : tabs.getTabs()) {
+            TabMarkState marks = marksOf(tab);
+            if (marks != null) marks.setColours(theme.palette());
+        }
     }
 
     private void applySettingsTo(TerminalView terminal) {
@@ -1786,6 +2232,23 @@ public final class TerminalWindow {
      */
     private void showPalette() {
         List<MenuAction> all = new ArrayList<>(commands);
+        // The View menu's item can only say "Hide", since the menu is inside the bar; the palette
+        // is reachable either way, so its row has to name the move that is actually available.
+        if (menuBarToggle != null) {
+            int at = all.indexOf(menuBarToggle);
+            String label = settings.showMenuBar() ? tr("menu.hideMenuBar") : tr("menu.showMenuBar");
+            if (at >= 0) all.set(at, MenuAction.of(label, menuBarToggle.accelerator(), menuBarToggle.action()));
+        }
+        // The tabs that exist, by title, each with the chord that reaches it — rather than nine
+        // numbered rows of which most were dead.
+        List<Tab> open = tabs.getTabs();
+        for (int index = 0; index < open.size(); index++) {
+            int selected = index;
+            all.add(MenuAction.of(
+                    tr("palette.goToTab", index + 1, label(open.get(index))),
+                    tabChordFor(index, open.size()),
+                    () -> tabs.getSelectionModel().select(selected)));
+        }
         // By name rather than by number. The submenu's chords are "profile 3"; here there is room to
         // say "Ubuntu (WSL)", which is the only form anybody would search for.
         for (com.termina.shell.Profile profile : windows.profiles().all()) {
@@ -1830,15 +2293,43 @@ public final class TerminalWindow {
         return String.join(" | ", palette.visibleCommands());
     }
 
-    private void reportShellFailure(IOException e) {
+    /**
+     * Whether a tab that failed to start should be replaced by one running the default shell.
+     *
+     * <p>Only when the window would otherwise be left empty — an empty window closes itself, and
+     * the last one closing quits — and only when what failed was not the default shell already,
+     * since retrying the same command would fail the same way and loop.
+     *
+     * @param tabCount tabs in the window, the failed one still among them
+     * @param failedWasDefaultShell whether the failed launch was already the plain shell
+     */
+    static boolean shouldFallBackToDefaultShell(int tabCount, boolean failedWasDefaultShell) {
+        return tabCount <= 1 && !failedWasDefaultShell;
+    }
+
+    /** The command a launch would run, for the message: the profile's own, or the shell's. */
+    private static String commandLineOf(com.termina.pty.LaunchOptions options) {
+        List<String> command =
+                options.hasCommand() ? options.command() : com.termina.pty.ShellLauncher.shellCommand(options.shell());
+        return com.termina.cli.Argv.join(command);
+    }
+
+    private void reportShellFailure(com.termina.pty.LaunchOptions options, IOException e, boolean fellBack) {
         // Logged as well as shown. The dialog says one sentence and is then gone; this is the part
         // that survives to be pasted into a bug report, and it carries the stack trace.
-        System.getLogger(TerminalWindow.class.getName()).log(System.Logger.Level.ERROR, "could not start a shell", e);
+        System.getLogger(TerminalWindow.class.getName())
+                .log(System.Logger.Level.ERROR, "could not start " + commandLineOf(options), e);
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.initOwner(stage);
         alert.setTitle(com.termina.AppInfo.NAME);
         alert.setHeaderText(tr("dialog.shellFailed"));
-        alert.setContentText(String.valueOf(e.getMessage()));
-        alert.showAndWait();
+        // The command, not only pty4j's "Exec_tty error:Unknown reason": the overwhelmingly common
+        // cause is a path that names nothing, and the message has to show the path to be acted on.
+        String detail = tr("dialog.shellFailedDetail", commandLineOf(options), String.valueOf(e.getMessage()));
+        if (fellBack) detail = detail + "\n\n" + tr("dialog.shellFailedFallback");
+        alert.setContentText(detail);
+        // Shown, not waited for: the fallback tab opens underneath it, so the window is usable the
+        // moment it appears and the dialog is an explanation rather than a gate.
+        alert.show();
     }
 }

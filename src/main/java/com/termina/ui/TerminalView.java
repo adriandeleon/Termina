@@ -210,9 +210,31 @@ public final class TerminalView extends Region {
     /** Alt/Option prefixes ESC rather than composing a character; see {@link KeyEncoding}. */
     private boolean altIsMeta = true;
 
+    /** Told once per frame in which the shell wrote something; the window marks a background tab. */
+    private Runnable onOutput = () -> {};
+
+    /** Told on the FX thread once per coalesced bell, whether or not the flash is on. */
+    private Runnable onBellRung = () -> {};
+
+    /** Set on the emulator thread by any model change; consumed by the frame that follows. */
+    private volatile boolean outputPending;
+
+    public void setOnOutput(Runnable onOutput) {
+        this.onOutput = onOutput == null ? () -> {} : onOutput;
+    }
+
+    public void setOnBellRung(Runnable onBellRung) {
+        this.onBellRung = onBellRung == null ? () -> {} : onBellRung;
+    }
+
     private final AnimationTimer painter = new AnimationTimer() {
         @Override
         public void handle(long now) {
+            // Per frame, not per write — a flood of output is one piece of news.
+            if (outputPending) {
+                outputPending = false;
+                onOutput.run();
+            }
             if (dirty) {
                 dirty = false;
                 render();
@@ -267,7 +289,7 @@ public final class TerminalView extends Region {
         // used to queue its own runLater and its own transition. One flash is pending at a time;
         // the rest are the same flash.
         display.setOnBell(() -> {
-            if (bellEnabled && bellPending.compareAndSet(false, true)) Platform.runLater(this::flashBell);
+            if (bellPending.compareAndSet(false, true)) Platform.runLater(this::onBell);
         });
         bellClear.setOnFinished(e -> markDirty());
         resizeSettle.setOnFinished(e -> {
@@ -286,6 +308,11 @@ public final class TerminalView extends Region {
 
     private int scrollbackLines = Settings.DEFAULT_SCROLLBACK;
     private com.termina.pty.LaunchOptions launchOptions = com.termina.pty.LaunchOptions.DEFAULTS;
+
+    /** What this tab was started with — for duplicating it, and for reopening it once closed. */
+    public com.termina.pty.LaunchOptions launchOptions() {
+        return launchOptions;
+    }
 
     /**
      * Options fixed at session start. Changing either afterwards cannot affect the running shell —
@@ -352,9 +379,15 @@ public final class TerminalView extends Region {
         dirty = true;
     }
 
+    /** One coalesced bell: the flash if it is on, and the tab's mark either way. */
+    private void onBell() {
+        bellPending.set(false);
+        if (bellEnabled) flashBell();
+        onBellRung.run();
+    }
+
     /** Visual bell: a brief wash over the canvas, cleared by the next frame. */
     private void flashBell() {
-        bellPending.set(false);
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.color(1, 1, 1, 0.18));
         g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
@@ -858,6 +891,7 @@ public final class TerminalView extends Region {
             TerminalSelection current = selection;
             if (current != null) current.shiftY(-change.delta());
         }
+        outputPending = true;
         markDirty();
     }
 

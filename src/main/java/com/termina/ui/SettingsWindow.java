@@ -596,6 +596,7 @@ public final class SettingsWindow {
     private Spinner<Integer> scrollback;
     private ComboBox<Settings.CursorShape> cursorShape;
     private CheckBox altIsMeta;
+    private CheckBox confirmPaste;
     private CheckBox bell;
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
@@ -934,6 +935,19 @@ public final class SettingsWindow {
                 tr("settings.altIsMeta.desc"),
                 altIsMeta,
                 "alt option meta escape readline compose");
+
+        confirmPaste = new CheckBox();
+        confirmPaste.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setConfirmPaste(value);
+        });
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.confirmPaste"),
+                tr("settings.confirmPaste.desc"),
+                confirmPaste,
+                "paste clipboard multiline newline confirm ask safety");
     }
 
     // ---------------------------------------------------------------- profiles
@@ -1334,6 +1348,7 @@ public final class SettingsWindow {
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
+            confirmPaste.setSelected(settings.confirmPaste());
             bell.setSelected(settings.bell());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());

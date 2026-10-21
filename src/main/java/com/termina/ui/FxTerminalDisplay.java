@@ -58,6 +58,9 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     /** What the shell is running, from the same watcher as the directory; empty at a prompt. */
     private volatile String program = "";
 
+    /** A name the user gave the tab; empty for the automatic title. Outranks everything else. */
+    private volatile String userTitle = "";
+
     private final String home = System.getProperty("user.home", "");
 
     private final StringProperty windowTitle = new SimpleStringProperty(AppInfo.NAME);
@@ -194,9 +197,24 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         refreshTitles();
     }
 
+    /** Names the tab, or clears the name with an empty string so the automatic title returns. */
+    public void setUserTitle(String title) {
+        userTitle = title == null ? "" : title.trim();
+        refreshTitles();
+    }
+
+    public String getUserTitle() {
+        return userTitle;
+    }
+
+    /** What the tab would be called with no name set — the rename dialog's placeholder. */
+    public String automaticTabTitle() {
+        return TerminalTitle.tab(shellTitle, program, cwd, home);
+    }
+
     private void refreshTitles() {
-        String window = TerminalTitle.window(shellTitle, cwd, home);
-        String tab = TerminalTitle.tab(shellTitle, program, cwd, home);
+        String window = TerminalTitle.window(userTitle, shellTitle, cwd, home);
+        String tab = TerminalTitle.tab(userTitle, shellTitle, program, cwd, home);
         String tooltip = TerminalTitle.tooltip(shellTitle, cwd, home);
         Platform.runLater(() -> {
             windowTitle.set(window);

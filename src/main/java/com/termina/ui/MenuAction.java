@@ -1,6 +1,10 @@
 package com.termina.ui;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
@@ -61,6 +65,43 @@ public record MenuAction(String label, KeyCombination accelerator, Runnable acti
         return mac
                 ? new KeyCodeCombination(digit, KeyCombination.SHORTCUT_DOWN)
                 : new KeyCodeCombination(digit, KeyCombination.ALT_DOWN);
+    }
+
+    /**
+     * The chord for closing a window.
+     *
+     * <p>Not {@link #shiftChord}{@code (W)}: off macOS that is {@code Ctrl+Shift+W}, which is also
+     * what {@link #appChord}{@code (W)} gives Close Tab, and the filter runs bindings in order — so
+     * Close Window's chord was dead while two menus and the palette advertised it. macOS keeps
+     * {@code Cmd+Shift+W}, its own convention; everywhere else it is {@code Ctrl+Shift+Q}, which is
+     * GNOME Terminal's and Konsole's.
+     */
+    public static KeyCombination closeWindowChord() {
+        return closeWindowChord(MAC);
+    }
+
+    /** Package-visible so both platform branches are testable. */
+    static KeyCombination closeWindowChord(boolean mac) {
+        return mac
+                ? new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+                : new KeyCodeCombination(KeyCode.Q, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
+    }
+
+    /**
+     * The accelerators that appear more than once in a binding table.
+     *
+     * <p>Two bindings on one chord is not an error JavaFX reports: the filter runs the first and
+     * the second is simply never reached, while its menu item goes on advertising it. Asked at
+     * registration so a dev run fails loudly, and by the tests over both platform branches.
+     */
+    static List<KeyCombination> duplicateAccelerators(List<KeyCombination> accelerators) {
+        Set<KeyCombination> seen = new HashSet<>();
+        List<KeyCombination> duplicates = new ArrayList<>();
+        for (KeyCombination accelerator : accelerators) {
+            if (accelerator == null) continue;
+            if (!seen.add(accelerator) && !duplicates.contains(accelerator)) duplicates.add(accelerator);
+        }
+        return duplicates;
     }
 
     /** A chord that already includes Shift on every platform (tab navigation, for instance). */

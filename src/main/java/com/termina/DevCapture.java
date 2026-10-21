@@ -136,6 +136,11 @@ final class DevCapture {
                 fireMenuItemIfRequested(active, settings);
                 selectTabIfRequested(window);
                 closeTabsIfRequested(window);
+                renameTabIfRequested(window);
+                duplicateTabIfRequested(window);
+                reopenTabIfRequested(window);
+                bellInTabIfRequested(window);
+                typeInTabIfRequested(window);
                 if (settings != null) switchThemeIfRequested(settings);
                 // Before the settle pause, not after: a resize applied in the same pulse as the
                 // exit never reaches the scene, so the geometry written on close is the old one and
@@ -214,6 +219,7 @@ final class DevCapture {
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
             System.out.println("[capture] " + w.focusReport());
             System.out.println("[capture] " + w.closeTooltipReport() + " tabTooltip=<" + w.tabTooltipReport() + ">");
+            System.out.println("[capture] " + w.tabMarkReport());
             System.out.println("[capture] " + w.tabDragReport());
             reportTypedEcho(w.activeTerminal());
         }
@@ -511,6 +517,56 @@ final class DevCapture {
         System.out.println("[capture] menu open after " + how + "=" + terminal.isContextMenuShowing());
     }
 
+    /** {@code -Dtermina.captureRenameTab=<name>} names the active tab, bypassing the dialog. */
+    private static void renameTabIfRequested(TerminalWindow window) {
+        String name = System.getProperty("termina.captureRenameTab");
+        if (name == null) return;
+        window.renameActiveTabForCapture(name);
+        System.out.println("[capture] renamed active tab to \"" + name + "\"");
+    }
+
+    /** {@code -Dtermina.captureDuplicateTab=true} duplicates the active tab, reporting the count. */
+    private static void duplicateTabIfRequested(TerminalWindow window) {
+        if (System.getProperty("termina.captureDuplicateTab") == null) return;
+        int before = window.tabTitles().size();
+        window.duplicateActiveTabForCapture();
+        System.out.println("[capture] duplicated: tabs " + before + " -> "
+                + window.tabTitles().size());
+    }
+
+    /**
+     * {@code -Dtermina.captureReopenTab=true} reopens the last closed tab. Pair it with
+     * {@code captureCloseTabs}, which runs first: close, then bring back, then count.
+     */
+    private static void reopenTabIfRequested(TerminalWindow window) {
+        if (System.getProperty("termina.captureReopenTab") == null) return;
+        int before = window.tabTitles().size();
+        int closed = window.closedTabCount();
+        window.reopenClosedTab();
+        System.out.println("[capture] reopen: closed=" + closed + " tabs " + before + " -> "
+                + window.tabTitles().size() + " selected="
+                + window.selectedTerminal().getDisplay().getCwd());
+    }
+
+    /** {@code -Dtermina.captureBellIn=N} rings the bell in tab N, to check the mark on its header. */
+    private static void bellInTabIfRequested(TerminalWindow window) {
+        Integer index = Integer.getInteger("termina.captureBellIn");
+        if (index == null) return;
+        window.ringBellInTabForCapture(index);
+        System.out.println("[capture] rang the bell in tab " + index);
+    }
+
+    /** {@code -Dtermina.captureTypeIn=N:text} runs text in tab N without selecting it. */
+    private static void typeInTabIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureTypeIn");
+        if (spec == null || spec.isBlank()) return;
+        int colon = spec.indexOf(':');
+        if (colon < 1) return;
+        int index = Integer.parseInt(spec.substring(0, colon).trim());
+        window.typeInTabForCapture(index, spec.substring(colon + 1) + "\r");
+        System.out.println("[capture] typed into tab " + index);
+    }
+
     /** {@code -Dtermina.captureSelectTab=N} selects a tab, to check what follows the selection. */
     private static void selectTabIfRequested(TerminalWindow window) {
         Integer index = Integer.getInteger("termina.captureSelectTab");
@@ -546,6 +602,10 @@ final class DevCapture {
                     windows.showSettingsForCapture(window.stage(), System.getProperty("termina.captureSettings"));
             probeFonts(settings);
             return settings;
+        }
+        String shortcuts = System.getProperty("termina.captureShortcuts");
+        if (shortcuts != null) {
+            return window.showShortcutsForCapture("true".equals(shortcuts) ? "" : shortcuts);
         }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());

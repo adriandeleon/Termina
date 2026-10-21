@@ -31,6 +31,7 @@ public final class Settings {
     public static final String SCROLLBACK_LINES = "terminal.scrollback";
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
+    public static final String CONFIRM_PASTE = "input.confirmPaste";
     public static final String SHELL = "terminal.shell";
     public static final String PROFILE_DEFAULT = "profiles.default";
     public static final String PROFILE_HIDDEN = "profiles.hidden";
@@ -287,6 +288,15 @@ public final class Settings {
 
     public void setAltIsMeta(boolean altIsMeta) {
         put(ALT_IS_META, String.valueOf(altIsMeta));
+    }
+
+    /** Whether a paste containing a line break asks first. On by default: at a prompt every line runs. */
+    public boolean confirmPaste() {
+        return readBoolean(CONFIRM_PASTE, true);
+    }
+
+    public void setConfirmPaste(boolean confirmPaste) {
+        put(CONFIRM_PASTE, String.valueOf(confirmPaste));
     }
 
     /** Blank means the user's own shell, as {@code $SHELL} reports it. */
