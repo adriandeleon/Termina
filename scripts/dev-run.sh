@@ -14,7 +14,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 mvn -q -B compile
-# -Pdist runs `clean`, so this directory disappears regularly; always refresh it.
+# -Pdist runs `clean`, so this directory disappears regularly; always refresh it. Refresh from
+# empty: copy-dependencies adds and never removes, so after a version bump the old jar sits beside
+# the new one, both declare the same module, and whichever the module path lists first wins — a
+# JavaFX bump that compiled against 27 ran against 26 until this was noticed.
+rm -rf target/deps
 mvn -q -B dependency:copy-dependencies -DoutputDirectory=target/deps
 
 MODULE_PATH="$(python3 - <<'EOF'

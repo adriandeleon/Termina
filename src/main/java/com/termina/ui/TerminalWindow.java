@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javafx.application.ColorScheme;
+import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.geometry.Pos;
@@ -29,8 +31,11 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HeaderBar;
+import javafx.scene.layout.HeaderDragType;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Duration;
 
 import com.termina.config.Settings;
@@ -152,7 +157,14 @@ public final class TerminalWindow {
 
         BorderPane root = new BorderPane(tabHost);
         menuBar = buildMenuBar();
-        root.setTop(menuBar);
+        // Decided here and never again: a stage's style is fixed before it is first shown, so the
+        // setting reaches this window only if it was on when the window was made. Settings says so
+        // on its row rather than appearing to do nothing.
+        boolean extendedWindows = Platform.isSupported(ConditionalFeature.EXTENDED_WINDOW);
+        headerBar =
+                usesHeaderBar(SYSTEM_MENU_BAR, settings.menuBarInTitleBar(), extendedWindows) ? buildHeaderBar() : null;
+        if (headerBar != null && !stage.isShowing()) stage.initStyle(StageStyle.EXTENDED);
+        root.setTop(headerBar != null ? headerBar : menuBar);
         applyMenuBarVisibility();
 
         // A StackPane over the whole window so the palette has somewhere to be. It is empty until
@@ -254,6 +266,29 @@ public final class TerminalWindow {
             return;
         }
         stage.titleProperty().bind(terminalOf(tab).getDisplay().windowTitleProperty());
+    }
+
+    /**
+     * Whether the window draws its own title bar, with the menus in it.
+     *
+     * <p>That is JavaFX 27's extended stage style: the platform keeps its window buttons but gives
+     * up the title bar, and a {@link HeaderBar} at the top of the scene takes its place. Three
+     * things have to agree. The setting, obviously. The menus have to be in the window — under a
+     * screen menu bar there is nothing to merge, and an extended window there would be a bare strip
+     * under the traffic lights. And the platform has to support the style at all; JavaFX downgrades
+     * an unsupported {@code EXTENDED} to {@code DECORATED} silently, which would leave the header
+     * bar drawn <em>under</em> a native title bar as a second row.
+     */
+    static boolean usesHeaderBar(boolean systemMenuBar, boolean menuBarInTitleBar, boolean extendedWindowsSupported) {
+        return !systemMenuBar && menuBarInTitleBar && extendedWindowsSupported;
+    }
+
+    /**
+     * Whether to offer the title-bar option in Settings. The checkbox is disabled with the reason
+     * on its row where it could do nothing, which is the same rule as the menu-bar toggle's.
+     */
+    static boolean offersHeaderBarOption(boolean systemMenuBar, boolean extendedWindowsSupported) {
+        return !systemMenuBar && extendedWindowsSupported;
     }
 
     /**
@@ -1106,11 +1141,23 @@ public final class TerminalWindow {
         return out.toString().trim();
     }
 
+    /** The space the platform reserves for its window buttons, which the header bar pads for. */
+    private String insetReport() {
+        javafx.geometry.Dimension2D left = HeaderBar.getLeftSystemInset(stage);
+        javafx.geometry.Dimension2D right = HeaderBar.getRightSystemInset(stage);
+        return Math.round(left.getWidth()) + "x" + Math.round(left.getHeight())
+                + "/" + Math.round(right.getWidth()) + "x" + Math.round(right.getHeight())
+                + " minH=" + Math.round(HeaderBar.getSystemMinHeight(stage));
+    }
+
     public String layoutReport() {
         javafx.scene.Node header = tabs.lookup(".tab-header-area");
         javafx.geometry.Rectangle2D screenBounds =
                 javafx.stage.Screen.getPrimary().getBounds();
         return "fullScreen=" + stage.isFullScreen()
+                + " style=" + stage.getStyle()
+                + " headerBar h=" + (headerBar == null ? "absent" : headerBar.getHeight())
+                + " systemInsets=" + (headerBar == null ? "-" : insetReport())
                 + " stage=" + Math.round(stage.getX()) + "," + Math.round(stage.getY())
                 + " " + Math.round(stage.getWidth()) + "x" + Math.round(stage.getHeight())
                 + " screen=" + Math.round(screenBounds.getWidth()) + "x" + Math.round(screenBounds.getHeight())
@@ -1166,6 +1213,9 @@ public final class TerminalWindow {
     }
 
     private MenuBar menuBar;
+
+    /** The window's own title bar, holding the menu bar; null when the platform draws one. */
+    private final HeaderBar headerBar;
 
     private final Button newTabButton = new Button();
 
@@ -1291,6 +1341,28 @@ public final class TerminalWindow {
     private void withActiveTerminal(java.util.function.Consumer<TerminalView> action) {
         TerminalView terminal = activeTerminal();
         if (terminal != null) action.accept(terminal);
+    }
+
+    /**
+     * The row that replaces the native title bar: menus at the left, the title in the middle, and
+     * the window buttons wherever the platform puts them — the bar pads for them itself.
+     *
+     * <p>The bar's own background is the drag handle and its content is not, which is what makes
+     * the menus clickable. The title is the exception: a title bar you cannot drag by its title is
+     * a trap, so that one label is marked draggable.
+     */
+    private HeaderBar buildHeaderBar() {
+        HeaderBar bar = new HeaderBar();
+        // The control ships with no style class of its own; without this the CSS below matches
+        // nothing and the menu bar's own background paints as a lighter block inside the row.
+        bar.getStyleClass().add("header-bar");
+        bar.setLeft(menuBar);
+        Label title = new Label();
+        title.getStyleClass().add("header-title");
+        title.textProperty().bind(stage.titleProperty());
+        HeaderBar.setDragType(title, HeaderDragType.DRAGGABLE);
+        bar.setCenter(title);
+        return bar;
     }
 
     private MenuBar buildMenuBar() {
@@ -1680,6 +1752,11 @@ public final class TerminalWindow {
         if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
         applyTabBarVisibility();
         applyMenuBarVisibility();
+        // The window buttons are drawn by JavaFX where the platform does not provide them, and
+        // they follow the scene's colour scheme unless told otherwise. The scene's is the OS's,
+        // not ours — a dark theme on a light desktop would get dark glyphs on a dark header.
+        if (headerBar != null)
+            HeaderBar.setSystemColorScheme(stage, theme.isDark() ? ColorScheme.DARK : ColorScheme.LIGHT);
         // Live, and on the stage rather than the scene: a decorated window's native background is
         // opaque, so scene-level transparency needs StageStyle.TRANSPARENT — which takes the title
         // bar with it and can only be chosen before the window is shown. Stage opacity keeps both

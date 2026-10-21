@@ -3,6 +3,24 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **The menu bar can share a row with the title bar.** Appearance → Window → "Put the menu bar in
+  the title bar" merges the two: menus at the left, the window title in the middle, the window
+  buttons at the right, and the terminal gains the row the native title bar took. Off by default.
+  It applies to windows opened after the change, because a window's style is fixed when it is
+  first shown, and the row says so. Not offered on macOS, where the menus are in the screen menu
+  bar and there is nothing in the window to merge.
+
+### Maintenance
+
+- Moved to JavaFX 27. Its extended stage style (`StageStyle.EXTENDED` and `HeaderBar`), a preview
+  feature in 25 and 26, is final there and is what the title-bar option is built on.
+- `scripts/dev-run.sh` now clears `target/deps` before refilling it, so a dependency bump cannot
+  leave the old jar beside the new one with the old one winning.
+
 ## 0.7.1 — 2026-09-30
 
 Fixes for keyboard input, shell-profile startup, and commands that could hang discovery or the

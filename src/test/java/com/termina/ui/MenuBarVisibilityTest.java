@@ -67,6 +67,26 @@ class MenuBarVisibilityTest {
     }
 
     @Test
+    void theMenuBarJoinsTheTitleBarOnlyWhereAllThreeAgree() {
+        assertTrue(TerminalWindow.usesHeaderBar(false, true, true));
+        // Off is off.
+        assertFalse(TerminalWindow.usesHeaderBar(false, false, true));
+        // Under a screen menu bar there is nothing to merge; an extended window would be a bare
+        // strip under the traffic lights.
+        assertFalse(TerminalWindow.usesHeaderBar(true, true, true));
+        // JavaFX downgrades an unsupported EXTENDED to DECORATED without a word, which would put
+        // our header bar under the native title bar as a second row.
+        assertFalse(TerminalWindow.usesHeaderBar(false, true, false));
+    }
+
+    @Test
+    void theTitleBarOptionIsOfferedExactlyWhereItCouldDoSomething() {
+        assertTrue(TerminalWindow.offersHeaderBarOption(false, true));
+        assertFalse(TerminalWindow.offersHeaderBarOption(true, true));
+        assertFalse(TerminalWindow.offersHeaderBarOption(false, false));
+    }
+
+    @Test
     void ordinaryItemsAndSeparatorsFitASystemMenuBar() {
         // SeparatorMenuItem extends CustomMenuItem, and every menu has separators, so a check that
         // did not exclude them would report every bar unfit and never collapse the in-window one.

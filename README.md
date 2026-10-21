@@ -217,6 +217,33 @@ carried on painting over the terminal's first rows while occupying no space of t
 in-window menu bar — the only place this setting does anything — cannot be seen on the machine this
 is developed on.
 
+### The menu bar in the title bar
+
+An option (Appearance → Window, off by default) merges the two rows: the window draws its own
+title bar, with the menus at the left, the title in the middle and the window buttons at the right,
+and the terminal gains the row the native title bar took. It is JavaFX 27's extended stage style —
+`StageStyle.EXTENDED`, with a `HeaderBar` at the top of the scene in place of the system's title
+bar. The platform keeps its window buttons (JavaFX draws GNOME- or KDE-styled ones on Linux, and
+Windows' own on Windows) and reserves their space; the bar pads for them itself. The empty header
+is the drag handle, and so is the title, which is marked draggable on purpose — a title bar you
+cannot drag by its title is a trap. The menus stay clickable because content is not draggable by
+default.
+
+It applies to windows opened after the change. A stage's style is fixed before it is first shown,
+so an existing window keeps the title bar it came up with, and the row says so rather than
+appearing to do nothing. Hiding the menu bar still works inside the header: the title and the
+buttons stay, since a window with no title bar at all could not be moved.
+
+Not offered on macOS, where the menus are in the screen menu bar and there is nothing in the window
+to merge, nor where `Platform.isSupported(EXTENDED_WINDOW)` says no — JavaFX would downgrade the
+style to `DECORATED` silently and leave the header as a second row under the native one. In both
+cases the checkbox is disabled with the reason on its row. The decision is
+`TerminalWindow.usesHeaderBar`, tested in `MenuBarVisibilityTest`.
+
+One thing a capture cannot show: the window buttons are an overlay JavaFX draws outside the scene
+graph, so a scene snapshot has the menus and the title but a blank where the buttons are. The
+layout report prints the system insets JavaFX reserved for them instead.
+
 ### The tab strip
 
 Tabs tile the full width and shrink as more are added, the way macOS Terminal and GNOME Terminal

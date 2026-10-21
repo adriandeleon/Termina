@@ -33,6 +33,7 @@ public final class Settings {
     public static final String BELL = "terminal.bell";
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
+    public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
     public static final String WINDOW_WIDTH = "window.width";
@@ -329,6 +330,21 @@ public final class Settings {
 
     public void setShowMenuBar(boolean show) {
         put(SHOW_MENU_BAR, String.valueOf(show));
+    }
+
+    /**
+     * Put the menu bar in the title bar: one row holds the menus, the window title and the window
+     * buttons, and the terminal gains the row the native title bar took.
+     *
+     * <p>Off by default. Applies to windows opened after the change — a stage's style is fixed
+     * when it is first shown — and never on macOS, where the menus are in the screen menu bar.
+     */
+    public boolean menuBarInTitleBar() {
+        return readBoolean(MENU_BAR_IN_TITLE_BAR, false);
+    }
+
+    public void setMenuBarInTitleBar(boolean inTitleBar) {
+        put(MENU_BAR_IN_TITLE_BAR, String.valueOf(inTitleBar));
     }
 
     /** Show a scrollbar for the scrollback. The wheel works either way. */
