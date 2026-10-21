@@ -3,7 +3,12 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.8.0 — 2026-10-21
+
+The fixes from the 2026-10-20 review, and the features that fell out of it: tabs can be renamed,
+reopened and duplicated and say when something happened in them, there is a searchable list of
+every keyboard shortcut, a paste with a line break asks first, and the menu bar can share a row
+with the title bar. Moved to JavaFX 27. New user-visible behaviour, so the minor number moves.
 
 ### Added
 
