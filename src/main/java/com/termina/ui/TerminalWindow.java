@@ -1812,13 +1812,12 @@ public final class TerminalWindow {
      * can be asked for on the command line.
      */
     public boolean stealFocusForCapture(String what) {
-        javafx.scene.Node target =
-                switch (what) {
-                    case "tabs" -> tabs;
-                    case "newtab" -> newTabButton;
-                    case "menubar" -> menuBar;
-                    default -> null;
-                };
+        javafx.scene.Node target = switch (what) {
+            case "tabs" -> tabs;
+            case "newtab" -> newTabButton;
+            case "menubar" -> menuBar;
+            default -> null;
+        };
         if (target == null) return false;
         target.requestFocus();
         return true;
