@@ -200,6 +200,20 @@ Each of these cost real time, and none of them announces itself.
   fall back to per-glyph drawing, because a wide glyph's natural advance would otherwise push the
   rest of the line off the grid.
 
+- **The command palette is a port of Editora's, and the pure parts are verbatim.** `FuzzyMatch`,
+  `PaletteKeys`, `TextInputKeys` and `MatchText` are Editora's `search.FuzzyMatch`, `ui.PickerKeys`,
+  `command.TextInputKeymap` and `ui.MatchText` with the keymap manager replaced by a fixed Emacs
+  table in `KeyChord` tokens (`C-n`, `M-S-.`). A ranking or navigation change belongs in both
+  projects, or the two palettes stop agreeing. The chord that opens it is a setting, resolved in
+  `MenuAction.resolvePaletteChord` and bound *last* in `buildMenuBar`, because `register` throws on
+  a duplicate chord and the user's choice has to be seen against every other binding first.
+- **A `ListView` asked to scroll before it has a size scrolls to the wrong place.** `scrollTo` on
+  a virtual flow with no layout yet positions by the fraction `index / count` and never clamps, so
+  the capture — which opens the palette and fires keys at it within one pulse — showed the last row
+  half clipped while the same keys from a hand worked. `firePaletteKeysForCapture` runs `applyCss`
+  and `layout` before each key for that reason; a row that is "not scrolled into view" in a capture
+  is this before it is anything else.
+
 ## Conventions
 
 - **Performance.** The emulator signals a change per write. Repaints are decoupled from that: a

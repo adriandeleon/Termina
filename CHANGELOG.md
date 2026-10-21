@@ -3,6 +3,35 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Changed
+
+- **The command palette is Editora's.** Same card: the query row led by a chip naming the chord
+  that opened it, eight rows with the matched characters emboldened, a line describing the
+  highlighted command, and a legend of the keys. Same matcher, so the two palettes rank alike —
+  "tab close" finds Close Tab with the words in either order, and "file new" reaches New Tab
+  through the menu it lives in. Ties go to the shorter, then the alphabetical label, so equal rows
+  stop shuffling under the cursor between keystrokes. A command that cannot run right now (Reopen
+  Closed Tab with nothing to reopen) is listed greyed with the reason as its tooltip instead of
+  dropped, and the cursor steps over it. A click on a row runs it.
+- **It opens on Alt+X**, Emacs's M-x and the chord Editora's palette answers to, instead of
+  Shift+Ctrl/Cmd+P. The chord is a setting (Terminal → Keyboard): click the field and press another
+  one. A bare key is refused because the shell owns it, and so is a chord another command already
+  has, because the first binding on a chord is the only one that runs. A hand-edited line that does
+  not parse, or names a taken chord, falls back to Alt+X rather than leaving the palette with no
+  way in.
+- **Emacs keys in the palette.** Ctrl+N and Ctrl+P move, Ctrl+V and Alt+V page, Alt+< and Alt+>
+  jump to the ends, Ctrl+G cancels — token for token Editora's Emacs keymap — and the query field
+  takes Ctrl+A, Ctrl+E, Ctrl+F, Ctrl+B, Alt+F, Alt+B, Ctrl+D, Ctrl+K, Alt+D, Ctrl+W, Alt+W, Ctrl+Y
+  and Ctrl+/. The legend under the list names them in the platform's notation, the same one the
+  menus use.
+
+### Fixed
+
+- The chord that opens the palette no longer leaks its typed character: on macOS Option+X also
+  composes "≈", which landed in the query field the chord had just focused.
+
 ## 0.8.0 — 2026-10-21
 
 The fixes from the 2026-10-20 review, and the features that fell out of it: tabs can be renamed,

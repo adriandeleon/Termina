@@ -28,6 +28,7 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -126,8 +127,21 @@ public final class SettingsWindow {
     private PalettePreview preview;
 
     public SettingsWindow(Settings settings, com.termina.shell.ShellProfiles profiles) {
+        this(settings, profiles, chord -> null);
+    }
+
+    /**
+     * @param takenBy the label of the command already bound to a chord, or null when the chord is
+     *     free — asked before a recorded palette chord is accepted, because a chord bound twice is
+     *     reached once and the window would quietly keep the palette on its old key
+     */
+    public SettingsWindow(
+            Settings settings,
+            com.termina.shell.ShellProfiles profiles,
+            java.util.function.Function<KeyCombination, String> takenBy) {
         this.settings = settings;
         this.profiles = profiles;
+        this.takenBy = takenBy == null ? chord -> null : takenBy;
         build();
         // The window shows whatever is stored, and what is stored changes behind its back: the
         // theme from the palette, the menu bar from its chord, the zoom from its keys. Without
@@ -137,6 +151,7 @@ public final class SettingsWindow {
     }
 
     private final com.termina.shell.ShellProfiles profiles;
+    private final java.util.function.Function<KeyCombination, String> takenBy;
 
     /** Types into the search box as the user would, so a capture can reach any page. */
     public void searchForCapture(String query) {
@@ -810,6 +825,11 @@ public final class SettingsWindow {
                 previewSection));
     }
 
+    /** Shows the palette's chord, and records a new one while it has the focus. */
+    private TextField paletteChordField;
+
+    private Label paletteChordStatus;
+
     private void buildTerminal(VBox page) {
         VBox display = section(page, tr("settings.section.display"));
 
@@ -948,6 +968,91 @@ public final class SettingsWindow {
                 tr("settings.confirmPaste.desc"),
                 confirmPaste,
                 "paste clipboard multiline newline confirm ask safety");
+
+        VBox keyboard = section(page, tr("settings.section.keyboard"));
+        buildPaletteChordRow(keyboard);
+    }
+
+    /**
+     * The command palette's chord, recorded by pressing it.
+     *
+     * <p>A read-only field: focusing it starts recording, the next chord pressed into it is
+     * written through at once (every control here does), and the focus then moves on so a stray
+     * key does not re-record. A bare letter is refused with the reason on the row, and so is a
+     * chord another command already has — the window would run that command and never reach the
+     * palette, while this row went on advertising the chord. Reset puts it back on M-x.
+     */
+    private void buildPaletteChordRow(VBox section) {
+        paletteChordField = new TextField();
+        paletteChordField.setEditable(false);
+        paletteChordField.setPrefWidth(170);
+        paletteChordField.getStyleClass().add("shortcut-capture");
+        paletteChordField.setPromptText(tr("settings.paletteChord.recording"));
+        paletteChordStatus = new Label();
+        paletteChordStatus.getStyleClass().add("settings-row-description");
+        paletteChordStatus.setStyle("-fx-text-fill: -color-danger-4;");
+        paletteChordStatus.setWrapText(true);
+        paletteChordStatus.setVisible(false);
+        paletteChordStatus.setManaged(false);
+        Button reset = new Button(tr("settings.paletteChord.reset"));
+        reset.setOnAction(e -> settings.setPaletteChord(Settings.DEFAULT_PALETTE_CHORD));
+
+        // Recording: the field empties so its prompt says what to do, and fills again with what
+        // is stored when the focus leaves — whether or not anything was recorded.
+        paletteChordField.focusedProperty().addListener((o, was, focused) -> {
+            if (focused) {
+                paletteChordField.setText("");
+            } else {
+                paletteChordField.setText(storedPaletteChordText());
+                showPaletteChordStatus(null);
+            }
+        });
+        paletteChordField.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.TAB) return; // leaves the field, as Tab does everywhere
+            e.consume();
+            if (e.getCode() == KeyCode.ESCAPE) {
+                reset.requestFocus();
+                return;
+            }
+            switch (ShortcutCapture.decide(e.getCode(), e.isControlDown(), e.isAltDown(), e.isMetaDown())) {
+                case IGNORE -> {}
+                case NEEDS_MODIFIER -> showPaletteChordStatus(tr("settings.paletteChord.needsModifier"));
+                case OK -> {
+                    KeyCombination chord = ShortcutCapture.combination(e);
+                    String owner = takenBy.apply(chord);
+                    if (owner != null) {
+                        showPaletteChordStatus(tr("settings.paletteChord.taken", owner));
+                        return;
+                    }
+                    settings.setPaletteChord(chord.getName());
+                    reset.requestFocus(); // done: the next key must not re-record
+                }
+            }
+        });
+
+        HBox fieldRow = new HBox(6, paletteChordField, reset);
+        fieldRow.setAlignment(Pos.CENTER_LEFT);
+        VBox control = new VBox(2, fieldRow, paletteChordStatus);
+        row(
+                Category.TERMINAL,
+                section,
+                tr("settings.paletteChord"),
+                tr("settings.paletteChord.desc"),
+                control,
+                paletteChordField,
+                "palette command shortcut keybinding chord key keyboard emacs meta alt");
+    }
+
+    private void showPaletteChordStatus(String message) {
+        paletteChordStatus.setText(message == null ? "" : message);
+        paletteChordStatus.setVisible(message != null);
+        paletteChordStatus.setManaged(message != null);
+    }
+
+    /** The stored chord as the platform writes it, with the default standing in for an unreadable line. */
+    private String storedPaletteChordText() {
+        return MenuAction.parseChord(settings.paletteChord(), MenuAction.DEFAULT_PALETTE_CHORD)
+                .getDisplayText();
     }
 
     // ---------------------------------------------------------------- profiles
@@ -1349,6 +1454,8 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
+            // Not while recording: the empty field is the prompt, and the stored chord is the old one.
+            if (!paletteChordField.isFocused()) paletteChordField.setText(storedPaletteChordText());
             bell.setSelected(settings.bell());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());

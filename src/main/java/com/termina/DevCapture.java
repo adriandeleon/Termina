@@ -147,6 +147,7 @@ final class DevCapture {
                 // the run proves nothing.
                 resizeIfRequested(window);
                 openPaletteIfRequested(window);
+                firePaletteKeysIfRequested(window);
                 probeDebugLog();
                 TerminalWindow shown = windowToCapture(windows, window);
                 Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
@@ -258,6 +259,16 @@ final class DevCapture {
         String query = System.getProperty("termina.capturePalette");
         if (query == null) return;
         System.out.println("[capture] palette \"" + query + "\" -> " + window.showPaletteForCapture(query));
+    }
+
+    /**
+     * {@code -Dtermina.capturePaletteKeys=C-n,C-n,C-p} fires chords at the open palette, by token,
+     * and reports the highlighted row after each. Needs {@code capturePalette} to have opened it.
+     */
+    private static void firePaletteKeysIfRequested(TerminalWindow window) {
+        String tokens = System.getProperty("termina.capturePaletteKeys");
+        if (tokens == null || tokens.isBlank()) return;
+        System.out.println("[capture] palette keys " + window.firePaletteKeysForCapture(tokens));
     }
 
     /**
@@ -385,6 +396,8 @@ final class DevCapture {
         // application chord — F11 is a bare key — and firing Ctrl+F11 at it matches nothing, which
         // reads exactly like the binding not working.
         boolean plain = parts.length > 2 && "plain".equalsIgnoreCase(parts[2].trim());
+        // "alt" fires Alt+key on every platform: the palette's M-x is Alt+X on a Mac too.
+        boolean alt = parts.length > 2 && "alt".equalsIgnoreCase(parts[2].trim());
         boolean mac = System.getProperty("os.name", "")
                 .toLowerCase(java.util.Locale.ROOT)
                 .startsWith("mac");
@@ -394,9 +407,9 @@ final class DevCapture {
                 "",
                 code,
                 shift,
-                !mac && !plain,
-                false,
-                mac && !plain); // shift, control, alt, meta
+                !mac && !plain && !alt,
+                alt,
+                mac && !plain && !alt); // shift, control, alt, meta
         Event.fireEvent(window.stage().getScene(), event);
         System.out.println("[capture] fired chord " + spec);
     }

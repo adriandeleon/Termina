@@ -69,6 +69,21 @@ public final class TerminalWindow {
 
     private CommandPalette palette;
 
+    /** The palette's own entry: rebound live when the setting changes, and kept out of its own list. */
+    private MenuAction paletteAction;
+
+    private MenuItem paletteItem;
+
+    /** Reopen Closed Tab, which the palette greys while there is nothing to reopen. */
+    private MenuAction reopenAction;
+
+    /**
+     * Set when a scene binding has just run on KEY_PRESSED, so the KEY_TYPED that follows it is
+     * dropped. The chord that opens the palette is the case that shows: on macOS Option+X also
+     * composes "≈", which would otherwise land in the query field the chord has just focused.
+     */
+    private boolean swallowNextTyped;
+
     TerminalWindow(WindowManager windows, Settings settings, Stage stage) {
         this.windows = windows;
         this.settings = settings;
@@ -171,6 +186,7 @@ public final class TerminalWindow {
         // the palette opens, so it costs a node and nothing else.
         StackPane overlay = new StackPane(root);
         palette = new CommandPalette(overlay, this::focusActiveTerminal);
+        palette.setOpener(paletteAction.accelerator());
 
         javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
         double width = WindowGeometry.fit(settings.windowWidth(), DEFAULT_WIDTH, screen.getWidth());
@@ -202,6 +218,12 @@ public final class TerminalWindow {
         // TerminalView's own filter turns Ctrl+<letter> into a control byte for the shell.
         // Accelerators fire only after an unconsumed bubble, which for those chords never happens.
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
+        scene.addEventFilter(KeyEvent.KEY_TYPED, e -> {
+            if (swallowNextTyped) e.consume();
+            swallowNextTyped = false;
+        });
+        // A chord that produces no KEY_TYPED at all must not leave the flag set for the next character.
+        scene.addEventFilter(KeyEvent.KEY_RELEASED, e -> swallowNextTyped = false);
 
         stage.setScene(scene);
         // JavaFX's default full-screen exit key is Escape, handled before the scene sees the key,
@@ -1750,19 +1772,19 @@ public final class TerminalWindow {
 
         Menu file = menu(
                 tr("menu.file"),
-                register(MenuAction.of(tr("menu.newTab"), MenuAction.appChord(KeyCode.T), this::openTab)),
-                register(MenuAction.of(
-                        tr("menu.newWindow"), MenuAction.appChord(KeyCode.N), () -> windows.openWindow(this))),
+                register(item("menu.newTab", MenuAction.appChord(KeyCode.T), this::openTab)),
+                register(item("menu.newWindow", MenuAction.appChord(KeyCode.N), () -> windows.openWindow(this))),
                 null,
-                register(MenuAction.of(tr("menu.closeTab"), MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
-                register(MenuAction.of(tr("menu.closeWindow"), MenuAction.closeWindowChord(), this::close)),
+                register(item("menu.closeTab", MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
+                register(item("menu.closeWindow", MenuAction.closeWindowChord(), this::close)),
                 // Cmd+Z on macOS, which is iTerm2's "Undo Close"; Ctrl+Shift+Z elsewhere, where the
                 // browsers' Ctrl+Shift+T is already New Tab.
-                register(MenuAction.of(
-                        tr("menu.reopenClosedTab"), MenuAction.appChord(KeyCode.Z), this::reopenClosedTab)),
+                register(
+                        reopenAction =
+                                item("menu.reopenClosedTab", MenuAction.appChord(KeyCode.Z), this::reopenClosedTab)),
                 null,
-                register(MenuAction.of(
-                        tr("menu.settings"),
+                register(item(
+                        "menu.settings",
                         new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
                         () -> windows.showSettings(stage))));
 
@@ -1799,21 +1821,19 @@ public final class TerminalWindow {
 
         Menu edit = menu(
                 tr("menu.edit"),
-                register(MenuAction.of(
-                        tr("menu.copy"),
+                register(item(
+                        "menu.copy",
                         MenuAction.appChord(KeyCode.C),
                         () -> withActiveTerminal(TerminalView::copySelection))),
-                register(MenuAction.of(
-                        tr("menu.paste"),
-                        MenuAction.appChord(KeyCode.V),
-                        () -> withActiveTerminal(TerminalView::paste))),
-                register(MenuAction.of(
-                        tr("menu.selectAll"),
+                register(item(
+                        "menu.paste", MenuAction.appChord(KeyCode.V), () -> withActiveTerminal(TerminalView::paste))),
+                register(item(
+                        "menu.selectAll",
                         MenuAction.appChord(KeyCode.A),
                         () -> withActiveTerminal(TerminalView::selectAll))),
                 null,
-                register(MenuAction.of(
-                        tr("menu.clearScrollback"),
+                register(item(
+                        "menu.clearScrollback",
                         MenuAction.appChord(KeyCode.K),
                         () -> withActiveTerminal(TerminalView::clearScrollback))));
 
@@ -1824,17 +1844,15 @@ public final class TerminalWindow {
         // EQUALS, not PLUS: on every common layout + is Shift+=, so the key JavaFX reports for
         // Ctrl and that key is EQUALS, and a menu saying "Ctrl++" named a chord no keyboard
         // produces. PLUS and the numeric keypad's ADD stay accepted in onKeyPressed.
-        MenuAction zoomIn = MenuAction.of(
-                tr("menu.zoomIn"), new KeyCodeCombination(KeyCode.EQUALS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1));
-        MenuAction zoomOut = MenuAction.of(
-                tr("menu.zoomOut"),
-                new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN),
-                () -> zoom(-1));
-        MenuAction actualSize = MenuAction.of(
-                tr("menu.actualSize"),
+        MenuAction zoomIn = item(
+                "menu.zoomIn", new KeyCodeCombination(KeyCode.EQUALS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1));
+        MenuAction zoomOut = item(
+                "menu.zoomOut", new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN), () -> zoom(-1));
+        MenuAction actualSize = item(
+                "menu.actualSize",
                 new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
                 this::resetZoom);
-        MenuAction fullScreen = MenuAction.of(tr("menu.fullScreen"), fullScreenChord(), this::toggleFullScreen);
+        MenuAction fullScreen = item("menu.fullScreen", fullScreenChord(), this::toggleFullScreen);
         List<MenuAction> viewActions = List.of(zoomIn, zoomOut, actualSize, fullScreen);
         // Only the row's actions need recording here. As items they reach the palette the ordinary
         // way, by being in a menu, and recording them twice would list each of them twice.
@@ -1880,20 +1898,21 @@ public final class TerminalWindow {
             // opened while the bar is showing, and a checkbox you can only see when it is
             // ticked says nothing. The way back is the right-click menu, which is reachable
             // either way and therefore does carry a checkbox.
-            menuBarToggle = register(MenuAction.of(
-                    tr("menu.hideMenuBar"),
+            menuBarToggle = register(item(
+                    "menu.hideMenuBar",
                     new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                     () -> settings.setShowMenuBar(!settings.showMenuBar())));
             viewItems.add(menuBarToggle);
         }
-        // Added to the list by hand rather than through menu(): a palette that offers to open the
-        // palette is noise in every search.
+        // Its chord is bound at the end of this method (bindPalette), once every other binding is
+        // known: it is the user's choice, and a choice that collides with another binding has to be
+        // seen rather than thrown at. showPalette keeps it out of its own list — a palette that
+        // offers to open the palette is noise in every search.
         viewItems.add(null);
-        viewItems.add(register(MenuAction.of(
-                tr("menu.commandPalette"),
-                new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                this::showPalette)));
+        paletteAction = item("menu.commandPalette", null, this::showPalette);
+        viewItems.add(paletteAction);
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
+        paletteItem = view.getItems().get(view.getItems().size() - 1);
         if (showsZoomRow(SYSTEM_MENU_BAR)) {
             ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
             view.getItems().add(0, zoomRow.item());
@@ -1905,43 +1924,40 @@ public final class TerminalWindow {
 
         Menu window = menu(
                 tr("menu.window"),
-                register(MenuAction.of(
-                        tr("menu.nextTab"), MenuAction.shiftChord(KeyCode.CLOSE_BRACKET), () -> selectRelativeTab(1))),
-                register(MenuAction.of(
-                        tr("menu.previousTab"),
-                        MenuAction.shiftChord(KeyCode.OPEN_BRACKET),
-                        () -> selectRelativeTab(-1))),
+                register(
+                        item("menu.nextTab", MenuAction.shiftChord(KeyCode.CLOSE_BRACKET), () -> selectRelativeTab(1))),
+                register(item(
+                        "menu.previousTab", MenuAction.shiftChord(KeyCode.OPEN_BRACKET), () -> selectRelativeTab(-1))),
                 null,
                 // Dragging is the usual way, but a tab strip that can only be reordered by mouse is
                 // unreachable from the keyboard entirely.
-                register(MenuAction.of(
-                        tr("menu.moveTabLeft"),
+                register(item(
+                        "menu.moveTabLeft",
                         new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(-1))),
-                register(MenuAction.of(
-                        tr("menu.moveTabRight"),
+                register(item(
+                        "menu.moveTabRight",
                         new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                         () -> moveSelectedTab(1))),
                 null,
                 // No chords: neither has one anywhere else, and a tab's own menu is where the hand
                 // goes. They are here for the palette, and so the keyboard can reach them at all.
-                MenuAction.of(tr("menu.renameTab"), () -> withActiveTab(this::renameTab)),
-                MenuAction.of(tr("menu.duplicateTab"), () -> withActiveTab(this::duplicateTab)));
+                item("menu.renameTab", () -> withActiveTab(this::renameTab)),
+                item("menu.duplicateTab", () -> withActiveTab(this::duplicateTab)));
 
         // Help is built by hand rather than through menu(), because its update entry is a MenuItem
         // this class relabels later. Its two actions are added to the palette explicitly.
         MenuAction about = MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage));
-        MenuAction checkForUpdates =
-                MenuAction.of(tr("menu.checkForUpdates"), () -> windows.checkForUpdatesNow(this::report));
+        MenuAction checkForUpdates = item("menu.checkForUpdates", () -> windows.checkForUpdatesNow(this::report));
         updateItem = checkForUpdates.toMenuItem();
         Menu help = new Menu(tr("menu.help"));
         // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
         // which is the "?" key under the usual modifier.
-        MenuAction shortcutsRef = register(
-                MenuAction.of(tr("menu.keyboardShortcuts"), MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
-        commands.add(shortcutsRef);
-        commands.add(about);
-        commands.add(checkForUpdates);
+        MenuAction shortcutsRef =
+                register(item("menu.keyboardShortcuts", MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
+        commands.add(shortcutsRef.withKeywords(tr("menu.help")));
+        commands.add(about.withKeywords(tr("menu.help")));
+        commands.add(checkForUpdates.withKeywords(tr("menu.help")));
         help.getItems().addAll(shortcutsRef.toMenuItem(), new SeparatorMenuItem(), about.toMenuItem(), updateItem);
 
         // The Help menu is where an available update shows up. Termina has no status bar, which is
@@ -1950,8 +1966,66 @@ public final class TerminalWindow {
         windows.addUpdateListener(this::refreshUpdateItem);
         refreshUpdateItem();
 
+        // Last, so a chosen chord that collides with any binding above is seen and refused.
+        bindPalette(MenuAction.resolvePaletteChord(settings.paletteChord(), takenChords()));
+
         bar.getMenus().addAll(file, edit, view, window, help);
         return bar;
+    }
+
+    /**
+     * A menu action whose label and one-line description both come from the catalogue, as
+     * {@code key} and {@code key.desc}. The description is what the palette shows under the list
+     * for the highlighted row.
+     */
+    private static MenuAction item(String key, KeyCombination chord, Runnable action) {
+        return MenuAction.of(tr(key), chord, action).describedAs(description(key));
+    }
+
+    private static MenuAction item(String key, Runnable action) {
+        return item(key, null, action);
+    }
+
+    /** The catalogue's description for a menu key, or empty when it has none. */
+    static String description(String key) {
+        String desc = tr(key + ".desc");
+        return desc.equals(key + ".desc") ? "" : desc;
+    }
+
+    /** Every chord bound in this window except the palette's own, which is the one being placed. */
+    private List<KeyCombination> takenChords() {
+        return bindings.stream()
+                .filter(b -> !b.sameActionAs(paletteAction))
+                .map(MenuAction::accelerator)
+                .toList();
+    }
+
+    /** Puts the palette on {@code chord}: the binding, the menu item's accelerator and the card's chip. */
+    private void bindPalette(KeyCombination chord) {
+        bindings.removeIf(b -> b.sameActionAs(paletteAction));
+        paletteAction = paletteAction.withAccelerator(chord);
+        register(paletteAction);
+        if (paletteItem != null) paletteItem.setAccelerator(chord);
+        if (palette != null) palette.setOpener(chord);
+    }
+
+    /** Follows the setting, live: the next press of the new chord opens the palette. */
+    private void rebindPalette() {
+        if (paletteAction == null) return;
+        KeyCombination chord = MenuAction.resolvePaletteChord(settings.paletteChord(), takenChords());
+        if (!chord.equals(paletteAction.accelerator())) bindPalette(chord);
+    }
+
+    /**
+     * The label of the command bound to {@code chord}, or null when the chord is free. The
+     * palette's own chord counts as free, since it is the one being moved. Asked by the settings
+     * window before it accepts a recorded chord.
+     */
+    String labelBoundTo(KeyCombination chord) {
+        for (MenuAction binding : bindings) {
+            if (!binding.sameActionAs(paletteAction) && chord.equals(binding.accelerator())) return binding.label();
+        }
+        return null;
     }
 
     private javafx.scene.control.MenuItem updateItem;
@@ -2073,7 +2147,7 @@ public final class TerminalWindow {
      */
     private void command(MenuAction action) {
         register(action);
-        commands.add(action);
+        commands.add(action.withKeywords(bindingGroups.getOrDefault(action, "")));
     }
 
     private MenuAction register(MenuAction action) {
@@ -2104,7 +2178,8 @@ public final class TerminalWindow {
         Menu menu = new Menu(title);
         for (MenuAction action : actions) {
             menu.getItems().add(action == null ? new SeparatorMenuItem() : action.toMenuItem());
-            if (action != null) commands.add(action);
+            // Findable by the menu's name too: "file new" reaches New Tab.
+            if (action != null) commands.add(action.withKeywords(title));
         }
         return menu;
     }
@@ -2118,6 +2193,7 @@ public final class TerminalWindow {
         for (MenuAction binding : bindings) {
             if (binding.matches(e)) {
                 binding.action().run();
+                swallowNextTyped = true;
                 e.consume();
                 return;
             }
@@ -2206,6 +2282,7 @@ public final class TerminalWindow {
         // it fades the glyphs along with the background, which the floor in WindowOpacity accounts
         // for.
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
+        rebindPalette();
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
         for (Tab tab : tabs.getTabs()) {
             TabMarkState marks = marksOf(tab);
@@ -2231,13 +2308,25 @@ public final class TerminalWindow {
      * a submenu nobody opens, while a palette is exactly where "make this one darker" belongs.
      */
     private void showPalette() {
-        List<MenuAction> all = new ArrayList<>(commands);
+        List<MenuAction> all = new ArrayList<>();
+        for (MenuAction command : commands) {
+            if (!command.sameActionAs(paletteAction)) all.add(command);
+        }
         // The View menu's item can only say "Hide", since the menu is inside the bar; the palette
         // is reachable either way, so its row has to name the move that is actually available.
         if (menuBarToggle != null) {
-            int at = all.indexOf(menuBarToggle);
-            String label = settings.showMenuBar() ? tr("menu.hideMenuBar") : tr("menu.showMenuBar");
-            if (at >= 0) all.set(at, MenuAction.of(label, menuBarToggle.accelerator(), menuBarToggle.action()));
+            for (int at = 0; at < all.size(); at++) {
+                if (!all.get(at).sameActionAs(menuBarToggle)) continue;
+                String key = settings.showMenuBar() ? "menu.hideMenuBar" : "menu.showMenuBar";
+                all.set(
+                        at,
+                        new MenuAction(
+                                tr(key),
+                                menuBarToggle.accelerator(),
+                                menuBarToggle.action(),
+                                description(key),
+                                all.get(at).keywords()));
+            }
         }
         // The tabs that exist, by title, each with the chord that reaches it — rather than nine
         // numbered rows of which most were dead.
@@ -2245,20 +2334,31 @@ public final class TerminalWindow {
         for (int index = 0; index < open.size(); index++) {
             int selected = index;
             all.add(MenuAction.of(
-                    tr("palette.goToTab", index + 1, label(open.get(index))),
-                    tabChordFor(index, open.size()),
-                    () -> tabs.getSelectionModel().select(selected)));
+                            tr("palette.goToTab", index + 1, label(open.get(index))),
+                            tabChordFor(index, open.size()),
+                            () -> tabs.getSelectionModel().select(selected))
+                    .describedAs(tr("palette.goToTab.desc"))
+                    .withKeywords(tr("palette.group.tabs")));
         }
         // By name rather than by number. The submenu's chords are "profile 3"; here there is room to
         // say "Ubuntu (WSL)", which is the only form anybody would search for.
         for (com.termina.shell.Profile profile : windows.profiles().all()) {
-            all.add(MenuAction.of(tr("palette.newTabProfile", profile.name()), () -> openTab(profile)));
+            all.add(MenuAction.of(tr("palette.newTabProfile", profile.name()), () -> openTab(profile))
+                    .describedAs(tr("palette.newTabProfile.desc"))
+                    .withKeywords(tr("palette.group.profiles")));
         }
         for (Theme theme : Theme.values()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
-            all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id())));
+            all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id()))
+                    .describedAs(tr("palette.theme.desc"))
+                    .withKeywords(tr("palette.group.themes")));
         }
-        palette.show(all);
+        // Reopen Closed Tab is listed greyed, not dropped, while there is nothing to reopen: a
+        // command that is simply missing reads as the palette not knowing it.
+        palette.show(
+                all,
+                action -> !(action.sameActionAs(reopenAction) && closedTabs.isEmpty()),
+                action -> action.sameActionAs(reopenAction) ? tr("palette.disabled.nothingToReopen") : null);
     }
 
     private void focusActiveTerminal() {
@@ -2291,6 +2391,28 @@ public final class TerminalWindow {
         showPalette();
         if (query != null && !query.isEmpty()) palette.setQueryForCapture(query);
         return String.join(" | ", palette.visibleCommands());
+    }
+
+    /**
+     * Fires chords at the open palette by {@link KeyChord} token ({@code C-n,C-n,C-p}), reporting
+     * the highlighted row after each with its matched characters bracketed. This is how the Emacs
+     * navigation is verified: reasoning about which filter sees Ctrl+N first is not evidence.
+     */
+    public String firePaletteKeysForCapture(String tokens) {
+        StringBuilder out = new StringBuilder();
+        for (String token : tokens.split(",")) {
+            String t = token.trim();
+            if (t.isEmpty()) continue;
+            // Laid out first, as it would be by the time a hand reaches the next key: the capture
+            // opens the palette and fires at it within one pulse, and a ListView asked to scroll
+            // before it has a size scrolls to the wrong place.
+            stage.getScene().getRoot().applyCss();
+            stage.getScene().getRoot().layout();
+            boolean fired = palette.fireKeyForCapture(t);
+            if (!out.isEmpty()) out.append(" | ");
+            out.append(t).append(" -> ").append(fired ? palette.selectedForCapture() : "?");
+        }
+        return out.toString();
     }
 
     /**

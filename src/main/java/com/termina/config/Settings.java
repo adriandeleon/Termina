@@ -32,6 +32,9 @@ public final class Settings {
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String CONFIRM_PASTE = "input.confirmPaste";
+    /** The chord that opens the command palette, in {@code KeyCombination} notation ({@code Alt+X}). */
+    public static final String PALETTE_CHORD = "keys.commandPalette";
+
     public static final String SHELL = "terminal.shell";
     public static final String PROFILE_DEFAULT = "profiles.default";
     public static final String PROFILE_HIDDEN = "profiles.hidden";
@@ -65,6 +68,9 @@ public final class Settings {
 
     /** Empty means "pick the best available monospace face for this platform". */
     public static final String DEFAULT_FONT_FAMILY = "";
+
+    /** M-x, in the notation {@code KeyCombination.valueOf} reads. */
+    public static final String DEFAULT_PALETTE_CHORD = "Alt+X";
 
     public static final double DEFAULT_FONT_SIZE = 13;
     public static final double DEFAULT_FONT_ZOOM = 1.0;
@@ -288,6 +294,22 @@ public final class Settings {
 
     public void setAltIsMeta(boolean altIsMeta) {
         put(ALT_IS_META, String.valueOf(altIsMeta));
+    }
+
+    /**
+     * The chord that opens the command palette, as stored — {@code "Alt+X"} unless changed, which
+     * is Emacs's M-x and what Editora's palette answers to.
+     *
+     * <p>A string rather than a {@code KeyCombination}, because this class knows nothing of the
+     * toolkit; the window parses it and falls back to the default when the line does not parse or
+     * names a chord another binding already has. Empty means the default.
+     */
+    public String paletteChord() {
+        return properties.getProperty(PALETTE_CHORD, DEFAULT_PALETTE_CHORD).trim();
+    }
+
+    public void setPaletteChord(String chord) {
+        put(PALETTE_CHORD, chord == null ? "" : chord.trim());
     }
 
     /** Whether a paste containing a line break asks first. On by default: at a prompt every line runs. */

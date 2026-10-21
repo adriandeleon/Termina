@@ -23,8 +23,23 @@ import javafx.scene.input.KeyCombination;
  * @param label menu text
  * @param accelerator the chord, or null for a menu-only action
  * @param action what to run
+ * @param description one line saying what the action does, shown under the palette's list for the
+ *     highlighted row; empty when there is nothing a label did not already say
+ * @param keywords words the palette also finds the action by, besides its label — the menu it lives
+ *     in, so "file new" reaches New Tab; matched only when the label itself does not match, and
+ *     ranked below every label match. Never shown.
  */
-public record MenuAction(String label, KeyCombination accelerator, Runnable action) {
+public record MenuAction(
+        String label, KeyCombination accelerator, Runnable action, String description, String keywords) {
+
+    public MenuAction {
+        if (description == null) description = "";
+        if (keywords == null) keywords = "";
+    }
+
+    /** The chord that opens the command palette unless the user has chosen another: Emacs's M-x. */
+    public static final KeyCombination DEFAULT_PALETTE_CHORD =
+            new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN);
 
     private static final boolean MAC =
             System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
@@ -110,11 +125,66 @@ public record MenuAction(String label, KeyCombination accelerator, Runnable acti
     }
 
     public static MenuAction of(String label, KeyCombination accelerator, Runnable action) {
-        return new MenuAction(label, accelerator, action);
+        return new MenuAction(label, accelerator, action, "", "");
     }
 
     public static MenuAction of(String label, Runnable action) {
-        return new MenuAction(label, null, action);
+        return new MenuAction(label, null, action, "", "");
+    }
+
+    /** The same action with a one-line description for the palette. */
+    public MenuAction describedAs(String description) {
+        return new MenuAction(label, accelerator, action, description, keywords);
+    }
+
+    /** The same action, findable in the palette by {@code keywords} as well as by its label. */
+    public MenuAction withKeywords(String keywords) {
+        return new MenuAction(label, accelerator, action, description, keywords);
+    }
+
+    /** The same action on another chord: the palette's, once the user has changed it. */
+    public MenuAction withAccelerator(KeyCombination accelerator) {
+        return new MenuAction(label, accelerator, action, description, keywords);
+    }
+
+    /**
+     * Whether this is the same action as {@code other}, whatever it is labelled or bound to. The
+     * palette relabels the menu-bar toggle and the window rebinds the palette; both need to find the
+     * original in a list.
+     */
+    public boolean sameActionAs(MenuAction other) {
+        return other != null && other.action == action;
+    }
+
+    /**
+     * The chord a stored setting names, or {@code fallback} when it names none.
+     *
+     * <p>The settings file is meant to be hand-edited, and {@link KeyCombination#valueOf} throws on
+     * anything it cannot read. A chord that does not parse is treated like one that was never set
+     * rather than like an error, because the alternative is a palette with no way in.
+     */
+    public static KeyCombination parseChord(String text, KeyCombination fallback) {
+        if (text == null || text.isBlank()) return fallback;
+        try {
+            return KeyCombination.valueOf(text.trim());
+        } catch (IllegalArgumentException unreadable) {
+            return fallback;
+        }
+    }
+
+    /**
+     * The chord the palette actually answers to: the stored one, unless it is unreadable or already
+     * belongs to another binding — then the default.
+     *
+     * <p>The filter runs bindings in order, so a palette bound to Ctrl+Shift+T would be dead while
+     * its menu item advertised the chord. The settings window refuses such a chord on the way in;
+     * this is the backstop for a hand-edited file, and it falls back rather than throwing because
+     * a window that cannot be built over a bad line in a settings file is worse than one whose
+     * palette is on its usual key.
+     */
+    public static KeyCombination resolvePaletteChord(String stored, List<KeyCombination> taken) {
+        KeyCombination chosen = parseChord(stored, DEFAULT_PALETTE_CHORD);
+        return taken.contains(chosen) ? DEFAULT_PALETTE_CHORD : chosen;
     }
 
     /** Builds the menu item. The accelerator is shown for discoverability; the filter runs it. */
