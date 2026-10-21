@@ -21,9 +21,9 @@
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
 
         <javafx.version>27.0.1</javafx.version>
-        <spotless.version>3.6.0</spotless.version>
-        <palantir.version>2.92.0</palantir.version>
-        <jacoco.version>0.8.13</jacoco.version>
+        <spotless.version>3.10.4</spotless.version>
+        <palantir.version>2.102.0</palantir.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <javafx.plugin.version>0.0.8</javafx.plugin.version>
 
         <!-- Prism pipeline order (-Dprism.order). Set per-OS in the os-* profiles:
@@ -40,29 +40,30 @@
 
         <!-- JediTerm: the VT/xterm emulation core (screen buffer + escape-sequence parser),
              UI-agnostic. NOT on Maven Central — see <repositories> below. -->
-        <jediterm.version>3.74</jediterm.version>
+        <jediterm.version>3.76</jediterm.version>
         <!-- pty4j: the PTY. One jar carries natives for every platform we ship:
              macOS universal dylib, 7 Linux arches, Windows ConPTY + winpty fallback. -->
-        <pty4j.version>0.13.12</pty4j.version>
+        <pty4j.version>0.14.0</pty4j.version>
 
         <!-- Both jediterm-core and pty4j are Kotlin, and they disagree on the stdlib
-             version (2.4.0 vs 2.1.21). Pinned in <dependencyManagement> so the choice is
-             ours rather than Maven's nearest-wins. Likewise JNA: pty4j asks for 5.14.0. -->
-        <kotlin.version>2.4.0</kotlin.version>
+             version (2.4.0 vs 2.4.20). Pinned in <dependencyManagement> so the choice is
+             ours rather than Maven's nearest-wins. Likewise JNA: pty4j currently asks for the
+             same 5.19.1, but the pin stays so a pty4j bump cannot move it unnoticed. -->
+        <kotlin.version>2.4.21</kotlin.version>
         <jna.version>5.19.1</jna.version>
-        <slf4j.version>2.0.17</slf4j.version>
+        <slf4j.version>2.0.20</slf4j.version>
 
         <!-- The release-check response is a large JSON document with user-authored text in it, so
              it gets a real parser. Hand-rolling one to save a dependency would mean hand-rolling
              string-escape handling, which is the entire hard part. jackson-core only — no
              databind, and it is already a proper JPMS module, so jlink links it without moditect. -->
-        <jackson.version>2.22.1</jackson.version>
+        <jackson.version>2.22.4</jackson.version>
 
-        <junit.version>5.14.4</junit.version>
+        <junit.version>6.1.3</junit.version>
 
         <!-- dist profile only -->
-        <moditect.version>1.2.2.Final</moditect.version>
-        <jpackage.plugin.version>1.6.6</jpackage.plugin.version>
+        <moditect.version>1.3.0.Final</moditect.version>
+        <jpackage.plugin.version>1.8.0</jpackage.plugin.version>
     </properties>
 
     <repositories>
@@ -330,13 +331,13 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.16.0</version>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.2</version>
+                <version>3.6.0</version>
                 <configuration>
                     <!-- Tests run on the classpath (unnamed module) so they can reach
                          package-private members and setAccessible freely. -->
@@ -501,7 +502,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-dependency-plugin</artifactId>
-                        <version>3.8.1</version>
+                        <version>3.11.0</version>
                         <executions>
                             <execution>
                                 <id>collect-modules</id>
@@ -518,6 +519,9 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
+                        <!-- Held at 3.1.0: 3.2.0 warns once per Maven property that
+                             exportAntProperties would carry back, which is every property in
+                             this pom, and offers nothing the executions below need. -->
                         <version>3.1.0</version>
                         <executions>
                             <execution>
@@ -667,7 +671,7 @@
                             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.5.0</version>
+                <version>3.6.4</version>
                 <executions>
                     <execution>
                         <!--

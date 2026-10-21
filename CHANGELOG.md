@@ -20,6 +20,13 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   feature in 25 and 26, is final there and is what the title-bar option is built on.
 - `scripts/dev-run.sh` now clears `target/deps` before refilling it, so a dependency bump cannot
   leave the old jar beside the new one with the old one winning.
+- Dependencies brought up to date: JediTerm 3.76 (mouse-scroll direction fix, faster double-width
+  checks), pty4j 0.14.0 (`Cleaner` instead of `finalize`, a fix for `breakRead` waking the wrong
+  PTY after a close, retries when opening the PTY master, ConPTY 1.24), Kotlin stdlib 2.4.21, slf4j
+  2.0.20, Jackson 2.22.4 and JUnit 6.1. Build plugins likewise: Spotless 3.10.4 with
+  palantir-java-format 2.102.0 (one reflow), JaCoCo 0.8.15, ModiTect 1.3.0, jpackage-maven-plugin
+  1.8.0, the compiler, surefire, dependency and exec plugins, and Maven 3.9.16 in the wrapper.
+  antrun stays at 3.1.0, because 3.2.0 warns about every exported property.
 
 ## 0.7.1 — 2026-09-30
 
