@@ -8,11 +8,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import javafx.animation.PauseTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -23,6 +27,8 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -30,12 +36,14 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
+import javafx.util.Duration;
+import javafx.util.StringConverter;
 
 import com.termina.config.Settings;
 import com.termina.i18n.Messages;
+import com.termina.pty.ShellLauncher;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -93,8 +101,11 @@ public final class SettingsWindow {
         }
     }
 
-    /** One searchable control row. */
-    private record Row(Category category, Node node, String keywords, VBox section) {}
+    /**
+     * One searchable control row. The title is kept apart from the rest of the text because a hit
+     * in it outranks a hit in the description — see {@link #matchRank}.
+     */
+    private record Row(Category category, Node node, String title, String keywords, VBox section) {}
 
     private final Settings settings;
     private final Stage stage = new Stage();
@@ -109,38 +120,61 @@ public final class SettingsWindow {
     /** Guards control listeners while a page is being populated from stored values. */
     private boolean loading;
 
+    /** Set for the duration of {@link #reload}, so a change it provokes cannot start another. */
+    private boolean reloading;
+
     private PalettePreview preview;
 
     public SettingsWindow(Settings settings, com.termina.shell.ShellProfiles profiles) {
         this.settings = settings;
         this.profiles = profiles;
         build();
+        // The window shows whatever is stored, and what is stored changes behind its back: the
+        // theme from the palette, the menu bar from its chord, the zoom from its keys. Without
+        // this a checkbox left showing the old value wrote that old value on its next click — a
+        // click that did nothing, followed by one that did the opposite of its label.
+        settings.addOnChange(this::onSettingsChanged);
     }
 
     private final com.termina.shell.ShellProfiles profiles;
 
-    /** The window's scene, for the development capture hook. */
     /** Types into the search box as the user would, so a capture can reach any page. */
     public void searchForCapture(String query) {
         search.setText(query);
     }
 
+    /** The window's scene, for the development capture hook. */
     public Scene scene() {
         return stage.getScene();
     }
 
-    public void show(Window owner) {
-        if (owner != null && stage.getOwner() == null) {
-            stage.initOwner(owner);
-            stage.initModality(Modality.NONE);
-        }
+    /**
+     * Shows the window beside {@code from}, without being owned by it. Ownership would close it
+     * with the first terminal window to have opened it; see {@link SecondaryWindows}.
+     */
+    public void show(Window from) {
         if (stage.isShowing()) {
             stage.toFront();
             stage.requestFocus();
             return;
         }
         reload();
+        SecondaryWindows.placeNear(stage, from);
         stage.show();
+    }
+
+    private void onSettingsChanged() {
+        if (shouldReload(stage.isShowing(), reloading)) reload();
+    }
+
+    /**
+     * Whether a settings change should refresh the controls: only while the window can be seen,
+     * and never from inside the refresh itself. The second half is the re-entrancy guard — a
+     * reload sets every control under {@code loading}, so none of them writes back, but a reload
+     * started by a reload would still be a loop waiting for one that does.
+     */
+    static boolean shouldReload(boolean showing, boolean reloading) {
+        return showing && !reloading;
     }
 
     // ---------------------------------------------------------------- shell
@@ -154,6 +188,9 @@ public final class SettingsWindow {
 
         search.setPromptText(tr("settings.search"));
         search.textProperty().addListener((o, old, value) -> filter(value));
+        // Enter in the search box is not a request to close the window, which is what the default
+        // button would make of it if the event were left to bubble.
+        search.setOnAction(javafx.event.Event::consume);
         VBox.setMargin(search, new Insets(0, 0, 8, 0));
 
         sidebar.setPrefWidth(190);
@@ -164,17 +201,29 @@ public final class SettingsWindow {
         sidebar.getSelectionModel().selectedItemProperty().addListener((o, old, item) -> {
             if (item instanceof Category category) showPage(category);
         });
+        // The group headers are mouse-transparent, which keeps a click off them; the arrow keys
+        // need telling separately, or Down from Appearance lands on "SYSTEM" and selects nothing.
+        sidebar.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            int step = e.getCode() == KeyCode.DOWN ? 1 : e.getCode() == KeyCode.UP ? -1 : 0;
+            if (step == 0) return;
+            List<Object> items = sidebar.getItems();
+            int target = nextSelectable(
+                    sidebar.getSelectionModel().getSelectedIndex(),
+                    step,
+                    items.size(),
+                    i -> items.get(i) instanceof Category category && !hiddenCategories.contains(category));
+            if (target >= 0) sidebar.getSelectionModel().select(target);
+            e.consume();
+        });
 
         pageHost.setPadding(new Insets(4, 0, 0, PAGE_GUTTER));
         pageHost.setAlignment(Pos.TOP_LEFT);
 
         Button reset = new Button(tr("settings.reset"));
-        reset.setOnAction(e -> {
-            settings.resetToDefaults();
-            reload();
-        });
+        reset.setOnAction(e -> confirmReset());
         Button close = new Button(tr("settings.close"));
         close.setOnAction(e -> stage.hide());
+        close.setDefaultButton(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox footer = new HBox(8, reset, spacer, close);
@@ -205,10 +254,42 @@ public final class SettingsWindow {
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
+        SecondaryWindows.closeOnEscape(stage, scene);
         stage.setScene(scene);
         Icons.applyTo(stage);
 
         selectFirstVisible();
+    }
+
+    /**
+     * Asks before resetting, and says what the reset leaves alone.
+     *
+     * <p>The first version reset on the click. The button sits next to Close, the file it clears
+     * held the user's profiles, and "put the font back" is what most people mean by it.
+     */
+    private void confirmReset() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.initOwner(stage);
+        confirm.setTitle(tr("settings.reset"));
+        confirm.setHeaderText(tr("settings.reset.confirmTitle"));
+        confirm.setContentText(tr("settings.reset.confirmDetail"));
+        ButtonType resetButton = new ButtonType(tr("settings.reset.confirm"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirm.getButtonTypes().setAll(resetButton, cancel);
+        if (confirm.showAndWait().orElse(cancel) != resetButton) return;
+        settings.resetToDefaults();
+        reload();
+    }
+
+    /**
+     * The index the arrow keys should land on from {@code from}, stepping by {@code step} past
+     * anything that is not selectable, or -1 when there is nothing further that way.
+     */
+    static int nextSelectable(int from, int step, int size, java.util.function.IntPredicate selectable) {
+        for (int i = from + step; i >= 0 && i < size; i += step) {
+            if (selectable.test(i)) return i;
+        }
+        return -1;
     }
 
     private List<Object> sidebarItems() {
@@ -275,12 +356,39 @@ public final class SettingsWindow {
         return keywords.toLowerCase(Locale.ROOT).contains(query.trim().toLowerCase(Locale.ROOT));
     }
 
+    /**
+     * How well a row answers a query: 2 for a hit in its title, 1 for a hit anywhere else, 0 for
+     * none. A blank query is 1 for everything.
+     *
+     * <p>Titles outrank the rest because the rest is where the noise is. "scrollback" is in the
+     * description of "Show a scrollbar" and in the title of "Scrollback lines"; ranked by page
+     * order the search landed on the former, which is on an earlier page.
+     */
+    static int matchRank(String query, String title, String rest) {
+        if (query == null || query.isBlank()) return 1;
+        String needle = query.trim().toLowerCase(Locale.ROOT);
+        if (title != null && title.toLowerCase(Locale.ROOT).contains(needle)) return 2;
+        return rest != null && rest.toLowerCase(Locale.ROOT).contains(needle) ? 1 : 0;
+    }
+
+    /** The index of the best rank, the first of them on a tie, or -1 when nothing matched. */
+    static int bestOf(int[] ranks) {
+        int best = -1;
+        for (int i = 0; i < ranks.length; i++) {
+            if (ranks[i] > 0 && (best < 0 || ranks[i] > ranks[best])) best = i;
+        }
+        return best;
+    }
+
     private void filter(String query) {
         hiddenCategories.clear();
         Set<Category> withHits = new LinkedHashSet<>();
 
-        for (Row row : rows) {
-            boolean visible = matches(query, row.keywords());
+        int[] ranks = new int[rows.size()];
+        for (int i = 0; i < rows.size(); i++) {
+            Row row = rows.get(i);
+            ranks[i] = matchRank(query, row.title(), row.keywords());
+            boolean visible = ranks[i] > 0;
             row.node().setVisible(visible);
             row.node().setManaged(visible);
             if (visible) withHits.add(row.category());
@@ -300,6 +408,13 @@ public final class SettingsWindow {
         }
         sidebar.refresh();
 
+        // A typed query lands on the page of its best match; clearing it leaves the user where
+        // they were.
+        int best = query == null || query.isBlank() ? -1 : bestOf(ranks);
+        if (best >= 0) {
+            sidebar.getSelectionModel().select(rows.get(best).category());
+            return;
+        }
         Object selected = sidebar.getSelectionModel().getSelectedItem();
         if (!(selected instanceof Category category) || hiddenCategories.contains(category)) {
             selectFirstVisible();
@@ -345,8 +460,28 @@ public final class SettingsWindow {
     /** A titled row with an explanatory line under it, in the shape Editora's settings use. */
     private Node row(
             Category category, VBox section, String title, String description, Region control, String keywords) {
+        return row(category, section, title, description, control, control, keywords);
+    }
+
+    /**
+     * @param labelled the node the title names, for assistive technology — the control itself,
+     *     or the field inside it when the control is a field with a status line under it
+     */
+    private Node row(
+            Category category,
+            VBox section,
+            String title,
+            String description,
+            Region control,
+            Node labelled,
+            String keywords) {
         Label name = new Label(title);
         name.getStyleClass().add("settings-row-title");
+        // The checkboxes are built without text, so without this a screen reader announces
+        // "check box" and nothing else. Both halves: labelFor wires the title to the control, and
+        // the accessible text covers the readers that ask the control directly.
+        name.setLabelFor(labelled);
+        if (labelled.getAccessibleText() == null) labelled.setAccessibleText(title);
         VBox text = new VBox(2, name);
         if (description != null && !description.isBlank()) {
             Label hint = new Label(description);
@@ -361,8 +496,96 @@ public final class SettingsWindow {
         line.setAlignment(Pos.CENTER_LEFT);
         line.getStyleClass().add("settings-row");
         section.getChildren().add(line);
-        rows.add(new Row(category, line, title + " " + description + " " + keywords, section));
+        rows.add(new Row(category, line, title, description + " " + keywords, section));
         return line;
+    }
+
+    // ---------------------------------------------------------------- field helpers
+
+    /**
+     * A field with a verdict under it — "not found", "not executable" — refreshed shortly after
+     * typing stops.
+     *
+     * <p>Debounced rather than per keystroke: each check stats the filesystem, which is cheap on a
+     * local disk and not on a network home directory. The verdict is hidden, not blank, when there
+     * is nothing to say, so the row does not reserve a line for it. A disabled field says nothing:
+     * it is showing a discovered profile the user cannot change.
+     */
+    private static VBox withValidation(
+            TextField field, Label status, java.util.function.Function<String, ShellLauncher.PathStatus> check) {
+        status.getStyleClass().add("settings-row-description");
+        status.setStyle("-fx-text-fill: -color-danger-4;");
+        status.setWrapText(true);
+        status.setVisible(false);
+        status.setManaged(false);
+        PauseTransition debounce = new PauseTransition(Duration.millis(300));
+        debounce.setOnFinished(e -> {
+            String key = field.isDisabled() ? null : validationKey(check.apply(field.getText()));
+            status.setText(key == null ? "" : tr(key));
+            status.setVisible(key != null);
+            status.setManaged(key != null);
+        });
+        field.textProperty().addListener((o, old, text) -> debounce.playFromStart());
+        field.disabledProperty().addListener((o, was, disabled) -> debounce.playFromStart());
+        return new VBox(2, field, status);
+    }
+
+    /** The catalogue key for a verdict worth showing, or null when the path is fine or empty. */
+    static String validationKey(ShellLauncher.PathStatus status) {
+        return switch (status) {
+            case EMPTY, OK -> null;
+            case NOT_FOUND -> "validation.notFound";
+            case NOT_EXECUTABLE -> "validation.notExecutable";
+            case NOT_A_DIRECTORY -> "validation.notADirectory";
+        };
+    }
+
+    /**
+     * The number in what somebody typed into a number field — "13px", "13,5", " 14 " — or null.
+     * The default spinner converter throws on all three, uncaught, on the FX thread.
+     */
+    static Double lenientNumber(String text) {
+        if (text == null) return null;
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("^\\s*([-+]?\\d+(?:[.,]\\d+)?)").matcher(text);
+        if (!m.find()) return null;
+        try {
+            return Double.parseDouble(m.group(1).replace(',', '.'));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Makes an editable spinner forgiving: text it cannot read keeps the current value instead of
+     * throwing, and after a commit the editor shows the value actually taken rather than the text
+     * that was typed.
+     */
+    private static <T extends Number> void makeLenient(
+            Spinner<T> spinner, java.util.function.DoubleFunction<T> toValue) {
+        SpinnerValueFactory<T> factory = spinner.getValueFactory();
+        StringConverter<T> original = factory.getConverter();
+        factory.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(T value) {
+                return original.toString(value);
+            }
+
+            @Override
+            public T fromString(String text) {
+                Double number = lenientNumber(text);
+                return number == null ? spinner.getValue() : toValue.apply(number);
+            }
+        });
+        Runnable resync =
+                () -> spinner.getEditor().setText(factory.getConverter().toString(spinner.getValue()));
+        spinner.getEditor().setOnAction(e -> {
+            spinner.commitValue();
+            resync.run();
+        });
+        spinner.focusedProperty().addListener((o, was, focused) -> {
+            if (!focused) resync.run();
+        });
     }
 
     // ---------------------------------------------------------------- pages
@@ -373,6 +596,7 @@ public final class SettingsWindow {
     private Spinner<Integer> scrollback;
     private ComboBox<Settings.CursorShape> cursorShape;
     private CheckBox altIsMeta;
+    private CheckBox confirmPaste;
     private CheckBox bell;
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
@@ -385,6 +609,8 @@ public final class SettingsWindow {
     private TextField shellField;
     private TextField linkCommandField;
     private Label settingsPath;
+    private Label saveError;
+    private CheckBox updateCheck;
 
     private void buildAppearance(VBox page) {
         VBox theme = section(page, tr("settings.section.theme"));
@@ -430,6 +656,7 @@ public final class SettingsWindow {
                 Settings.MIN_FONT_SIZE, Settings.MAX_FONT_SIZE, Settings.DEFAULT_FONT_SIZE, 1));
         fontSize.setEditable(true);
         fontSize.setPrefWidth(110);
+        makeLenient(fontSize, d -> d);
         fontSize.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
             settings.setFontSize(value);
@@ -575,7 +802,12 @@ public final class SettingsWindow {
         VBox previewSection = section(page, tr("settings.section.preview"));
         preview = new PalettePreview();
         previewSection.getChildren().add(preview.node());
-        rows.add(new Row(Category.APPEARANCE, preview.node(), "preview sample colours font", previewSection));
+        rows.add(new Row(
+                Category.APPEARANCE,
+                preview.node(),
+                tr("settings.section.preview"),
+                "preview sample colours font",
+                previewSection));
     }
 
     private void buildTerminal(VBox page) {
@@ -633,6 +865,7 @@ public final class SettingsWindow {
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
         scrollback.setEditable(true);
         scrollback.setPrefWidth(130);
+        makeLenient(scrollback, d -> (int) Math.round(d));
         scrollback.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
             settings.setScrollbackLines(value);
@@ -646,7 +879,7 @@ public final class SettingsWindow {
                 "scrollback history lines buffer memory");
 
         shellField = new TextField();
-        shellField.setPromptText("Leave empty to use $SHELL");
+        shellField.setPromptText(tr("settings.shell.prompt"));
         shellField.setPrefWidth(260);
         shellField.focusedProperty().addListener((o, was, focused) -> {
             if (!focused && !loading) settings.setShell(shellField.getText());
@@ -654,11 +887,16 @@ public final class SettingsWindow {
         shellField.setOnAction(e -> {
             if (!loading) settings.setShell(shellField.getText());
         });
+        // The launcher falls back to $SHELL when this is not executable, on purpose and without a
+        // word; this line is the word. Typing /bin/zshh and getting bash otherwise reads as the
+        // setting being broken.
+        VBox shellControl = withValidation(shellField, new Label(), ShellLauncher::validateShellPath);
         row(
                 Category.TERMINAL,
                 session,
                 tr("settings.shell"),
                 tr("settings.shell.desc"),
+                shellControl,
                 shellField,
                 "shell zsh bash program command login");
 
@@ -697,6 +935,19 @@ public final class SettingsWindow {
                 tr("settings.altIsMeta.desc"),
                 altIsMeta,
                 "alt option meta escape readline compose");
+
+        confirmPaste = new CheckBox();
+        confirmPaste.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setConfirmPaste(value);
+        });
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.confirmPaste"),
+                tr("settings.confirmPaste.desc"),
+                confirmPaste,
+                "paste clipboard multiline newline confirm ask safety");
     }
 
     // ---------------------------------------------------------------- profiles
@@ -799,8 +1050,14 @@ public final class SettingsWindow {
         VBox form = new VBox(
                 6,
                 labelled(tr("settings.profileName"), profileName),
-                labelled(tr("settings.profileCommand"), profileCommand),
-                labelled(tr("settings.profileDirectory"), profileDirectory),
+                labelled(
+                        tr("settings.profileCommand"),
+                        profileCommand,
+                        withValidation(profileCommand, new Label(), ShellLauncher::validateCommand)),
+                labelled(
+                        tr("settings.profileDirectory"),
+                        profileDirectory,
+                        withValidation(profileDirectory, new Label(), ShellLauncher::validateDirectory)),
                 profileShown,
                 profileSource,
                 buttons);
@@ -815,19 +1072,27 @@ public final class SettingsWindow {
         rows.add(new Row(
                 Category.PROFILES,
                 editor,
-                tr("settings.section.profiles") + " profile shell command wsl powershell cmd bash zsh fish add remove",
+                tr("settings.section.profiles"),
+                "profile shell command wsl powershell cmd bash zsh fish add remove",
                 list));
 
-        Label note = new Label(tr("settings.profiles.note"));
+        Label note = new Label(tr("settings.profiles.note", shortcutName()));
         note.getStyleClass().add("settings-row-description");
         note.setWrapText(true);
         list.getChildren().add(note);
     }
 
     private static VBox labelled(String title, Region control) {
+        return labelled(title, control, control);
+    }
+
+    /** @param shown what goes under the title — the field itself, or the field with its status line */
+    private static VBox labelled(String title, Node field, Region shown) {
         Label name = new Label(title);
         name.getStyleClass().add("settings-row-title");
-        return new VBox(2, name, control);
+        name.setLabelFor(field);
+        if (field.getAccessibleText() == null) field.setAccessibleText(title);
+        return new VBox(2, name, shown);
     }
 
     /** Name on one line, with what it runs under it — the command is what tells two WSLs apart. */
@@ -1007,13 +1272,37 @@ public final class SettingsWindow {
         settingsPath = new Label();
         settingsPath.getStyleClass().add("settings-path");
         settingsPath.setWrapText(true);
+        // A save that fails is otherwise invisible: the control shows the new value, the log has a
+        // warning nobody reads, and the file still holds the old one until the next launch.
+        saveError = new Label();
+        saveError.getStyleClass().add("settings-row-description");
+        saveError.setStyle("-fx-text-fill: -color-danger-4;");
+        saveError.setWrapText(true);
+        VBox fileControl = new VBox(2, settingsPath, saveError);
+        fileControl.setMaxWidth(420);
         row(
                 Category.ADVANCED,
                 files,
                 tr("settings.settingsFile"),
                 tr("settings.settingsFile.desc"),
+                fileControl,
                 settingsPath,
-                "settings file path properties config location");
+                "settings file path properties config location save error");
+
+        VBox updates = section(page, tr("settings.section.updates"));
+
+        updateCheck = new CheckBox();
+        updateCheck.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setUpdateCheck(value);
+        });
+        row(
+                Category.ADVANCED,
+                updates,
+                tr("settings.updateCheck"),
+                tr("settings.updateCheck.desc"),
+                updateCheck,
+                "update check startup github release network privacy automatic");
 
         VBox diagnostics = section(page, tr("settings.section.diagnostics"));
         Button showDebugLog = new Button(tr("settings.debugLog.button"));
@@ -1041,6 +1330,15 @@ public final class SettingsWindow {
 
     /** Fills every control from the stored settings without firing their listeners. */
     private void reload() {
+        reloading = true;
+        try {
+            reloadControls();
+        } finally {
+            reloading = false;
+        }
+    }
+
+    private void reloadControls() {
         loading = true;
         try {
             Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
@@ -1050,6 +1348,7 @@ public final class SettingsWindow {
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
+            confirmPaste.setSelected(settings.confirmPaste());
             bell.setSelected(settings.bell());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
@@ -1060,7 +1359,9 @@ public final class SettingsWindow {
             language.setValue(settings.uiLanguage());
             shellField.setText(settings.shell());
             linkCommandField.setText(settings.linkOpenCommand());
+            updateCheck.setSelected(settings.updateCheck());
             settingsPath.setText(settings.file().toString());
+            refreshSaveError();
         } finally {
             loading = false;
         }
@@ -1068,6 +1369,13 @@ public final class SettingsWindow {
         // it leaves rather than inherit one that is about to be cleared.
         refreshProfileList();
         refreshPreview();
+    }
+
+    private void refreshSaveError() {
+        String error = settings.lastSaveError();
+        saveError.setText(error == null ? "" : tr("settings.settingsFile.error", error));
+        saveError.setVisible(error != null);
+        saveError.setManaged(error != null);
     }
 
     private void refreshPreview() {

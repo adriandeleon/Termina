@@ -45,6 +45,12 @@ public final class KeyEncoding {
             Map.entry(KeyCode.DOWN, 40),
             Map.entry(KeyCode.INSERT, 155),
             Map.entry(KeyCode.DELETE, 127),
+            // The numeric keypad's arrows, which is what the keypad sends with NumLock off. JediTerm's
+            // encoder has entries for these four; without them here the events went unconsumed.
+            Map.entry(KeyCode.KP_UP, 224),
+            Map.entry(KeyCode.KP_DOWN, 225),
+            Map.entry(KeyCode.KP_LEFT, 226),
+            Map.entry(KeyCode.KP_RIGHT, 227),
             Map.entry(KeyCode.F1, 112),
             Map.entry(KeyCode.F2, 113),
             Map.entry(KeyCode.F3, 114),
@@ -105,6 +111,17 @@ public final class KeyEncoding {
             if (control != null) return withMeta(control, e, altIsMeta);
         }
 
+        // Ctrl+Alt+<letter> is Meta over a control byte — readline's C-M-f and C-M-b, Emacs's
+        // whole C-M- family — and had no route at all: the control branch above wants Alt up, the
+        // meta branch below wants Ctrl up, and KEY_TYPED drops control characters. The one thing
+        // it must not take is AltGr, which is the same two modifiers on Windows and Linux and is how
+        // some layouts type @ and { at all. The press's own text tells them apart: AltGr has
+        // composed something other than the key, Ctrl+Alt has not.
+        if (altIsMeta && e.isControlDown() && e.isAltDown() && !e.isMetaDown() && isPlainCtrlAlt(e)) {
+            byte[] control = controlByte(code);
+            if (control != null && (code.isLetterKey() || code.isDigitKey())) return prefixEsc(control);
+        }
+
         // Meta: ESC then the key's *unmodified* character. Handled from KEY_PRESSED precisely
         // because KEY_TYPED reports the composed one, and composing is what this mode turns off.
         //
@@ -143,6 +160,24 @@ public final class KeyEncoding {
         return new byte[] {(byte) c};
     }
 
+    /**
+     * Whether a Ctrl+Alt press is the key itself, modified, rather than something AltGr composed.
+     *
+     * <p>AltGr+Q on a German layout arrives as the Q key carrying {@code @}; Ctrl+Alt+Q on a US one
+     * arrives carrying {@code q}, or its control form. Only those two are plain. A press carrying
+     * nothing is <em>not</em> taken as plain: with no character to judge by it could be either, and
+     * the cost of guessing wrong is a layout that cannot type {@code @} — so it is left to
+     * KEY_TYPED, which is where it went before.
+     */
+    static boolean isPlainCtrlAlt(KeyEvent e) {
+        String text = e.getText();
+        if (text == null || text.length() != 1) return false;
+        char c = text.charAt(0);
+        if (c < 0x20 || c == 0x7f) return true;
+        char plain = plainAscii(e.getCode().getChar());
+        return plain != 0 && Character.toLowerCase(c) == Character.toLowerCase(plain);
+    }
+
     /** A single printable ASCII character, or 0 for anything else. */
     private static char plainAscii(String text) {
         if (text == null || text.length() != 1) return 0;
@@ -173,14 +208,56 @@ public final class KeyEncoding {
         // Alt with Ctrl is AltGr, which is not Meta and does belong here.
         if (altIsMeta && e.isAltDown() && !e.isControlDown()) return null;
 
+        // Ctrl+Alt over a plain letter or digit went out from KEY_PRESSED as ESC plus the control
+        // byte. What AltGr composes is never an ASCII letter or digit, so those still pass.
+        if (altIsMeta && e.isControlDown() && e.isAltDown() && text.length() == 1 && isAsciiLetterOrDigit(first)) {
+            return null;
+        }
+
         return text.getBytes(StandardCharsets.UTF_8);
     }
 
-    /** Wraps text for bracketed paste, which lets the shell tell a paste from typing. */
+    private static boolean isAsciiLetterOrDigit(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+    }
+
+    /**
+     * Wraps text for bracketed paste, which lets the shell tell a paste from typing.
+     *
+     * <p>Sanitised first, always — see {@link #sanitise}. Bracketing is only a fence if the text
+     * inside cannot contain the closing bracket.
+     */
     public static byte[] encodePaste(String text, boolean bracketed) {
-        String normalised = text.replace("\r\n", "\r").replace('\n', '\r');
+        String normalised = sanitise(text).replace("\r\n", "\r").replace('\n', '\r');
         if (!bracketed) return normalised.getBytes(StandardCharsets.UTF_8);
         return ("[200~" + normalised + "[201~").getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Strips from pasted text everything a terminal would obey rather than show.
+     *
+     * <p>ESC and the other C0 controls, DEL, and the C1 range. A clipboard is not trusted input: a
+     * web page can put a literal {@code ESC [ 201 ~} on it, which closes a bracketed paste early
+     * and turns the rest into keystrokes, and a bare ESC can start any sequence the emulator knows.
+     * Tab and the two newline characters stay — they are the text's own structure, and the newline
+     * question is answered separately by {@link PasteSafety}. xterm, iTerm2, kitty and Windows
+     * Terminal all do this or something equivalent.
+     */
+    public static String sanitise(String text) {
+        if (text == null || text.isEmpty()) return "";
+        StringBuilder out = null;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            boolean keep = c == '\t' || c == '\n' || c == '\r' || (c >= 0x20 && c != 0x7f && (c < 0x80 || c > 0x9f));
+            if (keep) {
+                if (out != null) out.append(c);
+            } else if (out == null) {
+                // Allocated only once something has to go: the common paste is clean, and this
+                // path then costs one scan and no copy.
+                out = new StringBuilder(text.length()).append(text, 0, i);
+            }
+        }
+        return out == null ? text : out.toString();
     }
 
     private static byte[] withMeta(byte[] bytes, KeyEvent e, boolean altIsMeta) {
@@ -233,13 +310,17 @@ public final class KeyEncoding {
             char letter = code.getChar().toUpperCase(java.util.Locale.ROOT).charAt(0);
             return new byte[] {(byte) (letter - 'A' + 1)};
         }
+        // The digits follow xterm, which maps Ctrl+3..8 onto the same bytes as the punctuation
+        // above them on a US keyboard: 3 is ESC, 4 is FS, 5 is GS, 6 is RS, 7 is US and 8 is DEL.
+        // Readline users know Ctrl+7 as undo for exactly this reason.
         return switch (code) {
             case SPACE, DIGIT2 -> new byte[] {0x00}; // Ctrl+Space / Ctrl+@ -> NUL
-            case OPEN_BRACKET -> new byte[] {0x1b}; // ESC
-            case BACK_SLASH -> new byte[] {0x1c}; // FS  (Ctrl+\ -> SIGQUIT)
-            case CLOSE_BRACKET -> new byte[] {0x1d}; // GS
+            case OPEN_BRACKET, DIGIT3 -> new byte[] {0x1b}; // ESC
+            case BACK_SLASH, DIGIT4 -> new byte[] {0x1c}; // FS  (Ctrl+\ -> SIGQUIT)
+            case CLOSE_BRACKET, DIGIT5 -> new byte[] {0x1d}; // GS
             case DIGIT6 -> new byte[] {0x1e}; // Ctrl+^ -> RS
-            case MINUS, SLASH -> new byte[] {0x1f}; // Ctrl+_ -> US
+            case MINUS, SLASH, DIGIT7 -> new byte[] {0x1f}; // Ctrl+_ -> US
+            case DIGIT8 -> new byte[] {0x7f}; // DEL
             default -> null;
         };
     }

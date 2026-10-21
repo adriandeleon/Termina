@@ -14,6 +14,133 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   first shown, and the row says so. Not offered on macOS, where the menus are in the screen menu
   bar and there is nothing in the window to merge.
 
+- **A paste with a line break asks first.** At a prompt every line of a paste runs the moment it
+  lands, which is how a copied snippet with a stray newline becomes an executed command. The prompt
+  shows the text that will be sent, with Paste as the default button; Terminal → Input turns it
+  off. Pasted text is also sanitised: escape and other control characters are stripped before a
+  (bracketed) paste, so clipboard contents can no longer end the bracket early and run as typing.
+- **Keyboard scrollback and the Linux paste reflexes.** Shift+PageUp, Shift+PageDown, Shift+Home
+  and Shift+End move through the scrollback (and reach the program as before on the alternate
+  screen); Shift+Insert pastes, Ctrl+Insert copies, and middle-click pastes the clipboard — JavaFX
+  has no access to the X11 primary selection, so it is the clipboard rather than the selection.
+- **Tabs are named after the running program** — `vim`, `ssh`, `npm` — when the shell has not set
+  a title, and only then after the directory. Three tabs in `~` were three tabs called `~`.
+- **Advanced → Updates** carries the switch for the startup update check, which existed only as a
+  key in the file. About says when the last check ran.
+- **Inline validation** under the shell field and a profile's command and starting directory:
+  "Not found", "Not executable", "Not a directory", as you type. A shell path that names nothing
+  was silently replaced by `$SHELL`, and the row never said so.
+- **Rename, reopen and duplicate a tab.** Double-click a tab (or use its menu, the Window menu or
+  the palette) to give it a name; the name outranks the shell's title and the program, and an
+  empty name brings the automatic title back. **Reopen Closed Tab** (`Cmd+Z` on macOS,
+  `Ctrl+Shift+Z` elsewhere; File menu) brings back the last tab closed on purpose — the same shell
+  or profile, the directory it was in when it closed, its name, and its old place in the strip —
+  not its scrollback, since the process is gone. The last ten are kept; a shell that exited by
+  itself is not among them. **Duplicate Tab** opens a second tab like this one, where it is now,
+  right beside it.
+- **Help → Keyboard Shortcuts** (`Cmd+/` on macOS, `Ctrl+Shift+/` elsewhere) lists every chord
+  the window answers to, searchable, generated from the menus and the binding table rather than
+  typed — so it cannot advertise a chord the filter does not implement — plus the keys the terminal
+  handles by itself: Shift+PageUp and friends, Shift+Insert, Ctrl+Insert, middle-click, the link
+  modifier, Shift+drag and double-click to rename.
+- **A background tab says when something happened in it.** A dot after the title: accent for
+  output that arrived after two quiet seconds — a build finishing, a prompt returning — and the
+  warning colour for a bell. Selecting the tab clears it. A tab that streams continuously is marked
+  once and left alone; a new tab's own first prompt does not count.
+- **The window's last position is remembered** along with its size, and pulled back onto a screen
+  that still exists.
+
+### Fixed
+
+- **Escape no longer leaves full screen.** JavaFX's default full-screen exit key is Escape,
+  handled before the terminal sees it, and it painted a "Press ESC to exit full screen" banner over
+  the shell — so the first Escape in vim dropped the window out of full screen instead of leaving
+  insert mode. F11 (Ctrl+Cmd+F on macOS) is now the only way in and out. Verified by pressing the
+  key through the operating system.
+- **Close Window has a chord that works.** Off macOS it was `Ctrl+Shift+W`, the same chord as
+  Close Tab, which the key filter reached first; the File menu and the palette advertised a binding
+  that did nothing. It is now `Ctrl+Shift+Q`, GNOME Terminal's and Konsole's. macOS keeps
+  `Cmd+Shift+W`. Registering two bindings on one chord now fails loudly, and the chord table is
+  tested for duplicates on both platform branches.
+- **A default profile that cannot start no longer closes the window.** The failed tab was removed
+  before the error was shown; an empty window closes itself, the last window closing quits, and the
+  dialog then opened on a dead owner — leaving nobody a window to fix the profile from. The error
+  now names the command that failed, the default shell opens in its place when the window would
+  otherwise be empty, and the dialog is an explanation rather than a gate.
+- **The tab strip's overflow is drawn, not hidden.** With more tabs than fit, JavaFX's overflow
+  control and the last tab's close button were painted under the floating `+`; the strip now keeps
+  its right end clear and the controls there are opaque, so a scrolled tab ends where they begin.
+- **Zoom In's menu says `Ctrl+=`**, the key every common layout actually produces, instead of
+  `Ctrl++`. A real `+` key and the keypad's still zoom.
+
+- **A selection and a scrolled-back view stay on their text as output arrives**, including once
+  the scrollback is full. The shift was driven from JediTerm's history-buffer listener, which (in
+  3.76) fires only when history is cleared or the buffer resized — never for an ordinary newline —
+  so a selection made while a build ran came to highlight different text from what copying it
+  produced, and reading a log while it grew slid it along under the pointer. Driven from the model
+  listener now, with the resize path left to JediTerm, which shifts the selection itself; a
+  regression test writes into a real buffer and checks the selected text is unchanged.
+- **A drag highlights exactly what it copies.** Highlighting treated the end cell as inclusive and
+  copying as exclusive, so dragging to the last letter of a word lost it. One convention now: the
+  cell under the pointer is included once the pointer passes its middle, and a backward drag keeps
+  the pressed cell.
+- **No phantom selections inside mouse-aware programs.** A click reported to the program left the
+  previous plain click's anchor behind, and a later drag in a press-only mode selected from it.
+- **A program that resets the terminal gives the cursor back its configured shape.** The reset
+  arrived as "no shape" and was ignored, so vim's block outlived vim.
+- **Wheel and trackpad scrolling move by distance**, not three lines per event — trackpads send
+  many small events, so scrollback flew past.
+- **Reset to Defaults asks first, and keeps your profiles**, the default-profile choice and hidden
+  profiles. It cleared the whole file, profiles included, on one click.
+- **The settings file is written atomically** — to a sibling and moved into place — so a crash or
+  power loss mid-write cannot leave it empty. A save that fails is shown in red on the Settings
+  file row instead of being logged and forgotten.
+- **The Settings window follows changes made elsewhere while it is open** — a theme from the
+  palette, the menu bar from its chord, zoom. A stale checkbox used to need two clicks, the first
+  of which did nothing.
+- **Settings and About no longer close with the window that opened them.** They were owned by the
+  first window to open them, for life.
+- **Update-check errors are readable** — "You appear to be offline", "GitHub refused the request"
+  — rather than a Java class name, and after the release page has been opened the Help item goes
+  back to "Check for Updates…" instead of advertising the same version until restart.
+- **Font size and scrollback accept "13px"-style input** instead of throwing on the FX thread.
+- **A second running instance no longer wipes the first one's session log.**
+- **Ctrl+Alt+letter sends Meta plus the control byte** (readline's `C-M-f`), Ctrl+3 through Ctrl+8
+  send xterm's control bytes, and the keypad arrows work with NumLock off. Programs that ask for
+  any-motion mouse reporting (mode 1003) now receive pointer motion.
+- **Rendering.** The cursor is drawn on the last column when a line is exactly full; a block
+  cursor shows the glyph beneath it in the cell's own font and colours; rows are at least as tall
+  as the font's metrics ask, so descenders are no longer overpainted by a coloured row below; box
+  drawing, block and braille characters stay on the batched fast path instead of one draw call per
+  glyph; a window resize reflows the terminal once the size settles rather than on every pixel;
+  a thousand bells are one flash; and a selection is cleared when a full-screen program starts or
+  exits rather than drawn over it.
+- **Closing a tab no longer pauses the window for up to half a second** waiting for its threads.
+- **Child shells get `LANG=C.UTF-8`** rather than `en_US.UTF-8` when no locale is set — the
+  latter is often not generated on minimal systems and bash said so at every prompt — and
+  `LC_ALL`/`LC_CTYPE` are respected. "Automatic" interface language no longer narrows the JVM's
+  locale to a bare language, which changed dates and numbers in dialogs.
+- **New windows cascade from the window the action came from** and stay on its screen.
+- **On Windows, Ctrl+click opens files through the shell handler** rather than `cmd /c start`, so
+  `&`, `^` and `%` in a name are not interpreted. (Still unrun on Windows.)
+- Settings search prefers a match in a row's title and opens that row's page; the profiles note
+  names the platform's own chord; the shell field's prompt is translated; row titles and
+  checkboxes are labelled for screen readers; arrow keys in the settings sidebar skip the group
+  headers; Escape closes Settings, About and the Debug Log. `NaN` in a hand-edited settings file
+  is treated as absent rather than handed to the font.
+
+### Changed
+
+- **The palette lists the tabs that exist, by title**, with the chord that reaches each, instead of
+  nine numbered "Go to Tab" rows of which most were dead. Its menu-bar row says "Show" or "Hide"
+  according to the current state.
+
+- **`sh` and `dash` are no longer offered as shell profiles**, and shells that are symlinks to
+  the same binary are listed once. Nobody opens a tab as `dash`.
+- The cursor's DECSCUSR 0 ("default") still arrives from JediTerm as a blinking block,
+  indistinguishable from an explicit 1, so a program that resets to "default" rather than to "no
+  shape" still leaves a block. Said here because the fix above covers the other case.
+
 ### Maintenance
 
 - Moved to JavaFX 27. Its extended stage style (`StageStyle.EXTENDED` and `HeaderBar`), a preview

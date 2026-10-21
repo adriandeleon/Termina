@@ -54,6 +54,13 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     private volatile String shellTitle = "";
 
     private volatile String cwd = "";
+
+    /** What the shell is running, from the same watcher as the directory; empty at a prompt. */
+    private volatile String program = "";
+
+    /** A name the user gave the tab; empty for the automatic title. Outranks everything else. */
+    private volatile String userTitle = "";
+
     private final String home = System.getProperty("user.home", "");
 
     private final StringProperty windowTitle = new SimpleStringProperty(AppInfo.NAME);
@@ -92,9 +99,25 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         onRepaint.run();
     }
 
+    /**
+     * A program's cursor shape, or null to withdraw it.
+     *
+     * <p>Null is a real message and has to be stored: it is what {@code JediTerminal.reset()} sends
+     * when a program resets the terminal, and ignoring it — as the first version did — left the
+     * last program's shape in place for the life of the tab, so vim's bar outlived vim in a tab
+     * whose owner had chosen a block.
+     *
+     * <p>What this cannot fix is {@code DECSCUSR 0}. xterm defines 0 and 1 as the same thing, a
+     * blinking block, and JediTerm follows xterm: both arrive here as {@code BLINK_BLOCK}, and the
+     * {@code JediEmulator} method that maps them is private, with no hook between the parser and
+     * this call. Terminals that read 0 as "the user's default" are departing from xterm; matching
+     * them would mean parsing the sequence ourselves before the emulator sees it, which is not
+     * worth a one-shape difference. Neovim and most vim configurations restore with an explicit
+     * shape rather than 0, and {@code reset} is covered.
+     */
     @Override
     public void setCursorShape(CursorShape shape) {
-        if (shape != null) cursorShape = shape;
+        cursorShape = shape;
         onRepaint.run();
     }
 
@@ -165,9 +188,33 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         return cwd;
     }
 
+    /**
+     * The shell's foreground program, from {@link com.termina.pty.CwdWatcher}. Empty when the shell
+     * is back at its prompt, which is what returns the tab to the directory.
+     */
+    public void setProgram(String program) {
+        this.program = program == null ? "" : program;
+        refreshTitles();
+    }
+
+    /** Names the tab, or clears the name with an empty string so the automatic title returns. */
+    public void setUserTitle(String title) {
+        userTitle = title == null ? "" : title.trim();
+        refreshTitles();
+    }
+
+    public String getUserTitle() {
+        return userTitle;
+    }
+
+    /** What the tab would be called with no name set — the rename dialog's placeholder. */
+    public String automaticTabTitle() {
+        return TerminalTitle.tab(shellTitle, program, cwd, home);
+    }
+
     private void refreshTitles() {
-        String window = TerminalTitle.window(shellTitle, cwd, home);
-        String tab = TerminalTitle.tab(shellTitle, cwd, home);
+        String window = TerminalTitle.window(userTitle, shellTitle, cwd, home);
+        String tab = TerminalTitle.tab(userTitle, shellTitle, program, cwd, home);
         String tooltip = TerminalTitle.tooltip(shellTitle, cwd, home);
         Platform.runLater(() -> {
             windowTitle.set(window);

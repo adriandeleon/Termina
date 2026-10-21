@@ -129,6 +129,22 @@ class UpdateCheckTest {
     }
 
     @Test
+    void aFailureIsClassifiedIntoSomethingASentenceCanBeBuiltFrom() {
+        // "UnknownHostException" was what the dialog said. It means "you are offline".
+        assertEquals(
+                UpdateCheck.ErrorKind.OFFLINE,
+                UpdateCheck.classify(new java.net.UnknownHostException("api.github.com")));
+        assertEquals(UpdateCheck.ErrorKind.OFFLINE, UpdateCheck.classify(new java.net.ConnectException("refused")));
+        assertEquals(
+                UpdateCheck.ErrorKind.TIMEOUT, UpdateCheck.classify(new java.net.http.HttpTimeoutException("slow")));
+        // Wrapped, as the HTTP client delivers them.
+        assertEquals(
+                UpdateCheck.ErrorKind.OFFLINE,
+                UpdateCheck.classify(new java.io.IOException("wrapped", new java.net.NoRouteToHostException())));
+        assertEquals(UpdateCheck.ErrorKind.OTHER, UpdateCheck.classify(new IllegalStateException("?")));
+    }
+
+    @Test
     void theCheckIsDueOncePerInterval() {
         long day = UpdateCheck.DEFAULT_INTERVAL_MS;
         assertTrue(UpdateCheck.isDue(0, 1_000_000, day), "never checked");

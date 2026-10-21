@@ -54,10 +54,28 @@ final class CommandMatcher {
         // starts "Window", and scores the same as "New Tab". Every placement is considered instead
         // and the best kept, which at these lengths — a few characters over a menu label — is far
         // too cheap to be worth approximating.
-        int[][] memo = new int[q.length()][text.length()];
-        for (int[] row : memo) java.util.Arrays.fill(row, Integer.MIN_VALUE);
-        int best = best(q, text, 0, 0, memo);
+        int best = best(q, text, 0, 0, new Memo(q.length(), text.length()));
         return best == Integer.MIN_VALUE ? NO_MATCH : best;
+    }
+
+    /**
+     * Remembered sub-results, with a separate record of which cells have been computed.
+     *
+     * <p>Separate because a "does not fit" answer is a result too, and the first version stored it
+     * as the same sentinel that meant "not yet tried". Every failed placement was then recomputed
+     * from scratch, which on a label with many repeats of the query's letters is exponential: the
+     * memo caught the matches and none of the misses, and the misses are most of the work.
+     */
+    private static final class Memo {
+        final int[] score;
+        final boolean[] visited;
+        final int width;
+
+        Memo(int queryLength, int textLength) {
+            width = textLength;
+            score = new int[queryLength * textLength];
+            visited = new boolean[queryLength * textLength];
+        }
     }
 
     /**
@@ -65,10 +83,11 @@ final class CommandMatcher {
      *
      * @return {@link Integer#MIN_VALUE} when the rest of the query does not fit
      */
-    private static int best(String q, String text, int i, int from, int[][] memo) {
+    private static int best(String q, String text, int i, int from, Memo memo) {
         if (i == q.length()) return 0;
         if (from >= text.length()) return Integer.MIN_VALUE;
-        if (memo[i][from] != Integer.MIN_VALUE) return memo[i][from];
+        int cell = i * memo.width + from;
+        if (memo.visited[cell]) return memo.score[cell];
 
         int result = Integer.MIN_VALUE;
         for (int at = from; at < text.length(); at++) {
@@ -94,7 +113,8 @@ final class CommandMatcher {
             int rest = best(q, text, i + 1, at + 1, memo);
             if (rest != Integer.MIN_VALUE) result = Math.max(result, here + rest);
         }
-        memo[i][from] = result;
+        memo.score[cell] = result;
+        memo.visited[cell] = true;
         return result;
     }
 }

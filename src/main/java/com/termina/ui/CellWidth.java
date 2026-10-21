@@ -17,6 +17,26 @@ final class CellWidth {
 
     private CellWidth() {}
 
+    /**
+     * Whether every char of {@code text} is one narrow cell, so the run can be drawn in one call.
+     *
+     * <p>This is the fast-path test for the renderer, and its scope is deliberate. Only two things
+     * break the one-char-one-column assumption a single {@code fillText} relies on: an astral code
+     * point, which is two chars for one column, and a wide glyph's {@link CharUtils#DWC} filler,
+     * which is one char for a column that must not be drawn. Everything else in the BMP — box
+     * drawing, block elements, braille, accented letters — is a cell apiece and stays batched. The
+     * first version dropped every non-ASCII run to per-glyph drawing, which put every TUI border
+     * and progress bar on the slow path for no gain. Control characters are excluded too, since a
+     * run containing one has nothing sensible to draw in a batch.
+     */
+    static boolean isOneCellPerChar(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c < 0x20 || c == 0x7f || c == CharUtils.DWC || Character.isSurrogate(c)) return false;
+        }
+        return true;
+    }
+
     /** Cells occupied by {@code text}, counting from the start of a style run. */
     static int cells(String text) {
         if (text == null || text.isEmpty()) return 0;

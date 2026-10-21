@@ -72,8 +72,10 @@ public final class App extends Application {
                 java.util.Locale.getDefault().getLanguage());
         com.termina.i18n.Messages.init(language);
         // So JavaFX localises its own built-in pieces — the OK/Cancel buttons on an Alert, and any
-        // locale-sensitive control — to match rather than to the OS.
-        java.util.Locale.setDefault(java.util.Locale.forLanguageTag(language));
+        // locale-sensitive control — to match. Only when the user chose a language: "Automatic"
+        // follows the OS, country and all, rather than reducing de_AT to de.
+        java.util.Locale.setDefault(com.termina.i18n.Messages.defaultLocale(
+                settings.uiLanguage(), language, java.util.Locale.getDefault()));
 
         // Applied before any window is built, so the first frame is already themed.
         Application.setUserAgentStylesheet(

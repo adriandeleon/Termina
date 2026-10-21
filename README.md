@@ -533,7 +533,8 @@ an app icon has to work hardest at.
 
 - **Selection refinements.** No autoscroll when dragging past the top or bottom edge, no
   rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
-  keystroke rather than surviving it.
+  keystroke rather than surviving it. Middle-click pastes the clipboard, not the X11 primary
+  selection, which JavaFX cannot read.
 - **Tabs and splits.** One session per window.
 - **Configuration.** No keybinding customisation, no custom themes beyond the two built in, and no
   per-profile settings.

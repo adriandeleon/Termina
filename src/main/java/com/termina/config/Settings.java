@@ -3,9 +3,16 @@ package com.termina.config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * User preferences, stored as a plain properties file in {@code ~/.termina/settings.properties}.
@@ -24,6 +31,7 @@ public final class Settings {
     public static final String SCROLLBACK_LINES = "terminal.scrollback";
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
+    public static final String CONFIRM_PASTE = "input.confirmPaste";
     public static final String SHELL = "terminal.shell";
     public static final String PROFILE_DEFAULT = "profiles.default";
     public static final String PROFILE_HIDDEN = "profiles.hidden";
@@ -36,6 +44,8 @@ public final class Settings {
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
+    public static final String WINDOW_X = "window.x";
+    public static final String WINDOW_Y = "window.y";
     public static final String WINDOW_WIDTH = "window.width";
     public static final String WINDOW_HEIGHT = "window.height";
     public static final String WINDOW_MAXIMIZED = "window.maximized";
@@ -68,9 +78,19 @@ public final class Settings {
     /** A hard ceiling: scrollback is retained in memory, so this is a footprint decision. */
     public static final int MAX_SCROLLBACK = 200_000;
 
+    /**
+     * The furthest a remembered window position is believed. Nothing real sits a hundred thousand
+     * pixels from the origin; a value past that is a corrupt line, and restoring it would open the
+     * window somewhere no screen is.
+     */
+    public static final double MAX_WINDOW_COORDINATE = 100_000;
+
     private final Path file;
     private final Properties properties = new Properties();
-    private Runnable onChange = () -> {};
+    private final List<Runnable> onChange = new ArrayList<>();
+
+    /** Why the last save failed, or null when it succeeded. */
+    private volatile String lastSaveError;
 
     public Settings(Path file) {
         this.file = file;
@@ -100,9 +120,24 @@ public final class Settings {
         return dir.resolve("settings.properties");
     }
 
-    /** Notified after any successful change, so the UI can re-apply live. */
-    public void setOnChange(Runnable onChange) {
-        this.onChange = onChange == null ? () -> {} : onChange;
+    /**
+     * Notified after any change, so the UI can re-apply live.
+     *
+     * <p>A list, not a slot. The first consumer was the window manager, re-applying to every
+     * terminal; the settings window is the second, reloading its controls when a chord or the
+     * palette changes something while it is open. A single-consumer setter had the second silently
+     * replace the first.
+     */
+    public void addOnChange(Runnable listener) {
+        if (listener != null) onChange.add(listener);
+    }
+
+    public void removeOnChange(Runnable listener) {
+        onChange.remove(listener);
+    }
+
+    private void fireChange() {
+        for (Runnable listener : List.copyOf(onChange)) listener.run();
     }
 
     public void load() {
@@ -117,16 +152,57 @@ public final class Settings {
         }
     }
 
+    /**
+     * Writes the file, through a sibling temporary and a rename.
+     *
+     * <p>Rewriting in place truncates first and fills afterwards, and a kill or a power cut between
+     * the two leaves an empty file — which the next launch reads as "no settings", profiles
+     * included, without a word. The rename is atomic where the filesystem offers it and a plain
+     * replace where it does not, which still leaves either the whole new file or the old one.
+     */
     public void save() {
+        Path temp = tempFileFor(file);
         try {
             Path parent = file.getParent();
             if (parent != null) Files.createDirectories(parent);
-            try (OutputStream out = Files.newOutputStream(file)) {
+            try (OutputStream out = Files.newOutputStream(temp)) {
                 properties.store(out, "Termina settings");
             }
+            moveIntoPlace(temp, file);
+            lastSaveError = null;
         } catch (IOException e) {
+            lastSaveError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + file, e);
+            try {
+                Files.deleteIfExists(temp);
+            } catch (IOException ignored) {
+                // The leftover temporary is the lesser problem; the warning above names the file.
+            }
         }
+    }
+
+    /** The scratch file a save goes through: beside the real one, so the rename stays on one volume. */
+    static Path tempFileFor(Path file) {
+        return file.resolveSibling(file.getFileName() + ".tmp");
+    }
+
+    private static void moveIntoPlace(Path temp, Path target) throws IOException {
+        try {
+            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /**
+     * What went wrong the last time the file was written, or null when it was written.
+     *
+     * <p>Exposed because a control showing the new value while the file still holds the old one is
+     * a lie the user discovers at the next launch. The settings window puts this on the row that
+     * names the file.
+     */
+    public String lastSaveError() {
+        return lastSaveError;
     }
 
     public Path file() {
@@ -157,6 +233,7 @@ public final class Settings {
     }
 
     public void setFontSize(double size) {
+        if (!Double.isFinite(size)) return;
         put(FONT_SIZE, String.valueOf(clamp(size, MIN_FONT_SIZE, MAX_FONT_SIZE)));
     }
 
@@ -172,6 +249,7 @@ public final class Settings {
     }
 
     public void setFontZoom(double zoom) {
+        if (!Double.isFinite(zoom)) return;
         put(FONT_ZOOM, String.valueOf(clamp(zoom, MIN_FONT_ZOOM, MAX_FONT_ZOOM)));
     }
 
@@ -210,6 +288,15 @@ public final class Settings {
 
     public void setAltIsMeta(boolean altIsMeta) {
         put(ALT_IS_META, String.valueOf(altIsMeta));
+    }
+
+    /** Whether a paste containing a line break asks first. On by default: at a prompt every line runs. */
+    public boolean confirmPaste() {
+        return readBoolean(CONFIRM_PASTE, true);
+    }
+
+    public void setConfirmPaste(boolean confirmPaste) {
+        put(CONFIRM_PASTE, String.valueOf(confirmPaste));
     }
 
     /** Blank means the user's own shell, as {@code $SHELL} reports it. */
@@ -277,7 +364,7 @@ public final class Settings {
             if (entry.getValue() != null) properties.setProperty(entry.getKey(), entry.getValue());
         }
         save();
-        onChange.run();
+        fireChange();
     }
 
     /**
@@ -380,6 +467,33 @@ public final class Settings {
         return readDouble(WINDOW_HEIGHT, 0);
     }
 
+    /**
+     * Where a window was last left, or empty when no position has been recorded.
+     *
+     * <p>An {@code OptionalDouble} rather than a sentinel: unlike a size, where zero cannot be a
+     * real value, zero is a perfectly good position — the corner of the primary screen. A value out
+     * of range or not a number reads as unset, so a corrupt line opens the window where a fresh
+     * install would rather than off every screen.
+     */
+    public OptionalDouble windowX() {
+        return readCoordinate(WINDOW_X);
+    }
+
+    public OptionalDouble windowY() {
+        return readCoordinate(WINDOW_Y);
+    }
+
+    private OptionalDouble readCoordinate(String key) {
+        if (properties.getProperty(key) == null) return OptionalDouble.empty();
+        double value = readDouble(key, Double.NaN);
+        return isSaneCoordinate(value) ? OptionalDouble.of(value) : OptionalDouble.empty();
+    }
+
+    /** Whether a window coordinate is one worth remembering or restoring. */
+    static boolean isSaneCoordinate(double value) {
+        return Double.isFinite(value) && Math.abs(value) <= MAX_WINDOW_COORDINATE;
+    }
+
     public boolean windowMaximized() {
         return readBoolean(WINDOW_MAXIMIZED, false);
     }
@@ -387,9 +501,9 @@ public final class Settings {
     /**
      * Records the geometry a window was last left at.
      *
-     * <p>Written directly instead of through {@code put}, deliberately: that fires the change
-     * broadcast, which re-applies every setting to every terminal in every window. Geometry is not
-     * something the UI reacts to, and a resize is not something to repaint the whole app over.
+     * <p>Written quietly, deliberately: the change broadcast re-applies every setting to every
+     * terminal in every window. Geometry is not something the UI reacts to, and a resize is not
+     * something to repaint the whole app over.
      */
     public void setWindowGeometry(double width, double height, boolean maximized) {
         properties.setProperty(WINDOW_WIDTH, String.valueOf(Math.round(width)));
@@ -398,12 +512,22 @@ public final class Settings {
         save();
     }
 
+    /** Size and position in one write. A position that is not sane is left unrecorded. */
+    public void setWindowGeometry(double x, double y, double width, double height, boolean maximized) {
+        if (isSaneCoordinate(x) && isSaneCoordinate(y)) {
+            properties.setProperty(WINDOW_X, String.valueOf(Math.round(x)));
+            properties.setProperty(WINDOW_Y, String.valueOf(Math.round(y)));
+        }
+        setWindowGeometry(width, height, maximized);
+    }
+
     /** How see-through a terminal window is, 0.6 to 1.0. Clamped by the caller. */
     public double windowOpacity() {
         return readDouble(WINDOW_OPACITY, 1.0);
     }
 
     public void setWindowOpacity(double opacity) {
+        if (!Double.isFinite(opacity)) return;
         put(WINDOW_OPACITY, String.valueOf(opacity));
     }
 
@@ -429,8 +553,9 @@ public final class Settings {
         return (long) readDouble(LAST_UPDATE_CHECK, 0);
     }
 
+    /** Bookkeeping, so quiet: nothing on screen depends on when the last check ran. */
     public void setLastUpdateCheck(long epochMs) {
-        put(LAST_UPDATE_CHECK, String.valueOf(epochMs));
+        putQuietly(LAST_UPDATE_CHECK, String.valueOf(epochMs));
     }
 
     /** The version the user has already been shown and acted on. */
@@ -439,30 +564,72 @@ public final class Settings {
     }
 
     public void setDismissedUpdate(String version) {
-        put(DISMISSED_UPDATE, version == null ? "" : version);
+        putQuietly(DISMISSED_UPDATE, version == null ? "" : version);
     }
 
-    /** Clears every stored value; every accessor then reports its default. */
+    /**
+     * Puts everything back to its default — except the profiles.
+     *
+     * <p>Hand-written profiles are hours of someone's work, and "Reset to Defaults" is a button
+     * people press to get a font back. The chosen default and the hidden ids go with them, because
+     * a kept profile that is no longer the default, or that reappears in the menu, is the same
+     * surprise in smaller print. The rule is {@link #keysToReset}.
+     */
     public void resetToDefaults() {
-        properties.clear();
+        for (String key : keysToReset(properties.stringPropertyNames())) properties.remove(key);
         save();
-        onChange.run();
+        fireChange();
+    }
+
+    /** Which of the stored keys a reset removes: everything but the profiles and the two keys about them. */
+    public static Set<String> keysToReset(Set<String> stored) {
+        Set<String> reset = new LinkedHashSet<>();
+        for (String key : stored) {
+            if (!isProfileKey(key)) reset.add(key);
+        }
+        return reset;
+    }
+
+    /** The keys that belong to the user's profiles, which a reset leaves alone. */
+    public static boolean isProfileKey(String key) {
+        return key.startsWith(PROFILE_PREFIX) || PROFILE_DEFAULT.equals(key) || PROFILE_HIDDEN.equals(key);
     }
 
     // ---------------------------------------------------------------- internals
 
     private void put(String key, String value) {
-        String previous = properties.getProperty(key);
-        if (value.equals(previous)) return;
-        properties.setProperty(key, value);
-        save();
-        onChange.run();
+        if (putQuietly(key, value)) fireChange();
     }
 
+    /**
+     * Stores and saves without the change broadcast.
+     *
+     * <p>For bookkeeping — timestamps, a dismissed version, geometry — that nothing on screen is
+     * waiting to hear about: the broadcast rebuilds fonts and re-measures every terminal in every
+     * window, and the first of these keys is written moments after the first window appears.
+     *
+     * @return whether anything changed
+     */
+    private boolean putQuietly(String key, String value) {
+        String previous = properties.getProperty(key);
+        if (value.equals(previous)) return false;
+        properties.setProperty(key, value);
+        save();
+        return true;
+    }
+
+    /**
+     * A finite number, or the fallback.
+     *
+     * <p>{@code Double.parseDouble} happily returns NaN and the infinities for the strings that
+     * spell them, and a NaN clamps to itself — straight into {@code Font.font(family, NaN)}.
+     */
     private double readDouble(String key, double fallback) {
         try {
             String raw = properties.getProperty(key);
-            return raw == null ? fallback : Double.parseDouble(raw.trim());
+            if (raw == null) return fallback;
+            double value = Double.parseDouble(raw.trim());
+            return Double.isFinite(value) ? value : fallback;
         } catch (NumberFormatException e) {
             return fallback;
         }
@@ -486,7 +653,9 @@ public final class Settings {
         return fallback;
     }
 
+    /** NaN is between no two numbers; it lands on the floor rather than passing through. */
     private static double clamp(double value, double min, double max) {
+        if (Double.isNaN(value)) return min;
         return Math.max(min, Math.min(max, value));
     }
 }

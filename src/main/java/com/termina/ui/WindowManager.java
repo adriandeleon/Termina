@@ -27,8 +27,19 @@ public final class WindowManager {
     private AboutWindow aboutWindow;
 
     private final com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
-    /** The newer release, once found. Held app-wide so every window's Help menu agrees. */
+
+    /**
+     * The newer release the menus advertise, or null. Held app-wide so every window's Help menu
+     * agrees. Cleared once the user has acted on it, so the item goes back to being the check.
+     */
     private com.termina.update.ReleaseInfo availableUpdate;
+
+    /**
+     * The newest release known of, whether or not the user has already acted on it. About shows
+     * this one: a dismissed update is still a fact about this build, and "You are up to date" after
+     * clicking through to the release page would be a lie.
+     */
+    private com.termina.update.ReleaseInfo knownUpdate;
 
     private final List<Runnable> updateListeners = new ArrayList<>();
     private java.util.function.Consumer<String> openLink = url -> {};
@@ -49,7 +60,7 @@ public final class WindowManager {
         // so the next one to open picks up whatever discovery found. The callback exists because a
         // menu already on screen when the answer lands would otherwise keep the shorter list.
         profiles.discoverInBackground(found -> {});
-        settings.setOnChange(this::applySettingsEverywhere);
+        settings.addOnChange(this::applySettingsEverywhere);
     }
 
     public com.termina.shell.ShellProfiles profiles() {
@@ -69,11 +80,28 @@ public final class WindowManager {
         return open(primary, cli);
     }
 
+    /** A new window, cascaded from the most recently opened one. */
     public void openWindow() {
-        open(new Stage(), null);
+        openWindow(windows.isEmpty() ? null : windows.get(windows.size() - 1));
+    }
+
+    /**
+     * A new window, cascaded from {@code from} — the window whose menu or chord asked for it.
+     *
+     * <p>From that one rather than from the last opened: with three windows across two screens,
+     * "New Window" from the first should land beside the first, not beside whichever was made most
+     * recently. {@code from} may be null, in which case the window opens where the stage would on
+     * its own.
+     */
+    public TerminalWindow openWindow(TerminalWindow from) {
+        return open(new Stage(), null, from);
     }
 
     private TerminalWindow open(Stage stage, com.termina.pty.LaunchOptions cli) {
+        return open(stage, cli, null);
+    }
+
+    private TerminalWindow open(Stage stage, com.termina.pty.LaunchOptions cli, TerminalWindow from) {
         TerminalWindow window = new TerminalWindow(this, settings, stage);
         windows.add(window);
 
@@ -84,11 +112,16 @@ public final class WindowManager {
             if (windows.isEmpty()) Platform.exit();
         });
 
-        // Offset each additional window so it does not land exactly on the one it came from.
-        if (windows.size() > 1) {
-            Stage previous = windows.get(windows.size() - 2).stage();
-            stage.setX(previous.getX() + CASCADE_OFFSET);
-            stage.setY(previous.getY() + CASCADE_OFFSET);
+        // Offset each additional window so it does not land exactly on the one it came from, and
+        // keep it on that window's screen — the offset alone walked the title bar off the bottom.
+        if (from != null && windows.contains(from)) {
+            Stage origin = from.stage();
+            double width = stage.getScene() != null ? stage.getScene().getWidth() : origin.getWidth();
+            double height = stage.getScene() != null ? stage.getScene().getHeight() : origin.getHeight();
+            double[] at = WindowPlacement.offsetWithin(
+                    origin.getX(), origin.getY(), CASCADE_OFFSET, width, height, SecondaryWindows.screenOf(origin));
+            stage.setX(at[0]);
+            stage.setY(at[1]);
         }
 
         window.show();
@@ -141,10 +174,11 @@ public final class WindowManager {
         openLink.accept(url);
     }
 
-    public void showAbout(Window owner) {
+    /** One About window for the application, shown beside whichever window asked. */
+    public void showAbout(Window from) {
         if (aboutWindow == null) aboutWindow = new AboutWindow(settings, openLink);
-        aboutWindow.setUpdate(availableUpdate);
-        aboutWindow.show(owner);
+        aboutWindow.setUpdate(knownUpdate);
+        aboutWindow.show(from);
     }
 
     /** For the development capture hook. */
@@ -179,7 +213,7 @@ public final class WindowManager {
         updates.check(com.termina.AppInfo.VERSION, outcome -> {
             onUpdateOutcome(outcome, true);
             if (outcome.error() != null) {
-                report.accept(tr("status.updateCheckFailed", outcome.error()));
+                report.accept(describeFailure(outcome.error(), outcome.detail()));
             } else if (outcome.available()) {
                 report.accept(tr("status.updateAvailable", outcome.latest().version()));
             } else {
@@ -188,13 +222,31 @@ public final class WindowManager {
         });
     }
 
+    /**
+     * A failed check in words. The exception's class name went into the dialog in the first
+     * version, and {@code UnknownHostException} tells the person reading it nothing they can act on.
+     */
+    static String describeFailure(com.termina.update.UpdateCheck.ErrorKind kind, String detail) {
+        return switch (kind) {
+            case OFFLINE -> tr("status.updateCheckOffline");
+            case TIMEOUT -> tr("status.updateCheckTimeout");
+            case HTTP -> tr("status.updateCheckRefused", detail);
+            case OTHER -> tr("status.updateCheckFailed", detail);
+        };
+    }
+
     private void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
         if (!outcome.available()) return;
+        knownUpdate = outcome.latest();
+        if (aboutWindow != null) aboutWindow.setUpdate(knownUpdate);
         // A version the user has already been shown stays out of the menu, but a manual check
         // surfaces it again — they just asked.
         if (!manual && outcome.latest().version().equals(settings.dismissedUpdate())) return;
         availableUpdate = outcome.latest();
-        if (aboutWindow != null) aboutWindow.setUpdate(availableUpdate);
+        notifyUpdateListeners();
+    }
+
+    private void notifyUpdateListeners() {
         for (Runnable listener : List.copyOf(updateListeners)) listener.run();
     }
 
@@ -202,24 +254,42 @@ public final class WindowManager {
         return availableUpdate;
     }
 
-    /** Notified when an update is found, so a window can relabel its Help menu. */
+    /** Notified when the advertised update changes — found, or dismissed — so a window can relabel its Help menu. */
     void addUpdateListener(Runnable listener) {
         updateListeners.add(listener);
     }
 
-    /** Opens the release page and remembers the version, so it stops being advertised. */
+    /** Opens the release page and stops advertising the version, since the user has now seen it. */
     public void openReleasePage() {
-        if (availableUpdate != null) settings.setDismissedUpdate(availableUpdate.version());
         String url = availableUpdate == null || availableUpdate.url().isBlank()
                 ? com.termina.AppInfo.RELEASES_PAGE
                 : availableUpdate.url();
+        dismissCurrentUpdate();
         openLink.accept(url);
     }
 
-    /** One settings window for the whole application, re-parented to whoever asked for it. */
-    public void showSettings(Window owner) {
+    /**
+     * Takes the advertised update down: the Help item returns to "Check for Updates…" and the
+     * version is remembered so the next startup check does not put it back. Until this existed the
+     * item read "Version X is available…" until restart, and a manual check was unreachable.
+     */
+    public void dismissCurrentUpdate() {
+        if (availableUpdate == null) return;
+        settings.setDismissedUpdate(availableUpdate.version());
+        availableUpdate = null;
+        notifyUpdateListeners();
+    }
+
+    /**
+     * One settings window for the whole application, shown beside whichever window asked.
+     *
+     * <p>Not owned by that window — an owned stage closes with its owner, and the owner cannot be
+     * changed after the first show, so the window would have died with the first terminal window
+     * to open it. See {@link SecondaryWindows}.
+     */
+    public void showSettings(Window from) {
         if (settingsWindow == null) settingsWindow = new SettingsWindow(settings, profiles);
-        settingsWindow.show(owner);
+        settingsWindow.show(from);
     }
 
     /** Opens the settings window and returns its scene, for the development capture hook. */

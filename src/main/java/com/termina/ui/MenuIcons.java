@@ -112,6 +112,25 @@ public final class MenuIcons {
     }
 
     /** Marks the default profile. A tick rather than a radio button, which JavaFX cannot draw here. */
+    /** A pencil: rename. */
+    static Node rename() {
+        return of("M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02"
+                + " 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z");
+    }
+
+    /** Two tabs, one behind the other: duplicate. */
+    static Node duplicate() {
+        return of("M22 3H7c-1.1 0-2 .9-2 2v2h2V5h15v10h-2v2h2c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5"
+                + " 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8c0-1.1-.9-2-2-2zm0"
+                + " 10H3v-8h14v8z");
+    }
+
+    /** An arrow turning back: reopen what was closed. */
+    static Node reopen() {
+        return of("M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88"
+                + " 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z");
+    }
+
     static Node check() {
         return of("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z");
     }

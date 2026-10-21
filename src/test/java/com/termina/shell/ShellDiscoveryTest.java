@@ -202,6 +202,34 @@ class ShellDiscoveryTest {
     }
 
     @Test
+    @DisplayName("sh, dash and rbash are scripting shells, not profiles anyone opens a tab as")
+    void skipsScriptingShells() {
+        // The first two entries a Debian user saw in the chevron were Dash and Sh.
+        var isExecutable =
+                present(Path.of("/bin/sh"), Path.of("/bin/dash"), Path.of("/bin/rbash"), Path.of("/bin/bash"));
+        List<Profile> found = ShellDiscovery.onUnix(
+                env(Map.of()), isExecutable, () -> List.of("/bin/sh", "/bin/dash", "/bin/rbash", "/bin/bash"));
+        assertEquals(List.of("shell-bash"), found.stream().map(Profile::id).toList());
+    }
+
+    @Test
+    @DisplayName("two names for one binary are one entry, and the first name keeps it")
+    void collapsesSymlinksToTheSameBinary() {
+        // ksh as a symlink to mksh, say: the menu would otherwise offer the same shell twice under
+        // two names. Resolution is injected because this machine's /bin is not the one described.
+        var isExecutable = present(Path.of("/bin/zsh"), Path.of("/bin/ksh"), Path.of("/bin/bash"));
+        java.util.function.Function<Path, Path> realPath =
+                path -> path.equals(Path.of("/bin/ksh")) ? Path.of("/bin/bash") : path;
+
+        List<Profile> found = ShellDiscovery.onUnix(
+                env(Map.of()), isExecutable, () -> List.of("/bin/zsh", "/bin/bash", "/bin/ksh"), realPath);
+
+        assertEquals(
+                List.of("shell-zsh", "shell-bash"),
+                found.stream().map(Profile::id).toList());
+    }
+
+    @Test
     @DisplayName("a shell listed in /etc/shells but since uninstalled is left out")
     void skipsMissingBinaries() {
         List<Profile> found = ShellDiscovery.onUnix(env(Map.of()), path -> false, () -> List.of("/usr/local/bin/fish"));

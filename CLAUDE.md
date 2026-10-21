@@ -167,6 +167,13 @@ Each of these cost real time, and none of them announces itself.
   width — but **not** the height: the buttons take the strip's height from a binding installed after
   the first layout, and a box pinned to its preferred height never grows to it, leaving the glyphs
   eight pixels above the close buttons they line up with.
+- **A `Labeled` ignores a graphic that is unmanaged when it is set, for good.** `LabeledSkinBase`
+  adds the graphic to its children only if it is managed at that moment and never revisits the
+  decision, so a node created hidden and shown later is laid out by nothing, has no scene, and is
+  styled and painted by nothing — while `isVisible()`, `getFill()` and even `getBoundsInParent()`
+  all report a node that looks fine. The tab marks shipped that way once: the report said
+  "bell(visible)" and the screenshot showed no dot. Attach and detach the graphic (`setGraphic`)
+  instead of toggling it, and colour it in code if it must be right before CSS has run.
 - **JavaFX has no structural pseudo-classes.** `:last-child` parses without complaint and matches
   nothing, so anything positional needs a style class of its own.
 - **An SVG path JavaFX cannot read draws nothing and says nothing.** No exception, no log line — the

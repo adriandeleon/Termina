@@ -9,8 +9,10 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The key-to-bytes mapping. Pure enough to test without a toolkit. */
 class KeyEncodingTest {
@@ -244,5 +246,117 @@ class KeyEncodingTest {
     void aKeyWithNoPlainCharacterHasNoMetaForm() {
         // Nothing to prefix, and inventing a byte would send a keystroke the user never made.
         assertNull(KeyEncoding.metaBase(pressedWithText(KeyCode.SHIFT, "", false, true)));
+    }
+
+    // --- Ctrl+Alt: Meta over a control byte, unless it is AltGr -------------------------------
+
+    private static KeyEvent ctrlAlt(KeyCode code, String text) {
+        return new KeyEvent(KeyEvent.KEY_PRESSED, "", text, code, false, true, true, false);
+    }
+
+    @Test
+    void ctrlAltLetterIsEscapeThenTheControlByte() {
+        // Readline's C-M-f. Had no route at all: the control branch wants Alt up, the meta branch
+        // wants Ctrl up, and KEY_TYPED drops control characters.
+        assertArrayEquals(
+                new byte[] {0x1b, 0x06},
+                KeyEncoding.encodePressed(ctrlAlt(KeyCode.F, "f"), new RecordingLookup(null), true));
+        // The press may carry the control form instead, which is just as plainly the key.
+        assertArrayEquals(
+                new byte[] {0x1b, 0x06},
+                KeyEncoding.encodePressed(ctrlAlt(KeyCode.F, "\u0006"), new RecordingLookup(null), true));
+    }
+
+    @Test
+    void aPressWithNoTextIsLeftToKeyTypedBecauseItCouldBeAltGr() {
+        // With nothing to judge by, guessing "plain" would cost some layout its @ key. This is also
+        // what altGrComposesCharactersWithoutSendingControlBytes above pins from the other side.
+        assertNull(KeyEncoding.encodePressed(ctrlAlt(KeyCode.F, ""), new RecordingLookup(null), true));
+        assertFalse(KeyEncoding.isPlainCtrlAlt(ctrlAlt(KeyCode.F, "")));
+    }
+
+    @Test
+    void altGrIsStillLeftToKeyTyped() {
+        // AltGr+Q on a German layout: the Q key, carrying @. That is a composition and it goes
+        // through KEY_TYPED as before; sending ESC + 0x11 instead would break typing @ at all.
+        assertNull(KeyEncoding.encodePressed(ctrlAlt(KeyCode.Q, "@"), new RecordingLookup(null), true));
+        assertArrayEquals(new byte[] {'@'}, KeyEncoding.encodeTyped(typed("@", true, true, false), true));
+        assertFalse(KeyEncoding.isPlainCtrlAlt(ctrlAlt(KeyCode.Q, "@")));
+        assertFalse(KeyEncoding.isPlainCtrlAlt(ctrlAlt(KeyCode.E, "€")));
+        assertTrue(KeyEncoding.isPlainCtrlAlt(ctrlAlt(KeyCode.Q, "q")));
+        assertTrue(KeyEncoding.isPlainCtrlAlt(ctrlAlt(KeyCode.Q, "Q")));
+    }
+
+    @Test
+    void theTypedTwinOfCtrlAltLetterIsDropped() {
+        // The press sent it; a platform that also delivers the letter must not get it twice.
+        assertNull(KeyEncoding.encodeTyped(typed("f", true, true, false), true));
+        // Only in Meta mode — with Alt composing, Ctrl+Alt is whatever the OS says it is.
+        assertArrayEquals(new byte[] {'f'}, KeyEncoding.encodeTyped(typed("f", true, true, false), false));
+    }
+
+    @Test
+    void ctrlAltOnlyCoversLettersAndDigits() {
+        // Ctrl+Alt+[ would otherwise double up with the typed '[' on a US layout.
+        assertNull(KeyEncoding.encodePressed(ctrlAlt(KeyCode.OPEN_BRACKET, "["), new RecordingLookup(null), true));
+    }
+
+    // --- Ctrl+digit, per xterm ----------------------------------------------------------------
+
+    @Test
+    void controlDigitsFollowXterm() {
+        assertArrayEquals(new byte[] {0x00}, KeyEncoding.controlByte(KeyCode.DIGIT2));
+        assertArrayEquals(new byte[] {0x1b}, KeyEncoding.controlByte(KeyCode.DIGIT3));
+        assertArrayEquals(new byte[] {0x1c}, KeyEncoding.controlByte(KeyCode.DIGIT4));
+        assertArrayEquals(new byte[] {0x1d}, KeyEncoding.controlByte(KeyCode.DIGIT5));
+        assertArrayEquals(new byte[] {0x1e}, KeyEncoding.controlByte(KeyCode.DIGIT6));
+        assertArrayEquals(new byte[] {0x1f}, KeyEncoding.controlByte(KeyCode.DIGIT7)); // readline's undo
+        assertArrayEquals(new byte[] {0x7f}, KeyEncoding.controlByte(KeyCode.DIGIT8));
+        assertNull(KeyEncoding.controlByte(KeyCode.DIGIT1));
+        assertNull(KeyEncoding.controlByte(KeyCode.DIGIT9));
+    }
+
+    // --- the numeric keypad -------------------------------------------------------------------
+
+    @Test
+    void keypadArrowsGoThroughTheEmulatorLikeTheOthers() {
+        // NumLock off sends KP_UP, which was not in the table and so went unconsumed. 224 is
+        // VK_KP_UP, which JediTerm's encoder knows.
+        RecordingLookup lookup = new RecordingLookup(new byte[] {0x1b, '[', 'A'});
+        byte[] out = KeyEncoding.encodePressed(pressed(KeyCode.KP_UP, false, false, false, false), lookup, true);
+        assertEquals(224, lookup.lastKeyCode);
+        assertArrayEquals(new byte[] {0x1b, '[', 'A'}, out);
+        KeyEncoding.encodePressed(pressed(KeyCode.KP_RIGHT, false, false, false, false), lookup, true);
+        assertEquals(227, lookup.lastKeyCode);
+    }
+
+    // --- paste sanitising ---------------------------------------------------------------------
+
+    @Test
+    void escapeAndControlsAreStrippedFromAPaste() {
+        // The attack: a clipboard carrying the close bracket ends the paste early and the rest is
+        // keystrokes. With ESC gone there is no sequence left to end it with.
+        assertEquals("ls[201~; rm x", KeyEncoding.sanitise("ls\u001b[201~; rm x"));
+        assertEquals("ab", KeyEncoding.sanitise("a\u0000\u0001\u0007\u007fb"));
+        assertEquals("ab", KeyEncoding.sanitise("a\u009bb")); // 8-bit CSI
+    }
+
+    @Test
+    void tabsAndNewlinesSurviveSanitising() {
+        assertEquals("a\tb\r\nc\rd\ne", KeyEncoding.sanitise("a\tb\r\nc\rd\ne"));
+        assertEquals("café 日本", KeyEncoding.sanitise("café 日本"));
+        assertEquals("", KeyEncoding.sanitise(null));
+    }
+
+    @Test
+    void aCleanPasteIsReturnedAsIs() {
+        String clean = "nothing to strip";
+        assertTrue(clean == KeyEncoding.sanitise(clean));
+    }
+
+    @Test
+    void encodePasteSanitisesBeforeBracketing() {
+        String out = new String(KeyEncoding.encodePaste("a\u001b[201~b", true), StandardCharsets.UTF_8);
+        assertEquals("\u001b[200~a[201~b\u001b[201~", out);
     }
 }

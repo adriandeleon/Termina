@@ -65,6 +65,34 @@ class TerminalTitleTest {
         assertEquals(AppInfo.NAME, TerminalTitle.tab(null, null, HOME));
     }
 
+    // --- the foreground program -----------------------------------------------------------------
+
+    @Test
+    void aRunningProgramNamesTheTabBeforeTheDirectoryDoes() {
+        // Three tabs all reading "~" said nothing about which held the editor and which the build.
+        assertEquals("vim", TerminalTitle.tab("", "vim", "/home/adl/src", HOME));
+        assertEquals("ssh", TerminalTitle.tab("", "ssh", HOME, HOME));
+    }
+
+    @Test
+    void theShellsOwnTitleStillComesFirst() {
+        assertEquals("vim README.md", TerminalTitle.tab("vim README.md", "vim", "/home/adl/src", HOME));
+    }
+
+    @Test
+    void withNothingRunningTheDirectoryIsBack() {
+        // Empty is what the watcher reports when the child exits, and it has to restore the tab.
+        assertEquals("src", TerminalTitle.tab("", "", "/home/adl/src", HOME));
+        assertEquals("src", TerminalTitle.tab("", null, "/home/adl/src", HOME));
+        assertEquals("src", TerminalTitle.tab("", "   ", "/home/adl/src", HOME));
+    }
+
+    @Test
+    void theWindowTitleKeepsThePathWhateverIsRunning() {
+        // It has the room for a path, and the path is what tells two checkouts apart.
+        assertEquals("~/src", TerminalTitle.window("", "/home/adl/src", HOME));
+    }
+
     // --- the tab's hover ------------------------------------------------------------------------
 
     @Test
@@ -133,5 +161,22 @@ class TerminalTitleTest {
     void aDirectoryWithASpaceOrADotSurvivesIntact() {
         assertEquals("My Project", TerminalTitle.tab("", "/home/adl/My Project", HOME));
         assertEquals(".config", TerminalTitle.tab("", "/home/adl/.config", HOME));
+    }
+
+    // --- a name the user gave the tab -------------------------------------------------------
+
+    @Test
+    void aNameTheUserGaveOutranksEverything() {
+        // Including a title the shell set and a program that is running: the name is the one
+        // explicit instruction here, and the window follows its selected tab.
+        assertEquals("build", TerminalTitle.tab("build", "vim foo.c", "vim", "/home/adl/src", HOME));
+        assertEquals("build", TerminalTitle.window(" build ", "vim foo.c", "/home/adl/src", HOME));
+    }
+
+    @Test
+    void anEmptyNameMeansTheAutomaticTitle() {
+        assertEquals("vim", TerminalTitle.tab("", "", "vim", "/home/adl/src", HOME));
+        assertEquals("src", TerminalTitle.tab("  ", "", "", "/home/adl/src", HOME));
+        assertEquals("~/src", TerminalTitle.window(null, "", "/home/adl/src", HOME));
     }
 }

@@ -23,6 +23,30 @@
 }
 
 /*
+ * The strip's right end is kept clear for the two buttons that float over it. The tab arithmetic
+ * already reserves the width (TabLayout), but once tabs floor at their minimum and the strip
+ * overflows, JavaFX's own overflow control appeared under the buttons and the last tab's close
+ * button under the +. With the room taken as padding, the overflow control lands beside them.
+ * Must agree with TerminalWindow.NEW_TAB_RESERVED.
+ */
+.tab-pane > .tab-header-area {
+    -fx-padding: 0 62 0 0;
+}
+
+/*
+ * Once the strip overflows, JavaFX scrolls the headers region to keep the selected tab in view and
+ * draws its overflow control over whatever is there. The theme gives that control no background,
+ * so the tab underneath showed through it — and the same for our two buttons, which float over
+ * the strip. Both get the header's own ground and its bottom hairline, so a scrolled tab ends
+ * where the controls begin.
+ */
+.tab-pane > .tab-header-area > .control-buttons-tab {
+    -fx-background-insets: 0 0 0 0, 0 0 2px 0;
+    -fx-background-color: -color-border-default, -color-bg-default;
+    -fx-padding: 0 4 0 4;
+}
+
+/*
  * Collapsing the tab strip.
  *
  * JavaFX offers no property for this, and TabPaneSkin lays the header area out from its own
@@ -81,6 +105,40 @@
 .header-title {
     -fx-text-fill: -color-fg-muted;
     -fx-padding: 0 8 0 8;
+}
+
+/* The shortcut reference. */
+.shortcuts-group {
+    -fx-font-weight: bold;
+    -fx-text-fill: -color-fg-default;
+    -fx-padding: 12 0 4 0;
+}
+
+.shortcuts-row {
+    -fx-padding: 3 0 3 0;
+}
+
+.shortcuts-row > .label {
+    -fx-text-fill: -color-fg-default;
+}
+
+.shortcuts-keys {
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-family: monospace;
+    -fx-font-size: 0.9em;
+}
+
+.shortcuts-empty {
+    -fx-text-fill: -color-fg-muted;
+    -fx-padding: 12 0 0 0;
+}
+
+.shortcuts-scroll {
+    -fx-background-color: transparent;
+}
+
+.shortcuts-scroll > .viewport {
+    -fx-background-color: transparent;
 }
 
 /* Drag-to-reorder feedback: the dragged tab dims, and an accent edge shows where it would land. */
@@ -160,16 +218,22 @@
     -fx-background-color: -color-fg-default;
 }
 
+/*
+ * Opaque, on the buttons rather than on the box that holds them: the box is deliberately left
+ * unbounded in height (see TerminalWindow.tabStripButtons) and a painted one would be a column
+ * down the whole right edge. The buttons are strip-high, so they are what hides a scrolled tab.
+ */
 .new-tab-button {
-    -fx-background-color: transparent;
+    -fx-background-insets: 0 0 0 0, 0 0 2px 0;
+    -fx-background-color: -color-border-default, -color-bg-default;
     -fx-padding: 2 10 2 10;
-    -fx-background-radius: 6;
+    -fx-background-radius: 0;
     -fx-min-width: 32;
     -fx-cursor: hand;
 }
 
 .new-tab-button:hover {
-    -fx-background-color: -color-bg-subtle;
+    -fx-background-color: -color-border-default, -color-bg-subtle;
 }
 
 .new-tab-button:hover .tab-strip-glyph,
@@ -297,6 +361,12 @@
     -fx-font-size: 0.9em;
 }
 
+
+/* The paste prompt's preview: what will be sent, as the shell will see it. */
+.paste-preview {
+    -fx-font-family: "JetBrains Mono", monospace;
+    -fx-font-size: 0.9em;
+}
 
 /* Debug log: monospace, because a stack trace's indentation is information. */
 .debug-log-text {
