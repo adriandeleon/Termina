@@ -376,6 +376,7 @@ public final class SettingsWindow {
     private CheckBox bell;
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
+    private CheckBox menuBarInTitleBar;
     private CheckBox showScrollBar;
     private CheckBox confirmClose;
     private ComboBox<String> language;
@@ -475,6 +476,29 @@ public final class SettingsWindow {
                 mac ? tr("settings.showMenuBar.mac") : tr("settings.showMenuBar.desc"),
                 showMenuBar,
                 "menu bar menubar hide chrome window");
+
+        menuBarInTitleBar = new CheckBox();
+        menuBarInTitleBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setMenuBarInTitleBar(value);
+        });
+        boolean extendedWindows =
+                javafx.application.Platform.isSupported(javafx.application.ConditionalFeature.EXTENDED_WINDOW);
+        // Same policy as the row above: disabled with the reason, never silently inert. Two
+        // reasons here, and the row says whichever applies.
+        menuBarInTitleBar.setDisable(!TerminalWindow.offersHeaderBarOption(mac, extendedWindows));
+        String titleBarReason = mac
+                ? tr("settings.menuBarInTitleBar.mac")
+                : !extendedWindows
+                        ? tr("settings.menuBarInTitleBar.unsupported")
+                        : tr("settings.menuBarInTitleBar.desc");
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.menuBarInTitleBar"),
+                titleBarReason,
+                menuBarInTitleBar,
+                "title bar titlebar header menu bar unified decorations window buttons");
 
         showScrollBar = new CheckBox();
         showScrollBar.selectedProperty().addListener((o, old, value) -> {
@@ -1030,6 +1054,7 @@ public final class SettingsWindow {
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showMenuBar.setSelected(settings.showMenuBar());
+            menuBarInTitleBar.setSelected(settings.menuBarInTitleBar());
             showScrollBar.setSelected(settings.showScrollBar());
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             language.setValue(settings.uiLanguage());

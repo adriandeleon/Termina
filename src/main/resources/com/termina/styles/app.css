@@ -63,6 +63,26 @@
     -fx-padding: 0;
 }
 
+/*
+ * The window's own title bar, when the menu bar is put in it (StageStyle.EXTENDED). Painted like
+ * the menu bar it holds — same ground, same hairline underneath — and the menu bar's own
+ * background is cleared so the two cannot show a seam. The title is muted, as a title is.
+ */
+.header-bar {
+    -fx-background-color: -color-border-muted, -color-bg-subtle;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+
+.header-bar > .menu-bar {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
+
+.header-title {
+    -fx-text-fill: -color-fg-muted;
+    -fx-padding: 0 8 0 8;
+}
+
 /* Drag-to-reorder feedback: the dragged tab dims, and an accent edge shows where it would land. */
 .tab-title {
     -fx-padding: 0 2 0 2;

@@ -1,6 +1,6 @@
 # Termina
 
-A cross-platform terminal emulator. JDK 25 + JavaFX 26 + Maven, modular (JPMS, module
+A cross-platform terminal emulator. JDK 25 + JavaFX 27 + Maven, modular (JPMS, module
 `com.termina`).
 
 ## Commands
@@ -176,6 +176,18 @@ Each of these cost real time, and none of them announces itself.
   wrapping path data across source lines with a whitespace-aware wrapper consumed the space it
   wrapped at and joined two numbers. One of eleven glyphs failed loudly; the rest would have drawn
   quietly distorted. Slice path strings at a fixed width, never wrap them on whitespace.
+- **The menu bar can live in the title bar, and three things about that are invisible.** It is
+  JavaFX 27's `StageStyle.EXTENDED` with a `HeaderBar` at the top of the scene, chosen per window
+  before it is shown (`TerminalWindow.usesHeaderBar`) and never changed after. `HeaderBar` ships
+  with **no style class** — add `header-bar` yourself or every rule for it matches nothing. The
+  window buttons are an overlay JavaFX draws outside the scene graph on Linux and Windows, so a
+  scene snapshot (`-Dtermina.capture`) **never shows them**; `layoutReport` prints the system insets
+  (`108x36` on the right under GNOME) and a screenshot of the X window is the only picture of them.
+  And an unsupported platform downgrades `EXTENDED` to `DECORATED` silently, which would leave our
+  header under a native title bar — hence the `Platform.isSupported(EXTENDED_WINDOW)` leg.
+- **`scripts/dev-run.sh` refreshes `target/deps` from empty.** `copy-dependencies` adds and never
+  removes, so a version bump left both JavaFX jars there, both declaring the same module, and the
+  old one won: the code compiled against 27 and ran against 26, failing on the first 27-only API.
 - **Double-width characters occupy two cells.** JediTerm marks the second with `CharUtils.DWC`;
   drawing it produces a stray bar between every pair of CJK characters. Runs containing non-ASCII
   fall back to per-glyph drawing, because a wide glyph's natural advance would otherwise push the
