@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import javafx.animation.PauseTransition;
 import javafx.geometry.Insets;
@@ -84,17 +85,20 @@ public final class SettingsWindow {
 
     /** Pages, in sidebar order within their group. */
     private enum Category {
-        APPEARANCE(Group.GENERAL, "settings.cat.appearance"),
-        TERMINAL(Group.GENERAL, "settings.cat.terminal"),
-        PROFILES(Group.GENERAL, "settings.cat.profiles"),
-        ADVANCED(Group.SYSTEM, "settings.cat.advanced");
+        APPEARANCE(Group.GENERAL, "settings.cat.appearance", MenuIcons::appearance),
+        TERMINAL(Group.GENERAL, "settings.cat.terminal", MenuIcons::terminal),
+        PROFILES(Group.GENERAL, "settings.cat.profiles", MenuIcons::profiles),
+        ADVANCED(Group.SYSTEM, "settings.cat.advanced", MenuIcons::advanced);
 
         final Group group;
         private final String key;
+        /** A supplier, not a node: a node has one parent, and the sidebar's cells are recycled. */
+        private final Supplier<Node> icon;
 
-        Category(Group group, String key) {
+        Category(Group group, String key, Supplier<Node> icon) {
             this.group = group;
             this.key = key;
+            this.icon = icon;
         }
 
         String title() {
@@ -328,18 +332,21 @@ public final class SettingsWindow {
             getStyleClass().removeAll("settings-group-header", "settings-sidebar-item", "settings-dimmed");
             if (empty || item == null) {
                 setText(null);
+                setGraphic(null);
                 setDisable(false);
                 setMouseTransparent(false);
                 return;
             }
             if (item instanceof Group group) {
                 setText(group.title().toUpperCase(Locale.ROOT));
+                setGraphic(null);
                 getStyleClass().add("settings-group-header");
                 setMouseTransparent(true);
                 setDisable(false);
             } else {
                 Category category = (Category) item;
-                setText("    " + category.title());
+                setText(category.title());
+                setGraphic(sidebarIcon(category));
                 getStyleClass().add("settings-sidebar-item");
                 setMouseTransparent(false);
                 boolean dimmed = hiddenCategories.contains(category);
@@ -348,6 +355,24 @@ public final class SettingsWindow {
             }
         }
     }
+
+    /**
+     * The glyph in a box of fixed size. A scaled {@code SVGPath} still lays out at its unscaled
+     * bounds, and those differ per glyph — the palette is 18 wide, the terminal 20 — so bare, each
+     * label would start at a different x. Set fresh on every update rather than toggled: a
+     * {@code Labeled} decides once whether it lays out its graphic (see CLAUDE.md).
+     */
+    private static Node sidebarIcon(Category category) {
+        StackPane box = new StackPane(category.icon.get());
+        box.setMinSize(SIDEBAR_ICON, SIDEBAR_ICON);
+        box.setPrefSize(SIDEBAR_ICON, SIDEBAR_ICON);
+        box.setMaxSize(SIDEBAR_ICON, SIDEBAR_ICON);
+        box.getStyleClass().add("settings-sidebar-icon");
+        return box;
+    }
+
+    /** Material's 24dp glyph at {@link MenuIcons}' scale, which is about 17px. */
+    private static final double SIDEBAR_ICON = 18;
 
     private void showPage(Category category) {
         Region page = pages.get(category);
