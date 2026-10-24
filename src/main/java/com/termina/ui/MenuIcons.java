@@ -135,6 +135,39 @@ public final class MenuIcons {
         return of("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z");
     }
 
+    // ---------------------------------------------------------------- settings sidebar
+
+    /** A painter's palette: colours, fonts, the look of the window. */
+    static Node appearance() {
+        return of("M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01"
+                + "-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9"
+                + "-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8"
+                + ".67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1"
+                + ".5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16"
+                + ".67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z");
+    }
+
+    /** A window with a prompt in it: how the terminal itself behaves. */
+    static Node terminal() {
+        return of("M20 4H4c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0"
+                + " 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.59-2.59L7.5 9l4 4-4 4z");
+    }
+
+    /**
+     * A stack of cards: the list of shells. Not a person, which is what "profile" usually draws —
+     * these are shells, and the prompt glyph is already the Terminal page's.
+     */
+    static Node profiles() {
+        return of("M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21"
+                + " 9l-9-7-9 7 1.63 1.27L12 16z");
+    }
+
+    /** Sliders: the settings most people never touch. */
+    static Node advanced() {
+        return of("M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14"
+                + " 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z");
+    }
+
     private static Node of(String path) {
         SVGPath svg = new SVGPath();
         svg.setContent(path);

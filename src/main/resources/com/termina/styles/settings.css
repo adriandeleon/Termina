@@ -32,6 +32,24 @@
     -fx-background-radius: 6;
 }
 
+/*
+ * The glyph sits where the four-space indent used to, so its left edge lines up with the group
+ * heading's text. Muted at rest like the context-menu glyphs, and in the label's accent colour when
+ * selected — a muted glyph beside accent text reads as disabled. Stated here, not left to app.css:
+ * this scene does not load that sheet, and an SVGPath nothing styles fills black in both themes.
+ */
+.settings-sidebar-item {
+    -fx-graphic-text-gap: 8;
+}
+
+.settings-sidebar .menu-icon {
+    -fx-fill: -color-fg-muted;
+}
+
+.settings-sidebar .list-cell:filled:selected .menu-icon {
+    -fx-fill: -color-accent-fg;
+}
+
 /* A category with no search hits: still listed, so its absence is not mistaken for it not existing. */
 .settings-dimmed {
     -fx-opacity: 0.4;
