@@ -3,6 +3,18 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## 0.10.0 — 2026-10-23
+
+An icon beside each page in the settings sidebar. New user-visible behaviour, so the minor number
+moves.
+
+### Added
+
+- **The settings sidebar has icons.** Appearance has a palette, Terminal a prompt window, Profiles
+  stacked layers and Advanced sliders — Material glyphs, the same family as the context menu's.
+  They are muted at rest and take the accent colour when their page is selected, and each sits in
+  a box of fixed width so the labels beside them line up.
+
 ## 0.9.0 — 2026-10-21
 
 The command palette is now Editora's: the same card, the same matcher and ranking, and Emacs keys
