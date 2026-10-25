@@ -3,6 +3,46 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **Icons draw correctly without a Nerd Font installed.** Symbols Nerd Font Mono 3.5.1 is bundled
+  with the other faces and used for private-use code points when no Nerd Font build of the
+  terminal's own face is installed. Its icons are drawn a cell and a half wide, the size the Nerd
+  Font builds draw theirs, and Powerline separators still span the line so a prompt's segments
+  meet. It has no letters, so it is kept out of the font picker.
+
+### Changed
+
+- **An idle terminal lets the machine idle.** Each tab used to keep a repaint timer running from
+  open to close, which held JavaFX at 60 frames a second with nothing to draw. The timer now runs
+  only while there is something to paint. With one tab sitting at a prompt, CPU use went from
+  2–3% of a core to 0.8%.
+- **Background tabs stop painting.** A tab that is not selected keeps its output and paints it
+  when you switch to it, instead of drawing every frame into a canvas nobody can see. A build
+  running in another tab no longer competes with the one you are typing in. Activity and bell
+  marks on the tab still update.
+- **Knowing what a tab is running costs microseconds.** The title and the close prompt learn a
+  shell's running program by asking the OS for that process's children directly, instead of
+  reading the whole process table every 750 ms per tab. That was 3.4 ms a call on a desktop with
+  610 processes, about a tenth of a core at twenty tabs.
+- **The first window paints sooner.** Opening a tab checks only the font it is going to use.
+  Measuring every installed font, about 100 ms on a Linux desktop, now happens only when the font
+  picker in Settings needs the list.
+- **Less work per frame and per setting.** Truecolour cells reuse their colours rather than
+  allocating new ones every frame. A settings change rebuilds fonts only if the family or size
+  changed, and a burst of window-title updates from a program is applied once.
+
+### Fixed
+
+- **A stray `¯` or `ÿ` before some icons in `eza` and `ls` listings.** With no Nerd Font face
+  chosen, JavaFX drew private-use icons in the first installed font that claimed the code point,
+  and some ordinary fonts do: Arial maps the icon eza uses for a symlinked file. Icons are now
+  drawn in an installed Nerd Font, or the bundled one.
+- **Drag-selecting while output arrived could read a line mid-write.** The mouse handlers read the
+  screen without the lock the emulator writes under. They now take it.
+
 ## 0.10.0 — 2026-10-23
 
 An icon beside each page in the settings sidebar. New user-visible behaviour, so the minor number
