@@ -15,8 +15,8 @@ The emulator decides which of the gaps in
 | Alternate screen, bracketed paste | yes |
 | Mouse | five modes across four wire formats (X10, xterm-ext, URXVT, SGR), plus focus reporting |
 | Synchronised output (mode 2026) | **yes** — 500 ms timeout, 1 MiB buffer cap |
-| OSC 8 hyperlinks | parsed, but dropped unless `setUrlHyperlinkFilter` is called — which we do not, so this is **not** wired up |
-| Type-ahead prediction | `TerminalTypeAheadManager` — local echo to hide SSH latency |
+| OSC 8 hyperlinks | parsed, and dropped unless `setUrlHyperlinkFilter` is called — **wired up** since October 2026 (`ExplicitLink`) |
+| Type-ahead prediction | `TerminalTypeAheadManager` — the predictor only; the model it edits is in the Swing UI, so ours is `TypeAheadModel` |
 | Double width | wcwidth tables, surrogate pairs counted correctly |
 
 Two of those are worth calling out. **Synchronised output is done**, so it comes off the list of
@@ -41,12 +41,10 @@ the OSC dispatch handles 0, 1, 2, 7, 8, 10, 11, 104 and 1341, and returns false 
 
 **OSC gaps, in rough order of what they cost us:**
 
-- **133** — no shell integration. No prompt marks, so no jump-to-previous-command, no command status,
-  no "select the last command's output". This underpins the best features in both iTerm2 and Windows
-  Terminal.
-- **7** — an explicit stub carrying the comment *"Support for OSC 7 is pending"*. No CWD tracking, so
-  a new tab cannot open in the current directory once we have tabs.
-- **52** — no clipboard access from a remote shell.
+- **133, 7 and 52** — none of them in JediTerm (7 is an explicit stub, *"Support for OSC 7 is
+  pending"*). All three are handled on our side since October 2026: `OscInterceptor` takes them out
+  of the stream before the emulator sees it — see "What each gap costs" below for where, and why
+  there.
 - **4** — colours can be queried (10, 11) but not set, so programs cannot theme the palette.
 - **9 / 777** — no desktop notifications.
 
@@ -86,10 +84,18 @@ Ten minutes with Fira Code answers it.
 
 ## What each gap costs
 
-**Cheap, because we own the read loop.** `TerminalSession` sees bytes before JediTerm does, so
-OSC 7, 52, 133 and 9 can be intercepted and handled there without touching the emulator — they are
-notifications rather than screen mutations. **OSC 133 is the best value per line of code on this
-list.**
+**Cheap, because we own the stream the emulator reads.** OSC 7, 52, 133 and 9 are notifications
+rather than screen mutations, so they can be taken out before JediTerm sees them. 7, 52 and 133 now
+are. *Where* matters: `OscInterceptor` wraps the `TerminalDataStream` JediTerm pulls characters
+from, not the PTY's reads, because the emulator acts on each character before pulling the next —
+so a prompt mark is seen with everything before it already on screen, and the cursor on the
+prompt's row. Intercepting the PTY would have seen a whole read at once and placed marks a chunk
+early. 9 remains, and JavaFX has no notification API to send it to.
+
+**Type-ahead was half there.** The predictor is in the core; the model it edits and the code that
+draws its guesses are in JediTerm's Swing UI, which writes them into a package-private field of
+`TerminalLine` that a separate module cannot reach. `TypeAheadModel` keeps the predicted line
+itself and the view draws it, only while `ssh` is in the foreground.
 
 **Expensive, because they mutate the screen model.** Images need the DCS stub filled *and* a
 placement model that survives scrolling, reflow and scrollback eviction — either a JediTerm fork or a

@@ -134,14 +134,16 @@ Of the serious ones, only WezTerm and Alacritty cover all three platforms the wa
 kitty and Ghostty have no Windows build. Ghostty takes the opposite approach to ours, with a native
 UI per platform (AppKit, GTK) around a shared core, where Termina draws the same JavaFX UI everywhere.
 
-L/M/W = Linux, macOS, Windows. `~` is partial, explained in the notes below the table.
+L/M/W = Linux, macOS, Windows. `~` is partial, explained in the notes below the table. Termina's
+column is as of the split panes, search and shell integration work in late October 2026; the rows
+it was missing before then are the first two items under "Where it is behind".
 
 | | Termina | Win Term | iTerm2 | Term.app | Ptyxis | Konsole | kitty | WezTerm | Ghostty | Alacritty |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Platforms | LMW | W | M | M | L | L | LM | LMW | LM | LMW |
 | Tabs | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Split panes | **✗** | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
-| Scrollback search | **✗** | ✓ | ✓ | ✓ | ✓ | ✓ | ~ | ✓ | ✓ | ✓ |
+| Split panes | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Scrollback search | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ~ | ✓ | ✓ | ✓ |
 | Ligatures | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | Inline images | ✗ | sixel | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
 | Settings window | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
@@ -149,7 +151,7 @@ L/M/W = Linux, macOS, Windows. `~` is partial, explained in the notes below the 
 | Command palette | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | Scripting | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ~ | ✗ |
 | Multiplexing | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
-| Prompt marks (OSC 133) | ✗ | ✓ | ✓ | ~ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Prompt marks (OSC 133) | ✓ | ✓ | ✓ | ~ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
 
 Notes on the partial and less obvious cells:
 
@@ -191,6 +193,8 @@ Alacritty and Windows Terminal 1.25, so VTE and Termina are increasingly the exc
   output or a bell.
 - **Icons without a Nerd Font installed**, which neither Alacritty nor VTE manages.
 - **Native installers with a bundled runtime and no store**: DMG, MSI, deb and rpm.
+- **Type-ahead over SSH**, which none of the platform defaults has: typed characters show at once on
+  a slow link, dimmed until the echo confirms them.
 - **Keyboard-driven:** a command palette with Emacs keys, and a searchable list of every shortcut
   generated from the binding table.
 
@@ -198,10 +202,10 @@ Alacritty and Windows Terminal 1.25, so VTE and Termina are increasingly the exc
 
 In rough order of how often a user notices:
 
-1. **Split panes and scrollback search.** The first is in everything serious except Alacritty and
-   the GNOME family. Every terminal in the table has some form of search.
-2. **OSC 133, 8, 52 and notifications.** All four can be taken in `TerminalSession`'s read loop
-   without touching JediTerm (see the capability audit).
+1. ~~**Split panes and scrollback search.**~~ Done. The first is in everything serious except
+   Alacritty and the GNOME family; every terminal in the table has some form of search.
+2. ~~**OSC 133, 8 and 52.**~~ Done, along with OSC 7 where the OS cannot be asked. Notifications
+   (OSC 9/777) remain, and JavaFX has nowhere to send them.
 3. **Ligatures.** A renderer question, open to us, needing the spike described in the audit.
 4. **Kitty keyboard protocol, grapheme clusters, underline styles.** Modern TUIs increasingly
    assume them.

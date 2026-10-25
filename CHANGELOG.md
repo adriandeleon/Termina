@@ -5,7 +5,38 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+Split panes, scrollback search, shell integration and shortcuts that can all be changed. Three
+requests programs make of a terminal — a declared link, the clipboard, the directory — are honoured
+rather than dropped, typing over a slow SSH link is predicted, and an idle terminal lets the machine
+idle.
+
 ### Added
+
+- **Split panes.** Window → Split Right and Split Down (`Cmd+D`/`Cmd+Shift+D` on macOS,
+  `Ctrl+Shift+E`/`Ctrl+Shift+O` elsewhere) open another shell beside or below the one you are in,
+  same shell, same directory. `Cmd+Option+arrows` (`Ctrl+Alt+Shift+arrows`) or a click moves between
+  them, and the pane being typed in is outlined. Close Tab's chord closes the active pane of a split
+  tab, and the menu says "Close Pane" while it does; a shell that exits closes its own pane. The tab
+  is titled after the active pane.
+- **Search the scrollback.** Edit → Find… (`Cmd+F`/`Ctrl+Shift+F`) opens a find bar in the pane:
+  every match highlighted as you type, the current one outlined, Enter stepping up to older output
+  and Shift+Enter down. Smart case, an optional regular expression, and a word that wrapped at the
+  edge is still found. Find Next and Find Previous work from anywhere (`Cmd+G`/`Cmd+Shift+G`,
+  `Ctrl+Shift+G`/`Ctrl+Shift+H`), and a short selection becomes the query.
+- **Shell integration (OSC 133).** A shell that marks its prompts gets Edit → Previous Prompt and
+  Next Prompt (`Cmd+Up`/`Cmd+Down`, `Ctrl+Shift+Up`/`Down`), Select Last Output, and a red bar beside
+  the prompt of a command that failed. The README has the lines to add to bash and zsh. The marks
+  stay on their prompts through a resize.
+- **Links a program declares (OSC 8)** are clickable — `ls --hyperlink`, compilers, `gh`. Hovering
+  one shows where it really goes at the bottom of the pane, and only the schemes a link in the text
+  may use are accepted, so a `javascript:` target is not a link.
+- **Programs can copy to the clipboard (OSC 52)**, which is how vim and tmux copy over SSH. Never
+  read it. Terminal → Input turns it off.
+- **On Windows, a shell that reports its directory (OSC 7)** gives its tab a directory: new tabs
+  open there and relative paths become links. Only a directory on this machine that exists.
+- **Type-ahead over slow SSH.** While `ssh` runs and the far end echoes slower than 100 ms, typed
+  characters appear at once, dimmed and underlined until confirmed. JediTerm's predictor decides
+  when; a local shell is never predicted. Terminal → Input turns it off.
 
 - **Every shortcut can be changed.** Settings has a Keyboard page listing each command under its
   menu: click a shortcut and press the new one. A shortcut another command has moves on a second
