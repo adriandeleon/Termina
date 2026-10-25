@@ -43,6 +43,16 @@ Prompt, Git Bash and every WSL distribution on Windows; `/etc/shells` and the pa
 parameters rather than static calls, because the Windows branch is the one the feature exists for and
 the one that cannot be run here.
 
+**Settings sync is a fifth, in `com.termina.sync`, ported from Editora's.** It carries only the key
+bindings, one file per platform family (`keybindings/macos.properties`,
+`keybindings/windows-linux.properties`), through a private clone in `<config>/sync/repo` that git
+never merges: the remote is checked out, a per-command three-way merge against
+`refs/termina/base` is written over it, and that is pushed. `ui.SettingsSync` schedules runs and
+writes results into the live `Settings`; one process per config folder syncs, by file lock. For an
+`https://` repository, `SyncAccount` remembers which `gh` account can read it (in the clone's own
+config) and hands git a credential helper that asks `gh auth token --user` for that one, so switching
+the active account does not lock sync out.
+
 `com.termina.term.TerminalSession` wires them together and owns the read loop.
 `com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); each tab is a `PaneGroup`
 of one or more `TerminalView`s. `WindowManager` owns the window set and what they share — settings,
