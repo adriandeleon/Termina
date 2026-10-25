@@ -66,6 +66,37 @@ class IconFontTest {
     }
 
     @Test
+    void powerlineSeparatorsAreTheOnesKeptAtTextSize() {
+        assertTrue(IconFont.isPowerline(0xE0A0)); // branch
+        assertTrue(IconFont.isPowerline(0xE0B0)); // the arrow every prompt segment ends in
+        assertTrue(IconFont.isPowerline(0xE0B4)); // rounded
+        assertTrue(IconFont.isPowerline(0xE0D7));
+        assertFalse(IconFont.isPowerline(0xE0D8));
+        assertFalse(IconFont.isPowerline(0xE271));
+        assertFalse(IconFont.isPowerline(0xE5FF)); // a folder: shrunk to the cell
+    }
+
+    @Test
+    void aCellSizedIconIsCentredInTheRow() {
+        // A 14px row with its baseline 11px down, and 8px-wide cells: the icon is drawn at 8px,
+        // its em box 0.8 up and 0.2 down, so its centre is 2.4px above the baseline it is drawn on.
+        double size = IconFont.cellSize(8);
+        assertEquals(8, size, 1e-9);
+        double shift = IconFont.cellBaselineShift(11, 14, size);
+        double iconCentre = 11 + shift - 0.3 * size;
+        assertEquals(7, iconCentre, 1e-9);
+    }
+
+    @Test
+    void theBundledSymbolsFaceIsTheFloor() {
+        // The app always has it: it beats an unrelated Nerd Font, and yields to the terminal
+        // face's own Nerd build, which the user installed on purpose.
+        List<String> installed = List.of(Fonts.ICONS, "JetBrainsMonoNL NF", "Hack Nerd Font");
+        assertEquals(Optional.of(Fonts.ICONS), IconFont.chooseFamily("Cascadia Code", installed));
+        assertEquals(Optional.of("Hack Nerd Font"), IconFont.chooseFamily("Hack", installed));
+    }
+
+    @Test
     void plainBeforeMonoAndNeverProportional() {
         assertEquals(
                 Optional.of("JetBrainsMonoNL NF"),

@@ -203,8 +203,11 @@ Each of these cost real time, and none of them announces itself.
   an icon goes to fontconfig's *sans* ordering and the first face that maps the code point wins.
   Arial (msttcorefonts) maps U+F016 and MathJax_WinIE6 maps U+E271 to glyphs of their own, both
   ahead of the Nerd Font, so `eza` drew a stray `¯`/`ÿ` beside `vmlinuz` and `initrd.img` and
-  every other icon was right. `IconFont` names an installed Nerd Font for private-use code points
-  instead. Which face JavaFX chose is not visible through public API; the slot list lives in
+  every other icon was right. `IconFont` names a Nerd Font for private-use code points instead —
+  the terminal face's own Nerd build if installed, else the bundled `Symbols Nerd Font Mono`,
+  which is kept out of the font picker because it has no letters. Its icons are 1 em squares,
+  so at text size each spills two-thirds of a cell into the name after it; it is drawn at the
+  cell's width and centred on the row, except Powerline separators, which must span the line. Which face JavaFX chose is not visible through public API; the slot list lives in
   `com.sun.javafx.font.FallbackResource`, reached by reflection with `--add-opens`.
 
 - **The command palette is a port of Editora's, and the pure parts are verbatim.** `FuzzyMatch`,

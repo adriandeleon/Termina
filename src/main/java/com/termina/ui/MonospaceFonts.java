@@ -72,7 +72,7 @@ public final class MonospaceFonts {
         }
         List<String> measured = new ArrayList<>();
         for (String family : families) {
-            if (ordered.contains(family)) continue;
+            if (ordered.contains(family) || family.equals(Fonts.ICONS)) continue;
             if (measuredMonospace(family)) measured.add(family);
         }
         measured.sort(String.CASE_INSENSITIVE_ORDER);
@@ -89,7 +89,8 @@ public final class MonospaceFonts {
     public static synchronized String resolve(String preference) {
         // The same answer the full list would give — a preferred family is trusted, any other must
         // measure as monospace — without measuring every other family to get it.
-        if (preference != null && !preference.isBlank() && installed().contains(preference)) {
+        if (preference != null && !preference.isBlank() && installed().contains(preference)
+                && !preference.equals(Fonts.ICONS)) {
             if (PREFERRED.contains(preference) || measuredMonospace(preference)) return preference;
         }
         // A font the user chose on another machine — or removed since — falls back rather than

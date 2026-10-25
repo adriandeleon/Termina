@@ -16,7 +16,7 @@ import javafx.scene.text.Font;
  * The face that draws private-use code points: the Nerd Font icons {@code eza}, {@code lsd} and
  * every powerline prompt put on screen.
  *
- * <p>No bundled face has a glyph there, so JavaFX goes down its fallback list — fontconfig's
+ * <p>No terminal face we bundle has a glyph there, so JavaFX goes down its fallback list — fontconfig's
  * ordering for <em>sans</em>, which is about text, not icons — and takes the first face that maps
  * the code point. For most icons that is the Nerd Font. But a private-use code point has no agreed
  * meaning, and other fonts put their own glyphs there: on a machine with the Microsoft core fonts
@@ -25,9 +25,10 @@ import javafx.scene.text.Font;
  * {@code vmlinuz} and {@code initrd.img} came out with a stray accent beside them while every
  * other icon in the listing was right.
  *
- * <p>Asking for an installed Nerd Font by name for these code points takes the list out of it.
- * When none is installed nothing changes, and when the terminal face is itself a Nerd Font it
- * covers them already.
+ * <p>Asking for a Nerd Font by name for these code points takes the list out of it. One is always
+ * there to ask for — {@link Fonts#ICONS} is bundled, so a machine with no Nerd Font installed gets
+ * the icons too rather than whatever its fallback list holds. When the terminal face is itself a
+ * Nerd Font it covers them already.
  */
 final class IconFont {
 
@@ -51,6 +52,34 @@ final class IconFont {
                 || (codePoint >= 0x100000 && codePoint <= 0x10FFFD);
     }
 
+    /**
+     * Whether {@code codePoint} is one of Powerline's separators or their extras. These are drawn
+     * to the height of the line, so that a prompt's segments meet, and are never shrunk to a cell.
+     */
+    static boolean isPowerline(int codePoint) {
+        return codePoint >= 0xE0A0 && codePoint <= 0xE0D7;
+    }
+
+    /** The bundled face's icons are this many em wide: squares, since it has no letters to match. */
+    private static final double SYMBOLS_ICON_EM = 1.0;
+
+    /** Where the centre of the bundled face's em box sits above its baseline: 0.8 em up, 0.2 down. */
+    private static final double SYMBOLS_EM_CENTRE = 0.3;
+
+    /** The size to draw the bundled face at for its icons to be one cell wide. */
+    static double cellSize(double charWidth) {
+        return charWidth / SYMBOLS_ICON_EM;
+    }
+
+    /**
+     * How far below the text baseline to draw the bundled face at {@code iconSize} for its icons
+     * to sit centred in the row. Centred on the row rather than left on the text's baseline, where
+     * an icon smaller than the text would sit low, beside the letters' feet.
+     */
+    static double cellBaselineShift(double ascent, double lineHeight, double iconSize) {
+        return lineHeight / 2 - ascent + SYMBOLS_EM_CENTRE * iconSize;
+    }
+
     /** Whether any code point of {@code text} is private use. */
     static boolean containsPrivateUse(String text) {
         for (int i = 0; i < text.length(); i++) {
@@ -68,7 +97,8 @@ final class IconFont {
      * terminal face and its fallbacks.
      *
      * <p>Empty when {@code primary} is itself a Nerd Font. Otherwise, best first: the Nerd Font
-     * build of the terminal's own face, then the symbols-only build, then any other. Within each,
+     * build of the terminal's own face, then the symbols-only build — which is bundled, so in the
+     * app the search ends here — then any other. Within each,
      * the plain variant before {@code Mono}: its icons are drawn larger and may lean into the
      * space after them, which is the look a listing is laid out for, and what the fallback list
      * gave every icon it did get right. {@code Propo} is proportional and never chosen.

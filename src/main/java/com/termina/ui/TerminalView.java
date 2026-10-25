@@ -141,6 +141,13 @@ public final class TerminalView extends Region {
     private Font boldIconFont;
     private Font italicIconFont;
     private Font boldItalicIconFont;
+    /**
+     * The bundled icon face sized so an icon fills one cell, and how far below the text baseline
+     * to draw it so it sits centred in the row. Null when the icons come from a Nerd build of the
+     * terminal face, whose icons are already drawn to its cell.
+     */
+    private Font cellIconFont;
+    private double cellIconShift;
     private double fontSize;
     private double charWidth;
     private double lineHeight;
@@ -516,18 +523,31 @@ public final class TerminalView extends Region {
         boldFont = Font.font(family, FontWeight.BOLD, fontSize);
         italicFont = Font.font(family, FontWeight.NORMAL, javafx.scene.text.FontPosture.ITALIC, fontSize);
         boldItalicFont = Font.font(family, FontWeight.BOLD, javafx.scene.text.FontPosture.ITALIC, fontSize);
-        String icons = IconFont.familyFor(family).orElse(null);
-        iconFont = icons == null ? null : Font.font(icons, fontSize);
-        boldIconFont = icons == null ? null : Font.font(icons, FontWeight.BOLD, fontSize);
-        italicIconFont = icons == null
-                ? null
-                : Font.font(icons, FontWeight.NORMAL, javafx.scene.text.FontPosture.ITALIC, fontSize);
-        boldItalicIconFont = icons == null
-                ? null
-                : Font.font(icons, FontWeight.BOLD, javafx.scene.text.FontPosture.ITALIC, fontSize);
         measureFont();
+        applyIconFont(IconFont.familyFor(family).orElse(null));
         markDirty();
         requestLayout();
+    }
+
+    /** After {@link #measureFont}: the bundled face is sized from the cell. */
+    private void applyIconFont(String icons) {
+        cellIconFont = null;
+        if (icons == null) {
+            iconFont = boldIconFont = italicIconFont = boldItalicIconFont = null;
+        } else if (icons.equals(Fonts.ICONS)) {
+            // One file, no weights. Its icons are 1 em squares — a symbols-only font has no cell
+            // of its own to fit them to — so at text size each spilled two-thirds of a cell into
+            // the name after it. Sized to the cell instead, which is what Mono promises.
+            iconFont = boldIconFont = italicIconFont = boldItalicIconFont = Font.font(icons, fontSize);
+            double size = IconFont.cellSize(charWidth);
+            cellIconFont = Font.font(icons, size);
+            cellIconShift = IconFont.cellBaselineShift(ascent, lineHeight, size);
+        } else {
+            iconFont = Font.font(icons, fontSize);
+            boldIconFont = Font.font(icons, FontWeight.BOLD, fontSize);
+            italicIconFont = Font.font(icons, FontWeight.NORMAL, javafx.scene.text.FontPosture.ITALIC, fontSize);
+            boldItalicIconFont = Font.font(icons, FontWeight.BOLD, javafx.scene.text.FontPosture.ITALIC, fontSize);
+        }
     }
 
     /** Applies a theme's colours and repaints. */
@@ -840,10 +860,7 @@ public final class TerminalView extends Region {
             int codePoint = text.codePointAt(i);
             int slots = Character.charCount(codePoint);
             if (codePoint != 0 && c != ' ') {
-                boolean icon = iconFace != null && IconFont.isPrivateUse(codePoint);
-                if (icon) g.setFont(iconFace);
-                g.fillText(new String(Character.toChars(codePoint)), x + cell * charWidth, baseline);
-                if (icon) g.setFont(face);
+                drawCodePoint(g, codePoint, x + cell * charWidth, baseline, face, iconFace);
             }
             // One column per code point, whatever its UTF-16 length. Advancing by the number of
             // array slots instead gave every astral character — every Nerd Font icon in an `ls`
@@ -853,6 +870,22 @@ public final class TerminalView extends Region {
             cell++;
             i += slots;
         }
+    }
+
+    /**
+     * Draws one code point in {@code face}, which the context is already set to — or, for a
+     * private-use one when {@code iconFace} is set, in the icon face, leaving {@code face} set after.
+     */
+    private void drawCodePoint(GraphicsContext g, int codePoint, double x, double baseline, Font face, Font iconFace) {
+        String glyph = new String(Character.toChars(codePoint));
+        if (iconFace == null || !IconFont.isPrivateUse(codePoint)) {
+            g.fillText(glyph, x, baseline);
+            return;
+        }
+        boolean toCell = cellIconFont != null && !IconFont.isPowerline(codePoint);
+        g.setFont(toCell ? cellIconFont : iconFace);
+        g.fillText(glyph, x, toCell ? baseline + cellIconShift : baseline);
+        g.setFont(face);
     }
 
     private Font fontFor(TextStyle style) {
@@ -924,10 +957,10 @@ public final class TerminalView extends Region {
                 if (codePoint == 0 || codePoint == ' ' || codePoint == CharUtils.DWC) return;
                 TextStyle style = buffer.getStyleAt(slot, cursorRow);
                 g.setFill(style == null ? palette.background() : backgroundOf(style));
-                Font icon = IconFont.isPrivateUse(codePoint) ? (style == null ? iconFont : iconFontFor(style)) : null;
-                g.setFont(icon != null ? icon : style == null ? font : fontFor(style));
+                Font face = style == null ? font : fontFor(style);
+                g.setFont(face);
                 g.setTextBaseline(VPos.BASELINE);
-                g.fillText(new String(Character.toChars(codePoint)), x, y + ascent);
+                drawCodePoint(g, codePoint, x, y + ascent, face, style == null ? iconFont : iconFontFor(style));
             }
         }
     }

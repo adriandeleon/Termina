@@ -25,6 +25,14 @@ public final class Fonts {
     /** The interface font. Not a terminal face, so deliberately absent from the picker. */
     public static final String UI = "Inter";
 
+    /**
+     * The Nerd Font icons, and nothing else: no letters, so not a terminal face either. Drawn for
+     * private-use code points when no Nerd Font build of the terminal's face is installed — see
+     * {@link IconFont}. The Mono build, so every icon is one cell wide and none spills over the
+     * name after it.
+     */
+    public static final String ICONS = "Symbols Nerd Font Mono";
+
     private static final String[] FILES = {
         "jetbrains-mono/JetBrainsMono-Regular.ttf",
         "jetbrains-mono/JetBrainsMono-Bold.ttf",
@@ -52,6 +60,9 @@ public final class Fonts {
         "inter/Inter-Bold.ttf",
         "inter/Inter-Italic.ttf",
         "inter/Inter-BoldItalic.ttf",
+        // One face for every style: the icons have no weights, and a bold request resolves to it.
+        // Its LICENSE and README sit beside it; the README lists each icon set's own licence.
+        "symbols-nerd-font/SymbolsNerdFontMono-Regular.ttf",
     };
 
     private Fonts() {}
