@@ -199,6 +199,13 @@ Each of these cost real time, and none of them announces itself.
   drawing it produces a stray bar between every pair of CJK characters. Runs containing non-ASCII
   fall back to per-glyph drawing, because a wide glyph's natural advance would otherwise push the
   rest of the line off the grid.
+- **JavaFX's fallback list is not a Nerd Font lookup.** No bundled face has private-use glyphs, so
+  an icon goes to fontconfig's *sans* ordering and the first face that maps the code point wins.
+  Arial (msttcorefonts) maps U+F016 and MathJax_WinIE6 maps U+E271 to glyphs of their own, both
+  ahead of the Nerd Font, so `eza` drew a stray `¯`/`ÿ` beside `vmlinuz` and `initrd.img` and
+  every other icon was right. `IconFont` names an installed Nerd Font for private-use code points
+  instead. Which face JavaFX chose is not visible through public API; the slot list lives in
+  `com.sun.javafx.font.FallbackResource`, reached by reflection with `--add-opens`.
 
 - **The command palette is a port of Editora's, and the pure parts are verbatim.** `FuzzyMatch`,
   `PaletteKeys`, `TextInputKeys` and `MatchText` are Editora's `search.FuzzyMatch`, `ui.PickerKeys`,
