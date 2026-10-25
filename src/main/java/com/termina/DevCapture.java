@@ -93,6 +93,7 @@ final class DevCapture {
             // whole afterCommand wait to land in. The interesting moment is *after* the second
             // report, not during the first.
             checkUpdatesIfRequested(windows, window);
+            syncNowIfRequested(windows, window);
             TerminalView terminal = window.activeTerminal();
             if (!command.isBlank() && terminal != null) {
                 sendUntilItTakes(terminal, command);
@@ -813,6 +814,17 @@ final class DevCapture {
         windows.checkForUpdatesNow(window::reportForCapture);
     }
 
+    /**
+     * Runs Sync Settings Now as the menu does, and reports every dialog left on screen — which, like
+     * the update check's, should be one: "Syncing…" replaced by how it went.
+     *
+     * <pre>-Dtermina.captureSyncNow=true</pre>
+     */
+    private static void syncNowIfRequested(WindowManager windows, TerminalWindow window) {
+        if (!Boolean.getBoolean("termina.captureSyncNow")) return;
+        windows.syncSettingsNow(window::reportForCapture);
+    }
+
     /** Every dialog currently on screen, by its message. */
     /** What a window's text is actually drawn in — an unresolved family falls back in silence. */
     private static void probeFonts(Scene scene) {
@@ -834,7 +846,9 @@ final class DevCapture {
     }
 
     private static void reportDialogs() {
-        if (!Boolean.getBoolean("termina.captureCheckUpdates")) return;
+        if (!Boolean.getBoolean("termina.captureCheckUpdates") && !Boolean.getBoolean("termina.captureSyncNow")) {
+            return;
+        }
         List<String> open = new ArrayList<>();
         for (javafx.stage.Window w : javafx.stage.Window.getWindows()) {
             if (!w.isShowing()

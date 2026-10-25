@@ -310,6 +310,23 @@ public final class WindowManager {
         settingsWindow.show(from);
     }
 
+    /**
+     * Sync Now from a menu or the palette. {@code report} hears that it started and how it went, as
+     * the update check's does, because the Sync page that would otherwise say so is not on screen.
+     */
+    public void syncSettingsNow(java.util.function.Consumer<String> report) {
+        sync.syncNow(report, this::commandLabel);
+    }
+
+    /** A command as the menus name it, for a sync's conflict list; its id when no window knows it. */
+    private String commandLabel(String id) {
+        if (windows.isEmpty()) return id;
+        for (Keybindings.Command command : windows.get(0).keyboardCommands()) {
+            if (command.id().equals(id)) return command.label();
+        }
+        return id;
+    }
+
     /** Opens the settings window and returns its scene, for the development capture hook. */
     public javafx.scene.Scene showSettingsForCapture(Window owner, String query) {
         showSettings(owner);

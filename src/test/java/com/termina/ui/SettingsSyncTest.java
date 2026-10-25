@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import com.termina.sync.GitRunner;
 import com.termina.sync.SyncReport;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -13,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /** The rules around a sync run: when it may happen, what it says, what it keeps. */
 class SettingsSyncTest {
@@ -62,5 +64,40 @@ class SettingsSyncTest {
             assertEquals(SettingsSync.BACKUPS_KEPT, names.size());
             assertEquals("20261025-120003-000", names.get(0), "the oldest three go");
         }
+    }
+
+    @Test
+    void aStoredUrlThePageWouldNeverHaveSavedIsNamedForWhatItIs() {
+        String token = "https://me:secret@github.com/me/s.git";
+        assertEquals("sync.state.credentials", SettingsSync.unavailableKey(true, token, false, false));
+        assertEquals("sync.state.invalid", SettingsSync.unavailableKey(true, "-x", false, false));
+        assertEquals("sync.state.notSetUp", SettingsSync.unavailableKey(false, "git@h:r.git", false, false));
+        assertEquals("sync.state.secondary", SettingsSync.unavailableKey(true, "git@h:r.git", true, false));
+        assertNull(SettingsSync.unavailableKey(true, "git@h:r.git", true, true));
+    }
+
+    @Test
+    void everyStoppedRunSaysWhy() {
+        for (SyncReport.Status status : SyncReport.Status.values()) {
+            if (status == SyncReport.Status.OK) continue;
+            String text = SettingsSync.problemText(
+                    new SyncReport(status, List.of(), List.of(), List.of(), "/home/me/.termina"));
+            assertFalse(text.startsWith("sync."), status + " has no words: " + text);
+        }
+    }
+
+    @Test
+    void aSettingsFolderInsideADotfilesRepositoryIsFound(@TempDir Path home) throws Exception {
+        GitRunner probe = new GitRunner(List.of("git"), home, false, "");
+        assumeTrue(probe.available(), "git is not installed");
+        Path config = Files.createDirectories(home.resolve(".termina"));
+        GitRunner inConfig = new GitRunner(List.of("git"), config, false, "");
+        assertFalse(SettingsSync.insideAnotherRepository(inConfig), "no repository at all");
+
+        assertTrue(probe.run("init", "--quiet").ok());
+        assertTrue(SettingsSync.insideAnotherRepository(inConfig));
+
+        Files.writeString(config.resolve(".gitignore"), "sync/\n");
+        assertFalse(SettingsSync.insideAnotherRepository(inConfig), "ignored, so the clone is not staged");
     }
 }

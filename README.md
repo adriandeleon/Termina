@@ -645,6 +645,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # shell received it — the only input option that goes through
                                        # focus rather than around it
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
+  -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open
   -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
                                        # the guard takes it back
   -Dtermina.captureSearch=error        # open the find bar and type the query, reporting the count,

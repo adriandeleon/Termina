@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -112,6 +113,10 @@ final class SettingsSync {
     private boolean startupDone;
     /** The run under way, for {@link #cancel()}; null between runs. Written on the worker. */
     private volatile SyncEngine runningEngine;
+    /** Who asked for the run under way from a menu, and hears how it went; null when nobody is waiting. */
+    private Consumer<String> waiting;
+    /** How {@link #waiting} names a command in a conflict. */
+    private Function<String, String> waitingLabels = id -> id;
     /** Cancel was asked before the run's engine existed, while the sign-in account was being chosen. */
     private volatile boolean cancelRequested;
 
@@ -279,6 +284,54 @@ final class SettingsSync {
         request(true, false);
     }
 
+    /**
+     * "Sync Now" from a menu or the palette, where the Sync page is not on screen to show the result:
+     * {@code report} hears that it started and then how it went, or at once why it cannot run.
+     *
+     * @param label how a command id is named to the user, for a conflict
+     */
+    void syncNow(Consumer<String> report, Function<String, String> label) {
+        String unavailable = unavailableText();
+        if (unavailable != null) {
+            report.accept(unavailable);
+            return;
+        }
+        waiting = report;
+        waitingLabels = label;
+        report.accept(tr("sync.state.syncing"));
+        request(true, false);
+    }
+
+    /** Why sync cannot run here, in words, or null when it can. */
+    private String unavailableText() {
+        String key = unavailableKey(settings.syncEnabled(), settings.syncRepository(), configured(), active());
+        return key == null ? null : tr(key);
+    }
+
+    /**
+     * The catalogue key for why sync cannot run, or null when it can. A URL with a secret in it, or one
+     * that is unusable, can only have got into the file by hand: the page refuses to store either. Pure.
+     */
+    static String unavailableKey(boolean enabled, String url, boolean configured, boolean active) {
+        if (enabled && SyncEngine.hasCredentials(url)) return "sync.state.credentials";
+        if (enabled && !configured) return "sync.state.invalid";
+        if (!configured) return "sync.state.notSetUp";
+        if (!active) return "sync.state.secondary";
+        return null;
+    }
+
+    /**
+     * Takes a password or token out of the stored URL — one the settings file was edited to hold, since
+     * the page refuses to store one — and syncs with what is left, which git signs in to with the
+     * credential helper or SSH key instead.
+     */
+    void removeCredentialsFromUrl() {
+        String url = settings.syncRepository();
+        if (!SyncEngine.hasCredentials(url)) return;
+        settings.setSyncRepository(SyncEngine.withoutCredentials(url));
+        connected();
+    }
+
     /** Repeats a run that stopped at {@link SyncReport.Status#NEEDS_CONFIRMATION}, allowing the removal. */
     void syncAllowingLargeRemoval() {
         request(true, true);
@@ -343,6 +396,7 @@ final class SettingsSync {
         String url = settings.syncRepository();
         String branch = settings.syncBranch();
         Path repo = syncDir().resolve("repo");
+        Path configDir = settings.directory();
         SyncTarget target = new LiveTarget();
         boolean verify = remoteFailed;
         boolean search = remoteFailed || !accountSearched;
@@ -350,7 +404,15 @@ final class SettingsSync {
         worker.execute(() -> {
             List<String> path =
                     LoginShellPath.directories().stream().map(Path::toString).toList();
-            GitRunner git = new GitRunner(gitCommand(), repo, userAsked, String.join(File.pathSeparator, path));
+            List<String> command = gitCommand();
+            String pathVariable = String.join(File.pathSeparator, path);
+            if (insideAnotherRepository(new GitRunner(command, configDir, false, pathVariable))) {
+                SyncReport refused = new SyncReport(
+                        SyncReport.Status.INSIDE_REPOSITORY, List.of(), List.of(), List.of(), configDir.toString());
+                Platform.runLater(() -> finished(refused, "", userAsked));
+                return;
+            }
+            GitRunner git = new GitRunner(command, repo, userAsked, pathVariable);
             // The clone has to exist before an account can be remembered in it; the run would create it
             // anyway, and only after the sign-in had already been decided.
             String login = "";
@@ -368,6 +430,17 @@ final class SettingsSync {
             String signedInAs = login;
             Platform.runLater(() -> finished(report, signedInAs, userAsked));
         });
+    }
+
+    /**
+     * Whether the settings folder ({@code git}'s directory) is tracked by a repository of the user's — a
+     * dotfiles setup — that does not ignore {@code sync/}. The clone would then sit inside that
+     * repository's work tree as an embedded one: {@code git add -A} there stages it as a gitlink, and
+     * the backups as files. Asked every run, since the user may add the ignore line at any time.
+     */
+    static boolean insideAnotherRepository(GitRunner git) {
+        return git.run("rev-parse", "--show-toplevel").ok()
+                && !git.run("check-ignore", "--quiet", "sync/repo").ok();
     }
 
     /**
@@ -394,12 +467,18 @@ final class SettingsSync {
         running = false;
         remoteFailed =
                 report.status() == SyncReport.Status.FETCH_FAILED || report.status() == SyncReport.Status.PUSH_FAILED;
+        Consumer<String> asker = waiting;
+        waiting = null;
         if (!active()) { // disconnected while it ran
             again = false;
             setState(new State(Phase.OFF, null, null));
+            if (asker != null) asker.accept(tr("sync.state.off"));
             return;
         }
         account = login;
+        if (asker != null) {
+            asker.accept(report.ok() ? tr("sync.done", summary(report, waitingLabels)) : problemText(report));
+        }
         if (report.status() == SyncReport.Status.CANCELLED) {
             again = false;
             SyncReport last = state.report();
@@ -549,12 +628,18 @@ final class SettingsSync {
             case PUSH_FAILED -> tr("sync.problem.pushFailed", report.detail());
             case NEWER_FORMAT -> tr("sync.problem.newerFormat");
             case NEEDS_CONFIRMATION -> tr("sync.problem.needsConfirmation");
+            case INSIDE_REPOSITORY -> tr("sync.problem.insideRepository", report.detail());
+            case LOCAL_BUSY -> tr("sync.problem.busy");
+            case CANCELLED -> tr("sync.problem.cancelled");
             default -> tr("sync.problem.failed", report.detail());
         };
     }
 
     /** What the Sync page shows on its status row. */
     String stateText(Function<String, String> label) {
+        // Without these a hand-edited URL read "Not connected." beside a Disconnect button.
+        String unavailable = unavailableKey(settings.syncEnabled(), settings.syncRepository(), configured(), true);
+        if (unavailable != null) return tr(unavailable);
         if (configured() && secondary) return tr("sync.state.secondary");
         SyncReport report = state.report();
         LocalTime at = state.at();

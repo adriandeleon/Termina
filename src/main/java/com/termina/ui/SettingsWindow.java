@@ -470,6 +470,17 @@ public final class SettingsWindow {
         return rest != null && rest.toLowerCase(Locale.ROOT).contains(needle) ? 1 : 0;
     }
 
+    /**
+     * A matching row's rank, raised above any title hit when the query also names its page. Typing
+     * "sync" means the Sync page; ranked by row alone it landed on the Keyboard page, whose Sync
+     * Settings Now row says the word in its title while the Sync page's own rows are "Repository" and
+     * "Branch". Only the landing changes: a row that did not match stays hidden.
+     */
+    static int landingRank(int rank, String query, String pageTitle) {
+        if (rank == 0 || query == null || query.isBlank() || pageTitle == null) return rank;
+        return pageTitle.toLowerCase(Locale.ROOT).contains(query.trim().toLowerCase(Locale.ROOT)) ? 3 : rank;
+    }
+
     /** The index of the best rank, the first of them on a tie, or -1 when nothing matched. */
     static int bestOf(int[] ranks) {
         int best = -1;
@@ -486,7 +497,10 @@ public final class SettingsWindow {
         int[] ranks = new int[rows.size()];
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
-            ranks[i] = matchRank(query, row.title(), row.keywords());
+            ranks[i] = landingRank(
+                    matchRank(query, row.title(), row.keywords()),
+                    query,
+                    row.category().title());
             boolean visible = ranks[i] > 0;
             row.node().setVisible(visible);
             row.node().setManaged(visible);
@@ -1664,6 +1678,7 @@ public final class SettingsWindow {
     private Button syncNow;
     private Button syncCancel;
     private Button syncAnyway;
+    private Button syncRemoveCredentials;
     private CheckBox syncAuto;
     private Spinner<Integer> syncInterval;
 
@@ -1735,7 +1750,11 @@ public final class SettingsWindow {
         syncAccount = new Label();
         syncAccount.setWrapText(true);
         syncAccount.getStyleClass().add("settings-row-description");
-        HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway);
+        syncRemoveCredentials = new Button(tr("settings.sync.removeCredentials"));
+        syncRemoveCredentials.setOnAction(e -> {
+            if (sync != null) sync.removeCredentialsFromUrl();
+        });
+        HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway, syncRemoveCredentials);
         VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
         stateControl.setMaxWidth(420);
         stateControl.setPrefWidth(420);
@@ -1864,6 +1883,9 @@ public final class SettingsWindow {
         setShown(
                 syncAnyway,
                 !syncing && report != null && report.status() == com.termina.sync.SyncReport.Status.NEEDS_CONFIRMATION);
+        setShown(
+                syncRemoveCredentials,
+                connected && com.termina.sync.SyncEngine.hasCredentials(settings.syncRepository()));
         syncInterval.setDisable(!settings.syncAuto());
     }
 

@@ -29,6 +29,11 @@ public record SyncReport(
         NEEDS_CONFIRMATION,
         /** The bindings changed here while the sync was running; nothing was changed, the next run retries. */
         LOCAL_BUSY,
+        /**
+         * The settings folder is inside a Git repository of the user's (a dotfiles setup) that does not
+         * ignore {@code sync/}; the clone would be nested in it. {@code detail} is the folder.
+         */
+        INSIDE_REPOSITORY,
         /** A local git or file error. */
         FAILED,
         /** Stopped before anything on this computer was written; the next run starts afresh. */
