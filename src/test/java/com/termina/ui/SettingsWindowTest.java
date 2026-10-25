@@ -107,4 +107,14 @@ class SettingsWindowTest {
         String when = AboutWindow.lastChecked(1_700_000_000_000L);
         assertTrue(when != null && !when.isBlank());
     }
+
+    @Test
+    void aQueryThatNamesAPageLandsOnIt() {
+        // The Keyboard page's "Sync Settings Now" is a title hit; the Sync page's rows are not.
+        int keyboardRow = SettingsWindow.landingRank(2, "sync", "Keyboard");
+        int syncRow = SettingsWindow.landingRank(1, "sync", "Sync");
+        assertEquals(1, SettingsWindow.bestOf(new int[] {keyboardRow, syncRow}));
+        assertEquals(0, SettingsWindow.landingRank(0, "sync", "Sync"), "a row that did not match stays hidden");
+        assertEquals(2, SettingsWindow.landingRank(2, "", "Sync"));
+    }
 }

@@ -9,7 +9,7 @@
   <a href="https://github.com/adriandeleon/Termina/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/adriandeleon/Termina?sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/adriandeleon/Termina"></a>
   <img alt="Java" src="https://img.shields.io/badge/Java-25-orange">
-  <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-26-blue">
+  <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-27-blue">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey">
 </p>
 
@@ -645,6 +645,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # shell received it — the only input option that goes through
                                        # focus rather than around it
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
+  -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open
   -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
                                        # the guard takes it back
   -Dtermina.captureSearch=error        # open the find bar and type the query, reporting the count,

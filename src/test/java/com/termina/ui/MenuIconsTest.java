@@ -42,7 +42,7 @@ class MenuIconsTest {
             checked.add(method.getName());
         }
         assertTrue(
-                checked.containsAll(List.of("appearance", "terminal", "profiles", "keyboard", "advanced")),
+                checked.containsAll(List.of("appearance", "terminal", "profiles", "keyboard", "sync", "advanced")),
                 checked::toString);
     }
 }

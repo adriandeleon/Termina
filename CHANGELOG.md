@@ -44,6 +44,18 @@ idle.
   shortcut of their own, such as Rename Tab, can be given one. The menus, the palette, the shortcut
   reference and the tab strip's tooltips follow the change at once. The command palette's shortcut,
   which had a row of its own on the Terminal page, is now one of these and keeps its stored value.
+- **Key bindings sync between computers.** Settings → Sync connects Termina to a private Git
+  repository you own; the shortcuts you change are pushed there and picked up by every other
+  connected computer — after startup, half a minute after a change, every 15 minutes while a window
+  is in front, or on Sync Now. Macs share one list and Windows and Linux another, since a chord means
+  a different key on each. A shortcut changed on two computers keeps the version of the one that
+  syncs; bindings a sync replaces are copied to `sync/backups` first, and a sync that would remove
+  most of them stops and asks. Git signs in with your credential helper or SSH key and an automatic
+  sync never prompts; a URL with a password or token in it is refused. With several GitHub CLI
+  accounts (`gh auth switch`), sync finds the one that can read an `https://` repository, remembers
+  it, and keeps signing in as it whichever account is active; the Sync page names it. File → Sync
+  Settings Now (also in the palette) syncs from anywhere and says how it went. A settings folder
+  inside a dotfiles repository that does not ignore `sync/` is refused rather than nested.
 - **Icons draw correctly without a Nerd Font installed.** Symbols Nerd Font Mono 3.5.1 is bundled
   with the other faces and used for private-use code points when no Nerd Font build of the
   terminal's own face is installed. Its icons are drawn a cell and a half wide, the size the Nerd

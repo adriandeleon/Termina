@@ -67,6 +67,19 @@ public final class Settings {
     public static final String UPDATE_CHECK = "updates.check";
     public static final String LAST_UPDATE_CHECK = "updates.lastCheckEpochMs";
     public static final String DISMISSED_UPDATE = "updates.dismissedVersion";
+    /** Everything under here belongs to settings sync; see {@link #isSyncKey}. */
+    public static final String SYNC_PREFIX = "sync.";
+
+    public static final String SYNC_ENABLED = "sync.enabled";
+    public static final String SYNC_REPOSITORY = "sync.repository";
+    public static final String SYNC_BRANCH = "sync.branch";
+    public static final String SYNC_AUTO = "sync.auto";
+    public static final String SYNC_INTERVAL = "sync.intervalMinutes";
+
+    public static final String DEFAULT_SYNC_BRANCH = "main";
+    public static final int DEFAULT_SYNC_INTERVAL = 15;
+    public static final int MIN_SYNC_INTERVAL = 5;
+    public static final int MAX_SYNC_INTERVAL = 24 * 60;
 
     /** Cursor appearance. Names match the DECSCUSR families a program can also request. */
     public enum CursorShape {
@@ -219,6 +232,12 @@ public final class Settings {
 
     public Path file() {
         return file;
+    }
+
+    /** The folder the settings file is in, which also holds what settings sync keeps on this computer. */
+    public Path directory() {
+        Path parent = file.toAbsolutePath().getParent();
+        return parent == null ? Path.of(".") : parent;
     }
 
     // ---------------------------------------------------------------- typed accessors
@@ -640,6 +659,54 @@ public final class Settings {
         putQuietly(DISMISSED_UPDATE, version == null ? "" : version);
     }
 
+    // ---------------------------------------------------------------- settings sync
+
+    /** Whether settings sync is connected. It also needs a usable repository; see {@code SettingsSync}. */
+    public boolean syncEnabled() {
+        return readBoolean(SYNC_ENABLED, false);
+    }
+
+    public void setSyncEnabled(boolean enabled) {
+        put(SYNC_ENABLED, String.valueOf(enabled));
+    }
+
+    /** The repository's URL, as git takes it; blank when none was entered. */
+    public String syncRepository() {
+        return properties.getProperty(SYNC_REPOSITORY, "").trim();
+    }
+
+    public void setSyncRepository(String url) {
+        put(SYNC_REPOSITORY, url == null ? "" : url.trim());
+    }
+
+    /** The branch the synced files live on. Blank reads as {@value #DEFAULT_SYNC_BRANCH}. */
+    public String syncBranch() {
+        String branch = properties.getProperty(SYNC_BRANCH, "").trim();
+        return branch.isEmpty() ? DEFAULT_SYNC_BRANCH : branch;
+    }
+
+    public void setSyncBranch(String branch) {
+        put(SYNC_BRANCH, branch == null ? "" : branch.trim());
+    }
+
+    /** Sync after startup, shortly after a change, and every {@link #syncIntervalMinutes()}. */
+    public boolean syncAuto() {
+        return readBoolean(SYNC_AUTO, true);
+    }
+
+    public void setSyncAuto(boolean auto) {
+        put(SYNC_AUTO, String.valueOf(auto));
+    }
+
+    /** Clamped: a one-minute interval is a fetch a minute against someone's repository host. */
+    public int syncIntervalMinutes() {
+        return (int) clamp(readInt(SYNC_INTERVAL, DEFAULT_SYNC_INTERVAL), MIN_SYNC_INTERVAL, MAX_SYNC_INTERVAL);
+    }
+
+    public void setSyncIntervalMinutes(int minutes) {
+        put(SYNC_INTERVAL, String.valueOf((int) clamp(minutes, MIN_SYNC_INTERVAL, MAX_SYNC_INTERVAL)));
+    }
+
     /**
      * Puts everything back to its default — except the profiles.
      *
@@ -647,6 +714,10 @@ public final class Settings {
      * people press to get a font back. The chosen default and the hidden ids go with them, because
      * a kept profile that is no longer the default, or that reappears in the menu, is the same
      * surprise in smaller print. The rule is {@link #keysToReset}.
+     *
+     * <p>Settings sync stays connected for the same reason: a reset is about this computer's
+     * preferences, and quietly disconnecting it from the repository is not something anyone asks a
+     * font reset for. The key bindings it clears are a change like any other, and sync sends it.
      */
     public void resetToDefaults() {
         for (String key : keysToReset(properties.stringPropertyNames())) properties.remove(key);
@@ -654,13 +725,18 @@ public final class Settings {
         fireChange();
     }
 
-    /** Which of the stored keys a reset removes: everything but the profiles and the two keys about them. */
+    /** Which of the stored keys a reset removes: everything but the profiles, their two keys and sync. */
     public static Set<String> keysToReset(Set<String> stored) {
         Set<String> reset = new LinkedHashSet<>();
         for (String key : stored) {
-            if (!isProfileKey(key)) reset.add(key);
+            if (!isProfileKey(key) && !isSyncKey(key)) reset.add(key);
         }
         return reset;
+    }
+
+    /** The keys that connect settings sync, which a reset leaves alone. */
+    public static boolean isSyncKey(String key) {
+        return key.startsWith(SYNC_PREFIX);
     }
 
     /** The keys that belong to the user's profiles, which a reset leaves alone. */

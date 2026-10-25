@@ -190,7 +190,9 @@ class SettingsTest {
                 Settings.PROFILE_DEFAULT,
                 Settings.PROFILE_HIDDEN,
                 "profile.1.name",
-                "profile.12.command");
+                "profile.12.command",
+                Settings.SYNC_ENABLED,
+                Settings.SYNC_REPOSITORY);
         assertEquals(
                 java.util.Set.of(Settings.THEME, Settings.FONT_SIZE, Settings.WINDOW_WIDTH, Settings.LAST_UPDATE_CHECK),
                 Settings.keysToReset(stored));
@@ -308,5 +310,45 @@ class SettingsTest {
         settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
         settings.resetToDefaults();
         assertTrue(settings.keyBindings().isEmpty());
+    }
+
+    @Test
+    void aResetLeavesSettingsSyncConnected(@TempDir Path dir) {
+        // A reset is about this computer's preferences. Disconnecting the repository with it would
+        // leave the next launch unsynced without a word; the cleared bindings are synced instead.
+        Settings settings = new Settings(dir.resolve("settings.properties"));
+        settings.setSyncRepository("git@github.com:me/termina-sync.git");
+        settings.setSyncBranch("termina");
+        settings.setSyncEnabled(true);
+        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+
+        settings.resetToDefaults();
+
+        assertTrue(settings.syncEnabled());
+        assertEquals("git@github.com:me/termina-sync.git", settings.syncRepository());
+        assertEquals("termina", settings.syncBranch());
+        assertTrue(settings.keyBindings().isEmpty());
+        assertTrue(Settings.isSyncKey(Settings.SYNC_INTERVAL));
+        assertFalse(Settings.isSyncKey(Settings.KEYS_PREFIX + "newTab"));
+    }
+
+    @Test
+    void syncSettingsDefaultAndClamp(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("settings.properties");
+        Settings settings = new Settings(file);
+        assertFalse(settings.syncEnabled());
+        assertEquals("", settings.syncRepository());
+        assertEquals(Settings.DEFAULT_SYNC_BRANCH, settings.syncBranch());
+        assertTrue(settings.syncAuto());
+        assertEquals(Settings.DEFAULT_SYNC_INTERVAL, settings.syncIntervalMinutes());
+
+        // Hand-edited: a one-minute interval would be a fetch a minute against someone's host.
+        Files.writeString(file, "sync.intervalMinutes=1\nsync.branch=  \n");
+        Settings read = new Settings(file);
+        read.load();
+        assertEquals(Settings.MIN_SYNC_INTERVAL, read.syncIntervalMinutes());
+        assertEquals(Settings.DEFAULT_SYNC_BRANCH, read.syncBranch());
+        read.setSyncIntervalMinutes(1_000_000);
+        assertEquals(Settings.MAX_SYNC_INTERVAL, read.syncIntervalMinutes());
     }
 }

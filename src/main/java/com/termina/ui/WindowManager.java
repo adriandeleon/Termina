@@ -53,6 +53,9 @@ public final class WindowManager {
      */
     private final com.termina.shell.ShellProfiles profiles;
 
+    /** Keeps the key bindings the same on every computer connected to the user's repository. */
+    private final SettingsSync sync;
+
     public WindowManager(Settings settings) {
         this.settings = settings;
         this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
@@ -61,6 +64,14 @@ public final class WindowManager {
         // menu already on screen when the answer lands would otherwise keep the shorter list.
         profiles.discoverInBackground(found -> {});
         settings.addOnChange(this::applySettingsEverywhere);
+        this.sync = new SettingsSync(settings, this::anyWindowFocused);
+    }
+
+    private boolean anyWindowFocused() {
+        for (TerminalWindow window : windows) {
+            if (window.stage().isFocused()) return true;
+        }
+        return settingsWindow != null && settingsWindow.scene().getWindow().isFocused();
     }
 
     public com.termina.shell.ShellProfiles profiles() {
@@ -293,9 +304,27 @@ public final class WindowManager {
             settingsWindow = new SettingsWindow(
                     settings,
                     profiles,
-                    windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands());
+                    windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
+                    sync);
         }
         settingsWindow.show(from);
+    }
+
+    /**
+     * Sync Now from a menu or the palette. {@code report} hears that it started and how it went, as
+     * the update check's does, because the Sync page that would otherwise say so is not on screen.
+     */
+    public void syncSettingsNow(java.util.function.Consumer<String> report) {
+        sync.syncNow(report, this::commandLabel);
+    }
+
+    /** A command as the menus name it, for a sync's conflict list; its id when no window knows it. */
+    private String commandLabel(String id) {
+        if (windows.isEmpty()) return id;
+        for (Keybindings.Command command : windows.get(0).keyboardCommands()) {
+            if (command.id().equals(id)) return command.label();
+        }
+        return id;
     }
 
     /** Opens the settings window and returns its scene, for the development capture hook. */

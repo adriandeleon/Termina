@@ -1993,7 +1993,10 @@ public final class TerminalWindow {
                 register(item(
                         "menu.settings",
                         new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
-                        () -> windows.showSettings(stage))));
+                        () -> windows.showSettings(stage))),
+                // No chord by default: an occasional command, and every free chord is one the shell
+                // might want. The Keyboard page can give it one.
+                register(item("menu.syncNow", () -> windows.syncSettingsNow(this::report))));
 
         // Added by hand rather than through menu(): a submenu is a Menu, not a MenuAction, and its
         // contents are not known until it is opened. Its entries reach the palette through
