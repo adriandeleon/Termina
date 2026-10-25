@@ -138,6 +138,7 @@ public final class TerminalView extends Region {
     private Font boldItalicFont;
     /** Faces for private-use code points, null when the terminal face should draw them: see IconFont. */
     private Font iconFont;
+
     private Font boldIconFont;
     private Font italicIconFont;
     private Font boldItalicIconFont;
@@ -147,6 +148,7 @@ public final class TerminalView extends Region {
      * Nerd build of the terminal face, whose icons are already drawn to its cell.
      */
     private Font scaledIconFont;
+
     private double scaledIconShift;
     private double fontSize;
     private double charWidth;

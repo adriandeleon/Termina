@@ -89,7 +89,9 @@ public final class MonospaceFonts {
     public static synchronized String resolve(String preference) {
         // The same answer the full list would give — a preferred family is trusted, any other must
         // measure as monospace — without measuring every other family to get it.
-        if (preference != null && !preference.isBlank() && installed().contains(preference)
+        if (preference != null
+                && !preference.isBlank()
+                && installed().contains(preference)
                 && !preference.equals(Fonts.ICONS)) {
             if (PREFERRED.contains(preference) || measuredMonospace(preference)) return preference;
         }
