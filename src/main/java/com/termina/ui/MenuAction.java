@@ -28,9 +28,14 @@ import javafx.scene.input.KeyCombination;
  * @param keywords words the palette also finds the action by, besides its label — the menu it lives
  *     in, so "file new" reaches New Tab; matched only when the label itself does not match, and
  *     ranked below every label match. Never shown.
+ * @param id what the user's key bindings call this action — the catalogue key without its {@code
+ *     menu.} prefix ({@code newTab}), stored as {@code keys.newTab}. Null for an action that cannot
+ *     be rebound: the palette's per-tab and per-theme rows, which are built fresh on every open.
+ *     Never translated, because a binding written in one language has to survive a switch to
+ *     another.
  */
 public record MenuAction(
-        String label, KeyCombination accelerator, Runnable action, String description, String keywords) {
+        String label, KeyCombination accelerator, Runnable action, String description, String keywords, String id) {
 
     public MenuAction {
         if (description == null) description = "";
@@ -125,26 +130,31 @@ public record MenuAction(
     }
 
     public static MenuAction of(String label, KeyCombination accelerator, Runnable action) {
-        return new MenuAction(label, accelerator, action, "", "");
+        return new MenuAction(label, accelerator, action, "", "", null);
     }
 
     public static MenuAction of(String label, Runnable action) {
-        return new MenuAction(label, null, action, "", "");
+        return new MenuAction(label, null, action, "", "", null);
     }
 
     /** The same action with a one-line description for the palette. */
     public MenuAction describedAs(String description) {
-        return new MenuAction(label, accelerator, action, description, keywords);
+        return new MenuAction(label, accelerator, action, description, keywords, id);
     }
 
     /** The same action, findable in the palette by {@code keywords} as well as by its label. */
     public MenuAction withKeywords(String keywords) {
-        return new MenuAction(label, accelerator, action, description, keywords);
+        return new MenuAction(label, accelerator, action, description, keywords, id);
     }
 
-    /** The same action on another chord: the palette's, once the user has changed it. */
+    /** The same action on another chord: the one the user's key bindings give it. */
     public MenuAction withAccelerator(KeyCombination accelerator) {
-        return new MenuAction(label, accelerator, action, description, keywords);
+        return new MenuAction(label, accelerator, action, description, keywords, id);
+    }
+
+    /** The same action, rebindable under {@code id}. */
+    public MenuAction withId(String id) {
+        return new MenuAction(label, accelerator, action, description, keywords, id);
     }
 
     /**
@@ -170,21 +180,6 @@ public record MenuAction(
         } catch (IllegalArgumentException unreadable) {
             return fallback;
         }
-    }
-
-    /**
-     * The chord the palette actually answers to: the stored one, unless it is unreadable or already
-     * belongs to another binding — then the default.
-     *
-     * <p>The filter runs bindings in order, so a palette bound to Ctrl+Shift+T would be dead while
-     * its menu item advertised the chord. The settings window refuses such a chord on the way in;
-     * this is the backstop for a hand-edited file, and it falls back rather than throwing because
-     * a window that cannot be built over a bad line in a settings file is worse than one whose
-     * palette is on its usual key.
-     */
-    public static KeyCombination resolvePaletteChord(String stored, List<KeyCombination> taken) {
-        KeyCombination chosen = parseChord(stored, DEFAULT_PALETTE_CHORD);
-        return taken.contains(chosen) ? DEFAULT_PALETTE_CHORD : chosen;
     }
 
     /** Builds the menu item. The accelerator is shown for discoverability; the filter runs it. */

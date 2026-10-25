@@ -7,6 +7,12 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ### Added
 
+- **Every shortcut can be changed.** Settings has a Keyboard page listing each command under its
+  menu: click a shortcut and press the new one. A shortcut another command has moves on a second
+  press, Backspace removes one, and Reset or Reset All Shortcuts puts them back. Commands with no
+  shortcut of their own, such as Rename Tab, can be given one. The menus, the palette, the shortcut
+  reference and the tab strip's tooltips follow the change at once. The command palette's shortcut,
+  which had a row of its own on the Terminal page, is now one of these and keeps its stored value.
 - **Icons draw correctly without a Nerd Font installed.** Symbols Nerd Font Mono 3.5.1 is bundled
   with the other faces and used for private-use code points when no Nerd Font build of the
   terminal's own face is installed. Its icons are drawn a cell and a half wide, the size the Nerd

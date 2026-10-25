@@ -162,6 +162,13 @@ public final class MenuIcons {
                 + " 9l-9-7-9 7 1.63 1.27L12 16z");
     }
 
+    /** A keyboard: the shortcuts page. */
+    static Node keyboard() {
+        return of("M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3"
+                + "h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2"
+                + "zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z");
+    }
+
     /** Sliders: the settings most people never touch. */
     static Node advanced() {
         return of("M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14"

@@ -216,9 +216,20 @@ Each of these cost real time, and none of them announces itself.
   `PaletteKeys`, `TextInputKeys` and `MatchText` are Editora's `search.FuzzyMatch`, `ui.PickerKeys`,
   `command.TextInputKeymap` and `ui.MatchText` with the keymap manager replaced by a fixed Emacs
   table in `KeyChord` tokens (`C-n`, `M-S-.`). A ranking or navigation change belongs in both
-  projects, or the two palettes stop agreeing. The chord that opens it is a setting, resolved in
-  `MenuAction.resolvePaletteChord` and bound *last* in `buildMenuBar`, because `register` throws on
-  a duplicate chord and the user's choice has to be seen against every other binding first.
+  projects, or the two palettes stop agreeing. The chord that opens it is an ordinary key binding
+  (`keys.commandPalette`), which is the line it had when it was the only chord that could change.
+- **Every binding has two lists: the defaults and the chords in force.** `TerminalWindow.table`
+  holds each command on its default chord, by a stable id (`newTab` — the catalogue key without
+  `menu.`), and `register` still throws on two *defaults* on one chord. `bindings`, which the key
+  filter runs, is derived from it by `Keybindings.resolve` against the stored `keys.*` block on
+  every `applySettings`, along with each menu item's accelerator, the palette chip and the tab
+  strip's tooltips. Anything new that shows a chord must ask `chordOf(id)`, not the action's
+  `accelerator()` — that is the default, and showing it advertises a chord the user may have
+  moved. `KeybindingEdits` is Editora's port, keyed by command rather than by chord.
+- **`KeyCombination.equals` compares modifiers as written.** The defaults say `Shortcut+Shift+T`;
+  the recorder writes `Ctrl+Shift+T`. They match the same keystroke off macOS and are unequal, so a
+  plain `equals` check let two commands share a chord with the filter reaching only the first.
+  Every comparison goes through `Keybindings.same`, which spells Shortcut out for the platform.
 - **A `ListView` asked to scroll before it has a size scrolls to the wrong place.** `scrollTo` on
   a virtual flow with no layout yet positions by the fraction `index / count` and never clamps, so
   the capture — which opens the palette and fires keys at it within one pulse — showed the last row
@@ -251,7 +262,7 @@ Each of these cost real time, and none of them announces itself.
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is
-signed. No splits, scrollback search, or keybinding customisation. See `CHANGELOG.md` for the
+signed. No splits or scrollback search; key bindings have no multi-key sequences. See `CHANGELOG.md` for the
 current list.
 
 **The shell profiles' Windows half has never run on Windows.** Every branch of it is driven in
