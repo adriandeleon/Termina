@@ -16,7 +16,11 @@ import javafx.scene.text.Text;
  * matters here beyond tidiness — the renderer places every glyph on a fixed cell grid, so a
  * proportional face would misalign every column on screen.
  *
- * <p>Measuring a few hundred families costs enough to be worth doing once, so the result is cached.
+ * <p>Measuring a few hundred families costs enough to be worth doing once, so the result is cached
+ * — and it is done only for the font picker. Opening a tab needs one family, not the list: the
+ * scan used to run from the first terminal's field initialiser, on the FX thread ahead of the first
+ * paint, and measured 98ms for 185 families on a Linux desktop. {@link #resolve} answers from the
+ * one family it was asked about.
  */
 public final class MonospaceFonts {
 
@@ -49,13 +53,19 @@ public final class MonospaceFonts {
 
     private static List<String> cached;
 
+    /** Installed family names, which {@link #resolve} needs and the full scan also starts from. */
+    private static Set<String> installed;
+
+    /** Families already measured, so resolving the same stored preference per tab is free. */
+    private static final java.util.Map<String, Boolean> MEASURED = new java.util.HashMap<>();
+
     private MonospaceFonts() {}
 
     /** Installed monospace families, preferred ones first, then the rest alphabetically. */
     public static synchronized List<String> available() {
         if (cached != null) return cached;
 
-        List<String> families = Font.getFamilies();
+        Set<String> families = installed();
         Set<String> ordered = new LinkedHashSet<>();
         for (String preferred : PREFERRED) {
             if (families.contains(preferred)) ordered.add(preferred);
@@ -63,7 +73,7 @@ public final class MonospaceFonts {
         List<String> measured = new ArrayList<>();
         for (String family : families) {
             if (ordered.contains(family)) continue;
-            if (isMonospace(family)) measured.add(family);
+            if (measuredMonospace(family)) measured.add(family);
         }
         measured.sort(String.CASE_INSENSITIVE_ORDER);
         ordered.addAll(measured);
@@ -76,14 +86,33 @@ public final class MonospaceFonts {
     }
 
     /** The family to actually use for a stored preference, which may be blank or uninstalled. */
-    public static String resolve(String preference) {
-        List<String> families = available();
-        if (preference != null && !preference.isBlank() && families.contains(preference)) {
-            return preference;
+    public static synchronized String resolve(String preference) {
+        // The same answer the full list would give — a preferred family is trusted, any other must
+        // measure as monospace — without measuring every other family to get it.
+        if (preference != null && !preference.isBlank() && installed().contains(preference)) {
+            if (PREFERRED.contains(preference) || measuredMonospace(preference)) return preference;
         }
         // A font the user chose on another machine — or removed since — falls back rather than
         // silently rendering in a proportional face.
-        return families.get(0);
+        return defaultFamily();
+    }
+
+    /** What {@code available().get(0)} would be: the best preferred family that is installed. */
+    public static synchronized String defaultFamily() {
+        if (cached != null) return cached.get(0);
+        for (String preferred : PREFERRED) {
+            if (installed().contains(preferred)) return preferred;
+        }
+        return available().get(0);
+    }
+
+    private static Set<String> installed() {
+        if (installed == null) installed = Set.copyOf(Font.getFamilies());
+        return installed;
+    }
+
+    private static boolean measuredMonospace(String family) {
+        return MEASURED.computeIfAbsent(family, MonospaceFonts::isMonospace);
     }
 
     static boolean isMonospace(String family) {

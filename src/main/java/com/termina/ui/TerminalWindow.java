@@ -242,6 +242,9 @@ public final class TerminalWindow {
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
             if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
+            // A hidden tab defers its repaint until it is shown, and being selected makes it
+            // visible without laying it out — so it has to be told.
+            if (tab != null) terminalOf(tab).wake();
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });

@@ -37,12 +37,19 @@ final class CellWidth {
         return true;
     }
 
-    /** Cells occupied by {@code text}, counting from the start of a style run. */
-    static int cells(String text) {
+    /**
+     * Cells occupied by {@code text}, counting from the start of a style run.
+     *
+     * <p>A {@link CharSequence} so the renderer can pass JediTerm's {@code CharBuffer} as it is —
+     * this runs for every run of every frame, and a {@code toString} here was a copy of the run
+     * made only to be counted.
+     */
+    static int cells(CharSequence text) {
         if (text == null || text.isEmpty()) return 0;
         int cells = 0;
         int i = 0;
-        while (i < text.length()) {
+        int length = text.length();
+        while (i < length) {
             if (text.charAt(i) == CharUtils.DWC) {
                 // The second half of a wide glyph: a column of its own, nothing drawn in it.
                 cells++;
@@ -50,7 +57,7 @@ final class CellWidth {
                 continue;
             }
             cells++;
-            i += Character.charCount(text.codePointAt(i));
+            i += Character.charCount(Character.codePointAt(text, i));
         }
         return cells;
     }

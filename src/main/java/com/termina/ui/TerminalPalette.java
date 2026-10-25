@@ -57,7 +57,41 @@ public record TerminalPalette(Color background, Color foreground, Color[] ansi) 
             return fallback;
         }
         com.jediterm.core.Color rgb = color.toColor();
-        return rgb == null ? fallback : Color.rgb(rgb.getRed(), rgb.getGreen(), rgb.getBlue());
+        return rgb == null ? fallback : TrueColors.of(rgb.getRed(), rgb.getGreen(), rgb.getBlue());
+    }
+
+    /**
+     * Truecolour values, cached.
+     *
+     * <p>{@link #resolve} runs twice per style run per frame, and a 24-bit colour used to be a new
+     * {@link Color} each time — every frame of a truecolour editor theme allocated two per run of
+     * the screen. Direct-mapped and bounded: a program can walk all sixteen million colours, and
+     * a collision only costs the allocation this replaces. Unsynchronised by design: a slot holds
+     * an immutable object, and a reader checks the colour it found before using it, so a race can
+     * only cost an allocation.
+     */
+    static final class TrueColors {
+        private static final int SLOTS = 4096;
+        private static final Color[] CACHE = new Color[SLOTS];
+
+        private TrueColors() {}
+
+        static Color of(int red, int green, int blue) {
+            int key = (red & 0xff) << 16 | (green & 0xff) << 8 | (blue & 0xff);
+            int slot = (key ^ (key >>> 12)) & (SLOTS - 1);
+            Color cached = CACHE[slot];
+            if (cached != null && matches(cached, key)) return cached;
+            Color made = Color.rgb(red & 0xff, green & 0xff, blue & 0xff);
+            CACHE[slot] = made;
+            return made;
+        }
+
+        private static boolean matches(Color color, int key) {
+            int r = (int) Math.round(color.getRed() * 255);
+            int g = (int) Math.round(color.getGreen() * 255);
+            int b = (int) Math.round(color.getBlue() * 255);
+            return (r << 16 | g << 8 | b) == key;
+        }
     }
 
     /**
