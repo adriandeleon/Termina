@@ -142,12 +142,12 @@ public final class TerminalView extends Region {
     private Font italicIconFont;
     private Font boldItalicIconFont;
     /**
-     * The bundled icon face sized so an icon fills one cell, and how far below the text baseline
-     * to draw it so it sits centred in the row. Null when the icons come from a Nerd build of the
-     * terminal face, whose icons are already drawn to its cell.
+     * The bundled icon face sized from the cell (see {@link IconFont#iconSize}), and how far below
+     * the text baseline to draw it so it sits centred in the row. Null when the icons come from a
+     * Nerd build of the terminal face, whose icons are already drawn to its cell.
      */
-    private Font cellIconFont;
-    private double cellIconShift;
+    private Font scaledIconFont;
+    private double scaledIconShift;
     private double fontSize;
     private double charWidth;
     private double lineHeight;
@@ -531,17 +531,17 @@ public final class TerminalView extends Region {
 
     /** After {@link #measureFont}: the bundled face is sized from the cell. */
     private void applyIconFont(String icons) {
-        cellIconFont = null;
+        scaledIconFont = null;
         if (icons == null) {
             iconFont = boldIconFont = italicIconFont = boldItalicIconFont = null;
         } else if (icons.equals(Fonts.ICONS)) {
             // One file, no weights. Its icons are 1 em squares — a symbols-only font has no cell
             // of its own to fit them to — so at text size each spilled two-thirds of a cell into
-            // the name after it. Sized to the cell instead, which is what Mono promises.
+            // the name after it. Sized from the cell instead, like the NF builds' icons.
             iconFont = boldIconFont = italicIconFont = boldItalicIconFont = Font.font(icons, fontSize);
-            double size = IconFont.cellSize(charWidth);
-            cellIconFont = Font.font(icons, size);
-            cellIconShift = IconFont.cellBaselineShift(ascent, lineHeight, size);
+            double size = IconFont.iconSize(charWidth);
+            scaledIconFont = Font.font(icons, size);
+            scaledIconShift = IconFont.iconBaselineShift(ascent, lineHeight, size);
         } else {
             iconFont = Font.font(icons, fontSize);
             boldIconFont = Font.font(icons, FontWeight.BOLD, fontSize);
@@ -882,9 +882,9 @@ public final class TerminalView extends Region {
             g.fillText(glyph, x, baseline);
             return;
         }
-        boolean toCell = cellIconFont != null && !IconFont.isPowerline(codePoint);
-        g.setFont(toCell ? cellIconFont : iconFace);
-        g.fillText(glyph, x, toCell ? baseline + cellIconShift : baseline);
+        boolean scaled = scaledIconFont != null && !IconFont.isPowerline(codePoint);
+        g.setFont(scaled ? scaledIconFont : iconFace);
+        g.fillText(glyph, x, scaled ? baseline + scaledIconShift : baseline);
         g.setFont(face);
     }
 

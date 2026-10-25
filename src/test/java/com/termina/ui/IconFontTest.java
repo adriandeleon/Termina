@@ -73,16 +73,16 @@ class IconFontTest {
         assertTrue(IconFont.isPowerline(0xE0D7));
         assertFalse(IconFont.isPowerline(0xE0D8));
         assertFalse(IconFont.isPowerline(0xE271));
-        assertFalse(IconFont.isPowerline(0xE5FF)); // a folder: shrunk to the cell
+        assertFalse(IconFont.isPowerline(0xE5FF)); // a folder: sized from the cell
     }
 
     @Test
-    void aCellSizedIconIsCentredInTheRow() {
-        // A 14px row with its baseline 11px down, and 8px-wide cells: the icon is drawn at 8px,
-        // its em box 0.8 up and 0.2 down, so its centre is 2.4px above the baseline it is drawn on.
-        double size = IconFont.cellSize(8);
-        assertEquals(8, size, 1e-9);
-        double shift = IconFont.cellBaselineShift(11, 14, size);
+    void aBundledIconIsACellAndAHalfWideAndCentredInTheRow() {
+        // A 14px row with its baseline 11px down, and 8px-wide cells: the 1 em icon is drawn at
+        // 12px, its em box 0.8 up and 0.2 down, so its centre is 3.6px above its baseline.
+        double size = IconFont.iconSize(8);
+        assertEquals(12, size, 1e-9);
+        double shift = IconFont.iconBaselineShift(11, 14, size);
         double iconCentre = 11 + shift - 0.3 * size;
         assertEquals(7, iconCentre, 1e-9);
     }

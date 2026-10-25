@@ -206,8 +206,10 @@ Each of these cost real time, and none of them announces itself.
   every other icon was right. `IconFont` names a Nerd Font for private-use code points instead —
   the terminal face's own Nerd build if installed, else the bundled `Symbols Nerd Font Mono`,
   which is kept out of the font picker because it has no letters. Its icons are 1 em squares,
-  so at text size each spills two-thirds of a cell into the name after it; it is drawn at the
-  cell's width and centred on the row, except Powerline separators, which must span the line. Which face JavaFX chose is not visible through public API; the slot list lives in
+  so at text size each spills two-thirds of a cell into the name after it; it is drawn 1.5 cells
+  wide, like the NF builds' icons, and centred on the row, except Powerline separators, which
+  must span the line. Which face JavaFX chose is not visible through public API; the slot list
+  lives in
   `com.sun.javafx.font.FallbackResource`, reached by reflection with `--add-opens`.
 
 - **The command palette is a port of Editora's, and the pure parts are verbatim.** `FuzzyMatch`,

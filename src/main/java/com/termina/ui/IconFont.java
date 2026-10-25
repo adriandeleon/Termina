@@ -54,7 +54,7 @@ final class IconFont {
 
     /**
      * Whether {@code codePoint} is one of Powerline's separators or their extras. These are drawn
-     * to the height of the line, so that a prompt's segments meet, and are never shrunk to a cell.
+     * to the height of the line, so that a prompt's segments meet, and are never rescaled.
      */
     static boolean isPowerline(int codePoint) {
         return codePoint >= 0xE0A0 && codePoint <= 0xE0D7;
@@ -66,9 +66,18 @@ final class IconFont {
     /** Where the centre of the bundled face's em box sits above its baseline: 0.8 em up, 0.2 down. */
     private static final double SYMBOLS_EM_CENTRE = 0.3;
 
-    /** The size to draw the bundled face at for its icons to be one cell wide. */
-    static double cellSize(double charWidth) {
-        return charWidth / SYMBOLS_ICON_EM;
+    /**
+     * How many cells wide a bundled icon is drawn. About what the Nerd Font builds of a text face
+     * give their icons — JetBrainsMono NF's folder is 0.87 em on a 0.6 em cell — so an icon looks
+     * the same size whichever face draws it. It spills into half the next cell, which in a listing
+     * is the space before the name. One cell, which Mono would suggest, left them markedly smaller
+     * than the NF builds' beside text of the same size.
+     */
+    private static final double ICON_CELLS = 1.5;
+
+    /** The size to draw the bundled face at for its icons to be {@link #ICON_CELLS} wide. */
+    static double iconSize(double charWidth) {
+        return ICON_CELLS * charWidth / SYMBOLS_ICON_EM;
     }
 
     /**
@@ -76,7 +85,7 @@ final class IconFont {
      * to sit centred in the row. Centred on the row rather than left on the text's baseline, where
      * an icon smaller than the text would sit low, beside the letters' feet.
      */
-    static double cellBaselineShift(double ascent, double lineHeight, double iconSize) {
+    static double iconBaselineShift(double ascent, double lineHeight, double iconSize) {
         return lineHeight / 2 - ascent + SYMBOLS_EM_CENTRE * iconSize;
     }
 
