@@ -143,6 +143,10 @@ public final class GitRunner {
     private final List<String> command;
     private final Path dir;
     private final boolean interactive;
+    private final String path;
+    /** {@code -c} pairs added last, so they outrank the user's configuration; see {@link #with}. */
+    private final List<String> extraConfig;
+
     private final Map<String, String> env;
 
     /**
@@ -150,10 +154,16 @@ public final class GitRunner {
      * @param path the PATH git's own children (ssh, a credential helper) should see; blank to inherit
      */
     public GitRunner(List<String> command, Path dir, boolean interactive, String path) {
+        this(command, dir, interactive, path, List.of());
+    }
+
+    private GitRunner(List<String> command, Path dir, boolean interactive, String path, List<String> extraConfig) {
         this.command = List.copyOf(command == null || command.isEmpty() ? List.of("git") : command);
         this.dir = dir;
         this.interactive = interactive;
-        this.env = environment(System.getenv(), interactive, path);
+        this.path = path == null ? "" : path;
+        this.extraConfig = List.copyOf(extraConfig);
+        this.env = environment(System.getenv(), interactive, this.path);
     }
 
     public Path dir() {
@@ -162,7 +172,15 @@ public final class GitRunner {
 
     /** The same runner, but one that never asks for anything. */
     public GitRunner silent() {
-        return interactive ? new GitRunner(command, dir, false, env.get("PATH")) : this;
+        return interactive ? new GitRunner(command, dir, false, path, extraConfig) : this;
+    }
+
+    /**
+     * The same runner with {@code config} ({@code -c key=value} pairs) added to every command after
+     * everything else, so it outranks the user's own configuration. Replaces any added before.
+     */
+    public GitRunner with(List<String> config) {
+        return config == null || config.isEmpty() ? this : new GitRunner(command, dir, interactive, path, config);
     }
 
     /** Whether the configured git starts at all. */
@@ -192,6 +210,7 @@ public final class GitRunner {
         List<String> argv = new ArrayList<>(command);
         argv.addAll(HARDENED);
         if (!interactive) argv.addAll(SILENT);
+        argv.addAll(extraConfig);
         argv.addAll(List.of(args));
         return argv;
     }

@@ -168,7 +168,7 @@ public final class SyncEngine {
         List<String> received = new ArrayList<>();
         try {
             if (stopHere()) return cancelled();
-            prepareClone();
+            prepareClone(git, url);
             for (int attempt = 1; ; attempt++) {
                 SyncReport report = cycle(allowLargeRemoval, received);
                 if (report != null) return report;
@@ -284,7 +284,24 @@ public final class SyncEngine {
     }
 
     /** Creates the clone on first use and points it at {@link #url}; a different repository forgets the base. */
-    private void prepareClone() throws IOException, GitFailure {
+    /**
+     * Creates the clone and points it at {@code url}, as the start of a run does — for the caller that
+     * has to look at the clone before the run, to choose the account it signs in as. False when the
+     * URL is not one a run would accept, or git failed; the run then reports why.
+     */
+    public static boolean prepare(GitRunner git, String url) {
+        String u = url == null ? "" : url.strip();
+        if (!isUsableUrl(u) || hasCredentials(u)) return false;
+        try {
+            prepareClone(git, u);
+            return true;
+        } catch (IOException | GitFailure e) {
+            return false;
+        }
+    }
+
+    private static void prepareClone(GitRunner git, String url) throws IOException, GitFailure {
+        Path clone = git.dir();
         Files.createDirectories(clone);
         if (!Files.exists(clone.resolve(".git"))) must(git.run("init", "--quiet"));
         // The URL as stored: "remote get-url" applies the user's insteadOf rewriting, and a rewritten
@@ -296,7 +313,8 @@ public final class SyncEngine {
             // What was synced with the old repository says nothing about this one: start as a first
             // sync, which keeps everything on both sides.
             must(git.run("remote", "set-url", "origin", url));
-            if (exists(BASE_REF)) must(git.run("update-ref", "-d", BASE_REF));
+            if (exists(git, BASE_REF)) must(git.run("update-ref", "-d", BASE_REF));
+            git.run("config", "--local", "--unset", SyncAccount.KEY); // nor does the account that could read it
         }
     }
 
@@ -361,6 +379,10 @@ public final class SyncEngine {
     }
 
     private boolean exists(String ref) {
+        return exists(git, ref);
+    }
+
+    private static boolean exists(GitRunner git, String ref) {
         return git.run("rev-parse", "--verify", "--quiet", ref + "^{commit}").ok();
     }
 

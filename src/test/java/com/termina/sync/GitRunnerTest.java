@@ -66,6 +66,15 @@ class GitRunnerTest {
     }
 
     @Test
+    void addedConfigComesLastAndSurvivesGoingSilent() {
+        GitRunner git = new GitRunner(java.util.List.of("git"), java.nio.file.Path.of("."), true, "")
+                .with(java.util.List.of("-c", "credential.helper=x"));
+        java.util.List<String> argv = git.silent().argv(false, "fetch");
+        assertEquals(
+                java.util.List.of("-c", "credential.helper=x", "fetch"), argv.subList(argv.size() - 3, argv.size()));
+    }
+
+    @Test
     void aRejectedPushIsToldApartFromAFailedOne() {
         String rejected = "To host:r.git\n ! [rejected]        HEAD -> main (fetch first)\nerror: failed to push";
         assertTrue(new GitRunner.Result(1, "", rejected, false).nonFastForward());

@@ -1660,6 +1660,7 @@ public final class SettingsWindow {
     private Label syncFieldError;
     private Button syncConnect;
     private Label syncState;
+    private Label syncAccount;
     private Button syncNow;
     private Button syncCancel;
     private Button syncAnyway;
@@ -1729,8 +1730,13 @@ public final class SettingsWindow {
         syncAnyway.setOnAction(e -> {
             if (sync != null) sync.syncAllowingLargeRemoval();
         });
+        // Said, because it is otherwise invisible: which of the user's GitHub accounts this computer
+        // syncs as, whichever one `gh auth switch` last made active.
+        syncAccount = new Label();
+        syncAccount.setWrapText(true);
+        syncAccount.getStyleClass().add("settings-row-description");
         HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway);
-        VBox stateControl = new VBox(6, syncState, buttons);
+        VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
         stateControl.setMaxWidth(420);
         stateControl.setPrefWidth(420);
         row(
@@ -1847,6 +1853,9 @@ public final class SettingsWindow {
         syncRepository.setDisable(connected);
         syncBranch.setDisable(connected);
         syncState.setText(sync == null ? tr("sync.state.off") : sync.stateText(this::labelOf));
+        String account = connected && sync != null ? sync.account() : "";
+        syncAccount.setText(account.isEmpty() ? "" : tr("sync.state.account", account));
+        setShown(syncAccount, !account.isEmpty());
         boolean active = sync != null && sync.active();
         boolean syncing = phase == SettingsSync.Phase.SYNCING;
         syncNow.setDisable(!active || syncing);

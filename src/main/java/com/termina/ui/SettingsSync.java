@@ -43,6 +43,7 @@ import com.termina.config.Settings;
 import com.termina.link.CommandPath;
 import com.termina.sync.GitRunner;
 import com.termina.sync.KeybindingsFile;
+import com.termina.sync.SyncAccount;
 import com.termina.sync.SyncEngine;
 import com.termina.sync.SyncReport;
 import com.termina.sync.SyncTarget;
@@ -66,6 +67,7 @@ import static com.termina.i18n.Messages.tr;
 final class SettingsSync {
 
     static final int DIRTY_DELAY_SECONDS = 30;
+    private static final java.time.Duration GH_TIMEOUT = java.time.Duration.ofSeconds(15);
     private static final int STARTUP_DELAY_SECONDS = 5;
     /** Backup sets kept in {@code sync/backups}; each holds the files one run replaced. */
     static final int BACKUPS_KEPT = 10;
@@ -110,6 +112,15 @@ final class SettingsSync {
     private boolean startupDone;
     /** The run under way, for {@link #cancel()}; null between runs. Written on the worker. */
     private volatile SyncEngine runningEngine;
+    /** Cancel was asked before the run's engine existed, while the sign-in account was being chosen. */
+    private volatile boolean cancelRequested;
+
+    /** The GitHub CLI account the last run signed in as ({@link SyncAccount}); blank when it used git's own. */
+    private String account = "";
+    /** Whether this session has already looked for an account that can read the repository. */
+    private boolean accountSearched;
+    /** The last run could not reach the repository: the next one looks at the account again. */
+    private boolean remoteFailed;
 
     /** The key bindings as {@link #onSettingsChanged} last saw them. */
     private String keybindingsSeen;
@@ -275,13 +286,29 @@ final class SettingsSync {
 
     /** Stops the run under way if it has not started writing; false when it is too late or nothing runs. */
     boolean cancel() {
+        if (!running) return false;
         SyncEngine engine = runningEngine;
-        return running && engine != null && engine.cancel();
+        if (engine == null) {
+            cancelRequested = true; // the worker checks this as soon as the engine exists
+            return true;
+        }
+        return engine.cancel();
+    }
+
+    /**
+     * The GitHub CLI account sync signs in as on this computer, so that switching the active account
+     * ({@code gh auth switch}) does not lock sync out of its repository; blank when sync uses git's own
+     * sign-in.
+     */
+    String account() {
+        return account;
     }
 
     /** Sync was just switched on: runs the first sync now. */
     void connected() {
         startupDone = true; // the run below is the startup run
+        accountSearched = false;
+        remoteFailed = false;
         settingsChanged();
         request(true, false);
     }
@@ -291,6 +318,7 @@ final class SettingsSync {
      * connecting again starts as a first sync, which keeps everything on both sides.
      */
     void disconnected() {
+        account = "";
         settingsChanged();
         Path repo = syncDir().resolve("repo");
         worker.execute(() -> {
@@ -309,22 +337,46 @@ final class SettingsSync {
             return;
         }
         running = true;
+        cancelRequested = false;
         dirty.stop();
         setState(new State(Phase.SYNCING, state.report(), state.at()));
         String url = settings.syncRepository();
         String branch = settings.syncBranch();
         Path repo = syncDir().resolve("repo");
         SyncTarget target = new LiveTarget();
+        boolean verify = remoteFailed;
+        boolean search = remoteFailed || !accountSearched;
+        accountSearched = true;
         worker.execute(() -> {
             List<String> path =
                     LoginShellPath.directories().stream().map(Path::toString).toList();
             GitRunner git = new GitRunner(gitCommand(), repo, userAsked, String.join(File.pathSeparator, path));
+            // The clone has to exist before an account can be remembered in it; the run would create it
+            // anyway, and only after the sign-in had already been decided.
+            String login = "";
+            String host = SyncAccount.httpsHost(url);
+            if (!host.isEmpty() && SyncEngine.prepare(git, url)) {
+                List<String> gh = ghCommand();
+                login = SyncAccount.choose(git, gh, url, h -> SyncAccount.logins(gh, h, GH_TIMEOUT), verify, search);
+                git = git.with(SyncAccount.credentialConfig(gh, host, login));
+            }
             SyncEngine engine = new SyncEngine(git, url, branch, target, machine);
             runningEngine = engine;
+            if (cancelRequested) engine.cancel();
             SyncReport report = engine.run(allowLargeRemoval);
             runningEngine = null;
-            Platform.runLater(() -> finished(report, userAsked));
+            String signedInAs = login;
+            Platform.runLater(() -> finished(report, signedInAs, userAsked));
         });
+    }
+
+    /**
+     * How to start the GitHub CLI, found the way git is. The path ends up inside the credential helper,
+     * which git runs through its own {@code sh} with whatever PATH it has, so an absolute one is safer.
+     */
+    private static List<String> ghCommand() {
+        Path found = CommandPath.resolve("gh", LoginShellPath.directories(), Files::isExecutable);
+        return List.of(found == null ? "gh" : found.toString());
     }
 
     /**
@@ -338,13 +390,16 @@ final class SettingsSync {
         return List.of(found == null ? "git" : found.toString());
     }
 
-    private void finished(SyncReport report, boolean userAsked) {
+    private void finished(SyncReport report, String login, boolean userAsked) {
         running = false;
+        remoteFailed =
+                report.status() == SyncReport.Status.FETCH_FAILED || report.status() == SyncReport.Status.PUSH_FAILED;
         if (!active()) { // disconnected while it ran
             again = false;
             setState(new State(Phase.OFF, null, null));
             return;
         }
+        account = login;
         if (report.status() == SyncReport.Status.CANCELLED) {
             again = false;
             SyncReport last = state.report();

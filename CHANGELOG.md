@@ -51,7 +51,9 @@ idle.
   a different key on each. A shortcut changed on two computers keeps the version of the one that
   syncs; bindings a sync replaces are copied to `sync/backups` first, and a sync that would remove
   most of them stops and asks. Git signs in with your credential helper or SSH key and an automatic
-  sync never prompts; a URL with a password or token in it is refused.
+  sync never prompts; a URL with a password or token in it is refused. With several GitHub CLI
+  accounts (`gh auth switch`), sync finds the one that can read an `https://` repository, remembers
+  it, and keeps signing in as it whichever account is active; the Sync page names it.
 - **Icons draw correctly without a Nerd Font installed.** Symbols Nerd Font Mono 3.5.1 is bundled
   with the other faces and used for private-use code points when no Nerd Font build of the
   terminal's own face is installed. Its icons are drawn a cell and a half wide, the size the Nerd
