@@ -89,6 +89,7 @@ public final class SettingsWindow {
         TERMINAL(Group.GENERAL, "settings.cat.terminal", MenuIcons::terminal),
         PROFILES(Group.GENERAL, "settings.cat.profiles", MenuIcons::profiles),
         KEYBOARD(Group.GENERAL, "settings.cat.keyboard", MenuIcons::keyboard),
+        SYNC(Group.SYSTEM, "settings.cat.sync", MenuIcons::sync),
         ADVANCED(Group.SYSTEM, "settings.cat.advanced", MenuIcons::advanced);
 
         final Group group;
@@ -132,17 +133,23 @@ public final class SettingsWindow {
     private PalettePreview preview;
 
     public SettingsWindow(Settings settings, com.termina.shell.ShellProfiles profiles) {
-        this(settings, profiles, List.of());
+        this(settings, profiles, List.of(), null);
     }
 
     /**
      * @param keyCommands every command the Keyboard page can rebind, under its menu, on its default
      *     chord — a terminal window's table, since the menus are what define them
+     * @param sync the application's settings sync, or null where there is none (a test), which leaves
+     *     the Sync page unable to connect
      */
-    public SettingsWindow(
-            Settings settings, com.termina.shell.ShellProfiles profiles, List<Keybindings.Command> keyCommands) {
+    SettingsWindow(
+            Settings settings,
+            com.termina.shell.ShellProfiles profiles,
+            List<Keybindings.Command> keyCommands,
+            SettingsSync sync) {
         this.settings = settings;
         this.profiles = profiles;
+        this.sync = sync;
         this.keyCommands = keyCommands == null ? List.of() : List.copyOf(keyCommands);
         this.keyDefaults = Keybindings.defaults(this.keyCommands);
         build();
@@ -151,9 +158,11 @@ public final class SettingsWindow {
         // this a checkbox left showing the old value wrote that old value on its next click — a
         // click that did nothing, followed by one that did the opposite of its label.
         settings.addOnChange(this::onSettingsChanged);
+        if (sync != null) sync.addListener(this::refreshSync);
     }
 
     private final com.termina.shell.ShellProfiles profiles;
+    private final SettingsSync sync;
     private final List<Keybindings.Command> keyCommands;
     private final Map<String, KeyCombination> keyDefaults;
 
@@ -524,6 +533,7 @@ public final class SettingsWindow {
             case TERMINAL -> buildTerminal(page);
             case PROFILES -> buildProfiles(page);
             case KEYBOARD -> buildKeyboard(page);
+            case SYNC -> buildSync(page);
             case ADVANCED -> buildAdvanced(page);
         }
         // A gutter on the right, matching the one the page host leaves on the left. Without it every
@@ -1643,6 +1653,216 @@ public final class SettingsWindow {
     /** Built on first use: most sessions never open it. */
     private DebugLogWindow debugLog;
 
+    // ---------------------------------------------------------------- sync
+
+    private TextField syncRepository;
+    private TextField syncBranch;
+    private Label syncFieldError;
+    private Button syncConnect;
+    private Label syncState;
+    private Button syncNow;
+    private Button syncCancel;
+    private Button syncAnyway;
+    private CheckBox syncAuto;
+    private Spinner<Integer> syncInterval;
+
+    private void buildSync(VBox page) {
+        VBox repository = section(page, tr("settings.section.syncRepository"));
+
+        syncRepository = new TextField();
+        syncRepository.setPromptText(tr("settings.sync.repository.prompt"));
+        syncRepository.setPrefWidth(320);
+        syncRepository.textProperty().addListener((o, old, text) -> {
+            if (!loading) showSyncFieldError(null);
+        });
+        syncFieldError = new Label();
+        syncFieldError.getStyleClass().add("settings-row-description");
+        syncFieldError.setStyle("-fx-text-fill: -color-danger-4;");
+        syncFieldError.setWrapText(true);
+        syncFieldError.setMaxWidth(320);
+        showSyncFieldError(null);
+        VBox repositoryControl = new VBox(2, syncRepository, syncFieldError);
+        row(
+                Category.SYNC,
+                repository,
+                tr("settings.sync.repository"),
+                tr("settings.sync.repository.desc"),
+                repositoryControl,
+                syncRepository,
+                "sync repository git url github remote ssh https private dotfiles");
+
+        syncBranch = new TextField();
+        syncBranch.setPromptText(Settings.DEFAULT_SYNC_BRANCH);
+        syncBranch.setPrefWidth(160);
+        row(
+                Category.SYNC,
+                repository,
+                tr("settings.sync.branch"),
+                tr("settings.sync.branch.desc"),
+                syncBranch,
+                "sync branch git main");
+
+        syncConnect = new Button();
+        syncConnect.setOnAction(e -> toggleSyncConnection());
+        row(
+                Category.SYNC,
+                repository,
+                tr("settings.sync.connection"),
+                tr("settings.sync.connection.desc"),
+                syncConnect,
+                "sync connect disconnect enable disable");
+
+        VBox status = section(page, tr("settings.section.syncStatus"));
+
+        syncState = new Label();
+        syncState.setWrapText(true);
+        syncState.getStyleClass().add("settings-row-description");
+        syncNow = new Button(tr("settings.sync.now"));
+        syncNow.setOnAction(e -> {
+            if (sync != null) sync.syncNow();
+        });
+        syncCancel = new Button(tr("dialog.cancel"));
+        syncCancel.setOnAction(e -> {
+            if (sync != null && !sync.cancel()) syncState.setText(tr("sync.state.tooLateToCancel"));
+        });
+        syncAnyway = new Button(tr("settings.sync.anyway"));
+        syncAnyway.setOnAction(e -> {
+            if (sync != null) sync.syncAllowingLargeRemoval();
+        });
+        HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway);
+        VBox stateControl = new VBox(6, syncState, buttons);
+        stateControl.setMaxWidth(420);
+        stateControl.setPrefWidth(420);
+        row(
+                Category.SYNC,
+                status,
+                tr("settings.sync.status"),
+                "",
+                stateControl,
+                syncState,
+                "sync status last synced now error failed cancel");
+
+        syncAuto = new CheckBox();
+        syncAuto.selectedProperty().addListener((o, old, value) -> {
+            if (!loading) settings.setSyncAuto(value);
+        });
+        row(
+                Category.SYNC,
+                status,
+                tr("settings.sync.auto"),
+                tr("settings.sync.auto.desc"),
+                syncAuto,
+                "sync automatic background startup interval");
+
+        syncInterval = new Spinner<>(
+                Settings.MIN_SYNC_INTERVAL, Settings.MAX_SYNC_INTERVAL, Settings.DEFAULT_SYNC_INTERVAL, 5);
+        syncInterval.setEditable(true);
+        syncInterval.setPrefWidth(110);
+        makeLenient(syncInterval, value -> (int) Math.round(value));
+        syncInterval.valueProperty().addListener((o, old, value) -> {
+            if (!loading && value != null) settings.setSyncIntervalMinutes(value);
+        });
+        row(
+                Category.SYNC,
+                status,
+                tr("settings.sync.interval"),
+                tr("settings.sync.interval.desc"),
+                syncInterval,
+                "sync interval minutes how often schedule");
+
+        VBox what = section(page, tr("settings.section.syncWhat"));
+        CheckBox keys = new CheckBox();
+        keys.setSelected(true);
+        keys.setDisable(true);
+        row(
+                Category.SYNC,
+                what,
+                tr("settings.sync.keybindings"),
+                tr("settings.sync.keybindings.desc"),
+                keys,
+                "sync key bindings shortcuts chords keyboard mac windows linux");
+        Label notSynced = new Label(tr("settings.sync.notSynced"));
+        notSynced.getStyleClass().add("settings-row-description");
+        notSynced.setWrapText(true);
+        what.getChildren().add(notSynced);
+    }
+
+    private void showSyncFieldError(String text) {
+        syncFieldError.setText(text == null ? "" : text);
+        syncFieldError.setVisible(text != null);
+        syncFieldError.setManaged(text != null);
+    }
+
+    /**
+     * Connect checks the fields first and says what is wrong with them on the spot, rather than storing
+     * a URL that can never work and reporting it as a failed sync later. A password in the URL is refused
+     * outright — it would sit in plain text in the settings file — with the URL it should have been
+     * offered back.
+     */
+    private void toggleSyncConnection() {
+        if (sync == null) return;
+        if (settings.syncEnabled()) {
+            settings.setSyncEnabled(false);
+            sync.disconnected();
+            refreshSync();
+            return;
+        }
+        String url =
+                syncRepository.getText() == null ? "" : syncRepository.getText().strip();
+        String branch = syncBranch.getText() == null || syncBranch.getText().isBlank()
+                ? Settings.DEFAULT_SYNC_BRANCH
+                : syncBranch.getText().strip();
+        String problem = syncFieldProblem(url, branch);
+        if (problem != null) {
+            showSyncFieldError(
+                    "settings.sync.repository.credentials".equals(problem)
+                            ? tr(problem, com.termina.sync.SyncEngine.withoutCredentials(url))
+                            : tr(problem));
+            return;
+        }
+        showSyncFieldError(null);
+        settings.setSyncRepository(url);
+        settings.setSyncBranch(branch);
+        settings.setSyncEnabled(true);
+        sync.connected();
+        refreshSync();
+    }
+
+    /** The catalogue key for what stops these fields connecting, or null when they can. */
+    static String syncFieldProblem(String url, String branch) {
+        if (!com.termina.sync.SyncEngine.isUsableUrl(url)) return "settings.sync.repository.invalid";
+        if (com.termina.sync.SyncEngine.hasCredentials(url)) return "settings.sync.repository.credentials";
+        if (!com.termina.sync.SyncEngine.isUsableBranch(branch)) return "settings.sync.branch.invalid";
+        return null;
+    }
+
+    /** Puts the sync's state on the page: which button says what, and what the last run did. */
+    private void refreshSync() {
+        if (syncState == null) return;
+        boolean connected = settings.syncEnabled();
+        SettingsSync.Phase phase =
+                sync == null ? SettingsSync.Phase.OFF : sync.state().phase();
+        syncConnect.setText(tr(connected ? "settings.sync.disconnect" : "settings.sync.connect"));
+        syncConnect.setDisable(sync == null);
+        syncRepository.setDisable(connected);
+        syncBranch.setDisable(connected);
+        syncState.setText(sync == null ? tr("sync.state.off") : sync.stateText(this::labelOf));
+        boolean active = sync != null && sync.active();
+        boolean syncing = phase == SettingsSync.Phase.SYNCING;
+        syncNow.setDisable(!active || syncing);
+        setShown(syncCancel, syncing);
+        com.termina.sync.SyncReport report = sync == null ? null : sync.state().report();
+        setShown(
+                syncAnyway,
+                !syncing && report != null && report.status() == com.termina.sync.SyncReport.Status.NEEDS_CONFIRMATION);
+        syncInterval.setDisable(!settings.syncAuto());
+    }
+
+    private static void setShown(Node node, boolean shown) {
+        node.setVisible(shown);
+        node.setManaged(shown);
+    }
+
     private static String shortcutName() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac") ? "Cmd" : "Ctrl";
     }
@@ -1684,6 +1904,10 @@ public final class SettingsWindow {
             shellField.setText(settings.shell());
             linkCommandField.setText(settings.linkOpenCommand());
             updateCheck.setSelected(settings.updateCheck());
+            syncRepository.setText(settings.syncRepository());
+            syncBranch.setText(settings.syncBranch());
+            syncAuto.setSelected(settings.syncAuto());
+            syncInterval.getValueFactory().setValue(settings.syncIntervalMinutes());
             settingsPath.setText(settings.file().toString());
             refreshSaveError();
         } finally {
@@ -1693,6 +1917,7 @@ public final class SettingsWindow {
         // it leaves rather than inherit one that is about to be cleared.
         refreshProfileList();
         refreshPreview();
+        refreshSync();
     }
 
     private void refreshSaveError() {

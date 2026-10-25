@@ -53,6 +53,9 @@ public final class WindowManager {
      */
     private final com.termina.shell.ShellProfiles profiles;
 
+    /** Keeps the key bindings the same on every computer connected to the user's repository. */
+    private final SettingsSync sync;
+
     public WindowManager(Settings settings) {
         this.settings = settings;
         this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
@@ -61,6 +64,14 @@ public final class WindowManager {
         // menu already on screen when the answer lands would otherwise keep the shorter list.
         profiles.discoverInBackground(found -> {});
         settings.addOnChange(this::applySettingsEverywhere);
+        this.sync = new SettingsSync(settings, this::anyWindowFocused);
+    }
+
+    private boolean anyWindowFocused() {
+        for (TerminalWindow window : windows) {
+            if (window.stage().isFocused()) return true;
+        }
+        return settingsWindow != null && settingsWindow.scene().getWindow().isFocused();
     }
 
     public com.termina.shell.ShellProfiles profiles() {
@@ -293,7 +304,8 @@ public final class WindowManager {
             settingsWindow = new SettingsWindow(
                     settings,
                     profiles,
-                    windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands());
+                    windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
+                    sync);
         }
         settingsWindow.show(from);
     }
