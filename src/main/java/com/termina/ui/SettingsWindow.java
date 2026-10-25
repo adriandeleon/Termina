@@ -88,6 +88,7 @@ public final class SettingsWindow {
         APPEARANCE(Group.GENERAL, "settings.cat.appearance", MenuIcons::appearance),
         TERMINAL(Group.GENERAL, "settings.cat.terminal", MenuIcons::terminal),
         PROFILES(Group.GENERAL, "settings.cat.profiles", MenuIcons::profiles),
+        KEYBOARD(Group.GENERAL, "settings.cat.keyboard", MenuIcons::keyboard),
         ADVANCED(Group.SYSTEM, "settings.cat.advanced", MenuIcons::advanced);
 
         final Group group;
@@ -131,21 +132,19 @@ public final class SettingsWindow {
     private PalettePreview preview;
 
     public SettingsWindow(Settings settings, com.termina.shell.ShellProfiles profiles) {
-        this(settings, profiles, chord -> null);
+        this(settings, profiles, List.of());
     }
 
     /**
-     * @param takenBy the label of the command already bound to a chord, or null when the chord is
-     *     free — asked before a recorded palette chord is accepted, because a chord bound twice is
-     *     reached once and the window would quietly keep the palette on its old key
+     * @param keyCommands every command the Keyboard page can rebind, under its menu, on its default
+     *     chord — a terminal window's table, since the menus are what define them
      */
     public SettingsWindow(
-            Settings settings,
-            com.termina.shell.ShellProfiles profiles,
-            java.util.function.Function<KeyCombination, String> takenBy) {
+            Settings settings, com.termina.shell.ShellProfiles profiles, List<Keybindings.Command> keyCommands) {
         this.settings = settings;
         this.profiles = profiles;
-        this.takenBy = takenBy == null ? chord -> null : takenBy;
+        this.keyCommands = keyCommands == null ? List.of() : List.copyOf(keyCommands);
+        this.keyDefaults = Keybindings.defaults(this.keyCommands);
         build();
         // The window shows whatever is stored, and what is stored changes behind its back: the
         // theme from the palette, the menu bar from its chord, the zoom from its keys. Without
@@ -155,11 +154,62 @@ public final class SettingsWindow {
     }
 
     private final com.termina.shell.ShellProfiles profiles;
-    private final java.util.function.Function<KeyCombination, String> takenBy;
+    private final List<Keybindings.Command> keyCommands;
+    private final Map<String, KeyCombination> keyDefaults;
 
     /** Types into the search box as the user would, so a capture can reach any page. */
     public void searchForCapture(String query) {
         search.setText(query);
+    }
+
+    /**
+     * Presses chords into Keyboard rows' recording fields, as a hand would, and reports what each
+     * row then shows. {@code closeWindow:C-S-t,C-S-t;newTab:BS} — rows by id, keys as {@link KeyChord}
+     * tokens, {@code BS} for a bare Backspace.
+     */
+    public String fireKeysForCapture(String spec) {
+        StringBuilder out = new StringBuilder();
+        for (String part : spec.split(";")) {
+            int colon = part.indexOf(':');
+            if (colon < 0) continue;
+            KeyRow row = keyRows.get(part.substring(0, colon).trim());
+            if (row == null) {
+                out.append(part, 0, colon).append("=no such row; ");
+                continue;
+            }
+            row.field().requestFocus();
+            for (String token : part.substring(colon + 1).split(",")) {
+                String t = token.trim();
+                KeyEvent press;
+                if ("BS".equals(t)) {
+                    press = new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.BACK_SPACE, false, false, false, false);
+                } else if (KeyChord.toCombination(t) instanceof javafx.scene.input.KeyCodeCombination chord) {
+                    press = new KeyEvent(
+                            KeyEvent.KEY_PRESSED,
+                            "",
+                            "",
+                            chord.getCode(),
+                            chord.getShift() == KeyCombination.ModifierValue.DOWN,
+                            chord.getControl() == KeyCombination.ModifierValue.DOWN,
+                            chord.getAlt() == KeyCombination.ModifierValue.DOWN,
+                            chord.getMeta() == KeyCombination.ModifierValue.DOWN);
+                } else {
+                    out.append(t).append("=unreadable; ");
+                    continue;
+                }
+                javafx.event.Event.fireEvent(row.field(), press);
+                out.append(row.command().id())
+                        .append(' ')
+                        .append(t)
+                        .append(" -> [")
+                        .append(row.field().getText())
+                        .append("] ")
+                        .append(row.status().isVisible() ? "\"" + row.status().getText() + "\"" : "-")
+                        .append(row.reset().isDisabled() ? "" : " (reset on)")
+                        .append("; ");
+            }
+        }
+        return out.append("stored=").append(settings.keyBindings()).toString();
     }
 
     /** The window's scene, for the development capture hook. */
@@ -473,6 +523,7 @@ public final class SettingsWindow {
             case APPEARANCE -> buildAppearance(page);
             case TERMINAL -> buildTerminal(page);
             case PROFILES -> buildProfiles(page);
+            case KEYBOARD -> buildKeyboard(page);
             case ADVANCED -> buildAdvanced(page);
         }
         // A gutter on the right, matching the one the page host leaves on the left. Without it every
@@ -850,11 +901,6 @@ public final class SettingsWindow {
                 previewSection));
     }
 
-    /** Shows the palette's chord, and records a new one while it has the focus. */
-    private TextField paletteChordField;
-
-    private Label paletteChordStatus;
-
     private void buildTerminal(VBox page) {
         VBox display = section(page, tr("settings.section.display"));
 
@@ -993,91 +1039,208 @@ public final class SettingsWindow {
                 tr("settings.confirmPaste.desc"),
                 confirmPaste,
                 "paste clipboard multiline newline confirm ask safety");
+    }
 
-        VBox keyboard = section(page, tr("settings.section.keyboard"));
-        buildPaletteChordRow(keyboard);
+    // ---------------------------------------------------------------- keyboard
+
+    /** One command's row on the Keyboard page: its recording field, the line under it, and Reset. */
+    private record KeyRow(Keybindings.Command command, TextField field, Label status, Button reset) {}
+
+    private final Map<String, KeyRow> keyRows = new java.util.LinkedHashMap<>();
+
+    /** Where a recording field keeps a chord it was refused because another command has it. */
+    private static final Object PENDING_TAKEOVER = new Object();
+
+    /**
+     * Every rebindable command, a row each, under the menu it lives in — so the settings search
+     * finds "close tab" the way it finds "font", and an empty menu's heading goes with its rows.
+     *
+     * <p>Recording is the palette row's, generalised: focusing a field starts it, the next chord
+     * pressed is written through at once. A chord another command has is not taken on the first
+     * press — the row says whose it is, and the same chord again moves it, which keeps the whole
+     * exchange on the keyboard. Backspace or Delete on its own removes the chord.
+     */
+    private void buildKeyboard(VBox page) {
+        VBox all = section(page, tr("settings.section.shortcuts"));
+        Button resetAll = new Button(tr("settings.keys.resetAll"));
+        resetAll.setOnAction(e -> confirmResetKeys());
+        row(
+                Category.KEYBOARD,
+                all,
+                tr("settings.keys.resetAll.title"),
+                tr("settings.keys.resetAll.desc"),
+                resetAll,
+                "keyboard shortcut keybinding chord key reset default rebind");
+
+        Map<String, VBox> sections = new java.util.LinkedHashMap<>();
+        for (Keybindings.Command command : keyCommands) {
+            VBox section = sections.computeIfAbsent(command.group(), group -> section(page, group));
+            keyRow(section, command);
+        }
+    }
+
+    private void keyRow(VBox section, Keybindings.Command command) {
+        TextField field = new TextField();
+        field.setEditable(false);
+        field.setPrefWidth(170);
+        field.getStyleClass().add("shortcut-capture");
+        field.setPromptText(tr("settings.keys.recording"));
+        Label status = new Label();
+        status.getStyleClass().add("settings-row-description");
+        status.setWrapText(true);
+        status.setMaxWidth(260);
+        showKeyStatus(status, null, false);
+        Button reset = new Button(tr("settings.keys.reset"));
+        reset.setOnAction(e -> resetKey(command.id()));
+        KeyRow row = new KeyRow(command, field, status, reset);
+        keyRows.put(command.id(), row);
+
+        // Recording: the field empties so its prompt says what to do, and fills again with the
+        // chord in force when the focus leaves — whether or not anything was recorded.
+        field.focusedProperty().addListener((o, was, focused) -> {
+            field.getProperties().remove(PENDING_TAKEOVER);
+            if (focused) {
+                field.setText("");
+            } else {
+                field.setText(keyText(command.id()));
+                showKeyStatus(status, null, false);
+            }
+        });
+        field.addEventFilter(KeyEvent.KEY_PRESSED, e -> onKeyRecorded(row, e));
+
+        HBox fieldRow = new HBox(6, field, reset);
+        fieldRow.setAlignment(Pos.CENTER_LEFT);
+        VBox control = new VBox(2, fieldRow, status);
+        HBox line = (HBox) row(
+                Category.KEYBOARD,
+                section,
+                command.label(),
+                "",
+                control,
+                field,
+                command.group() + " " + command.id() + " keyboard shortcut keybinding chord key");
+        // Fifty of them, with no description: the ordinary row's padding made the page five
+        // screens long, and its top-aligned title sat above the field it names.
+        line.getStyleClass().add("settings-key-row");
+        ((VBox) line.getChildren().get(0)).setAlignment(Pos.CENTER_LEFT);
+    }
+
+    private void onKeyRecorded(KeyRow row, KeyEvent e) {
+        boolean modified = e.isControlDown() || e.isAltDown() || e.isMetaDown();
+        // Tab and Shift+Tab leave the field, as they do everywhere; Ctrl+Tab is a chord.
+        if (e.getCode() == KeyCode.TAB && !modified) return;
+        e.consume();
+        TextField field = row.field();
+        if (!modified && (e.getCode() == KeyCode.BACK_SPACE || e.getCode() == KeyCode.DELETE)) {
+            writeKeys(KeybindingEdits.clear(
+                    keyDefaults, settings.keyBindings(), row.command().id()));
+            field.setText(keyText(row.command().id()));
+            showKeyStatus(row.status(), null, false);
+            return;
+        }
+        switch (ShortcutCapture.decide(e.getCode(), e.isControlDown(), e.isAltDown(), e.isMetaDown())) {
+            case IGNORE -> {}
+            case NEEDS_MODIFIER -> showKeyStatus(row.status(), tr("settings.keys.needsModifier"), true);
+            case OK -> {
+                KeyCombination chord = ShortcutCapture.combination(e);
+                String id = row.command().id();
+                String holder = KeybindingEdits.conflict(effectiveKeys(), chord, id, Keybindings.MAC);
+                Object pending = field.getProperties().get(PENDING_TAKEOVER);
+                if (holder != null
+                        && !(pending instanceof KeyCombination p && Keybindings.same(p, chord, Keybindings.MAC))) {
+                    field.getProperties().put(PENDING_TAKEOVER, chord);
+                    showKeyStatus(
+                            row.status(), tr("settings.keys.taken", chord.getDisplayText(), labelOf(holder)), true);
+                    return;
+                }
+                field.getProperties().remove(PENDING_TAKEOVER);
+                writeKeys(KeybindingEdits.rebind(keyDefaults, settings.keyBindings(), id, chord, Keybindings.MAC));
+                field.setText(chord.getDisplayText());
+                boolean fromShell = ShortcutCapture.takesFromShell(chord, Keybindings.MAC);
+                showKeyStatus(
+                        row.status(), fromShell ? tr("settings.keys.fromShell", chord.getDisplayText()) : null, false);
+            }
+        }
     }
 
     /**
-     * The command palette's chord, recorded by pressing it.
-     *
-     * <p>A read-only field: focusing it starts recording, the next chord pressed into it is
-     * written through at once (every control here does), and the focus then moves on so a stray
-     * key does not re-record. A bare letter is refused with the reason on the row, and so is a
-     * chord another command already has — the window would run that command and never reach the
-     * palette, while this row went on advertising the chord. Reset puts it back on M-x.
+     * Puts one command back on its default. When another command has that chord now, asks first:
+     * that command is left with none, and a Reset that quietly unbinds something else is how the
+     * user finds out a chord has stopped working.
      */
-    private void buildPaletteChordRow(VBox section) {
-        paletteChordField = new TextField();
-        paletteChordField.setEditable(false);
-        paletteChordField.setPrefWidth(170);
-        paletteChordField.getStyleClass().add("shortcut-capture");
-        paletteChordField.setPromptText(tr("settings.paletteChord.recording"));
-        paletteChordStatus = new Label();
-        paletteChordStatus.getStyleClass().add("settings-row-description");
-        paletteChordStatus.setStyle("-fx-text-fill: -color-danger-4;");
-        paletteChordStatus.setWrapText(true);
-        paletteChordStatus.setVisible(false);
-        paletteChordStatus.setManaged(false);
-        Button reset = new Button(tr("settings.paletteChord.reset"));
-        reset.setOnAction(e -> settings.setPaletteChord(Settings.DEFAULT_PALETTE_CHORD));
-
-        // Recording: the field empties so its prompt says what to do, and fills again with what
-        // is stored when the focus leaves — whether or not anything was recorded.
-        paletteChordField.focusedProperty().addListener((o, was, focused) -> {
-            if (focused) {
-                paletteChordField.setText("");
-            } else {
-                paletteChordField.setText(storedPaletteChordText());
-                showPaletteChordStatus(null);
-            }
-        });
-        paletteChordField.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.TAB) return; // leaves the field, as Tab does everywhere
-            e.consume();
-            if (e.getCode() == KeyCode.ESCAPE) {
-                reset.requestFocus();
-                return;
-            }
-            switch (ShortcutCapture.decide(e.getCode(), e.isControlDown(), e.isAltDown(), e.isMetaDown())) {
-                case IGNORE -> {}
-                case NEEDS_MODIFIER -> showPaletteChordStatus(tr("settings.paletteChord.needsModifier"));
-                case OK -> {
-                    KeyCombination chord = ShortcutCapture.combination(e);
-                    String owner = takenBy.apply(chord);
-                    if (owner != null) {
-                        showPaletteChordStatus(tr("settings.paletteChord.taken", owner));
-                        return;
-                    }
-                    settings.setPaletteChord(chord.getName());
-                    reset.requestFocus(); // done: the next key must not re-record
-                }
-            }
-        });
-
-        HBox fieldRow = new HBox(6, paletteChordField, reset);
-        fieldRow.setAlignment(Pos.CENTER_LEFT);
-        VBox control = new VBox(2, fieldRow, paletteChordStatus);
-        row(
-                Category.TERMINAL,
-                section,
-                tr("settings.paletteChord"),
-                tr("settings.paletteChord.desc"),
-                control,
-                paletteChordField,
-                "palette command shortcut keybinding chord key keyboard emacs meta alt");
+    private void resetKey(String id) {
+        Map<String, String> stored = settings.keyBindings();
+        String holder = KeybindingEdits.taken(keyDefaults, stored, id, Keybindings.MAC);
+        if (holder != null) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.initOwner(stage);
+            confirm.setTitle(tr("settings.keys.reset"));
+            confirm.setHeaderText(
+                    tr("settings.keys.resetTaken.title", keyDefaults.get(id).getDisplayText()));
+            confirm.setContentText(tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)));
+            ButtonType take = new ButtonType(tr("settings.keys.reset"), ButtonBar.ButtonData.OK_DONE);
+            ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+            confirm.getButtonTypes().setAll(take, cancel);
+            if (confirm.showAndWait().orElse(cancel) != take) return;
+        }
+        writeKeys(KeybindingEdits.reset(keyDefaults, stored, id, Keybindings.MAC));
     }
 
-    private void showPaletteChordStatus(String message) {
-        paletteChordStatus.setText(message == null ? "" : message);
-        paletteChordStatus.setVisible(message != null);
-        paletteChordStatus.setManaged(message != null);
+    private void confirmResetKeys() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.initOwner(stage);
+        confirm.setTitle(tr("settings.keys.resetAll"));
+        confirm.setHeaderText(tr("settings.keys.resetAll.confirmTitle"));
+        confirm.setContentText(tr("settings.keys.resetAll.confirmDetail"));
+        ButtonType reset = new ButtonType(tr("settings.keys.resetAll"), ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirm.getButtonTypes().setAll(reset, cancel);
+        if (confirm.showAndWait().orElse(cancel) != reset) return;
+        writeKeys(Map.of());
     }
 
-    /** The stored chord as the platform writes it, with the default standing in for an unreadable line. */
-    private String storedPaletteChordText() {
-        return MenuAction.parseChord(settings.paletteChord(), MenuAction.DEFAULT_PALETTE_CHORD)
-                .getDisplayText();
+    /** One write and one broadcast; the change listener reloads the rows, every window rebinds. */
+    private void writeKeys(Map<String, String> stored) {
+        settings.replaceKeyBindings(stored);
+    }
+
+    private Map<String, KeyCombination> effectiveKeys() {
+        return Keybindings.resolve(keyDefaults, settings.keyBindings(), Keybindings.MAC);
+    }
+
+    /** The chord a command is on, as the platform writes it, or "None". */
+    private String keyText(String id) {
+        KeyCombination chord = effectiveKeys().get(id);
+        return chord == null ? tr("settings.keys.none") : chord.getDisplayText();
+    }
+
+    private String labelOf(String id) {
+        for (Keybindings.Command command : keyCommands) {
+            if (command.id().equals(id)) return command.label();
+        }
+        return id;
+    }
+
+    /** A refusal is red; a note about a chord that was taken is the warning colour. Hidden when null. */
+    private static void showKeyStatus(Label status, String message, boolean refusal) {
+        status.setText(message == null ? "" : message);
+        status.setStyle(refusal ? "-fx-text-fill: -color-danger-4;" : "-fx-text-fill: -color-warning-4;");
+        status.setVisible(message != null);
+        status.setManaged(message != null);
+    }
+
+    private void reloadKeys() {
+        Map<String, KeyCombination> effective = effectiveKeys();
+        for (KeyRow row : keyRows.values()) {
+            String id = row.command().id();
+            // Not while recording: the empty field is the prompt.
+            if (!row.field().isFocused()) {
+                KeyCombination chord = effective.get(id);
+                row.field().setText(chord == null ? tr("settings.keys.none") : chord.getDisplayText());
+            }
+            // Disabled is also off the Tab order, which keeps the page to one stop per command.
+            row.reset().setDisable(!KeybindingEdits.isChanged(keyDefaults, effective, id, Keybindings.MAC));
+        }
     }
 
     // ---------------------------------------------------------------- profiles
@@ -1479,8 +1642,7 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
-            // Not while recording: the empty field is the prompt, and the stored chord is the old one.
-            if (!paletteChordField.isFocused()) paletteChordField.setText(storedPaletteChordText());
+            reloadKeys();
             bell.setSelected(settings.bell());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());

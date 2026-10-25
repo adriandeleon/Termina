@@ -367,6 +367,18 @@ Two settings deliberately do **not** apply live, and say so on their own row: sc
 buffer that already exists, and the shell is a process already running. Both take effect in the next
 session.
 
+The **Keyboard** page lists every command under the menu it lives in, each with its shortcut in a
+field: click it and press the new chord. A chord another command already has is not taken on the
+first press — the row says whose it is, and pressing it again moves it, leaving the other command
+with none. Backspace removes a shortcut, Reset puts one back (asking first if that takes it from
+someone else), and Reset All Shortcuts puts them all back. A bare key is refused, because the shell
+would lose it; Ctrl+letter off macOS is allowed with a note that the shell no longer receives it,
+which is why none of the defaults use it. Commands with no shortcut of their own — Rename Tab,
+Duplicate Tab — can be given one. In the file each binding is one line, keyed by command:
+`keys.newTab=Ctrl+Shift+Y`, or `keys.closeTab=none` for no shortcut at all. A line that does not
+parse, or that takes a chord an earlier line already took, is dropped on read and the command keeps
+its default.
+
 ### Shell profiles
 
 A terminal on Windows is not one program. Command Prompt, Windows PowerShell, PowerShell 7 and every
@@ -496,6 +508,9 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
   -Dtermina.captureMenu=300,300,false  # screenX, screenY, shift — photographs the context menu
   -Dtermina.captureSettings=true       # ...the settings window instead
+  -Dtermina.captureSettingsKeys=newTab:C-S-y;closeTab:BS
+                                       # ...pressing chords into Keyboard rows, by command id and
+                                       # KeyChord token (BS is a bare Backspace), printing each row
   -Dtermina.captureProfiles=true       # ...the profile dropdown, listing every entry and what it
                                        # runs — the only way to see what a machine actually found
   -Dtermina.captureTabs=2              # open N extra tabs first
@@ -553,8 +568,9 @@ an app icon has to work hardest at.
   keystroke rather than surviving it. Middle-click pastes the clipboard, not the X11 primary
   selection, which JavaFX cannot read.
 - **Tabs and splits.** One session per window.
-- **Configuration.** No keybinding customisation, no custom themes beyond the two built in, and no
-  per-profile settings.
+- **Configuration.** No custom themes beyond the two built in, and no per-profile settings. Key
+  bindings are one chord per command, with no multi-key sequences, and the keys the terminal view
+  answers itself (Shift+PageUp, Shift+Insert, Ctrl+Insert) are fixed.
 - **OSC 8 hyperlinks.** URLs and paths are found by looking at the text, so a link an application
   declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its visible text
   happens to be the target. JediTerm parses the sequence and discards it unless a filter is

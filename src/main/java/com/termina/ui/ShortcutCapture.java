@@ -1,8 +1,5 @@
 package com.termina.ui;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -46,11 +43,23 @@ final class ShortcutCapture {
     /** Pure form of {@link #combination(KeyEvent)}. */
     static KeyCombination combination(KeyCode code, boolean control, boolean alt, boolean meta, boolean shift) {
         if (decide(code, control, alt, meta) != Verdict.OK) return null;
-        List<KeyCombination.Modifier> modifiers = new ArrayList<>();
-        if (control) modifiers.add(KeyCombination.CONTROL_DOWN);
-        if (alt) modifiers.add(KeyCombination.ALT_DOWN);
-        if (meta) modifiers.add(KeyCombination.META_DOWN);
-        if (shift) modifiers.add(KeyCombination.SHIFT_DOWN);
-        return new KeyCodeCombination(code, modifiers.toArray(KeyCombination.Modifier[]::new));
+        return Keybindings.of(code, control, alt, meta, shift);
+    }
+
+    /**
+     * Whether binding {@code chord} takes a key the shell uses, which the row says once the chord is
+     * on — a warning, not a refusal, because it may be exactly what the user wants.
+     *
+     * <p>Off macOS that is Ctrl with a letter and no Shift: Ctrl+T is readline's transpose, Ctrl+W
+     * deletes a word, and the defaults are all {@code Ctrl+Shift} for that reason. macOS's Cmd is the
+     * application's on every terminal there, and Ctrl+letter is not a chord anyone binds by accident.
+     */
+    static boolean takesFromShell(KeyCombination chord, boolean mac) {
+        if (mac || !(Keybindings.normalize(chord, false) instanceof KeyCodeCombination code)) return false;
+        return code.getControl() == KeyCombination.ModifierValue.DOWN
+                && code.getShift() == KeyCombination.ModifierValue.UP
+                && code.getAlt() == KeyCombination.ModifierValue.UP
+                && code.getMeta() == KeyCombination.ModifierValue.UP
+                && code.getCode().isLetterKey();
     }
 }

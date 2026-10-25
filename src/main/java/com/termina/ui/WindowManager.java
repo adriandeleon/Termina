@@ -289,11 +289,11 @@ public final class WindowManager {
      */
     public void showSettings(Window from) {
         if (settingsWindow == null) {
-            // Every window binds the same chords, so the first one answers for all of them.
+            // Every window has the same commands, so the first one answers for all of them.
             settingsWindow = new SettingsWindow(
                     settings,
                     profiles,
-                    chord -> windows.isEmpty() ? null : windows.get(0).labelBoundTo(chord));
+                    windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands());
         }
         settingsWindow.show(from);
     }
@@ -303,6 +303,10 @@ public final class WindowManager {
         showSettings(owner);
         if (query != null && !query.isBlank() && !"true".equals(query)) {
             settingsWindow.searchForCapture(query);
+        }
+        String keys = System.getProperty("termina.captureSettingsKeys");
+        if (keys != null && !keys.isBlank()) {
+            System.out.println("[capture] settings keys " + settingsWindow.fireKeysForCapture(keys));
         }
         return settingsWindow.scene();
     }

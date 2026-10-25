@@ -3,6 +3,7 @@ package com.termina.ui;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javafx.application.ColorScheme;
 import javafx.application.ConditionalFeature;
@@ -62,7 +63,25 @@ public final class TerminalWindow {
     private final Settings settings;
     private final Stage stage;
     private final TabPane tabs = new TabPane();
+    /**
+     * Every command the user can rebind, on its <em>default</em> chord, in registration order — the
+     * order the keyboard settings list them in. What the window actually answers to is {@link
+     * #bindings}, derived from this and the stored key bindings by {@link #applyKeybindings}.
+     */
+    private final List<MenuAction> table = new ArrayList<>();
+
+    /** The chords in force: {@link #table} with the user's key bindings applied, unbound commands left out. */
     private final List<MenuAction> bindings = new ArrayList<>();
+
+    /** Command id to the chord it is on now, or to null when it has none. */
+    private Map<String, KeyCombination> chords = Map.of();
+
+    /** The menu items showing each command's chord, which follow it when it moves. */
+    private final Map<String, List<MenuItem>> itemsById = new java.util.HashMap<>();
+
+    private final javafx.beans.property.StringProperty newTabTipText = new javafx.beans.property.SimpleStringProperty();
+    private final javafx.beans.property.StringProperty closeTabTipText =
+            new javafx.beans.property.SimpleStringProperty();
 
     /** Everything the palette can run, in menu order. */
     private final List<MenuAction> commands = new ArrayList<>();
@@ -71,8 +90,6 @@ public final class TerminalWindow {
 
     /** The palette's own entry: rebound live when the setting changes, and kept out of its own list. */
     private MenuAction paletteAction;
-
-    private MenuItem paletteItem;
 
     /** Reopen Closed Tab, which the palette greys while there is nothing to reopen. */
     private MenuAction reopenAction;
@@ -135,8 +152,8 @@ public final class TerminalWindow {
         plus.getStyleClass().add("tab-strip-glyph");
         newTabButton.setGraphic(plus);
         newTabButton.setOnAction(e -> openTab());
-        Tooltip newTabTip =
-                new Tooltip(tr("tooltip.newTab", MenuAction.appChord(KeyCode.T).getDisplayText()));
+        Tooltip newTabTip = new Tooltip();
+        newTabTip.textProperty().bind(newTabTipText);
         newTabTip.setShowDelay(Duration.millis(400));
         newTabButton.setTooltip(newTabTip);
 
@@ -186,7 +203,7 @@ public final class TerminalWindow {
         // the palette opens, so it costs a node and nothing else.
         StackPane overlay = new StackPane(root);
         palette = new CommandPalette(overlay, this::focusActiveTerminal);
-        palette.setOpener(paletteAction.accelerator());
+        palette.setOpener(chordOf(paletteAction.id()));
 
         javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
         double width = WindowGeometry.fit(settings.windowWidth(), DEFAULT_WIDTH, screen.getWidth());
@@ -487,8 +504,8 @@ public final class TerminalWindow {
         java.util.Set<javafx.scene.Node> buttons = tabs.lookupAll(".tab-close-button");
         for (javafx.scene.Node close : buttons) {
             if (close.getProperties().putIfAbsent(CLOSE_TIP_INSTALLED, Boolean.TRUE) != null) continue;
-            Tooltip tip = new Tooltip(
-                    tr("tooltip.closeTab", MenuAction.appChord(KeyCode.W).getDisplayText()));
+            Tooltip tip = new Tooltip();
+            tip.textProperty().bind(closeTabTipText);
             tip.setShowDelay(Duration.millis(400));
             Tooltip.install(close, tip);
         }
@@ -590,7 +607,7 @@ public final class TerminalWindow {
             // The command as a tooltip has nowhere to live on a MenuItem, so the accelerator column
             // carries the chord and the name carries the rest. Nine of them get a chord; the tenth
             // profile onwards is menu-only, which is where every terminal draws this line too.
-            if (number <= TAB_CHORD_COUNT) item.setAccelerator(MenuAction.shiftChord(digitKey(number)));
+            if (number <= TAB_CHORD_COUNT) item.setAccelerator(chordOf(PROFILE_CHORD_ID + number));
             com.termina.shell.Profile opened = profile;
             item.setOnAction(e -> openTab(opened));
             // The default is marked rather than reordered: moving it to the top would change the
@@ -1124,11 +1141,15 @@ public final class TerminalWindow {
 
     // ---------------------------------------------------------------- shortcut reference
 
-    /** The groups bindings registered outside a menu are listed under in the reference. */
-    private final java.util.Map<MenuAction, String> bindingGroups = new java.util.IdentityHashMap<>();
+    /**
+     * The menu each command is listed under, by id: its own menu, or for one with no item — the
+     * zoom row's, the tab and profile chords — the menu it belongs to. The reference and the
+     * keyboard settings both group by it.
+     */
+    private final Map<String, String> bindingGroups = new java.util.HashMap<>();
 
     private MenuAction registerIn(String group, MenuAction action) {
-        bindingGroups.put(action, group);
+        bindingGroups.putIfAbsent(action.id(), group);
         return register(action);
     }
 
@@ -1169,7 +1190,7 @@ public final class TerminalWindow {
         for (MenuAction binding : bindings) {
             if (!listed.add(binding.accelerator())) continue;
             out.add(new ShortcutReference.Shortcut(
-                    bindingGroups.getOrDefault(binding, tr("menu.window")),
+                    bindingGroups.getOrDefault(binding.id(), tr("menu.window")),
                     binding.label(),
                     binding.accelerator().getDisplayText()));
         }
@@ -1817,9 +1838,10 @@ public final class TerminalWindow {
             registerIn(
                     tr("menu.file"),
                     MenuAction.of(
-                            tr("menu.newTabProfileNumber", number),
-                            MenuAction.shiftChord(digitKey(number)),
-                            () -> openProfileByNumber(chosen)));
+                                    tr("menu.newTabProfileNumber", number),
+                                    MenuAction.shiftChord(digitKey(number)),
+                                    () -> openProfileByNumber(chosen))
+                            .withId(PROFILE_CHORD_ID + number));
         }
 
         Menu edit = menu(
@@ -1861,24 +1883,11 @@ public final class TerminalWindow {
         // way, by being in a menu, and recording them twice would list each of them twice.
         if (showsZoomRow(SYSTEM_MENU_BAR)) {
             viewActions.forEach(action -> {
-                bindingGroups.put(action, tr("menu.view"));
+                bindingGroups.put(action.id(), tr("menu.view"));
                 command(action);
             });
         } else {
             viewActions.forEach(this::register);
-        }
-
-        // Chords only: no menu items — nine rows would be most of the Window menu, and all but the
-        // first few dead whenever fewer tabs are open — and no palette entries here either. The
-        // palette lists the tabs that exist, by title, when it opens (showPalette); nine numbered
-        // rows that were mostly dead drowned the entries people actually searched for.
-        for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
-            int selected = number;
-            KeyCode digit = KeyCode.valueOf("DIGIT" + number);
-            String title = number == TAB_CHORD_COUNT ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
-            registerIn(
-                    tr("menu.window"),
-                    MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected)));
         }
 
         List<MenuAction> viewItems = new java.util.ArrayList<>();
@@ -1907,15 +1916,13 @@ public final class TerminalWindow {
                     () -> settings.setShowMenuBar(!settings.showMenuBar())));
             viewItems.add(menuBarToggle);
         }
-        // Its chord is bound at the end of this method (bindPalette), once every other binding is
-        // known: it is the user's choice, and a choice that collides with another binding has to be
-        // seen rather than thrown at. showPalette keeps it out of its own list — a palette that
-        // offers to open the palette is noise in every search.
+        // An ordinary binding since the keyboard settings arrived; keys.commandPalette is its line,
+        // as it was when this was the only chord that could be changed. showPalette keeps it out of
+        // its own list — a palette that offers to open the palette is noise in every search.
         viewItems.add(null);
-        paletteAction = item("menu.commandPalette", null, this::showPalette);
+        paletteAction = register(item("menu.commandPalette", MenuAction.DEFAULT_PALETTE_CHORD, this::showPalette));
         viewItems.add(paletteAction);
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
-        paletteItem = view.getItems().get(view.getItems().size() - 1);
         if (showsZoomRow(SYSTEM_MENU_BAR)) {
             ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
             view.getItems().add(0, zoomRow.item());
@@ -1948,20 +1955,40 @@ public final class TerminalWindow {
                 item("menu.renameTab", () -> withActiveTab(this::renameTab)),
                 item("menu.duplicateTab", () -> withActiveTab(this::duplicateTab)));
 
+        // After the Window menu's own items, so the keyboard settings list them last. Chords only: no menu items — nine
+        // rows would be most of the Window menu, and all but the
+        // first few dead whenever fewer tabs are open — and no palette entries here either. The
+        // palette lists the tabs that exist, by title, when it opens (showPalette); nine numbered
+        // rows that were mostly dead drowned the entries people actually searched for.
+        for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
+            int selected = number;
+            KeyCode digit = KeyCode.valueOf("DIGIT" + number);
+            String title = number == TAB_CHORD_COUNT ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
+            registerIn(
+                    tr("menu.window"),
+                    MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected))
+                            .withId(TAB_CHORD_ID + number));
+        }
+
         // Help is built by hand rather than through menu(), because its update entry is a MenuItem
         // this class relabels later. Its two actions are added to the palette explicitly.
-        MenuAction about = MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage));
-        MenuAction checkForUpdates = item("menu.checkForUpdates", () -> windows.checkForUpdatesNow(this::report));
-        updateItem = checkForUpdates.toMenuItem();
+        MenuAction about = registerIn(
+                tr("menu.help"),
+                MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
+                        .withId("about"));
+        MenuAction checkForUpdates = registerIn(
+                tr("menu.help"), item("menu.checkForUpdates", () -> windows.checkForUpdatesNow(this::report)));
+        updateItem = menuItem(checkForUpdates);
         Menu help = new Menu(tr("menu.help"));
         // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
         // which is the "?" key under the usual modifier.
-        MenuAction shortcutsRef =
-                register(item("menu.keyboardShortcuts", MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
+        MenuAction shortcutsRef = registerIn(
+                tr("menu.help"),
+                item("menu.keyboardShortcuts", MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
         commands.add(shortcutsRef.withKeywords(tr("menu.help")));
         commands.add(about.withKeywords(tr("menu.help")));
         commands.add(checkForUpdates.withKeywords(tr("menu.help")));
-        help.getItems().addAll(shortcutsRef.toMenuItem(), new SeparatorMenuItem(), about.toMenuItem(), updateItem);
+        help.getItems().addAll(menuItem(shortcutsRef), new SeparatorMenuItem(), menuItem(about), updateItem);
 
         // The Help menu is where an available update shows up. Termina has no status bar, which is
         // where Editora puts its badge, and a banner over the terminal would cost a row of the
@@ -1969,8 +1996,8 @@ public final class TerminalWindow {
         windows.addUpdateListener(this::refreshUpdateItem);
         refreshUpdateItem();
 
-        // Last, so a chosen chord that collides with any binding above is seen and refused.
-        bindPalette(MenuAction.resolvePaletteChord(settings.paletteChord(), takenChords()));
+        // Last, once every command is in the table: a stored chord is placed against all of them.
+        applyKeybindings();
 
         bar.getMenus().addAll(file, edit, view, window, help);
         return bar;
@@ -1982,7 +2009,14 @@ public final class TerminalWindow {
      * for the highlighted row.
      */
     private static MenuAction item(String key, KeyCombination chord, Runnable action) {
-        return MenuAction.of(tr(key), chord, action).describedAs(description(key));
+        return MenuAction.of(tr(key), chord, action)
+                .describedAs(description(key))
+                .withId(idOf(key));
+    }
+
+    /** A command's id is its catalogue key without the menu's prefix: {@code menu.newTab} is {@code newTab}. */
+    static String idOf(String key) {
+        return key.startsWith("menu.") ? key.substring("menu.".length()) : key;
     }
 
     private static MenuAction item(String key, Runnable action) {
@@ -1995,40 +2029,73 @@ public final class TerminalWindow {
         return desc.equals(key + ".desc") ? "" : desc;
     }
 
-    /** Every chord bound in this window except the palette's own, which is the one being placed. */
-    private List<KeyCombination> takenChords() {
-        return bindings.stream()
-                .filter(b -> !b.sameActionAs(paletteAction))
-                .map(MenuAction::accelerator)
-                .toList();
+    /** The id prefix of the nine profile chords: {@code newTabProfile1} opens the first profile. */
+    static final String PROFILE_CHORD_ID = "newTabProfile";
+
+    /** The id prefix of the nine tab chords: {@code goToTab9} is the last tab. */
+    static final String TAB_CHORD_ID = "goToTab";
+
+    /**
+     * Puts every command on the chord the user's key bindings give it: the filter's table, each
+     * menu item's accelerator, the palette's chip and the tab strip's tooltips. Live, from {@link
+     * #applySettings}, so a rebind in the settings window is the next keystroke's behaviour.
+     */
+    private void applyKeybindings() {
+        chords = Keybindings.resolve(defaultChords(), settings.keyBindings(), MAC);
+        bindings.clear();
+        for (MenuAction action : table) {
+            KeyCombination chord = chords.get(action.id());
+            if (chord != null) bindings.add(action.withAccelerator(chord));
+        }
+        itemsById.forEach((id, items) -> {
+            KeyCombination chord = chords.get(id);
+            for (MenuItem item : items) {
+                if (!java.util.Objects.equals(item.getAccelerator(), chord)) item.setAccelerator(chord);
+            }
+        });
+        if (palette != null) palette.setOpener(chordOf(paletteAction.id()));
+        newTabTipText.set(withChord("menu.newTab", "tooltip.newTab", chordOf("newTab")));
+        closeTabTipText.set(withChord("menu.closeTab", "tooltip.closeTab", chordOf("closeTab")));
     }
 
-    /** Puts the palette on {@code chord}: the binding, the menu item's accelerator and the card's chip. */
-    private void bindPalette(KeyCombination chord) {
-        bindings.removeIf(b -> b.sameActionAs(paletteAction));
-        paletteAction = paletteAction.withAccelerator(chord);
-        register(paletteAction);
-        if (paletteItem != null) paletteItem.setAccelerator(chord);
-        if (palette != null) palette.setOpener(chord);
+    /** "New Tab (Ctrl+Shift+T)", or "New Tab" once the user has taken its chord away. */
+    private static String withChord(String labelKey, String withChordKey, KeyCombination chord) {
+        return chord == null ? tr(labelKey) : tr(withChordKey, chord.getDisplayText());
     }
 
-    /** Follows the setting, live: the next press of the new chord opens the palette. */
-    private void rebindPalette() {
-        if (paletteAction == null) return;
-        KeyCombination chord = MenuAction.resolvePaletteChord(settings.paletteChord(), takenChords());
-        if (!chord.equals(paletteAction.accelerator())) bindPalette(chord);
+    /** Every command's default chord, by id, in table order. */
+    private Map<String, KeyCombination> defaultChords() {
+        Map<String, KeyCombination> defaults = new java.util.LinkedHashMap<>();
+        for (MenuAction action : table) defaults.put(action.id(), action.accelerator());
+        return defaults;
+    }
+
+    /** The chord command {@code id} is on now, or null when it has none. */
+    KeyCombination chordOf(String id) {
+        return chords.get(id);
+    }
+
+    /** {@code action} on the chord it is on now, for a list that shows it — the palette's. */
+    private MenuAction bound(MenuAction action) {
+        return action.id() != null && chords.containsKey(action.id())
+                ? action.withAccelerator(chordOf(action.id()))
+                : action;
     }
 
     /**
-     * The label of the command bound to {@code chord}, or null when the chord is free. The
-     * palette's own chord counts as free, since it is the one being moved. Asked by the settings
-     * window before it accepts a recorded chord.
+     * The commands the keyboard settings list, in table order, each under its menu. The same in
+     * every window — the table is built from constants — so the first window answers for all.
      */
-    String labelBoundTo(KeyCombination chord) {
-        for (MenuAction binding : bindings) {
-            if (!binding.sameActionAs(paletteAction) && chord.equals(binding.accelerator())) return binding.label();
+    List<Keybindings.Command> keyboardCommands() {
+        List<Keybindings.Command> out = new ArrayList<>();
+        for (MenuAction action : table) {
+            out.add(new Keybindings.Command(
+                    action.id(),
+                    bindingGroups.getOrDefault(action.id(), tr("menu.window")),
+                    action.label(),
+                    action.accelerator()));
         }
-        return null;
+        return out;
     }
 
     private javafx.scene.control.MenuItem updateItem;
@@ -2130,9 +2197,9 @@ public final class TerminalWindow {
         return index < TAB_CHORD_COUNT - 1 ? index + 1 : 0;
     }
 
-    private static KeyCombination tabChordFor(int index, int tabCount) {
+    private KeyCombination tabChordFor(int index, int tabCount) {
         int number = tabNumberFor(index, tabCount);
-        return number == 0 ? null : MenuAction.tabChord(digitKey(number));
+        return number == 0 ? null : chordOf(TAB_CHORD_ID + number);
     }
 
     private void selectTabByNumber(int number) {
@@ -2150,22 +2217,37 @@ public final class TerminalWindow {
      */
     private void command(MenuAction action) {
         register(action);
-        commands.add(action.withKeywords(bindingGroups.getOrDefault(action, "")));
+        commands.add(action.withKeywords(bindingGroups.getOrDefault(action.id(), "")));
     }
 
+    /**
+     * Enters a command in the table, on its default chord. Idempotent by id, because a menu's
+     * actions arrive here twice — once as they are built, once from {@link #menu}.
+     */
     private MenuAction register(MenuAction action) {
-        if (action.accelerator() != null) {
-            bindings.add(action);
-            // Loud, because the quiet form already shipped: a second binding on a chord is never
-            // reached, while its menu item and palette row go on advertising it.
-            List<KeyCombination> taken =
-                    bindings.stream().map(MenuAction::accelerator).toList();
-            List<KeyCombination> duplicates = MenuAction.duplicateAccelerators(taken);
-            if (!duplicates.isEmpty()) {
-                throw new IllegalStateException("chord bound twice: " + duplicates + " (" + action.label() + ")");
-            }
+        if (action.id() == null) throw new IllegalStateException("a binding needs an id: " + action.label());
+        if (table.stream().anyMatch(a -> a.id().equals(action.id()))) return action;
+        table.add(action);
+        // Loud, because the quiet form already shipped: a second binding on a chord is never
+        // reached, while its menu item and palette row go on advertising it. The user's own
+        // bindings cannot do this — Keybindings.resolve places them — but two defaults can.
+        List<KeyCombination> defaults = table.stream()
+                .map(MenuAction::accelerator)
+                .map(chord -> chord == null ? null : Keybindings.normalize(chord, MAC))
+                .toList();
+        List<KeyCombination> duplicates = MenuAction.duplicateAccelerators(defaults);
+        if (!duplicates.isEmpty()) {
+            throw new IllegalStateException("chord bound twice: " + duplicates + " (" + action.label() + ")");
         }
         return action;
+    }
+
+    /** The menu item for {@code action}, remembered so its accelerator can follow the command. */
+    private MenuItem menuItem(MenuAction action) {
+        MenuItem item = action.toMenuItem();
+        if (action.id() != null)
+            itemsById.computeIfAbsent(action.id(), id -> new ArrayList<>()).add(item);
+        return item;
     }
 
     /** A null entry becomes a separator. */
@@ -2180,9 +2262,13 @@ public final class TerminalWindow {
     private Menu menu(String title, MenuAction... actions) {
         Menu menu = new Menu(title);
         for (MenuAction action : actions) {
-            menu.getItems().add(action == null ? new SeparatorMenuItem() : action.toMenuItem());
+            menu.getItems().add(action == null ? new SeparatorMenuItem() : menuItem(action));
             // Findable by the menu's name too: "file new" reaches New Tab.
-            if (action != null) commands.add(action.withKeywords(title));
+            if (action != null) {
+                commands.add(action.withKeywords(title));
+                bindingGroups.putIfAbsent(action.id(), title);
+                register(action);
+            }
         }
         return menu;
     }
@@ -2201,8 +2287,11 @@ public final class TerminalWindow {
                 return;
             }
         }
-        // The bound chord is Ctrl+=; a layout with a real + key, and the keypad's +, zoom too.
-        if (e.isShortcutDown() && (e.getCode() == KeyCode.PLUS || e.getCode() == KeyCode.ADD)) {
+        // The bound chord is Ctrl+=; a layout with a real + key, and the keypad's +, zoom too —
+        // while Zoom In is still there, since a user who moved it did not ask for a second chord.
+        if (e.isShortcutDown()
+                && (e.getCode() == KeyCode.PLUS || e.getCode() == KeyCode.ADD)
+                && Keybindings.same(chordOf("zoomIn"), defaultChords().get("zoomIn"), MAC)) {
             zoom(1);
             e.consume();
         }
@@ -2285,7 +2374,7 @@ public final class TerminalWindow {
         // it fades the glyphs along with the background, which the floor in WindowOpacity accounts
         // for.
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
-        rebindPalette();
+        applyKeybindings();
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
         for (Tab tab : tabs.getTabs()) {
             TabMarkState marks = marksOf(tab);
@@ -2313,7 +2402,7 @@ public final class TerminalWindow {
     private void showPalette() {
         List<MenuAction> all = new ArrayList<>();
         for (MenuAction command : commands) {
-            if (!command.sameActionAs(paletteAction)) all.add(command);
+            if (!command.sameActionAs(paletteAction)) all.add(bound(command));
         }
         // The View menu's item can only say "Hide", since the menu is inside the bar; the palette
         // is reachable either way, so its row has to name the move that is actually available.
@@ -2325,10 +2414,11 @@ public final class TerminalWindow {
                         at,
                         new MenuAction(
                                 tr(key),
-                                menuBarToggle.accelerator(),
+                                chordOf(menuBarToggle.id()),
                                 menuBarToggle.action(),
                                 description(key),
-                                all.get(at).keywords()));
+                                all.get(at).keywords(),
+                                menuBarToggle.id()));
             }
         }
         // The tabs that exist, by title, each with the chord that reaches it — rather than nine

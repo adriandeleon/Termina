@@ -71,6 +71,11 @@
     -fx-padding: 13 2 13 2;
 }
 
+/* The Keyboard page's rows: one line each and fifty of them. */
+.settings-row.settings-key-row {
+    -fx-padding: 4 2 4 2;
+}
+
 /*
  * Sizes in px rather than em, and stated for both lines. Editora's settings pin them the same way:
  * a title left at the inherited size sets the scale for the page, and the description then has to

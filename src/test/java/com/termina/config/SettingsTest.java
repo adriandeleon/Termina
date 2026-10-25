@@ -263,4 +263,50 @@ class SettingsTest {
         settings.setWindowGeometry(Double.NaN, 1e9, 800, 600, false);
         assertEquals(-120, settings.windowX().orElseThrow(), "an insane position leaves the last sane one");
     }
+
+    @Test
+    void keyBindingsSurviveAReloadAsOneBlock(@TempDir Path dir) {
+        Path file = dir.resolve("settings.properties");
+        AtomicInteger changes = new AtomicInteger();
+        Settings written = new Settings(file);
+        written.addOnChange(changes::incrementAndGet);
+        written.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", Settings.UNBOUND));
+        assertEquals(1, changes.get(), "a rebind that takes a chord is two lines and one broadcast");
+
+        Settings read = new Settings(file);
+        read.load();
+        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"), read.keyBindings());
+
+        read.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y"), read.keyBindings(), "a dropped line is gone");
+    }
+
+    @Test
+    void anUnchangedBlockIsNotAChange(@TempDir Path dir) {
+        AtomicInteger changes = new AtomicInteger();
+        Settings settings = new Settings(dir.resolve("settings.properties"));
+        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.addOnChange(changes::incrementAndGet);
+        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        assertEquals(0, changes.get());
+    }
+
+    @Test
+    void theOldPaletteLineIsReadAsItsBinding(@TempDir Path dir) throws IOException {
+        // keys.commandPalette predates the rest; a file written before the rest existed keeps its palette chord. Its
+        // blank form meant "the default" then and still does.
+        Path file = dir.resolve("settings.properties");
+        Files.writeString(file, "keys.commandPalette=Ctrl+Shift+P\nkeys.newTab=\n");
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals(java.util.Map.of("commandPalette", "Ctrl+Shift+P"), settings.keyBindings());
+    }
+
+    @Test
+    void resetPutsTheKeysBack(@TempDir Path dir) {
+        Settings settings = new Settings(dir.resolve("settings.properties"));
+        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.resetToDefaults();
+        assertTrue(settings.keyBindings().isEmpty());
+    }
 }

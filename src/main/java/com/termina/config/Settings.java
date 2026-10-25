@@ -32,8 +32,13 @@ public final class Settings {
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String CONFIRM_PASTE = "input.confirmPaste";
-    /** The chord that opens the command palette, in {@code KeyCombination} notation ({@code Alt+X}). */
-    public static final String PALETTE_CHORD = "keys.commandPalette";
+    /**
+     * The user's key bindings, one key per command: {@code keys.newTab=Ctrl+Shift+Y}, in {@code
+     * KeyCombination} notation. See {@link #keyBindings()}.
+     */
+    public static final String KEYS_PREFIX = "keys.";
+    /** A binding's value meaning "no chord at all", as against blank or absent, which is the default. */
+    public static final String UNBOUND = "none";
 
     public static final String SHELL = "terminal.shell";
     public static final String PROFILE_DEFAULT = "profiles.default";
@@ -68,9 +73,6 @@ public final class Settings {
 
     /** Empty means "pick the best available monospace face for this platform". */
     public static final String DEFAULT_FONT_FAMILY = "";
-
-    /** M-x, in the notation {@code KeyCombination.valueOf} reads. */
-    public static final String DEFAULT_PALETTE_CHORD = "Alt+X";
 
     public static final double DEFAULT_FONT_SIZE = 13;
     public static final double DEFAULT_FONT_ZOOM = 1.0;
@@ -297,19 +299,48 @@ public final class Settings {
     }
 
     /**
-     * The chord that opens the command palette, as stored — {@code "Alt+X"} unless changed, which
-     * is Emacs's M-x and what Editora's palette answers to.
+     * The user's key bindings, by command id with the prefix stripped: {@code newTab -> Ctrl+Shift+Y},
+     * or {@code newTab -> none} for a command the user has unbound. A command that is absent, or
+     * whose line is blank, keeps its default.
      *
-     * <p>A string rather than a {@code KeyCombination}, because this class knows nothing of the
-     * toolkit; the window parses it and falls back to the default when the line does not parse or
-     * names a chord another binding already has. Empty means the default.
+     * <p>Strings rather than chords, because this class knows nothing of the toolkit. Nothing is
+     * validated here: the window resolves the whole table at once, and a line that does not parse,
+     * names a command that does not exist, or takes a chord another line already took is dropped
+     * there — clamped on read, like every other setting, because the file is hand-edited.
+     *
+     * <p>Keyed by command rather than by chord, unlike Editora's, so a hand-edited file reads as a
+     * list of what each command is on. {@code keys.commandPalette} predates the rest and is the
+     * palette's line unchanged.
      */
-    public String paletteChord() {
-        return properties.getProperty(PALETTE_CHORD, DEFAULT_PALETTE_CHORD).trim();
+    public java.util.Map<String, String> keyBindings() {
+        java.util.Map<String, String> bindings = new java.util.TreeMap<>();
+        for (String name : properties.stringPropertyNames()) {
+            if (!name.startsWith(KEYS_PREFIX) || name.length() == KEYS_PREFIX.length()) continue;
+            String value = properties.getProperty(name).trim();
+            if (!value.isEmpty()) bindings.put(name.substring(KEYS_PREFIX.length()), value);
+        }
+        return bindings;
     }
 
-    public void setPaletteChord(String chord) {
-        put(PALETTE_CHORD, chord == null ? "" : chord.trim());
+    /**
+     * Replaces every binding at once — one write and one change broadcast, because a rebind that
+     * takes a chord from another command changes two lines, and two broadcasts would re-apply the
+     * table in between with the chord on both.
+     */
+    public void replaceKeyBindings(java.util.Map<String, String> bindings) {
+        java.util.Map<String, String> next = new java.util.TreeMap<>();
+        if (bindings != null) {
+            bindings.forEach((id, chord) -> {
+                if (id != null && !id.isBlank() && chord != null && !chord.isBlank()) next.put(id.trim(), chord.trim());
+            });
+        }
+        if (next.equals(keyBindings())) return;
+        properties.stringPropertyNames().stream()
+                .filter(name -> name.startsWith(KEYS_PREFIX))
+                .forEach(properties::remove);
+        next.forEach((id, chord) -> properties.setProperty(KEYS_PREFIX + id, chord));
+        save();
+        fireChange();
     }
 
     /** Whether a paste containing a line break asks first. On by default: at a prompt every line runs. */

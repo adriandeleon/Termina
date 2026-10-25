@@ -8,7 +8,9 @@ import com.termina.ui.ShortcutCapture.Verdict;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** What the settings window's chord-recording field makes of a press. */
 class ShortcutCaptureTest {
@@ -67,5 +69,20 @@ class ShortcutCaptureTest {
         // recorded would not be the chord bound.
         KeyCombination recorded = ShortcutCapture.combination(KeyCode.X, true, true, false, true);
         assertEquals(recorded, MenuAction.parseChord(recorded.getName(), null));
+    }
+
+    @Test
+    void ctrlWithALetterOffMacTakesAKeyFromTheShell() {
+        // Ctrl+T is readline's transpose; the defaults are Ctrl+Shift for that reason.
+        assertTrue(
+                ShortcutCapture.takesFromShell(new KeyCodeCombination(KeyCode.T, KeyCombination.CONTROL_DOWN), false));
+        assertTrue(
+                ShortcutCapture.takesFromShell(new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN), false));
+        assertFalse(ShortcutCapture.takesFromShell(MenuAction.appChord(KeyCode.T, false), false));
+        assertFalse(
+                ShortcutCapture.takesFromShell(new KeyCodeCombination(KeyCode.F5, KeyCombination.CONTROL_DOWN), false));
+        assertFalse(
+                ShortcutCapture.takesFromShell(new KeyCodeCombination(KeyCode.T, KeyCombination.CONTROL_DOWN), true),
+                "Cmd is the app's on macOS");
     }
 }

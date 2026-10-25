@@ -86,10 +86,6 @@ class CommandPaletteTest {
     @Test
     void theDefaultIsEmacsMx() {
         assertEquals(new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN), MenuAction.DEFAULT_PALETTE_CHORD);
-        assertEquals(
-                MenuAction.DEFAULT_PALETTE_CHORD,
-                MenuAction.parseChord(com.termina.config.Settings.DEFAULT_PALETTE_CHORD, null),
-                "the setting's default must spell the same chord");
     }
 
     @Test
@@ -107,18 +103,6 @@ class CommandPaletteTest {
                 MenuAction.DEFAULT_PALETTE_CHORD, MenuAction.parseChord("Ctrl+", MenuAction.DEFAULT_PALETTE_CHORD));
         assertEquals(
                 MenuAction.DEFAULT_PALETTE_CHORD, MenuAction.parseChord("Banana+X", MenuAction.DEFAULT_PALETTE_CHORD));
-    }
-
-    @Test
-    void aChordAnotherBindingHasFallsBackToTheDefault() {
-        // The filter runs bindings in order: a palette on Ctrl+Shift+T would be dead while its menu
-        // item advertised the chord. Better M-x than nothing.
-        KeyCombination newTab =
-                new KeyCodeCombination(KeyCode.T, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN);
-        assertEquals(MenuAction.DEFAULT_PALETTE_CHORD, MenuAction.resolvePaletteChord("Ctrl+Shift+T", List.of(newTab)));
-        assertEquals(
-                new KeyCodeCombination(KeyCode.P, KeyCombination.CONTROL_DOWN, KeyCombination.SHIFT_DOWN),
-                MenuAction.resolvePaletteChord("Ctrl+Shift+P", List.of(newTab)));
     }
 
     @Test

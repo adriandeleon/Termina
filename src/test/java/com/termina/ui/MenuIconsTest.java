@@ -41,6 +41,8 @@ class MenuIconsTest {
             assertTrue(node.getBoundsInLocal().getHeight() > 0, method.getName() + " has no height");
             checked.add(method.getName());
         }
-        assertTrue(checked.containsAll(List.of("appearance", "terminal", "profiles", "advanced")), checked::toString);
+        assertTrue(
+                checked.containsAll(List.of("appearance", "terminal", "profiles", "keyboard", "advanced")),
+                checked::toString);
     }
 }
