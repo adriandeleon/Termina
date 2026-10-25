@@ -20,9 +20,10 @@
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
 renders the emulated screen to a canvas.
 
-Status: **early**. A working terminal — tabs, multiple windows, a menu bar, colour and styling,
-scrollback, selection and copy, clickable URLs and file paths, mouse-aware full-screen programs (vim,
-less, htop), themes and font settings — with a short list of known gaps at the bottom of this file.
+Status: **early**. A working terminal — tabs, split panes, multiple windows, a menu bar, colour and
+styling, scrollback with search, selection and copy, clickable URLs and file paths, shell
+integration, mouse-aware full-screen programs (vim, less, htop), themes and font settings — with a
+short list of known gaps at the bottom of this file.
 
 ## Running
 
@@ -167,15 +168,16 @@ trackpad fling sends hundreds of keypresses to the shell.
 
 ### Tabs, windows and the menu bar
 
-`TerminalWindow` is one window: a menu bar over a tab strip, each tab owning its own
-`TerminalView` and its own shell. `WindowManager` owns the set of windows and what they share —
+`TerminalWindow` is one window: a menu bar over a tab strip, each tab a `PaneGroup` of one or more
+`TerminalView`s, each with its own shell (see [Split panes](#split-panes)). `WindowManager` owns the set of windows and what they share —
 the settings, the single preferences window, and the theme. Sessions are never shared.
 
 **Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
 pump threads and an emulator thread; a removal path that skips disposal leaks all of it and nothing
 on screen looks wrong. Listening to the list covers every path at once — the close button, Close
-Tab, the shell exiting, and the window closing. Verified by counting child processes rather than by
-reading the code: three tabs, close two, one shell left.
+Tab, the shell exiting, and the window closing — and every pane of a removed tab goes with it.
+Verified by counting child processes rather than by reading the code: three tabs, close two, one
+shell left; three panes, close two, likewise.
 
 **The tab strip hides itself while only one tab is open** (on by default, matching iTerm2, GNOME
 Terminal and Windows Terminal; Settings → Appearance → Tabs). JavaFX has no property for this, and
@@ -346,6 +348,118 @@ same escape hatch that governs selection. Without it there is no way to copy any
 Settings, from inside htop. The keyboard menu key is never contested. `shouldShowMenu` is a static
 predicate with its own tests, because getting it backwards is invisible in a plain shell and breaks
 exactly one of the two cases.
+
+### Split panes
+
+**Window → Split Right** and **Split Down** (`Cmd+D` and `Cmd+Shift+D` on macOS, iTerm2's;
+`Ctrl+Shift+E` and `Ctrl+Shift+O` elsewhere, Terminator's) open another shell beside or below the
+one you are in, like Duplicate Tab: the same shell or profile, in the directory you are in now. The
+keyboard moves between panes with `Cmd+Option+arrows` (`Ctrl+Alt+Shift+arrows` off macOS — Ctrl+Alt
+alone switches GNOME workspaces) or a click, and the pane being typed in is outlined in the theme's
+blue while there is more than one.
+
+A tab is a `PaneGroup`: a tree of `SplitPane`s with a `TerminalView` at each leaf. Splitting the way
+a pane's parent already runs adds a sibling rather than nesting, so three panes side by side share
+the width evenly; closing one that leaves a split with a single child collapses it. The tab is
+titled after the **active** pane, and Copy, Find, the prompt jumps and a new tab's directory all act
+on it.
+
+Close Tab's chord closes the active pane of a split tab — the File menu and the palette say "Close
+Pane" while that is what it will do — and the tab with its last pane. The tab's own close button
+and menu still close every pane, asking once if anything is running in any of them. A shell that
+exits closes its own pane.
+
+Two things about the layout cost time and do not announce themselves. A new `SplitPane` has no skin
+until the next CSS pass, and without one its items are not in the scene — a pane started there
+began at a guessed 80×24 and dropped the focus request, so the split is styled and laid out before
+the shell starts. And a hidden tab defers painting, so selecting a split tab has to wake every pane,
+not only the active one.
+
+### Search
+
+**Edit → Find…** (`Cmd+F` / `Ctrl+Shift+F`) opens a bar at the top right of the pane: it searches
+the whole scrollback and the screen as you type, highlights every match and outlines the current
+one. **Enter steps up**, to older output, and Shift+Enter down — a terminal is searched for
+something recent, so the search starts at the newest match and works backwards, as iTerm2's does.
+`Cmd+G`/`Cmd+Shift+G` (`Ctrl+Shift+G`/`Ctrl+Shift+H`, GNOME Terminal's) do the same from anywhere,
+and a short selection becomes the query.
+
+Case is smart: all lower case matches either case, a capital makes it exact. `.*` switches to a
+regular expression; one that does not compile yet says so instead of reporting no matches. A word
+that wrapped at the right edge is found as one word, double-width characters match without their
+placeholder cells, and the count stops at 1000.
+
+The rows are copied out under the buffer lock and matched outside it, so a regex over ten thousand
+lines holds the emulator up for a copy, not for the search. Matches are recorded against a running
+count of the rows the text has moved (`linesScrolled`), so they stay on their text as output
+arrives without being shifted one by one; a reflow invalidates them and they are found again, at
+most four times a second while output streams.
+
+### Shell integration
+
+A shell can describe its commands with **OSC 133** marks — where each prompt starts, where its
+output starts, and how it ended. With them, **Edit → Previous Prompt** and **Next Prompt**
+(`Cmd+Up`/`Cmd+Down`, Terminal.app's; `Ctrl+Shift+Up`/`Down` elsewhere) scroll to the prompts,
+**Select Last Output** selects what the last command printed, ready to copy, and a command that
+failed gets a short red bar in the margin of its prompt. Without marks the three commands are
+greyed, and the palette says why.
+
+Some shells and prompt frameworks send the marks by themselves. For bash and zsh, add this to
+`~/.bashrc`:
+
+```bash
+PS0='\e]133;C\a'
+PROMPT_COMMAND='printf "\e]133;D;%s\a\e]133;A\a" "$?"'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+```
+
+or to `~/.zshrc`:
+
+```zsh
+_termina_precmd() { local s=$?; print -n "\e]133;D;$s\a\e]133;A\a" }
+_termina_preexec() { print -n "\e]133;C\a" }
+precmd_functions=(_termina_precmd $precmd_functions)
+preexec_functions+=(_termina_preexec)
+```
+
+**The marks are taken where the emulator reads, not where the PTY delivers.** `OscInterceptor`
+wraps the stream JediTerm pulls characters from, and the emulator acts on each character before
+pulling the next — so when a mark arrives, everything before it is on the screen and the cursor is
+on the prompt's row. Watching the PTY's reads instead would see a chunk at once and record every
+mark in it a chunk early. The interceptor takes only the codes Termina handles and pushes everything
+else back untouched, titles and OSC 8 included.
+
+A resize to a different width rebuilds every row, and a row number recorded before it means
+nothing after. So just before the view resizes the shell it describes each mark as a logical line
+and an offset into it (`LogicalLines`), and places it again against the new width — what JediTerm
+does for the cursor and the selection, with no hook to have it do the same for anything else.
+
+### Programs' requests
+
+- **Declared links (OSC 8).** `ls --hyperlink`, compilers and `gh` can mark text as a link to
+  somewhere else. Hovering one with the link modifier underlines every cell it covers and shows its
+  real target in a line at the bottom of the pane — the text can say anything, so where it goes is
+  shown before the click. The same scheme allowlist as links found in the text applies, so a
+  `javascript:` target behind innocent text is not a link at all. A `file://` URI naming this
+  machine by its host name — which is how `ls` writes them — opens the file.
+- **The clipboard (OSC 52).** A program can put text on the clipboard; it is how vim and tmux copy
+  across SSH. Programs can never *read* it — that would hand the clipboard to anything on the far
+  side of an `ssh` that asked — and Terminal → Input turns writing off too.
+- **The directory (OSC 7).** Used only where the OS cannot be asked — Windows — and only for a
+  directory on this machine that exists, so a shell inside `ssh` cannot claim the tab for another
+  machine's path.
+
+### Type-ahead over SSH
+
+While `ssh` is the shell's foreground program and the far end is slow to echo, what you type
+appears at once, dimmed and underlined until the echo confirms it, and the cursor moves ahead with
+it. JediTerm's core has the predictor — it measures latency, learns what echoes, notices a password
+prompt and backs off when it is wrong — and shows nothing until the median echo is over 100 ms, so
+on a fast link it stays out of the way. A local shell is never predicted: it echoes within a frame,
+and a prediction there could only ever be wrong. Terminal → Input turns it off.
+
+The predictor's other half, the line it edits and the code that draws it, lives in JediTerm's Swing
+UI and writes into a package-private field of `TerminalLine`, which is out of reach across a module
+boundary. `TypeAheadModel` keeps the predicted line itself and the view draws it over the real one.
 
 ### Settings
 
@@ -533,6 +647,18 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
   -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
                                        # the guard takes it back
+  -Dtermina.captureSearch=error        # open the find bar and type the query, reporting the count,
+                                       # the current match and where the view scrolled to
+  -Dtermina.captureSearchRegex=true    # ...as a regular expression
+  -Dtermina.captureSearchSteps=2       # ...pressing Enter that many times
+  -Dtermina.captureMarks=true          # print the OSC 133 commands the shell has marked
+  -Dtermina.captureJumpPrompt=prev,next # jump between them, printing where each landed
+  -Dtermina.captureSelectLastOutput=true # select the last command's output and print it — read
+                                       # from the buffer, never the clipboard, which is the user's
+  -Dtermina.capturePredict='git status' # draw a type-ahead prediction at the cursor
+  -Dtermina.capturePanes=right,down,left,close
+                                       # split, move between and close panes, printing the tree
+                                       # after each step: H[0, V[1*, 2]], * on the active pane
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
@@ -567,20 +693,22 @@ an app icon has to work hardest at.
   rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
   keystroke rather than surviving it. Middle-click pastes the clipboard, not the X11 primary
   selection, which JavaFX cannot read.
-- **Tabs and splits.** One session per window.
-- **Configuration.** No custom themes beyond the two built in, and no per-profile settings. Key
-  bindings are one chord per command, with no multi-key sequences, and the keys the terminal view
-  answers itself (Shift+PageUp, Shift+Insert, Ctrl+Insert) are fixed.
-- **OSC 8 hyperlinks.** URLs and paths are found by looking at the text, so a link an application
-  declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its visible text
-  happens to be the target. JediTerm parses the sequence and discards it unless a filter is
-  installed; installing one is the work.
-- **Search in scrollback.**
-- **Installers.** `-Pdist` builds an app image, not a `.dmg`/`.msi`/`.deb`, and it is unsigned —
-  macOS will refuse to launch a downloaded copy until it is signed and notarised.
-- **Windows and Linux are untested.** The code paths exist and pty4j carries the natives, but only
-  macOS has actually been run — including the `-Pdist` build, whose per-OS behaviour (ConPTY, the
-  Linux launcher layout) is unverified.
+- **Configuration.** The four themes are built in, with no way to add or import one, and a profile
+  is a shell and a starting directory — no per-profile font or theme.
+- **Panes.** No zooming one pane to fill the tab, no dragging a pane to another tab, and Reopen
+  Closed Tab brings back the active pane's shell only.
+- **Escape sequences.** No desktop notifications (OSC 9/777), kitty keyboard protocol, inline images
+  or ligatures. Which of these JediTerm already handles, and what each would cost, is in
+  [docs/jediterm-capabilities.md](docs/jediterm-capabilities.md); how other terminals compare is in
+  [docs/competitive-landscape.md](docs/competitive-landscape.md).
+- **The working directory on Windows** comes only from a shell that reports it with OSC 7. The OS
+  cannot be asked there, so a shell that does not report one leaves a new tab starting at home, no
+  directory tooltip and relative paths that are not links.
+- **Signing.** The installers are built (see [Installing](#installing)) but nothing is signed or
+  notarised — see [Known issues](#known-issues).
+- **Windows has not been run by a human.** CI builds and packages it on every commit, and pty4j
+  carries the ConPTY natives, but nobody has opened a window there. macOS and Linux are run; the
+  installers on all three have not been installed by anyone yet.
 
 ## Command line
 

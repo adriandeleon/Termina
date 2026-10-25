@@ -94,6 +94,12 @@ public final class TerminalWindow {
     /** Reopen Closed Tab, which the palette greys while there is nothing to reopen. */
     private MenuAction reopenAction;
 
+    /** The commands that need the shell's prompt marks, greyed in the palette until there are some. */
+    private MenuAction previousPromptAction;
+
+    private MenuAction nextPromptAction;
+    private MenuAction selectOutputAction;
+
     /**
      * Set when a scene binding has just run on KEY_PRESSED, so the KEY_TYPED that follows it is
      * dropped. The chord that opens the palette is the case that shows: on macOS Option+X also
@@ -130,7 +136,7 @@ public final class TerminalWindow {
                     // would dispose the session being dragged — killing the shell and leaving an
                     // empty tab behind, for a gesture that is supposed to change nothing but order.
                     if (reordering) continue;
-                    terminalOf(removed).close();
+                    for (TerminalView pane : groupOf(removed).panes()) pane.close();
                 }
             }
             // Same reason: mid-reorder the list is briefly one short, and for a single-tab window
@@ -260,8 +266,9 @@ public final class TerminalWindow {
             bindTitleTo(tab);
             if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
             // A hidden tab defers its repaint until it is shown, and being selected makes it
-            // visible without laying it out — so it has to be told.
-            if (tab != null) terminalOf(tab).wake();
+            // visible without laying it out — so it has to be told. Every pane of it, not only the
+            // active one: they were all hidden together.
+            if (tab != null) groupOf(tab).panes().forEach(TerminalView::wake);
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
             if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
         });
@@ -285,6 +292,11 @@ public final class TerminalWindow {
      */
     private void installFocusGuard(Scene scene) {
         scene.focusOwnerProperty().addListener((o, was, now) -> {
+            // First, which pane the keyboard went to — a pane itself, or its find bar. Ahead of
+            // the guard, so a click into another pane makes that pane the one it guards.
+            TerminalView into = paneContaining(now);
+            Tab selected = tabs.getSelectionModel().getSelectedItem();
+            if (into != null && selected != null) groupOf(selected).setActive(into);
             TerminalView terminal = activeTerminal();
             boolean ownerIsTerminal = terminal != null && now == terminal;
             if (!FocusGuard.shouldReclaim(terminal != null, ownerIsTerminal, overlayWantsKeys(terminal))) return;
@@ -299,6 +311,14 @@ public final class TerminalWindow {
         });
     }
 
+    /** The pane a node is in — the pane itself, or something inside it — or null. */
+    private static TerminalView paneContaining(javafx.scene.Node node) {
+        for (javafx.scene.Node n = node; n != null; n = n.getParent()) {
+            if (n instanceof TerminalView view) return view;
+        }
+        return null;
+    }
+
     /** Whether something on screen is entitled to the keyboard instead of the terminal. */
     private boolean overlayWantsKeys(TerminalView terminal) {
         if (palette != null && palette.isShowing()) return true;
@@ -306,6 +326,9 @@ public final class TerminalWindow {
         // make right-click unusable rather than merely rude. The profile dropdown is the same kind
         // of popup and would be dismissed on the way to being shown.
         if (terminal != null && terminal.isContextMenuShowing()) return true;
+        // The find bar's field. Only while it has the keyboard: with the bar open and the terminal
+        // clicked, the terminal is entitled to focus back like any other time.
+        if (terminal != null && terminal.searchHasFocus()) return true;
         if (profileMenu.isShowing()) return true;
         for (Menu menu : menuBar.getMenus()) {
             if (menu.isShowing()) return true;
@@ -714,7 +737,9 @@ public final class TerminalWindow {
     private String currentDirectory() {
         TerminalView terminal = activeTerminal();
         if (terminal == null || terminal.getSession() == null) return "";
-        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid()).orElse("");
+        // The shell's own report (OSC 7) where the OS cannot be asked — Windows.
+        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid())
+                .orElse(terminal.getDisplay().getCwd());
     }
 
     /**
@@ -734,49 +759,29 @@ public final class TerminalWindow {
      * @param userTitle the name the user gave the tab this one stands in for, or ""
      */
     private void openTab(com.termina.pty.LaunchOptions options, int index, String userTitle) {
-        TerminalView terminal = new TerminalView(settings.fontSize());
-        applySettingsTo(terminal);
-        terminal.setSessionOptions(settings.scrollbackLines(), options);
-        terminal.setOnOpenSettings(() -> windows.showSettings(stage));
-        terminal.setPasteConfirmer(this::confirmPaste);
-        terminal.setOnNewTab(this::openTab);
-        terminal.setOnNewWindow(() -> windows.openWindow(this));
-        // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
-        // which every tab and window shares, so a view cannot do this for itself.
-        terminal.setZoomActions(zoomActions());
-        // The command is read at each click rather than captured, so changing it in the settings
-        // applies to the next link without every open tab having to be re-wired.
-        terminal.setLinkActions(new LinkOpener(windows::openLink, settings::linkOpenCommand, this::reportOpenFailed));
-        // Left unwired under a system menu bar, which is how the item stays out of the menu there.
-        if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
-            terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
-        }
-
         Tab tab = new Tab();
-        tab.setContent(terminal);
-        tab.setUserData(terminal);
+        TerminalView terminal = createPane(options, tab);
+        PaneGroup group = new PaneGroup(terminal);
+        tab.setContent(group);
+        tab.setUserData(group);
         // The title goes on a Label graphic rather than on the Tab: a Tab is not a Node, so it has
         // nowhere to attach drag handlers. It binds to the *tab* title, which is the shell's own
         // title if it set one and otherwise just the directory's name — a path would not fit, and
         // JavaFX ellipsises from the end, keeping exactly the leading part every tab has in common.
+        // Of the active pane, in a split tab, and rebound as the keyboard moves between panes.
         Label title = new Label();
         title.getStyleClass().add("tab-title");
-        title.textProperty().bind(terminal.getDisplay().tabTitleProperty());
         // What the label had to leave out. The tab shows a name; the hover shows the path it is a
         // name for — and when a program has set a title, the path is the only place left to say
         // where that program is running.
-        installDirectoryTooltip(title, terminal.getDisplay().tabTooltipProperty());
+        javafx.beans.property.StringProperty directory = new javafx.beans.property.SimpleStringProperty("");
+        installDirectoryTooltip(title, directory);
+        followActivePane(tab, group, title, directory);
         // A dot after the title when something happened here while another tab was selected:
         // a bell, or output after a quiet spell. See TabMarks for the rule.
         TabMarkState marks = new TabMarkState(title);
         marks.setColours(Theme.byId(settings.themeId(), Theme.EDITORA_DARK).palette());
         tab.getProperties().put(TAB_MARKS, marks);
-        terminal.setOnBellRung(() -> marks.apply(TabMarks.onBell(isSelected(tab), marks.mark)));
-        terminal.setOnOutput(() -> {
-            long now = System.currentTimeMillis();
-            marks.apply(TabMarks.onOutput(isSelected(tab), marks.mark, now, marks.lastOutputMs, TabMarks.QUIET_MS));
-            marks.lastOutputMs = now;
-        });
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
         installCloseTooltips();
@@ -809,9 +814,168 @@ public final class TerminalWindow {
             tabs.getTabs().remove(tab);
             return;
         }
-        // The shell exiting closes its own tab, not the window — the other tabs are still alive.
-        terminal.setOnSessionEnded(() -> Platform.runLater(() -> tabs.getTabs().remove(tab)));
+        endPaneWithItsShell(tab, terminal);
         Platform.runLater(terminal::requestFocus);
+    }
+
+    /**
+     * A terminal wired to this window, for a new tab or a new pane in {@code tab}: the settings,
+     * the menus' actions, the link opener, and the tab's marks — any pane's bell or output marks
+     * the tab it is in.
+     */
+    private TerminalView createPane(com.termina.pty.LaunchOptions options, Tab tab) {
+        TerminalView terminal = new TerminalView(settings.fontSize());
+        applySettingsTo(terminal);
+        terminal.setSessionOptions(settings.scrollbackLines(), options);
+        terminal.setOnOpenSettings(() -> windows.showSettings(stage));
+        terminal.setPasteConfirmer(this::confirmPaste);
+        terminal.setOnNewTab(this::openTab);
+        terminal.setOnNewWindow(() -> windows.openWindow(this));
+        // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
+        // which every tab and window shares, so a view cannot do this for itself.
+        terminal.setZoomActions(zoomActions());
+        // The command is read at each click rather than captured, so changing it in the settings
+        // applies to the next link without every open tab having to be re-wired.
+        terminal.setLinkActions(new LinkOpener(windows::openLink, settings::linkOpenCommand, this::reportOpenFailed));
+        // Left unwired under a system menu bar, which is how the item stays out of the menu there.
+        if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
+            terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
+        }
+        terminal.setOnBellRung(() -> {
+            TabMarkState marks = marksOf(tab);
+            if (marks != null) marks.apply(TabMarks.onBell(isSelected(tab), marks.mark));
+        });
+        terminal.setOnOutput(() -> {
+            TabMarkState marks = marksOf(tab);
+            if (marks == null) return;
+            long now = System.currentTimeMillis();
+            marks.apply(TabMarks.onOutput(isSelected(tab), marks.mark, now, marks.lastOutputMs, TabMarks.QUIET_MS));
+            marks.lastOutputMs = now;
+        });
+        return terminal;
+    }
+
+    /**
+     * Keeps the tab's label, its hover and — while the tab is selected — the window title on the
+     * active pane. A split tab is named after the pane being typed in, as iTerm2's are.
+     */
+    private void followActivePane(
+            Tab tab, PaneGroup group, Label title, javafx.beans.property.StringProperty directory) {
+        java.util.function.Consumer<TerminalView> follow = pane -> {
+            if (pane == null) return;
+            title.textProperty().bind(pane.getDisplay().tabTitleProperty());
+            directory.bind(pane.getDisplay().tabTooltipProperty());
+            if (isSelected(tab)) bindTitleTo(tab);
+        };
+        group.activeProperty().addListener((o, was, now) -> follow.accept(now));
+        follow.accept(group.active());
+    }
+
+    /**
+     * A shell exiting closes its own pane — the tab, if it was the last one. The other panes and
+     * tabs are still alive. Not a deliberate close, so nothing is asked and nothing is remembered
+     * for Reopen Closed Tab.
+     */
+    private void endPaneWithItsShell(Tab tab, TerminalView terminal) {
+        terminal.setOnSessionEnded(() -> Platform.runLater(() -> removePane(tab, terminal)));
+    }
+
+    /** Takes a pane out and disposes of it; the last pane takes its tab with it. */
+    private void removePane(Tab tab, TerminalView pane) {
+        if (!tabs.getTabs().contains(tab)) return;
+        PaneGroup group = groupOf(tab);
+        if (!group.contains(pane)) return;
+        if (!group.isSplit()) {
+            tabs.getTabs().remove(tab);
+            return;
+        }
+        TerminalView next = group.remove(pane);
+        pane.close();
+        if (next != null && isSelected(tab)) next.requestFocus();
+    }
+
+    // ---------------------------------------------------------------- panes
+
+    /**
+     * Splits the active pane, starting the new one like Duplicate Tab does: the same shell or
+     * profile, in the directory the active pane is in now.
+     *
+     * @param orientation {@link javafx.geometry.Orientation#HORIZONTAL} for side by side
+     */
+    private void splitActivePane(javafx.geometry.Orientation orientation) {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        PaneGroup group = groupOf(tab);
+        TerminalView from = group.active();
+        com.termina.pty.LaunchOptions options =
+                ClosedTabs.inDirectory(from.launchOptions(), from.getDisplay().getCwd());
+        TerminalView added = createPane(options, tab);
+        group.split(from, orientation, added);
+        // A new split has no skin until the next CSS pass, and without one its items are not in
+        // the scene: the shell would start at a guessed 80x24 and the focus request would be
+        // dropped. Styled and laid out now, so the pane starts at its real size and takes focus.
+        group.applyCss();
+        group.layout();
+        try {
+            added.start();
+        } catch (IOException e) {
+            reportShellFailure(options, e, false);
+            group.remove(added);
+            added.close();
+            return;
+        }
+        endPaneWithItsShell(tab, added);
+        group.setActive(added);
+        // At once, not on a later pulse as a new tab's is: the pane is already in a showing scene,
+        // and a deferred request could land after the user — or a second chord — moved on.
+        added.requestFocus();
+    }
+
+    /** Moves the keyboard to the pane beside the active one, if there is one that way. */
+    private void focusPane(PaneGroup.Direction direction) {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        PaneGroup group = groupOf(tab);
+        TerminalView next = group.neighbour(group.active(), direction);
+        if (next == null) return;
+        group.setActive(next);
+        next.requestFocus();
+    }
+
+    /** Whether the selected tab is split — Close Tab then closes the active pane instead. */
+    private boolean activeTabIsSplit() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        return tab != null && groupOf(tab).isSplit();
+    }
+
+    /** The active pane, closed as Close Tab closes a tab: asking first if something is running. */
+    private void closeActivePane() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        TerminalView pane = groupOf(tab).active();
+        if (!confirmCloseTerminals(List.of(pane), 1)) return;
+        removePane(tab, pane);
+    }
+
+    /** The selected tab's panes as a tree, for the capture hook. */
+    public String paneReport() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        return tab == null ? "panes=none" : "panes=" + groupOf(tab).describe();
+    }
+
+    /** Splits the active pane — for the capture hook. */
+    public void splitForCapture(boolean right) {
+        splitActivePane(right ? javafx.geometry.Orientation.HORIZONTAL : javafx.geometry.Orientation.VERTICAL);
+    }
+
+    /** Moves to a neighbouring pane, by direction name — for the capture hook. */
+    public void focusPaneForCapture(String direction) {
+        focusPane(PaneGroup.Direction.valueOf(direction));
+    }
+
+    /** Closes the active pane as the chord would — for the capture hook. */
+    public void closeActivePaneForCapture() {
+        closeCurrentTab();
     }
 
     /** Identifies our own drags, so a drop from another application is not mistaken for one. */
@@ -1309,15 +1473,21 @@ public final class TerminalWindow {
      * learn to dismiss without reading, which is worse than not asking.
      */
     private boolean confirmClose(List<Tab> doomed) {
+        List<TerminalView> panes = new ArrayList<>();
+        for (Tab tab : doomed) panes.addAll(groupOf(tab).panes());
+        return confirmCloseTerminals(panes, doomed.size());
+    }
+
+    /** The same question for a set of panes, which is what closing one pane of a split asks. */
+    private boolean confirmCloseTerminals(List<TerminalView> doomed, int tabCount) {
         if (!settings.confirmClose()) return true;
         List<String> running = new ArrayList<>();
-        for (Tab tab : doomed) {
-            TerminalView terminal = terminalOf(tab);
+        for (TerminalView terminal : doomed) {
             if (terminal == null || terminal.getSession() == null) continue;
             running.addAll(RunningProgram.in(terminal.getSession().pid()));
         }
         if (running.isEmpty()) return true;
-        return closeConfirmer.test(running, doomed.size());
+        return closeConfirmer.test(running, tabCount);
     }
 
     /**
@@ -1436,9 +1606,16 @@ public final class TerminalWindow {
             tabs.getSelectionModel().select(index);
     }
 
+    /**
+     * Close Tab's chord. In a split tab it closes the active pane, as iTerm2's and Windows
+     * Terminal's do — the pane is what the user is in, and the menu item says so (see the File
+     * menu's showing handler). The tab's own close button and menu still close every pane.
+     */
     public void closeCurrentTab() {
         Tab selected = tabs.getSelectionModel().getSelectedItem();
-        if (selected != null) closeTab(selected);
+        if (selected == null) return;
+        if (groupOf(selected).isSplit()) closeActivePane();
+        else closeTab(selected);
     }
 
     /** Shifts the selected tab one place, stopping at the ends rather than wrapping. */
@@ -1474,8 +1651,13 @@ public final class TerminalWindow {
         return "<custom>";
     }
 
+    /** A tab's active pane: what its title, Copy, Find and a new tab's directory all go by. */
     private static TerminalView terminalOf(Tab tab) {
-        return (TerminalView) tab.getUserData();
+        return groupOf(tab).active();
+    }
+
+    private static PaneGroup groupOf(Tab tab) {
+        return (PaneGroup) tab.getUserData();
     }
 
     /** Every live terminal in this window. */
@@ -1485,9 +1667,10 @@ public final class TerminalWindow {
         return tab == null ? null : terminalOf(tab);
     }
 
+    /** Every pane of every tab — what a settings change reaches, and what the window owns. */
     public List<TerminalView> terminals() {
         List<TerminalView> views = new ArrayList<>();
-        for (Tab tab : tabs.getTabs()) views.add(terminalOf(tab));
+        for (Tab tab : tabs.getTabs()) views.addAll(groupOf(tab).panes());
         return views;
     }
 
@@ -1826,6 +2009,11 @@ public final class TerminalWindow {
         file.setOnShowing(e -> {
             for (MenuItem item : file.getItems()) {
                 if (tr("menu.reopenClosedTab").equals(item.getText())) item.setDisable(closedTabs.isEmpty());
+                // Says what its chord will do: in a split tab that is the active pane, not the tab.
+                if (tr("menu.closeTab").equals(item.getText())
+                        || tr("menu.closePane").equals(item.getText())) {
+                    item.setText(activeTabIsSplit() ? tr("menu.closePane") : tr("menu.closeTab"));
+                }
             }
         });
 
@@ -1860,7 +2048,48 @@ public final class TerminalWindow {
                 register(item(
                         "menu.clearScrollback",
                         MenuAction.appChord(KeyCode.K),
-                        () -> withActiveTerminal(TerminalView::clearScrollback))));
+                        () -> withActiveTerminal(TerminalView::clearScrollback))),
+                null,
+                register(item(
+                        "menu.find",
+                        MenuAction.appChord(KeyCode.F),
+                        () -> withActiveTerminal(TerminalView::showSearch))),
+                // GNOME Terminal's pair off macOS, Ctrl+Shift+G and H; the system's Cmd+G and
+                // Cmd+Shift+G on it, where Cmd+H would hide the application.
+                register(item(
+                        "menu.findNext",
+                        MenuAction.appChord(KeyCode.G),
+                        () -> withActiveTerminal(terminal -> terminal.findNext(true)))),
+                register(item(
+                        "menu.findPrevious",
+                        MAC ? MenuAction.shiftChord(KeyCode.G) : MenuAction.appChord(KeyCode.H),
+                        () -> withActiveTerminal(terminal -> terminal.findNext(false)))),
+                null,
+                // Terminal.app's Cmd+Up and Cmd+Down on macOS. They need the shell to mark its
+                // prompts (OSC 133), and are greyed until it has.
+                register(
+                        previousPromptAction = item(
+                                "menu.previousPrompt",
+                                MenuAction.appChord(KeyCode.UP),
+                                () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)))),
+                register(
+                        nextPromptAction = item(
+                                "menu.nextPrompt",
+                                MenuAction.appChord(KeyCode.DOWN),
+                                () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)))),
+                selectOutputAction =
+                        item("menu.selectLastOutput", () -> withActiveTerminal(TerminalView::selectLastOutput)));
+        edit.setOnShowing(e -> {
+            boolean marked = promptMarksAvailable();
+            for (MenuItem item : edit.getItems()) {
+                String text = item.getText();
+                if (tr("menu.previousPrompt").equals(text)
+                        || tr("menu.nextPrompt").equals(text)
+                        || tr("menu.selectLastOutput").equals(text)) {
+                    item.setDisable(!marked);
+                }
+            }
+        });
 
         // The four view actions, built once and shown one of two ways. Where the row can be drawn
         // the View menu shows it instead of four items, and these keep their chords and their place
@@ -1953,7 +2182,37 @@ public final class TerminalWindow {
                 // No chords: neither has one anywhere else, and a tab's own menu is where the hand
                 // goes. They are here for the palette, and so the keyboard can reach them at all.
                 item("menu.renameTab", () -> withActiveTab(this::renameTab)),
-                item("menu.duplicateTab", () -> withActiveTab(this::duplicateTab)));
+                item("menu.duplicateTab", () -> withActiveTab(this::duplicateTab)),
+                null,
+                // iTerm2's Cmd+D and Cmd+Shift+D on macOS; Terminator's Ctrl+Shift+E and O
+                // elsewhere, where Ctrl+Shift+D would be the pair's odd one out.
+                register(item(
+                        "menu.splitRight",
+                        MAC
+                                ? new KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN)
+                                : MenuAction.appChord(KeyCode.E),
+                        () -> splitActivePane(javafx.geometry.Orientation.HORIZONTAL))),
+                register(item(
+                        "menu.splitDown",
+                        MAC ? MenuAction.shiftChord(KeyCode.D) : MenuAction.appChord(KeyCode.O),
+                        () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))));
+
+        // Moving between panes: chords and palette entries, no menu items — four of them would be
+        // most of the Window menu. iTerm2's Cmd+Option+arrows on macOS; the same with Shift added
+        // elsewhere, where Ctrl+Alt+arrows switch workspaces in GNOME and Ctrl+Shift+arrows are
+        // already Move Tab and the prompt jumps.
+        for (PaneGroup.Direction direction : PaneGroup.Direction.values()) {
+            KeyCode arrow = KeyCode.valueOf(direction.name());
+            KeyCombination chord = MAC
+                    ? new KeyCodeCombination(arrow, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
+                    : new KeyCodeCombination(
+                            arrow, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN);
+            String key = "menu.focusPane" + direction.name().charAt(0)
+                    + direction.name().substring(1).toLowerCase(java.util.Locale.ROOT);
+            MenuAction action = item(key, chord, () -> focusPane(direction));
+            bindingGroups.put(action.id(), tr("menu.window"));
+            command(action);
+        }
 
         // After the Window menu's own items, so the keyboard settings list them last. Chords only: no menu items — nine
         // rows would be most of the Window menu, and all but the
@@ -2279,8 +2538,12 @@ public final class TerminalWindow {
         // Not consumed: the palette's own filter is downstream and still needs them.
         if (palette != null && palette.isShowing()) return;
 
+        boolean inTextField = stage.getScene() != null
+                && stage.getScene().getFocusOwner() instanceof javafx.scene.control.TextInputControl;
         for (MenuAction binding : bindings) {
             if (binding.matches(e)) {
+                // Not consumed, so the field gets it: Cmd+C in the find bar copies the query.
+                if (inTextField && yieldsToTextField(binding.id())) return;
                 binding.action().run();
                 swallowNextTyped = true;
                 e.consume();
@@ -2295,6 +2558,21 @@ public final class TerminalWindow {
             zoom(1);
             e.consume();
         }
+    }
+
+    /**
+     * Whether a command steps aside while a text field in the window has the keyboard.
+     *
+     * <p>The commands whose default chords are a text field's own editing keys on macOS — Cmd+C,
+     * Cmd+V, Cmd+A, and Cmd+Z for Reopen Closed Tab — and the same commands elsewhere, where
+     * Ctrl+Shift+Z is a field's redo. In the find bar they act on the query; acting on the terminal
+     * behind it instead would copy a selection nobody can see and paste into the shell.
+     */
+    static boolean yieldsToTextField(String id) {
+        return switch (id == null ? "" : id) {
+            case "copy", "paste", "selectAll", "reopenClosedTab" -> true;
+            default -> false;
+        };
     }
 
     /** Zoom writes through the settings so it persists and shows up in the settings window. */
@@ -2390,6 +2668,8 @@ public final class TerminalWindow {
         terminal.setPreferredCursor(settings.cursorShape());
         terminal.setAltIsMeta(settings.altIsMeta());
         terminal.setBellEnabled(settings.bell());
+        terminal.setClipboardWrites(settings.clipboardWrite());
+        terminal.setTypeAheadAllowed(settings.typeAhead());
         terminal.setScrollBarEnabled(settings.showScrollBar());
     }
 
@@ -2421,6 +2701,22 @@ public final class TerminalWindow {
                                 menuBarToggle.id()));
             }
         }
+        // Close Tab closes the active pane of a split tab, and the row says so.
+        if (activeTabIsSplit()) {
+            for (int at = 0; at < all.size(); at++) {
+                MenuAction row = all.get(at);
+                if (!"closeTab".equals(row.id())) continue;
+                all.set(
+                        at,
+                        new MenuAction(
+                                tr("menu.closePane"),
+                                row.accelerator(),
+                                row.action(),
+                                description("menu.closePane"),
+                                row.keywords(),
+                                row.id()));
+            }
+        }
         // The tabs that exist, by title, each with the chord that reaches it — rather than nine
         // numbered rows of which most were dead.
         List<Tab> open = tabs.getTabs();
@@ -2447,11 +2743,30 @@ public final class TerminalWindow {
                     .withKeywords(tr("palette.group.themes")));
         }
         // Reopen Closed Tab is listed greyed, not dropped, while there is nothing to reopen: a
-        // command that is simply missing reads as the palette not knowing it.
+        // command that is simply missing reads as the palette not knowing it. The prompt commands
+        // likewise, until the shell has marked a prompt — with the reason, since the fix is in the
+        // shell's configuration and nothing on screen would suggest it.
+        boolean marked = promptMarksAvailable();
         palette.show(
                 all,
-                action -> !(action.sameActionAs(reopenAction) && closedTabs.isEmpty()),
-                action -> action.sameActionAs(reopenAction) ? tr("palette.disabled.nothingToReopen") : null);
+                action -> !(action.sameActionAs(reopenAction) && closedTabs.isEmpty())
+                        && !(needsPromptMarks(action) && !marked),
+                action -> {
+                    if (action.sameActionAs(reopenAction)) return tr("palette.disabled.nothingToReopen");
+                    if (needsPromptMarks(action)) return tr("palette.disabled.noPromptMarks");
+                    return null;
+                });
+    }
+
+    private boolean needsPromptMarks(MenuAction action) {
+        return action.sameActionAs(previousPromptAction)
+                || action.sameActionAs(nextPromptAction)
+                || action.sameActionAs(selectOutputAction);
+    }
+
+    private boolean promptMarksAvailable() {
+        TerminalView terminal = activeTerminal();
+        return terminal != null && terminal.hasPromptMarks();
     }
 
     private void focusActiveTerminal() {

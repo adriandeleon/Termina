@@ -32,6 +32,10 @@ public final class Settings {
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String CONFIRM_PASTE = "input.confirmPaste";
+    /** Whether programs may set the clipboard with OSC 52. Never read it: that is not offered at all. */
+    public static final String CLIPBOARD_WRITE = "terminal.clipboardWrite";
+    /** Whether keystrokes are predicted while SSH is in the foreground and its echo is slow. */
+    public static final String TYPE_AHEAD = "terminal.typeAhead";
     /**
      * The user's key bindings, one key per command: {@code keys.newTab=Ctrl+Shift+Y}, in {@code
      * KeyCombination} notation. See {@link #keyBindings()}.
@@ -350,6 +354,22 @@ public final class Settings {
 
     public void setConfirmPaste(boolean confirmPaste) {
         put(CONFIRM_PASTE, String.valueOf(confirmPaste));
+    }
+
+    public boolean clipboardWrite() {
+        return readBoolean(CLIPBOARD_WRITE, true);
+    }
+
+    public void setClipboardWrite(boolean allowed) {
+        put(CLIPBOARD_WRITE, String.valueOf(allowed));
+    }
+
+    public boolean typeAhead() {
+        return readBoolean(TYPE_AHEAD, true);
+    }
+
+    public void setTypeAhead(boolean enabled) {
+        put(TYPE_AHEAD, String.valueOf(enabled));
     }
 
     /** Blank means the user's own shell, as {@code $SHELL} reports it. */

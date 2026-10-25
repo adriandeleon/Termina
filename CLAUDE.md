@@ -44,8 +44,9 @@ parameters rather than static calls, because the Windows branch is the one the f
 the one that cannot be run here.
 
 `com.termina.term.TerminalSession` wires them together and owns the read loop.
-`com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); `WindowManager` owns the
-window set and what they share — settings, the preferences window, the theme, the update check.
+`com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); each tab is a `PaneGroup`
+of one or more `TerminalView`s. `WindowManager` owns the window set and what they share — settings,
+the preferences window, the theme, the update check.
 
 ## Things that will bite you
 
@@ -236,6 +237,40 @@ Each of these cost real time, and none of them announces itself.
   half clipped while the same keys from a hand worked. `firePaletteKeysForCapture` runs `applyCss`
   and `layout` before each key for that reason; a row that is "not scrolled into view" in a capture
   is this before it is anything else.
+- **A control created in this pulse has no skin, and a skinless control is half a control.** A
+  `TextField` without its skin has no behaviour and ignores typing (the find bar, typed into by a
+  capture in the pulse that opened it); a new `SplitPane` without its skin has not put its items in
+  the scene, so a pane started there began at a guessed 80×24 and dropped its focus request.
+  `applyCss` and `layout` on the parent first. The same family as the `ListView` entry above.
+- **Operating-system commands are intercepted where the emulator reads, not where the PTY
+  delivers.** `OscInterceptor` wraps the `TerminalDataStream`, and JediTerm acts on each character
+  before pulling the next, so an OSC 133 mark arrives with everything before it on screen and the
+  cursor on its row. A filter on the PTY's reads sees a chunk at once and places every mark in it
+  early. Only 7, 52 and 133 are taken; everything else is pushed back for JediTerm, in order.
+- **Things positioned in the buffer ride on `linesScrolled`, not on per-change shifting.**
+  `TerminalView` counts every row the text has moved up; a search match or a prompt mark records
+  that count beside its line and works out where it went. `layoutEpoch` bumps when rows are rebuilt
+  rather than moved (a reflow, a cleared history), after which recorded lines mean nothing: search
+  re-runs, and prompt marks are carried through by `LogicalLines` from a snapshot taken just before
+  the view resizes the shell. A resize the view did not ask for has no snapshot and drops the marks.
+- **A text field inside the terminal still passes through the terminal's key filters.** The find
+  bar is a child of `TerminalView`, whose `KEY_PRESSED`/`KEY_TYPED` filters run first in the
+  capturing phase — every query letter would go to the shell. They return early for events headed
+  into the bar (`fromSearchBar`), and the window's chord filter lets the editing chords through to a
+  focused text field (`yieldsToTextField`), or Cmd+C in the query copies the terminal.
+- **A `SplitPane` item's parent is not the `SplitPane`.** It is the skin's private wrapper, so
+  `PaneGroup` finds a pane's split by walking down from its root. `Node.focusedProperty` is also
+  taken: the group's is `activeProperty`, the pane the keyboard was last in, which the window updates
+  from the scene's focus owner — including the find bar of a pane, where the pane itself is not
+  focused.
+- **JediTerm ships the type-ahead predictor without the model it edits.** The Swing UI's model
+  writes into a package-private field of `TerminalLine`; across a module boundary that is out of
+  reach, so `TypeAheadModel` keeps the predicted line and the view draws it. Wanted only while
+  `ssh` is the foreground program, and the predictor shows nothing until it has measured echoes
+  over 100 ms.
+- **The close prompt is modal, and a capture run that reaches it hangs.** A fresh shell often has a
+  child for a moment (a prompt framework's helper), so closing a pane or tab in a capture asks —
+  pass `-Dtermina.captureCloseAnswer=close`, which `capturePanes` and `captureCloseTabs` both read.
 
 ## Conventions
 
@@ -262,8 +297,8 @@ Each of these cost real time, and none of them announces itself.
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is
-signed. No splits or scrollback search; key bindings have no multi-key sequences. See `CHANGELOG.md` for the
-current list.
+signed. Key bindings have no multi-key sequences; no notifications (OSC 9/777), kitty keyboard
+protocol, images or ligatures. See `CHANGELOG.md` for the current list.
 
 **The shell profiles' Windows half has never run on Windows.** Every branch of it is driven in
 `ShellDiscoveryTest` with the filesystem and `wsl.exe` probes replaced, and the macOS half is

@@ -198,6 +198,11 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         refreshTitles();
     }
 
+    /** The shell's foreground program, empty at a prompt. Volatile: the watcher writes it. */
+    public String getProgram() {
+        return program;
+    }
+
     /** Names the tab, or clears the name with an empty string so the automatic title returns. */
     public void setUserTitle(String title) {
         userTitle = title == null ? "" : title.trim();
