@@ -154,7 +154,8 @@ final class DevCapture {
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the input, which looks exactly like input that did nothing.
-                PauseTransition settleFrame = new PauseTransition(Duration.millis(150));
+                long selectLaterMs = selectTabLaterIfRequested(window);
+                PauseTransition settleFrame = new PauseTransition(Duration.millis(150 + selectLaterMs));
                 settleFrame.setOnFinished(e3 -> {
                     try {
                         write(captured, new File(target));
@@ -578,6 +579,32 @@ final class DevCapture {
         int index = Integer.parseInt(spec.substring(0, colon).trim());
         window.typeInTabForCapture(index, spec.substring(colon + 1) + "\r");
         System.out.println("[capture] typed into tab " + index);
+    }
+
+    /**
+     * {@code -Dtermina.captureSelectTabLater=N,ms} selects tab N after a delay, and holds the
+     * snapshot back by as much.
+     *
+     * <p>For the one case {@code captureSelectTab} cannot reach: output that arrives in a tab while
+     * it is hidden. A hidden view defers its repaint until it is shown, so the check is that the tab
+     * shows that output once selected — selecting it in the same pulse as {@code captureTypeIn}
+     * would show it before the shell had answered, and prove nothing.
+     *
+     * @return how long the snapshot has to wait for it, 0 when not requested
+     */
+    private static long selectTabLaterIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureSelectTabLater");
+        if (spec == null || spec.isBlank()) return 0;
+        String[] parts = spec.split(",");
+        int index = Integer.parseInt(parts[0].trim());
+        long delayMs = parts.length > 1 ? Long.parseLong(parts[1].trim()) : 1000;
+        PauseTransition later = new PauseTransition(Duration.millis(delayMs));
+        later.setOnFinished(e -> {
+            window.selectTab(index);
+            System.out.println("[capture] selected tab " + index + " after " + delayMs + "ms");
+        });
+        later.play();
+        return delayMs;
     }
 
     /** {@code -Dtermina.captureSelectTab=N} selects a tab, to check what follows the selection. */

@@ -15,9 +15,11 @@ import com.termina.process.RunningProgram;
  *
  * <p>Polled rather than pushed, because there is nothing to subscribe to: {@code chdir} is a
  * syscall the shell makes on its own behalf and no signal comes out of it, and a child starting is
- * the same. The cost is one {@code readlink} and one walk of the process table per session per
- * tick — set against the repaint timer already running at frame rate for every open tab, it does
- * not register. All watchers share a single daemon thread, so tab count buys threads at zero.
+ * the same. The cost is one {@code readlink} and one by-parent child lookup per session per tick —
+ * a few microseconds, which is why the lookup is {@link com.termina.process.ChildProcesses} and not
+ * {@link ProcessHandle#children()}: that walks the whole process table, about 3.4ms a call on a
+ * desktop, and at twenty tabs this one thread spent a tenth of a core on it. All watchers share a
+ * single daemon thread, so tab count buys threads at zero.
  *
  * <p>The program is read here, on this thread and this cadence, because the one place that must
  * never ask is the renderer: a process-table walk per frame would be the single most expensive

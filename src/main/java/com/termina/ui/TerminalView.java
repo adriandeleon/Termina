@@ -130,7 +130,7 @@ public final class TerminalView extends Region {
 
     private boolean bellEnabled = true;
 
-    private String fontFamily = MonospaceFonts.available().get(0);
+    private String fontFamily = MonospaceFonts.defaultFamily();
 
     private Font font;
     private Font boldFont;
@@ -227,24 +227,101 @@ public final class TerminalView extends Region {
         this.onBellRung = onBellRung == null ? () -> {} : onBellRung;
     }
 
+    /**
+     * Frames with nothing to do before the painter stops. A little hysteresis, so output arriving a
+     * few frames apart does not start and stop the timer on every burst.
+     */
+    private static final int IDLE_FRAMES_BEFORE_STOP = 10;
+
+    /** When the painter runs — only while there is something to draw. See {@link FrameGate}. */
+    private final FrameGate frames = new FrameGate(IDLE_FRAMES_BEFORE_STOP);
+
+    /** Set once the view is closed, so a late emulator callback cannot restart the timer. */
+    private volatile boolean viewClosed;
+
     private final AnimationTimer painter = new AnimationTimer() {
         @Override
         public void handle(long now) {
-            // Per frame, not per write — a flood of output is one piece of news.
+            boolean worked = false;
+            // Per frame, not per write — a flood of output is one piece of news. Delivered whether
+            // or not the view is on screen: marking a background tab is the whole point of it.
             if (outputPending) {
                 outputPending = false;
                 onOutput.run();
+                worked = true;
             }
-            if (dirty) {
+            // Drawn only where it can be seen. A tab that is not selected keeps its dirty flag and
+            // is painted when it is shown again — rendering it per frame took the buffer lock and
+            // spent the FX thread on a canvas nobody could see, while a build ran in it.
+            if (dirty && isOnScreen()) {
                 dirty = false;
                 render();
+                worked = true;
                 // The first repaint the shell caused, rather than the first frame of an empty grid:
                 // a window is on screen well before there is a prompt in it, and timing to the empty
                 // one would flatter the measurement by everything the shell takes to start.
-                com.termina.perf.Startup.markFirstPaint();
+                if (session != null) com.termina.perf.Startup.markFirstPaint();
+            }
+            if (frames.frame(worked)) {
+                stop();
+                if (frames.release(() -> outputPending || (dirty && isOnScreen()))) start();
             }
         }
     };
+
+    /**
+     * Makes sure the painter is running. Safe from any thread, and cheap when it already is.
+     *
+     * <p>Public because the view cannot see every way it comes back on screen: a tab being selected
+     * makes its content visible without laying it out, so the window says so.
+     */
+    public void wake() {
+        if (viewClosed || !frames.claim()) return;
+        if (Platform.isFxApplicationThread()) painter.start();
+        else Platform.runLater(painter::start);
+    }
+
+    /**
+     * Whether anything drawn now would be seen: in a showing, un-minimised window, with no hidden
+     * ancestor. The ancestor walk is what catches a tab that is not selected — TabPane hides the
+     * content of every other tab rather than removing it.
+     */
+    private boolean isOnScreen() {
+        javafx.scene.Scene scene = getScene();
+        if (scene == null) return false;
+        javafx.stage.Window window = scene.getWindow();
+        if (window == null || !window.isShowing()) return false;
+        if (window instanceof javafx.stage.Stage stage && stage.isIconified()) return false;
+        for (Node node = this; node != null; node = node.getParent()) {
+            if (!node.isVisible()) return false;
+        }
+        return true;
+    }
+
+    /** Wakes the painter when the window it is in is shown or restored, which no layout announces. */
+    private final javafx.beans.InvalidationListener wakeOnWindowChange = o -> wake();
+
+    private javafx.stage.Window watchedWindow;
+
+    private void watchWindowOf(javafx.scene.Scene scene) {
+        if (watchedWindow != null) {
+            watchedWindow.showingProperty().removeListener(wakeOnWindowChange);
+            if (watchedWindow instanceof javafx.stage.Stage stage) {
+                stage.iconifiedProperty().removeListener(wakeOnWindowChange);
+            }
+        }
+        watchedWindow = scene == null ? null : scene.getWindow();
+        if (watchedWindow != null) {
+            watchedWindow.showingProperty().addListener(wakeOnWindowChange);
+            if (watchedWindow instanceof javafx.stage.Stage stage) {
+                stage.iconifiedProperty().addListener(wakeOnWindowChange);
+            }
+        }
+        wake();
+    }
+
+    private final javafx.beans.value.ChangeListener<javafx.stage.Window> onWindowChanged =
+            (o, was, now) -> watchWindowOf(getScene());
 
     public TerminalView(double fontSize) {
         applyFont();
@@ -279,6 +356,12 @@ public final class TerminalView extends Region {
         addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
         setOnContextMenuRequested(this::onContextMenuRequested);
+        // A scene's window can be set after the view joins it, so both moves are followed.
+        sceneProperty().addListener((o, was, now) -> {
+            if (was != null) was.windowProperty().removeListener(onWindowChanged);
+            if (now != null) now.windowProperty().addListener(onWindowChanged);
+            watchWindowOf(now);
+        });
 
         display.setOnRepaint(this::markDirty);
         display.setSelectionSupplier(() -> selection);
@@ -345,7 +428,6 @@ public final class TerminalView extends Region {
         // a tab is called. On every platform, since the program half needs only ProcessHandle; the
         // watcher skips the directory where the OS cannot answer.
         cwdWatch = CwdWatcher.watch(session.pid(), display::setCwd, display::setProgram);
-        painter.start();
         markDirty();
     }
 
@@ -366,6 +448,7 @@ public final class TerminalView extends Region {
     }
 
     public void close() {
+        viewClosed = true;
         painter.stop();
         resizeSettle.stop();
         // Before the session: the watcher polls by pid, and a pid is reused. Left running past the
@@ -377,6 +460,7 @@ public final class TerminalView extends Region {
 
     private void markDirty() {
         dirty = true;
+        wake();
     }
 
     /** One coalesced bell: the flash if it is on, and the tab's mark either way. */
@@ -397,7 +481,11 @@ public final class TerminalView extends Region {
     // ---------------------------------------------------------------- font & layout
 
     public void setFontSize(double size) {
-        this.fontSize = Math.max(6, size);
+        double next = Math.max(6, size);
+        // Every settings change re-applies every setting to every tab, so most calls here change
+        // nothing — and an unchanged font rebuilt four faces, re-measured and re-laid out the view.
+        if (next == fontSize && font != null) return;
+        this.fontSize = next;
         applyFont();
     }
 
@@ -407,7 +495,9 @@ public final class TerminalView extends Region {
      * in a proportional face.
      */
     public void setFontFamily(String family) {
-        this.fontFamily = MonospaceFonts.resolve(family);
+        String next = MonospaceFonts.resolve(family);
+        if (next.equals(fontFamily) && font != null) return; // see setFontSize
+        this.fontFamily = next;
         applyFont();
     }
 
@@ -565,6 +655,7 @@ public final class TerminalView extends Region {
 
         int newColumns = Math.max(MIN_COLUMNS, (int) Math.floor((w - barWidth) / charWidth));
         int newRows = Math.max(MIN_ROWS, (int) Math.floor(h / lineHeight));
+        boolean resized = canvas.getWidth() != renderedWidth || canvas.getHeight() != renderedHeight;
         if (newColumns != columns || newRows != rows) {
             columns = newColumns;
             rows = newRows;
@@ -573,8 +664,24 @@ public final class TerminalView extends Region {
             // and start() reads the fields directly.
             if (session != null) resizeSettle.playFromStart();
         }
-        render();
+        // In this pass rather than the next frame's, when the canvas changed size: AnimationTimers
+        // run before layout in a pulse, so leaving it to the painter would put one frame of a
+        // resized, unpainted canvas on screen. Otherwise only if something is waiting to be drawn
+        // — any requestLayout lands here, and redrawing for each was a second render in the same
+        // frame as the painter's. Clearing the flag here is what keeps the painter from repeating
+        // the work.
+        if ((resized || dirty) && isOnScreen()) {
+            dirty = false;
+            render();
+        } else if (resized) {
+            dirty = true;
+        }
     }
+
+    /** The canvas size {@link #render} last drew at, so a layout pass knows whether it changed. */
+    private double renderedWidth = -1;
+
+    private double renderedHeight = -1;
 
     @Override
     protected double computePrefWidth(double height) {
@@ -592,6 +699,8 @@ public final class TerminalView extends Region {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
+        renderedWidth = w;
+        renderedHeight = h;
         if (w <= 0 || h <= 0) return;
 
         g.setFontSmoothingType(FontSmoothingType.GRAY);
@@ -611,7 +720,10 @@ public final class TerminalView extends Region {
             buffer.processHistoryAndScreenLines(scrollOrigin, rows, new StyledTextConsumer() {
                 @Override
                 public void consume(int x, int y, TextStyle style, CharBuffer characters, int startRow) {
-                    drawRun(g, columns.columnOf(y, x, characters), y - startRow, style, characters);
+                    // One copy of the run per frame, shared by the column bookkeeping and the draw.
+                    String text = characters.toString();
+                    int column = columns.columnOf(y, x, text);
+                    drawRun(g, column, y - startRow, style, text, columns.lastCells());
                 }
 
                 @Override
@@ -641,19 +753,18 @@ public final class TerminalView extends Region {
         g.fillRect(column * charWidth, row * lineHeight, length * charWidth, lineHeight);
     }
 
-    private void drawRun(GraphicsContext g, int column, int row, TextStyle style, CharBuffer characters) {
+    private void drawRun(GraphicsContext g, int column, int row, TextStyle style, String text, int cells) {
         if (row < 0 || row >= rows) return;
-        String text = characters.toString();
         if (text.isEmpty()) return;
 
-        Color fg = foregroundOf(style);
         Color bg = backgroundOf(style);
+        Color fg = foregroundOf(style, bg);
 
         double x = column * charWidth;
         double y = row * lineHeight;
         // Cells, not characters: an astral code point is two array slots and one column, so a run
         // holding one would otherwise be painted a column too wide.
-        double width = CellWidth.cells(text) * charWidth;
+        double width = cells * charWidth;
 
         if (!bg.equals(palette.background())) {
             g.setFill(bg);
@@ -730,12 +841,13 @@ public final class TerminalView extends Region {
         return font;
     }
 
-    private Color foregroundOf(TextStyle style) {
+    /** @param bg the run's resolved background, which dim blends toward */
+    private Color foregroundOf(TextStyle style, Color bg) {
         boolean inverse = style.hasOption(TextStyle.Option.INVERSE);
         Color fg = palette.resolve(
                 inverse ? style.getBackground() : style.getForeground(),
                 inverse ? palette.background() : palette.foreground());
-        if (style.hasOption(TextStyle.Option.DIM)) fg = TerminalPalette.dim(fg, backgroundOf(style));
+        if (style.hasOption(TextStyle.Option.DIM)) fg = TerminalPalette.dim(fg, bg);
         return fg;
     }
 
@@ -913,7 +1025,7 @@ public final class TerminalView extends Region {
         column = Math.max(0, Math.min(columns, column));
         row = Math.max(0, Math.min(rows - 1, row));
         int line = scrollOrigin + row;
-        return new Point(ColumnMap.slotAt(lineTextAt(line), column), line);
+        return new Point(ColumnMap.slotAt(lockedLineTextAt(line), column), line);
     }
 
     /**
@@ -926,7 +1038,21 @@ public final class TerminalView extends Region {
         column = Math.max(0, Math.min(columns, column));
         row = Math.max(0, Math.min(rows - 1, row));
         int line = scrollOrigin + row;
-        return new Point(ColumnMap.slotAt(lineTextAt(line), column), line);
+        return new Point(ColumnMap.slotAt(lockedLineTextAt(line), column), line);
+    }
+
+    /**
+     * {@link #lineTextAt} for a caller that does not hold the lock — the mouse handlers, which run
+     * on the FX thread while the emulator writes the same lines on its own.
+     */
+    private String lockedLineTextAt(int row) {
+        if (buffer == null) return "";
+        buffer.lock();
+        try {
+            return lineTextAt(row);
+        } finally {
+            buffer.unlock();
+        }
     }
 
     /** A row's raw characters, or empty when it is not there. Callers already hold the lock. */
@@ -1663,7 +1789,7 @@ public final class TerminalView extends Region {
 
     private void selectLineAt(Point at) {
         TerminalSelection line = new TerminalSelection(new Point(0, at.y));
-        line.updateEnd(new Point(slotsInRow(at.y), at.y));
+        line.updateEnd(new Point(Math.max(columns, lockedLineTextAt(at.y).length()), at.y));
         selection = line;
         selectionAnchor = new Point(0, at.y);
     }

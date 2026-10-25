@@ -1,5 +1,6 @@
 package com.termina.ui;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import javafx.application.Platform;
@@ -212,14 +213,25 @@ public final class FxTerminalDisplay implements TerminalDisplay {
         return TerminalTitle.tab(shellTitle, program, cwd, home);
     }
 
+    /** Set while a title update is queued, so a burst of title sequences is one update. */
+    private final AtomicBoolean titlesPending = new AtomicBoolean();
+
+    /**
+     * Brings the three titles up to date on the FX thread.
+     *
+     * <p>Coalesced the way the bell is: a program that sets the title in a loop — a progress
+     * counter, a build tool naming each step — used to queue a task per sequence. One is queued at
+     * a time, and it reads the fields when it runs, so it always shows the latest. The flag is
+     * cleared <em>before</em> the read: a change landing after the clear queues its own update,
+     * and one landing before it is in the fields the read sees.
+     */
     private void refreshTitles() {
-        String window = TerminalTitle.window(userTitle, shellTitle, cwd, home);
-        String tab = TerminalTitle.tab(userTitle, shellTitle, program, cwd, home);
-        String tooltip = TerminalTitle.tooltip(shellTitle, cwd, home);
+        if (!titlesPending.compareAndSet(false, true)) return;
         Platform.runLater(() -> {
-            windowTitle.set(window);
-            tabTitle.set(tab);
-            tabTooltip.set(tooltip);
+            titlesPending.set(false);
+            windowTitle.set(TerminalTitle.window(userTitle, shellTitle, cwd, home));
+            tabTitle.set(TerminalTitle.tab(userTitle, shellTitle, program, cwd, home));
+            tabTooltip.set(TerminalTitle.tooltip(shellTitle, cwd, home));
         });
     }
 
