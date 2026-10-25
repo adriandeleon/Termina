@@ -129,6 +129,10 @@ final class DevCapture {
             afterCommand.setOnFinished(e2 -> {
                 TerminalView active = window.activeTerminal();
                 if (active != null) driveInput(window, active);
+                // Before the typing below, so captureTypeAtFocus can type into an open find bar.
+                searchIfRequested(window);
+                promptMarksIfRequested(window);
+                panesIfRequested(window);
                 fireChordIfRequested(window);
                 fireNativeChordIfRequested(window);
                 stealFocusIfRequested(window);
@@ -196,6 +200,94 @@ final class DevCapture {
         System.out.println("[capture] switched theme to " + theme);
     }
 
+    /**
+     * {@code -Dtermina.captureSearch=<query>} opens the find bar in the active terminal and types the
+     * query; {@code -Dtermina.captureSearchRegex=true} turns the regex switch on first, and {@code
+     * -Dtermina.captureSearchSteps=N} presses Enter N times. Reports the count, the current match
+     * and where the view scrolled to, and the picture shows the highlights.
+     */
+    private static void searchIfRequested(TerminalWindow window) {
+        String query = System.getProperty("termina.captureSearch");
+        if (query == null) return;
+        TerminalView terminal = window.activeTerminal();
+        if (terminal == null) return;
+        String result = terminal.searchForCapture(
+                query,
+                Boolean.getBoolean("termina.captureSearchRegex"),
+                Integer.getInteger("termina.captureSearchSteps", 0));
+        System.out.println("[capture] search <" + query + "> " + result + " " + window.focusReport());
+    }
+
+    /**
+     * {@code -Dtermina.captureMarks=true} prints the OSC 133 marks the active terminal recorded;
+     * {@code -Dtermina.captureJumpPrompt=prev,prev,next} jumps through them, printing where each jump
+     * scrolled to; {@code -Dtermina.captureSelectLastOutput=true} selects the last command's output
+     * and prints the selection — read from the buffer, not the clipboard, which on a live desktop is
+     * the user's.
+     */
+    private static void promptMarksIfRequested(TerminalWindow window) {
+        TerminalView terminal = window.activeTerminal();
+        if (terminal == null) return;
+        if (Boolean.getBoolean("termina.captureMarks")) {
+            System.out.println("[capture] " + terminal.promptMarkReport());
+        }
+        String jumps = System.getProperty("termina.captureJumpPrompt");
+        if (jumps != null) {
+            StringBuilder out = new StringBuilder();
+            for (String jump : jumps.split(",")) {
+                terminal.jumpToPrompt(!jump.trim().equals("next"));
+                out.append(jump.trim())
+                        .append("->")
+                        .append(terminal.scrollOriginForCapture())
+                        .append(' ');
+            }
+            System.out.println("[capture] jumps " + out.toString().trim());
+        }
+        // -Dtermina.capturePredict=<text> draws a type-ahead prediction at the cursor.
+        String predict = System.getProperty("termina.capturePredict");
+        if (predict != null) terminal.predictForCapture(predict);
+        if (Boolean.getBoolean("termina.captureSelectLastOutput")) {
+            boolean selected = terminal.selectLastOutput();
+            System.out.println("[capture] lastOutput selected=" + selected + " text=<"
+                    + terminal.selectionTextForCapture().replace("\n", "\\n") + ">");
+        }
+    }
+
+    /**
+     * {@code -Dtermina.capturePanes=right,down,left,close,...} drives the active tab's panes in order:
+     * {@code right} and {@code down} split, {@code left}/{@code up}/{@code right!}/{@code down!} move the
+     * keyboard (a direction with {@code !} where it would otherwise mean a split), {@code close} closes
+     * the active pane as the chord does. Prints the tree after each step — {@code H[0, V[1*, 2]]},
+     * the asterisk on the active pane.
+     */
+    private static void panesIfRequested(TerminalWindow window) {
+        String steps = System.getProperty("termina.capturePanes");
+        if (steps == null) return;
+        // The close prompt is modal and would block the run; answered up front, as for tabs.
+        String answer = System.getProperty("termina.captureCloseAnswer");
+        if (answer != null && !answer.isBlank()) {
+            window.setCloseAnswerForCapture("close".equalsIgnoreCase(answer.trim()));
+        }
+        for (String raw : steps.split(",")) {
+            String step = raw.trim();
+            switch (step) {
+                case "right" -> window.splitForCapture(true);
+                case "down" -> window.splitForCapture(false);
+                case "left" -> window.focusPaneForCapture("LEFT");
+                case "up" -> window.focusPaneForCapture("UP");
+                case "right!" -> window.focusPaneForCapture("RIGHT");
+                case "down!" -> window.focusPaneForCapture("DOWN");
+                case "close" -> window.closeActivePaneForCapture();
+                default -> System.out.println("[capture] panes: unknown step " + step);
+            }
+            // Laid out between steps, as a hand would leave time for: a neighbour is chosen by
+            // where the panes are, and a pane split in this pulse has no bounds yet.
+            window.stage().getScene().getRoot().applyCss();
+            window.stage().getScene().getRoot().layout();
+            System.out.println("[capture] " + step + " -> " + window.paneReport() + " " + window.focusReport());
+        }
+    }
+
     /** {@code -Dtermina.captureWindowIndex=N} photographs a window other than the first. */
     private static TerminalWindow windowToCapture(WindowManager windows, TerminalWindow fallback) {
         int index = Integer.getInteger("termina.captureWindowIndex", -1);
@@ -223,6 +315,7 @@ final class DevCapture {
             System.out.println("[capture] " + w.closeTooltipReport() + " tabTooltip=<" + w.tabTooltipReport() + ">");
             System.out.println("[capture] " + w.tabMarkReport());
             System.out.println("[capture] " + w.tabDragReport());
+            System.out.println("[capture] " + w.paneReport());
             reportTypedEcho(w.activeTerminal());
         }
         reportDialogs();

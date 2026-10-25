@@ -29,10 +29,19 @@ public final class TerminalSession {
     private final JediTerminal terminal;
     private final TerminalStarter starter;
     private final TerminalExecutors executors;
+    private final TypeAheadModel typeAheadModel;
+    private final TerminalTypeAheadManager typeAhead;
+
+    /** Whether predictions are wanted now. Off until the view says otherwise. */
+    private volatile java.util.function.BooleanSupplier typeAheadWanted = () -> false;
+
     private final Thread emulatorThread;
 
     private volatile boolean closed;
     private Runnable onSessionEnded = () -> {};
+
+    /** Told, on the emulator thread, of each operating-system command in {@link OscSequences#handled}. */
+    private volatile OscInterceptor.Listener oscListener = (code, payload) -> {};
 
     public TerminalSession(
             com.jediterm.terminal.TerminalDisplay display,
@@ -61,9 +70,22 @@ public final class TerminalSession {
         terminal = new JediTerminal(display, textBuffer, styleState);
 
         executors = new TerminalExecutors();
-        TerminalTypeAheadManager typeAhead = new TerminalTypeAheadManager(new DisabledTypeAhead());
-        starter =
-                new TerminalStarter(terminal, connector, new TtyBasedArrayDataStream(connector), typeAhead, executors);
+        typeAheadModel = new TypeAheadModel(terminal, textBuffer, () -> typeAheadWanted.getAsBoolean());
+        typeAhead = new TerminalTypeAheadManager(typeAheadModel);
+        // The predictor's own timer, which drops predictions the far end never confirmed. Paired
+        // with its constant the way JediTerm's UI pairs them.
+        typeAhead.setClearPredictionsDebouncer(new com.jediterm.terminal.model.JediTermDebouncerImpl(
+                typeAhead::debounce, TerminalTypeAheadManager.MAX_TERMINAL_DELAY, executors));
+        // Output is how a prediction is confirmed or refuted. Cheap when predictions are off: the
+        // first thing it asks is whether they are on.
+        textBuffer.addModelListener(typeAhead::onTerminalStateChanged);
+        // The commands JediTerm leaves unhandled are taken out where the emulator reads, so each is
+        // seen at its place in the output — see OscInterceptor.
+        OscInterceptor stream = new OscInterceptor(
+                new TtyBasedArrayDataStream(connector),
+                OscSequences::handled,
+                (code, payload) -> oscListener.osc(code, payload));
+        starter = new TerminalStarter(terminal, connector, stream, typeAhead, executors);
 
         emulatorThread = new Thread(this::runEmulator, "termina-emulator");
         emulatorThread.setDaemon(true);
@@ -90,6 +112,15 @@ public final class TerminalSession {
         }
     }
 
+    /**
+     * Receives the shell-integration, directory and clipboard commands. Called on the emulator
+     * thread, at the point in the output where each was written, so the cursor and the screen are
+     * as they were when the program sent it. Set before {@link #start()}.
+     */
+    public void setOscListener(OscInterceptor.Listener listener) {
+        this.oscListener = listener == null ? (code, payload) -> {} : listener;
+    }
+
     /** Called off the FX thread when the shell exits. */
     public void setOnSessionEnded(Runnable onSessionEnded) {
         this.onSessionEnded = onSessionEnded;
@@ -101,6 +132,7 @@ public final class TerminalSession {
      */
     public void resize(int columns, int rows) {
         if (closed || columns <= 0 || rows <= 0) return;
+        typeAhead.onResize();
         starter.postResize(new TermSize(columns, rows), RequestOrigin.User);
     }
 
@@ -118,6 +150,19 @@ public final class TerminalSession {
     /** Encodes a key using the emulator's current modes (application vs ANSI cursor keys). */
     public byte[] keyCode(int awtKeyCode, int awtModifiers) {
         return starter.getCode(awtKeyCode, awtModifiers);
+    }
+
+    /**
+     * When keystrokes may be predicted — see {@link TypeAheadModel}. Asked on every keystroke and
+     * every output change, so it has to be cheap.
+     */
+    public void setTypeAheadWanted(java.util.function.BooleanSupplier wanted) {
+        this.typeAheadWanted = wanted == null ? () -> false : wanted;
+    }
+
+    /** The predicted line, for the view to draw. */
+    public TypeAheadModel typeAhead() {
+        return typeAheadModel;
     }
 
     public TerminalTextBuffer getTextBuffer() {

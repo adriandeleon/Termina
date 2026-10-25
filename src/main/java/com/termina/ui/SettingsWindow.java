@@ -688,6 +688,8 @@ public final class SettingsWindow {
     private ComboBox<Settings.CursorShape> cursorShape;
     private CheckBox altIsMeta;
     private CheckBox confirmPaste;
+    private CheckBox clipboardWrite;
+    private CheckBox typeAhead;
     private CheckBox bell;
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
@@ -1039,6 +1041,32 @@ public final class SettingsWindow {
                 tr("settings.confirmPaste.desc"),
                 confirmPaste,
                 "paste clipboard multiline newline confirm ask safety");
+
+        clipboardWrite = new CheckBox();
+        clipboardWrite.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setClipboardWrite(value);
+        });
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.clipboardWrite"),
+                tr("settings.clipboardWrite.desc"),
+                clipboardWrite,
+                "clipboard copy osc 52 osc52 ssh tmux vim remote program");
+
+        typeAhead = new CheckBox();
+        typeAhead.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setTypeAhead(value);
+        });
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.typeAhead"),
+                tr("settings.typeAhead.desc"),
+                typeAhead,
+                "type ahead typeahead predict prediction latency ssh slow remote echo lag");
     }
 
     // ---------------------------------------------------------------- keyboard
@@ -1642,6 +1670,8 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
+            clipboardWrite.setSelected(settings.clipboardWrite());
+            typeAhead.setSelected(settings.typeAhead());
             reloadKeys();
             bell.setSelected(settings.bell());
             confirmClose.setSelected(settings.confirmClose());

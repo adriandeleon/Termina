@@ -95,7 +95,8 @@ public final class TerminalView extends Region {
     private boolean scrollBarEnabled = true;
 
     /**
-     * Whether the press that began the current drag landed on the scrollbar.
+     * Whether the press that began the current drag landed on the scrollbar — or on the find bar,
+     * which is owed the same treatment: its drag and release are its own.
      *
      * <p>Latched at the press rather than re-tested per event: what a drag reports as its target is
      * not something to depend on, and a drag that started on the thumb must stay the thumb's for as
@@ -177,6 +178,23 @@ public final class TerminalView extends Region {
     private Point selectionAnchor;
 
     /**
+     * Every row the text has moved up since the session began — the sum of {@link HistoryFollow}'s
+     * deltas. Anything that remembers a line can record this beside it and work out later where the
+     * line has gone: {@code now = then - (linesScrolled - recordedScrolled)}. Search matches use it,
+     * and so would anything else positioned in the buffer, without each having to be shifted on
+     * every change the way the selection is.
+     *
+     * <p>Written on the emulator thread under the buffer lock, read under the same lock.
+     */
+    private volatile long linesScrolled;
+
+    /**
+     * Bumped when the rows were rebuilt rather than moved — a reflow, or a cleared history — after
+     * which a recorded line number means nothing and whatever held one has to be worked out again.
+     */
+    private volatile int layoutEpoch;
+
+    /**
      * How far the text moved on each change, so the selection and viewport can follow it. When the
      * history goes, everything measured against it goes too, or the viewport scrolls into rows
      * that no longer exist.
@@ -184,6 +202,7 @@ public final class TerminalView extends Region {
     private final HistoryFollow follow = new HistoryFollow(() -> {
         selection = null;
         scrollOrigin = 0;
+        layoutEpoch++;
     });
 
     /** Fractions of a line the wheel has scrolled but not yet shown. */
@@ -267,6 +286,12 @@ public final class TerminalView extends Region {
             // Drawn only where it can be seen. A tab that is not selected keeps its dirty flag and
             // is painted when it is shown again — rendering it per frame took the buffer lock and
             // spent the FX thread on a canvas nobody could see, while a build ran in it.
+            // Output under an open search: the results are refreshed, but not per frame — a build
+            // streaming into a searched tab would otherwise re-run the regex over the scrollback
+            // sixty times a second. Until then the matches ride along with their text.
+            if (searchOutdated && searchRefresh.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+                searchRefresh.playFromStart();
+            }
             if (dirty && isOnScreen()) {
                 dirty = false;
                 render();
@@ -390,7 +415,16 @@ public final class TerminalView extends Region {
         });
         bellClear.setOnFinished(e -> markDirty());
         resizeSettle.setOnFinished(e -> {
-            if (session != null) session.resize(columns, rows);
+            if (session == null) return;
+            // Taken now, against the rows as they are: once the resize has reflowed them, a mark's
+            // row means nothing. See LogicalLines.
+            marksBeforeResize = logicalMarks();
+            session.resize(columns, rows);
+        });
+        searchRefresh.setOnFinished(e -> {
+            if (!searchOpen || !searchOutdated) return;
+            searchOutdated = false;
+            runSearch(true, false);
         });
         display.setOnAlternateScreenChanged(() -> {
             // Scrollback belongs to the primary buffer; entering or leaving the alternate screen
@@ -433,6 +467,12 @@ public final class TerminalView extends Region {
         // changes listener sees what moved; the model listener is where the view catches up.
         buffer.addChangesListener(follow);
         buffer.addModelListener(this::onModelChanged);
+        // Both before the emulator starts reading: the first prompt can already carry a mark.
+        session.getTerminal().setUrlHyperlinkFilter(ExplicitLink.FILTER);
+        session.setOscListener(this::onOsc);
+        session.setTypeAheadWanted(
+                () -> typeAheadAllowed && com.termina.term.TypeAheadModel.predictsFor(display.getProgram()));
+        session.typeAhead().setOnRedraw(this::markDirty);
         session.setOnSessionEnded(() -> Platform.runLater(() -> {
             if (onSessionEnded != null) onSessionEnded.run();
         }));
@@ -688,6 +728,8 @@ public final class TerminalView extends Region {
         canvas.setHeight(h);
         canvas.relocate(0, 0);
         if (barWidth > 0) scrollBar.resizeRelocate(w - barWidth, 0, barWidth, h);
+        layoutSearchBar(w - barWidth);
+        layoutLinkStatus(w - barWidth, h);
 
         int newColumns = Math.max(MIN_COLUMNS, (int) Math.floor((w - barWidth) / charWidth));
         int newRows = Math.max(MIN_ROWS, (int) Math.floor(h / lineHeight));
@@ -752,34 +794,83 @@ public final class TerminalView extends Region {
             // x arrives as an index into the line's char[], which is not its column: see
             // RunColumns. Translating here rather than inside drawRun keeps every consumer
             // callback on the same footing, including the background-only one.
-            RunColumns columns = new RunColumns();
-            buffer.processHistoryAndScreenLines(scrollOrigin, rows, new StyledTextConsumer() {
-                @Override
-                public void consume(int x, int y, TextStyle style, CharBuffer characters, int startRow) {
-                    // One copy of the run per frame, shared by the column bookkeeping and the draw.
-                    String text = characters.toString();
-                    int column = columns.columnOf(y, x, text);
-                    drawRun(g, column, y - startRow, style, text, columns.lastCells());
-                }
-
-                @Override
-                public void consumeNul(
-                        int x, int y, int nulIndex, TextStyle style, CharBuffer characters, int startRow) {
-                    // Cells past the last written column. Only the background is meaningful —
-                    // drawing NUL as text would paint boxes across every short line.
-                    drawBackground(g, columns.columnOf(y, x, characters), y - startRow, characters.length(), style);
-                }
-
-                @Override
-                public void consumeQueue(int x, int y, int nulIndex, int startRow) {}
-            });
+            buffer.processHistoryAndScreenLines(scrollOrigin, rows, runDrawer(g, new RunColumns()));
+            drawPrediction(g, w);
+            drawPromptMarks(g);
+            drawSearchMatches(g);
             drawSelection(g);
             drawLinkUnderline(g);
             drawCursor(g);
+            drawPaneFocus(g, w, h);
             updateScrollBar();
         } finally {
             buffer.unlock();
         }
+    }
+
+    /** Draws each style run it is handed at its row: {@code y - startRow}, against the scroll origin. */
+    private StyledTextConsumer runDrawer(GraphicsContext g, RunColumns columns) {
+        return new StyledTextConsumer() {
+            @Override
+            public void consume(int x, int y, TextStyle style, CharBuffer characters, int startRow) {
+                // One copy of the run per frame, shared by the column bookkeeping and the draw.
+                String text = characters.toString();
+                int column = columns.columnOf(y, x, text);
+                drawRun(g, column, y - startRow, style, text, columns.lastCells());
+            }
+
+            @Override
+            public void consumeNul(int x, int y, int nulIndex, TextStyle style, CharBuffer characters, int startRow) {
+                // Cells past the last written column. Only the background is meaningful —
+                // drawing NUL as text would paint boxes across every short line.
+                drawBackground(g, columns.columnOf(y, x, characters), y - startRow, characters.length(), style);
+            }
+
+            @Override
+            public void consumeQueue(int x, int y, int nulIndex, int startRow) {}
+        };
+    }
+
+    /**
+     * The cursor's line as the type-ahead predictor expects it to look once the far end echoes, drawn
+     * over the real one. Its own column bookkeeping, since the row has already been drawn once this
+     * frame. Caller holds the lock.
+     */
+    private void drawPrediction(GraphicsContext g, double width) {
+        com.termina.term.TypeAheadModel.Prediction prediction = predictionToDraw();
+        if (prediction == null) return;
+        int row = prediction.row() - scrollOrigin;
+        if (row < 0 || row >= rows) return;
+        g.setFill(palette.background());
+        g.fillRect(0, row * lineHeight, width, lineHeight);
+        prediction.line().process(prediction.row(), runDrawer(g, new RunColumns()), scrollOrigin);
+    }
+
+    /** The prediction, unless there is no session or a full-screen program owns the screen. */
+    private com.termina.term.TypeAheadModel.Prediction predictionToDraw() {
+        if (session == null || display.isAlternateScreen()) return null;
+        return session.typeAhead().prediction();
+    }
+
+    /** Whether this is the focused one of several panes, and outlined to say so. */
+    private boolean paneFocusShown;
+
+    /** Set by the pane group: true only while the tab is split and this is the pane in use. */
+    void setPaneFocusShown(boolean shown) {
+        if (paneFocusShown == shown) return;
+        paneFocusShown = shown;
+        markDirty();
+    }
+
+    /**
+     * A one-pixel outline in the palette's blue around the pane being typed into. Drawn on the
+     * canvas rather than as a CSS border, which would sit under the canvas and never be seen.
+     */
+    private void drawPaneFocus(GraphicsContext g, double w, double h) {
+        if (!paneFocusShown) return;
+        g.setStroke(palette.ansi()[4]);
+        g.setLineWidth(1);
+        g.strokeRect(0.5, 0.5, w - 1, h - 1);
     }
 
     private void drawBackground(GraphicsContext g, int column, int row, int length, TextStyle style) {
@@ -937,6 +1028,11 @@ public final class TerminalView extends Region {
         // the wrap that the next character will cause. xterm draws it on the last column; bailing
         // on it made the cursor vanish on every exactly-full line.
         int column = Math.min(display.getCursorX(), columns - 1);
+        // Where the predictor expects the cursor once the far end catches up.
+        com.termina.term.TypeAheadModel.Prediction prediction = predictionToDraw();
+        if (prediction != null && prediction.row() == cursorRow && prediction.cursor() >= 0) {
+            column = Math.min(prediction.cursor(), columns - 1);
+        }
         if (row < 0 || row >= rows || column < 0) return;
 
         double x = column * charWidth;
@@ -986,6 +1082,9 @@ public final class TerminalView extends Region {
     // ---------------------------------------------------------------- input
 
     private void onKeyPressed(KeyEvent e) {
+        // The find bar is a child of this view, so its keys pass through this filter on the way to
+        // it. They are the bar's: encoded here, every letter of a query would go to the shell.
+        if (fromSearchBar(e)) return;
         // Escape closes the context menu rather than reaching the shell. This filter runs before
         // the menu would see the key, and Escape now encodes to a real byte, so without this the
         // menu stays open and the shell gets an ESC nobody asked for.
@@ -1039,6 +1138,7 @@ public final class TerminalView extends Region {
     }
 
     private void onKeyTyped(KeyEvent e) {
+        if (fromSearchBar(e)) return;
         if (session == null || !session.isRunning()) return;
         byte[] encoded = KeyEncoding.encodeTyped(e, altIsMeta);
         if (KeyTrace.enabled()) KeyTrace.log(e, encoded);
@@ -1068,12 +1168,16 @@ public final class TerminalView extends Region {
         HistoryFollow.Change change = follow.sync(history, buffer.getHeight());
         if (change.resize()) {
             scrollOrigin = HistoryFollow.origin(scrollOrigin, 0, history);
+            layoutEpoch++;
+            remapMarksAfterResize();
         } else if (change.delta() != 0) {
             scrollOrigin = HistoryFollow.origin(scrollOrigin, change.delta(), history);
+            linesScrolled += change.delta();
             TerminalSelection current = selection;
             if (current != null) current.shiftY(-change.delta());
         }
         outputPending = true;
+        if (searchOpen) searchOutdated = true;
         markDirty();
     }
 
@@ -1205,7 +1309,7 @@ public final class TerminalView extends Region {
      * @param spans the run split across the rows it occupies, since a wrapped URL is one link drawn
      *     on two lines
      */
-    private record Hover(LinkMatch match, java.nio.file.Path file, java.util.List<LinkSpan> spans) {}
+    private record Hover(LinkMatch match, java.nio.file.Path file, java.util.List<LinkSpan> spans, boolean declared) {}
 
     /** One row's worth of an underline: a line index and the slots it covers. */
     private record LinkSpan(int line, int fromSlot, int toSlot) {}
@@ -1244,7 +1348,43 @@ public final class TerminalView extends Region {
         Hover previous = hover;
         hover = modifierDown ? linkAt(x, y) : null;
         setCursor(hover == null ? javafx.scene.Cursor.DEFAULT : javafx.scene.Cursor.HAND);
-        if (!sameHover(previous, hover)) markDirty();
+        if (!sameHover(previous, hover)) {
+            showLinkTarget(hover);
+            markDirty();
+        }
+    }
+
+    /**
+     * Where a declared link goes, in a line at the bottom of the terminal while it is hovered — the
+     * browser's status bubble. A link found in the text is its own address; a declared one can say
+     * anything, and its target should be visible before the click rather than after.
+     */
+    private void showLinkTarget(Hover target) {
+        boolean show = target != null && target.declared();
+        if (show) {
+            if (linkStatus == null) {
+                linkStatus = new javafx.scene.control.Label();
+                linkStatus.getStyleClass().add("link-status");
+                linkStatus.setMouseTransparent(true);
+                // The middle goes, not the end: the host and the file name are what identify it.
+                linkStatus.setTextOverrun(javafx.scene.control.OverrunStyle.CENTER_ELLIPSIS);
+                linkStatus.setManaged(false);
+                getChildren().add(linkStatus);
+            }
+            linkStatus.setText(target.match().target());
+        }
+        if (linkStatus != null && linkStatus.isVisible() != show) linkStatus.setVisible(show);
+        requestLayout();
+    }
+
+    private javafx.scene.control.Label linkStatus;
+
+    /** Bottom left, inset, and cut to the terminal's width with an ellipsis in the middle. */
+    private void layoutLinkStatus(double width, double height) {
+        if (linkStatus == null || !linkStatus.isVisible()) return;
+        double w = Math.min(linkStatus.prefWidth(-1), Math.max(0, width - 2 * SEARCH_BAR_INSET));
+        double h = linkStatus.prefHeight(w);
+        linkStatus.resizeRelocate(SEARCH_BAR_INSET, height - h - SEARCH_BAR_INSET, w, h);
     }
 
     private static boolean sameHover(Hover a, Hover b) {
@@ -1268,6 +1408,10 @@ public final class TerminalView extends Region {
             LogicalLine logical = logicalLineAt(line);
             if (logical == null) return null;
             int slot = ColumnMap.slotAt(lineTextAt(line), column);
+            // A link the program declared outranks anything read off the text: it is the
+            // program's own statement of where this goes, and its text need not look like a link.
+            Hover declared = declaredLinkAt(logical, line, slot);
+            if (declared != null) return declared;
             int index = logical.offsetOf(line) + slot;
             LinkMatch match = LinkScanner.at(logical.text(), index);
             if (match == null) return null;
@@ -1279,13 +1423,63 @@ public final class TerminalView extends Region {
             java.nio.file.Path file =
                     previous != null && previous.match().equals(match) ? previous.file() : fileFor(match);
             if (match.kind() == LinkMatch.Kind.PATH && file == null) return null;
-            return new Hover(match, file, logical.spansOf(match.start(), match.end()));
+            return new Hover(match, file, logical.spansOf(match.start(), match.end()), false);
         } catch (RuntimeException e) {
             // The rows moved under us between the event and the read. There is no link here now.
             return null;
         } finally {
             buffer.unlock();
         }
+    }
+
+    /** The OSC 8 link on a cell, or null. Caller holds the lock. */
+    private ExplicitLink explicitLinkAt(int slot, int line) {
+        try {
+            return buffer.getStyleAt(slot, line) instanceof com.jediterm.terminal.HyperlinkStyle style
+                            && style.getLinkInfo() instanceof ExplicitLink link
+                    ? link
+                    : null;
+        } catch (RuntimeException outOfRange) {
+            return null;
+        }
+    }
+
+    /**
+     * The OSC 8 link under a cell, as a hover: every cell on the logical line carrying the same
+     * link is underlined, so a declared link wrapped onto a second row lights up as one. Caller
+     * holds the lock.
+     */
+    private Hover declaredLinkAt(LogicalLine logical, int line, int slot) {
+        ExplicitLink link = explicitLinkAt(slot, line);
+        if (link == null) return null;
+        List<LinkSpan> spans = new ArrayList<>();
+        StringBuilder text = new StringBuilder();
+        int start = -1;
+        int end = -1;
+        int offset = 0;
+        for (int i = 0; i < logical.rowTexts().size(); i++) {
+            int row = logical.firstLine() + i;
+            String rowText = logical.rowTexts().get(i);
+            int from = -1;
+            for (int x = 0; x <= rowText.length(); x++) {
+                boolean in = x < rowText.length() && explicitLinkAt(x, row) == link;
+                if (in && from < 0) from = x;
+                if (!in && from >= 0) {
+                    spans.add(new LinkSpan(row, from, x));
+                    text.append(rowText, from, x);
+                    if (start < 0) start = offset + from;
+                    end = offset + x;
+                    from = -1;
+                }
+            }
+            offset += rowText.length();
+        }
+        if (spans.isEmpty()) return null;
+        String uri = link.uri();
+        LinkMatch match = new LinkMatch(LinkMatch.Kind.URL, text.toString(), start, end, uri, 0, 0);
+        java.nio.file.Path file = com.termina.link.LinkPaths.fromFileUri(uri);
+        if (file != null && !java.nio.file.Files.exists(file)) file = null;
+        return new Hover(match, file, spans, true);
     }
 
     /**
@@ -1406,7 +1600,8 @@ public final class TerminalView extends Region {
         Hover target = hover;
         if (target == null) return "none at " + x + "," + y;
         LinkMatch match = target.match();
-        return match.kind() + " text=<" + match.text() + "> opens=<" + linkAddress(target) + ">"
+        return match.kind() + (target.declared() ? "(osc8)" : "") + " text=<" + match.text() + "> opens=<"
+                + linkAddress(target) + ">"
                 + (match.line() > 0 ? " line=" + match.line() : "")
                 + (match.column() > 0 ? " column=" + match.column() : "")
                 + " rows=" + target.spans().size();
@@ -1724,6 +1919,12 @@ public final class TerminalView extends Region {
         // terminal starts a selection under every scroll drag.
         pressedOnScrollBar = fromScrollBar(e);
         if (pressedOnScrollBar) return; // deliberately not consumed: the bar still needs it
+        // The same for the find bar, whose field and buttons take their own clicks. Latched with
+        // the scrollbar's flag, which is what keeps the drag and release that follow away too.
+        if (fromSearchBar(e)) {
+            pressedOnScrollBar = true;
+            return;
+        }
 
         requestFocus();
         shiftOnLastPress = e.isShiftDown();
@@ -1778,6 +1979,7 @@ public final class TerminalView extends Region {
     }
 
     private void onMouseMoved(MouseEvent e) {
+        if (fromSearchBar(e)) return;
         lastMouseX = e.getX();
         lastMouseY = e.getY();
         updateHover(lastMouseX, lastMouseY, LinkGesture.opensLink(MAC, e.isMetaDown(), e.isControlDown()));
@@ -1808,6 +2010,7 @@ public final class TerminalView extends Region {
     }
 
     private void onKeyReleased(KeyEvent e) {
+        if (fromSearchBar(e)) return;
         onLinkModifierChanged(e);
     }
 
@@ -1925,7 +2128,7 @@ public final class TerminalView extends Region {
     }
 
     private void onScroll(ScrollEvent e) {
-        if (buffer == null) return;
+        if (buffer == null || fromSearchBar(e)) return;
         if (reportWheel(e)) {
             e.consume();
             return;
@@ -1970,5 +2173,560 @@ public final class TerminalView extends Region {
 
     public void setAltIsMeta(boolean altIsMeta) {
         this.altIsMeta = altIsMeta;
+    }
+
+    // ---------------------------------------------------------------- operating-system commands
+
+    /** What the shell has said about its commands with OSC 133. */
+    private final PromptMarks marks = new PromptMarks();
+
+    /** The marks as logical positions, taken just before a resize the view asked for. */
+    private volatile java.util.Map<PromptMarks.Pos, int[]> marksBeforeResize;
+
+    /** Whether a program may set the clipboard with OSC 52. A setting; see {@link #onOsc}. */
+    private volatile boolean clipboardWrites = true;
+
+    public void setClipboardWrites(boolean allowed) {
+        this.clipboardWrites = allowed;
+    }
+
+    /** Whether keystrokes may be predicted over SSH. A setting; see {@link com.termina.term.TypeAheadModel}. */
+    private volatile boolean typeAheadAllowed = true;
+
+    public void setTypeAheadAllowed(boolean allowed) {
+        this.typeAheadAllowed = allowed;
+    }
+
+    /**
+     * One of the commands the session takes out of the stream, on the emulator thread, at the point
+     * in the output where it was written.
+     */
+    private void onOsc(int code, String payload) {
+        switch (code) {
+            case com.termina.term.OscSequences.SEMANTIC_PROMPT ->
+                com.termina.term.OscSequences.promptMark(payload).ifPresent(this::onPromptMark);
+            case com.termina.term.OscSequences.CURRENT_DIRECTORY -> onDirectoryReported(payload);
+            case com.termina.term.OscSequences.CLIPBOARD -> {
+                if (!clipboardWrites) return;
+                com.termina.term.OscSequences.clipboardText(payload)
+                        .ifPresent(text -> Platform.runLater(() -> {
+                            ClipboardContent content = new ClipboardContent();
+                            content.putString(text);
+                            Clipboard.getSystemClipboard().setContent(content);
+                        }));
+            }
+            default -> {}
+        }
+    }
+
+    /**
+     * Where the shell is, when the OS will not say.
+     *
+     * <p>Only there. Where {@code ProcessCwd} works it reads the shell's real directory, which a
+     * prompt cannot get wrong and which every shell has whether or not it was set up to report one —
+     * and an OSC 7 from a shell inside {@code ssh} would otherwise claim this tab for another
+     * machine's directory. On Windows nothing else answers, and this is how a tab learns where it is.
+     */
+    private void onDirectoryReported(String payload) {
+        if (com.termina.pty.ProcessCwd.isSupported()) return;
+        com.termina.term.OscSequences.localDirectory(
+                        payload,
+                        com.termina.link.LocalHost::isLocal,
+                        path -> java.nio.file.Files.isDirectory(java.nio.file.Path.of(path)))
+                .ifPresent(display::setCwd);
+    }
+
+    /** Records a mark at the cursor, in coordinates that survive scrolling. */
+    private void onPromptMark(com.termina.term.OscSequences.PromptMark mark) {
+        if (buffer == null || display.isAlternateScreen()) return;
+        PromptMarks.Pos at;
+        buffer.lock();
+        try {
+            // The emulator's own cursor, which is exactly where the program's output has reached —
+            // the display's copy is told of moves, and this is the thread doing the moving.
+            var terminal = session.getTerminal();
+            int row = terminal.getCursorY() - 1;
+            int slot = ColumnMap.slotAt(lineTextAt(row), terminal.getCursorX() - 1);
+            at = new PromptMarks.Pos(row + linesScrolled, slot);
+            marks.dropAbove(linesScrolled - buffer.getHistoryLinesCount());
+        } finally {
+            buffer.unlock();
+        }
+        switch (mark.kind()) {
+            case 'A' -> marks.prompt(at);
+            case 'C' -> marks.outputStarts(at);
+            case 'D' -> {
+                marks.finished(at, mark.exitCode());
+                markDirty();
+            }
+            default -> {}
+        }
+    }
+
+    /** Whether the shell has marked any prompts — what the jump and select commands need. */
+    public boolean hasPromptMarks() {
+        return !marks.isEmpty();
+    }
+
+    /**
+     * Scrolls to the previous or next prompt the shell marked: the top of the view lands on it, as
+     * in iTerm2 and Windows Terminal. Past the newest one, back to the live screen.
+     */
+    public void jumpToPrompt(boolean previous) {
+        if (buffer == null || display.isAlternateScreen()) return;
+        int next;
+        buffer.lock();
+        try {
+            long top = scrollOrigin + linesScrolled;
+            List<PromptMarks.Command> all = marks.all();
+            PromptMarks.Command target = previous ? PromptMarks.previous(all, top) : PromptMarks.next(all, top);
+            if (target == null) {
+                if (previous) return;
+                next = 0;
+            } else {
+                next = (int) (target.prompt().line() - linesScrolled);
+            }
+            next = Math.max(-buffer.getHistoryLinesCount(), Math.min(0, next));
+        } finally {
+            buffer.unlock();
+        }
+        if (next != scrollOrigin) {
+            scrollOrigin = next;
+            markDirty();
+        }
+    }
+
+    /**
+     * Selects what the last finished command printed, from where its output began to where the
+     * shell said it ended — ready for Copy.
+     *
+     * @return false when no command has both marks, so the caller can say why nothing happened
+     */
+    public boolean selectLastOutput() {
+        if (buffer == null || display.isAlternateScreen()) return false;
+        PromptMarks.Command command = PromptMarks.lastWithOutput(marks.all());
+        if (command == null) return false;
+        buffer.lock();
+        try {
+            int from = (int) (command.output().line() - linesScrolled);
+            int to = (int) (command.end().line() - linesScrolled);
+            if (to < -buffer.getHistoryLinesCount()) return false;
+            from = Math.max(from, -buffer.getHistoryLinesCount());
+            TerminalSelection output =
+                    new TerminalSelection(new Point(command.output().column(), from));
+            output.updateEnd(new Point(command.end().column(), to));
+            selection = output;
+            selectionAnchor = new Point(command.output().column(), from);
+            if (from < scrollOrigin || from >= scrollOrigin + rows) {
+                scrollOrigin = Math.max(-buffer.getHistoryLinesCount(), Math.min(0, from));
+            }
+        } finally {
+            buffer.unlock();
+        }
+        markDirty();
+        return true;
+    }
+
+    /**
+     * A command that failed gets a short bar in the left margin of its prompt — enough to find the
+     * one that broke in a screen of output, and nothing at all for the ones that worked.
+     */
+    private void drawPromptMarks(GraphicsContext g) {
+        if (marks.isEmpty() || display.isAlternateScreen()) return;
+        Color red = palette.ansi()[1];
+        for (PromptMarks.Command command : marks.all()) {
+            if (!command.failed()) continue;
+            int row = (int) (command.prompt().line() - linesScrolled) - scrollOrigin;
+            if (row < 0 || row >= rows) continue;
+            g.setFill(red);
+            g.fillRect(0, row * lineHeight + 2, FAILED_MARK_WIDTH, lineHeight - 4);
+        }
+    }
+
+    private static final double FAILED_MARK_WIDTH = 2;
+
+    /** Every logical position a mark has, against the rows as they are now. Caller is on the FX thread. */
+    private java.util.Map<PromptMarks.Pos, int[]> logicalMarks() {
+        if (buffer == null || marks.isEmpty()) return null;
+        buffer.lock();
+        try {
+            LogicalLines lines = logicalLines();
+            java.util.Map<PromptMarks.Pos, int[]> out = new java.util.HashMap<>();
+            for (PromptMarks.Command command : marks.all()) {
+                for (PromptMarks.Pos pos : new PromptMarks.Pos[] {command.prompt(), command.output(), command.end()}) {
+                    if (pos == null) continue;
+                    int[] logical = lines.toLogical((int) (pos.line() - linesScrolled), pos.column());
+                    if (logical != null) out.put(pos, logical);
+                }
+            }
+            return out;
+        } finally {
+            buffer.unlock();
+        }
+    }
+
+    /**
+     * Puts the marks back on their text after a reflow. On the emulator thread, under the lock,
+     * from the model listener. A resize the view did not ask for has no snapshot, and its marks
+     * cannot be placed: they are dropped rather than left pointing at other text.
+     */
+    private void remapMarksAfterResize() {
+        java.util.Map<PromptMarks.Pos, int[]> before = marksBeforeResize;
+        marksBeforeResize = null;
+        if (marks.isEmpty()) return;
+        if (before == null) {
+            marks.clear();
+            return;
+        }
+        LogicalLines after = logicalLines();
+        marks.remap(pos -> {
+            int[] logical = before.get(pos);
+            int[] at = logical == null ? null : after.fromLogical(logical[0], logical[1]);
+            return at == null ? null : new PromptMarks.Pos(at[0] + linesScrolled, at[1]);
+        });
+    }
+
+    /** The whole buffer's rows grouped into logical lines. Caller holds the lock. */
+    private LogicalLines logicalLines() {
+        int history = buffer.getHistoryLinesCount();
+        int height = buffer.getHeight();
+        boolean[] wrapped = new boolean[history + height];
+        for (int i = 0; i < wrapped.length; i++) wrapped[i] = isWrapped(i - history);
+        return LogicalLines.of(-history, wrapped, buffer.getWidth());
+    }
+
+    /** The selection's text, without touching the clipboard — for the development capture hook. */
+    public String selectionTextForCapture() {
+        TerminalSelection current = selection;
+        if (current == null || buffer == null) return "<none>";
+        buffer.lock();
+        try {
+            return SelectionUtil.getSelectionText(current, buffer);
+        } finally {
+            buffer.unlock();
+        }
+    }
+
+    /**
+     * Plants a prediction at the cursor, as the predictor would on a slow link — for the development
+     * capture hook, which has no slow link to make one appear by itself.
+     */
+    public void predictForCapture(String text) {
+        if (session == null) return;
+        buffer.lock();
+        try {
+            int at = session.getTerminal().getCursorX() - 1;
+            for (int i = 0; i < text.length(); i++) session.typeAhead().insertCharacter(text.charAt(i), at + i);
+            session.typeAhead().moveCursor(at + text.length());
+        } finally {
+            buffer.unlock();
+        }
+        markDirty();
+    }
+
+    /** Where the view is scrolled to — for the development capture hook. */
+    public int scrollOriginForCapture() {
+        return scrollOrigin;
+    }
+
+    /** What the marks are, for the development capture hook. */
+    public String promptMarkReport() {
+        StringBuilder out = new StringBuilder("marks=" + marks.all().size());
+        buffer.lock();
+        try {
+            for (PromptMarks.Command command : marks.all()) {
+                out.append(" [prompt@").append(command.prompt().line() - linesScrolled);
+                if (command.output() != null)
+                    out.append(" out@").append(command.output().line() - linesScrolled);
+                if (command.end() != null)
+                    out.append(" end@")
+                            .append(command.end().line() - linesScrolled)
+                            .append(" exit=")
+                            .append(command.exitCode());
+                out.append(']');
+            }
+        } finally {
+            buffer.unlock();
+        }
+        return out.toString();
+    }
+
+    // ---------------------------------------------------------------- search
+
+    /**
+     * The results of the last search, as they were when it ran.
+     *
+     * <p>Immutable and replaced whole, so the emulator thread never has to touch it: the lines in it
+     * are where the matches were at {@code scrolledAt}, and {@link #linesScrolled} says how far they
+     * have moved since. A reflow or a cleared history ({@code epoch}) makes them meaningless rather
+     * than merely moved, and they are recomputed.
+     *
+     * @param current the match the user is on, or -1 before one is chosen
+     */
+    private record SearchState(List<ScrollbackSearch.Match> matches, int current, long scrolledAt, int epoch) {
+        static final SearchState NONE = new SearchState(List.of(), -1, 0, -1);
+    }
+
+    private SearchBar searchBar;
+
+    private volatile SearchState search = SearchState.NONE;
+
+    /** Read by the model listener on the emulator thread: only an open search needs refreshing. */
+    private volatile boolean searchOpen;
+
+    /** Output arrived, or the rows were rebuilt, since the results were computed. */
+    private volatile boolean searchOutdated;
+
+    /** The pause between output arriving under an open search and the search running again. */
+    private final PauseTransition searchRefresh = new PauseTransition(Duration.millis(250));
+
+    /**
+     * Opens the find bar, or puts the caret back in it.
+     *
+     * <p>A short selection on one line becomes the query, as in every editor: selecting the word and
+     * pressing the chord is the quickest way to ask where else it is.
+     */
+    public void showSearch() {
+        if (searchBar == null) {
+            searchBar = new SearchBar(new SearchBar.Listener() {
+                @Override
+                public void queryChanged(String query, boolean regex) {
+                    runSearch(false, true);
+                }
+
+                @Override
+                public void step(boolean older) {
+                    stepSearch(older);
+                }
+
+                @Override
+                public void closed() {
+                    hideSearch();
+                }
+            });
+            searchBar.setManaged(false);
+            getChildren().add(searchBar);
+        }
+        String seed = selectionForSearch();
+        boolean wasOpen = searchOpen;
+        searchOpen = true;
+        searchBar.setVisible(true);
+        requestLayout();
+        // Setting a different query runs the search through the field's listener; reopening on the
+        // same one has to run it here, since the results were dropped when the bar closed.
+        if (seed != null && !seed.equals(searchBar.query())) {
+            searchBar.setQuery(seed, false);
+        } else if (!wasOpen) {
+            runSearch(false, true);
+        }
+        searchBar.focusField();
+    }
+
+    /** Closes the find bar, drops the highlights and gives the keyboard back to the shell. */
+    public void hideSearch() {
+        if (!searchOpen) return;
+        searchOpen = false;
+        searchOutdated = false;
+        searchRefresh.stop();
+        search = SearchState.NONE;
+        if (searchBar != null) searchBar.setVisible(false);
+        markDirty();
+        requestFocus();
+    }
+
+    public boolean isSearchShowing() {
+        return searchOpen;
+    }
+
+    /** Whether the find bar's field has the keyboard — the one case the focus guard must leave alone. */
+    public boolean searchHasFocus() {
+        return searchOpen && searchBar != null && searchBar.fieldIsFocused();
+    }
+
+    /** Steps to the next match, opening the bar first if it is closed — what Find Next does. */
+    public void findNext(boolean older) {
+        if (!searchOpen) {
+            showSearch();
+            return;
+        }
+        stepSearch(older);
+    }
+
+    /** The selection's text if it is short and on one line, which is what makes a useful query. */
+    private String selectionForSearch() {
+        TerminalSelection current = selection;
+        if (current == null || buffer == null) return null;
+        String text;
+        buffer.lock();
+        try {
+            text = SelectionUtil.getSelectionText(current, buffer);
+        } finally {
+            buffer.unlock();
+        }
+        if (text == null || text.isBlank() || text.length() > 200 || text.contains("\n")) return null;
+        return text;
+    }
+
+    /**
+     * Searches the whole buffer for the bar's query.
+     *
+     * <p>The rows are copied out under the lock and matched outside it, so the emulator is held up
+     * for a copy of the text rather than for a regular expression over the scrollback.
+     *
+     * @param keepPlace stay on the match the user had stepped to, if it is still there — what a
+     *     refresh after new output wants; a new query starts over from the bottom of the view
+     * @param reveal scroll the current match into view
+     */
+    private void runSearch(boolean keepPlace, boolean reveal) {
+        if (searchBar == null || buffer == null) return;
+        java.util.regex.Pattern pattern = ScrollbackSearch.compile(searchBar.query(), searchBar.isRegex());
+        boolean valid = pattern != null || searchBar.query().isEmpty();
+        List<String> texts = new ArrayList<>();
+        List<Boolean> wrapped = new ArrayList<>();
+        int firstLine;
+        long scrolledAt;
+        int epoch;
+        int[] keep = null;
+        buffer.lock();
+        try {
+            SearchState previous = search;
+            if (keepPlace && previous.current() >= 0 && previous.epoch() == layoutEpoch) {
+                ScrollbackSearch.Match was = previous.matches().get(previous.current());
+                keep = new int[] {was.firstLine() - (int) (linesScrolled - previous.scrolledAt()), was.fromSlot()};
+            }
+            int history = buffer.getHistoryLinesCount();
+            int height = buffer.getHeight();
+            firstLine = -history;
+            for (int line = -history; line < height; line++) {
+                var row = buffer.getLine(line);
+                texts.add(row == null ? "" : row.getText());
+                wrapped.add(row != null && row.isWrapped());
+            }
+            scrolledAt = linesScrolled;
+            epoch = layoutEpoch;
+        } finally {
+            buffer.unlock();
+        }
+        List<ScrollbackSearch.Match> matches = ScrollbackSearch.find(texts, wrapped, firstLine, pattern);
+        int current = keep == null ? -1 : ScrollbackSearch.indexAt(matches, keep[0], keep[1]);
+        if (current < 0) current = ScrollbackSearch.initial(matches, scrollOrigin + rows - 1);
+        search = new SearchState(matches, current, scrolledAt, epoch);
+        searchBar.showCount(current, matches.size(), valid);
+        if (reveal) revealMatch();
+        markDirty();
+    }
+
+    private void stepSearch(boolean older) {
+        if (searchOutdated || search.epoch() != layoutEpoch) {
+            searchOutdated = false;
+            runSearch(true, false);
+        }
+        SearchState state = search;
+        int next = ScrollbackSearch.step(state.current(), state.matches().size(), older);
+        search = new SearchState(state.matches(), next, state.scrolledAt(), state.epoch());
+        searchBar.showCount(next, state.matches().size(), true);
+        revealMatch();
+        markDirty();
+    }
+
+    /** Scrolls the current match to the middle of the view, unless it is already in it. */
+    private void revealMatch() {
+        SearchState state = search;
+        if (state.current() < 0 || buffer == null || display.isAlternateScreen()) return;
+        ScrollbackSearch.Match match = state.matches().get(state.current());
+        int moved = (int) (linesScrolled - state.scrolledAt());
+        int first = match.firstLine() - moved;
+        int last = match.lastLine() - moved;
+        if (first >= scrollOrigin && last < scrollOrigin + rows) return;
+        int history = buffer.getHistoryLinesCount();
+        int next = Math.max(-history, Math.min(0, first - rows / 2));
+        if (next != scrollOrigin) {
+            scrollOrigin = next;
+            markDirty();
+        }
+    }
+
+    /**
+     * Washes every visible match, the current one more strongly and outlined, so it can be told
+     * from the rest at a glance. Over the text rather than behind it, like the selection, and in
+     * the palette's yellow, which every theme already renders legibly as a background.
+     */
+    private void drawSearchMatches(GraphicsContext g) {
+        SearchState state = search;
+        if (!searchOpen || state.matches().isEmpty()) return;
+        if (state.epoch() != layoutEpoch) {
+            // Rebuilt rows: the lines recorded no longer name these matches. Drawn again once the
+            // refresh has run, rather than painted somewhere they are not.
+            searchOutdated = true;
+            if (searchRefresh.getStatus() != javafx.animation.Animation.Status.RUNNING) searchRefresh.playFromStart();
+            return;
+        }
+        int moved = (int) (linesScrolled - state.scrolledAt());
+        Color yellow = palette.ansi()[3];
+        Color wash = Color.color(yellow.getRed(), yellow.getGreen(), yellow.getBlue(), SEARCH_ALPHA);
+        Color strong = Color.color(yellow.getRed(), yellow.getGreen(), yellow.getBlue(), CURRENT_MATCH_ALPHA);
+        for (int i = 0; i < state.matches().size(); i++) {
+            ScrollbackSearch.Match match = state.matches().get(i);
+            if (match.lastLine() - moved < scrollOrigin || match.firstLine() - moved >= scrollOrigin + rows) continue;
+            boolean current = i == state.current();
+            for (ScrollbackSearch.Span span : match.spans()) {
+                int line = span.line() - moved;
+                int row = line - scrollOrigin;
+                if (row < 0 || row >= rows) continue;
+                String text = lineTextAt(line);
+                double x = ColumnMap.columnAt(text, span.fromSlot()) * charWidth;
+                double to = ColumnMap.columnAt(text, span.toSlot()) * charWidth;
+                double y = row * lineHeight;
+                g.setFill(current ? strong : wash);
+                g.fillRect(x, y, to - x, lineHeight);
+                if (current) {
+                    g.setStroke(yellow);
+                    g.setLineWidth(1);
+                    g.strokeRect(x + 0.5, y + 0.5, to - x - 1, lineHeight - 1);
+                }
+            }
+        }
+    }
+
+    private static final double SEARCH_ALPHA = 0.30;
+    private static final double CURRENT_MATCH_ALPHA = 0.55;
+
+    /** Top right of the text area, clear of the scrollbar, and never wider than the terminal. */
+    private void layoutSearchBar(double width) {
+        if (searchBar == null || !searchBar.isVisible()) return;
+        double w = Math.min(searchBar.prefWidth(-1), Math.max(0, width - 2 * SEARCH_BAR_INSET));
+        double h = searchBar.prefHeight(w);
+        searchBar.resizeRelocate(Math.max(0, width - w - SEARCH_BAR_INSET), SEARCH_BAR_INSET, w, h);
+    }
+
+    private static final double SEARCH_BAR_INSET = 8;
+
+    /** Whether an event is headed for the find bar, which handles its own keys and clicks. */
+    private boolean fromSearchBar(javafx.event.Event e) {
+        if (searchBar == null || !searchOpen) return false;
+        javafx.scene.Node node = e.getTarget() instanceof javafx.scene.Node n ? n : null;
+        for (; node != null; node = node.getParent()) {
+            if (node == searchBar) return true;
+        }
+        return false;
+    }
+
+    /** Types a query into the bar and reports the count — for the development capture hook. */
+    public String searchForCapture(String query, boolean regex, int steps) {
+        showSearch();
+        // Styled and laid out now, as a pulse would have done before a hand reached it: a field
+        // created in this pulse has no skin yet, and without its skin it ignores typing.
+        if (getScene() != null) {
+            getScene().getRoot().applyCss();
+            getScene().getRoot().layout();
+        }
+        searchBar.setQuery(query, regex);
+        for (int i = 0; i < steps; i++) stepSearch(true);
+        SearchState state = search;
+        return "count=<" + searchBar.countText() + "> matches="
+                + state.matches().size()
+                + " current=" + state.current()
+                + " origin=" + scrollOrigin
+                + " focus=" + (searchHasFocus() ? "field" : "elsewhere");
     }
 }
