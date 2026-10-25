@@ -1,7 +1,9 @@
 # Competitive landscape
 
 Researched August 2026. What the three platform-default terminals do, where each one is stuck, and
-which of those gaps are worth Termina's time.
+which of those gaps are worth Termina's time. [The wider field](#the-wider-field) — the
+alternatives people actually install on each platform, and a feature matrix with Termina in it —
+was added in October 2026.
 
 For what our own emulator already handles — which decides whether a gap here is ours to close at all
 — see [jediterm-capabilities.md](jediterm-capabilities.md).
@@ -98,6 +100,8 @@ It fixed a genuinely broken platform. ConPTY gave Windows a real pseudo-console 
 AtlasEngine is fast; profile discovery for WSL, SSH, Azure and PowerShell is excellent. Recent
 releases added sixel, grapheme clusters and a snippets pane (1.22), a rewritten windowing
 architecture with proper quake-mode summoning (1.23), and an fzf-style fuzzy command palette (1.24).
+1.25 (stable in October 2026) added the kitty keyboard protocol, synchronised output, search across
+the settings UI and an editor for actions.
 
 Its config model is the one all three should be judged against: a JSON file that a settings GUI
 writes, so the file stays authoritative and hand-editing keeps working.
@@ -115,12 +119,108 @@ The lesson for us is not about MSIX. It is that a packaging decision produced fo
 loudest issue traffic in the repository, and that the workaround shipped years late is still a
 second-class citizen.
 
+## The wider field
+
+October 2026. The three defaults are not what a dissatisfied user switches *to*, so this widens the
+comparison to the alternatives on each platform and puts Termina in the same table.
+
+| | Platform default | Feature-rich alternatives | Lean and fast |
+|---|---|---|---|
+| **Linux** | GNOME Terminal → Ptyxis (VTE); Konsole on KDE | Konsole, WezTerm, kitty, Ghostty | Alacritty, foot |
+| **macOS** | Terminal.app | iTerm2, Ghostty, WezTerm, kitty, Warp | Alacritty |
+| **Windows** | Windows Terminal | WezTerm, Tabby, Warp | Alacritty |
+
+Of the serious ones, only WezTerm and Alacritty cover all three platforms the way Termina does.
+kitty and Ghostty have no Windows build. Ghostty takes the opposite approach to ours, with a native
+UI per platform (AppKit, GTK) around a shared core, where Termina draws the same JavaFX UI everywhere.
+
+L/M/W = Linux, macOS, Windows. `~` is partial, explained in the notes below the table.
+
+| | Termina | Win Term | iTerm2 | Term.app | Ptyxis | Konsole | kitty | WezTerm | Ghostty | Alacritty |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Platforms | LMW | W | M | M | L | L | LM | LMW | LM | LMW |
+| Tabs | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Split panes | **✗** | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Scrollback search | **✗** | ✓ | ✓ | ✓ | ✓ | ✓ | ~ | ✓ | ✓ | ✓ |
+| Ligatures | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Inline images | ✗ | sixel | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Settings window | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Plain-text config | ✓ | ✓ | ~ | ✗ | ✗ | ~ | ✓ | ✓ Lua | ✓ | ✓ |
+| Command palette | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ |
+| Scripting | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ~ | ✗ |
+| Multiplexing | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| Prompt marks (OSC 133) | ✗ | ✓ | ✓ | ~ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ |
+
+Notes on the partial and less obvious cells:
+
+- **Search.** kitty's is the pager: the scrollback opens in `less` and you search there. Ghostty
+  gained a search bar in 1.3 (March 2026).
+- **Ligatures** follow the Fira Code project's terminal compatibility list. VTE is on its "doesn't
+  work" side, so Ptyxis and GNOME Terminal are too.
+- **Images.** Konsole does sixel and kitty graphics. Ghostty and kitty do kitty graphics. WezTerm
+  does all three protocols, including iTerm2's.
+- **Config.** iTerm2's plain text is Dynamic Profiles (JSON) beside a plist. Konsole keeps profiles
+  as ini files. Ptyxis is gsettings, the same dconf problem as GNOME Terminal.
+- **Command palette.** Konsole's is an open request on KDE's forum, not a shipped feature.
+- **Scripting.** iTerm2 has Python and AppleScript, Terminal.app AppleScript, Konsole D-Bus, kitty
+  remote control, WezTerm Lua. Ghostty's AppleScript arrived in 1.3 as a macOS-only preview.
+- **Multiplexing** means tmux integration or a built-in multiplexer: iTerm2's `tmux -CC`, WezTerm's
+  own mux server.
+- **Prompt marks.** Terminal.app marks prompt lines itself and jumps between them with ⌘↑/⌘↓,
+  without OSC 133. Konsole has handled OSC 133 since KDE Gear 22.08. Ghostty 1.3 uses it for
+  click-to-move-cursor in prompts and command-finished notifications. Nothing in Ptyxis's 49.x
+  release notes mentions it.
+
+Outside the table: the **kitty keyboard protocol** is now in kitty, Ghostty, WezTerm (opt-in),
+Alacritty and Windows Terminal 1.25, so VTE and Termina are increasingly the exceptions.
+
+### Where Termina is ahead or level
+
+- **Shell discovery on every platform.** Both PowerShells, Command Prompt, Git Bash and every WSL
+  distribution on Windows, `/etc/shells` elsewhere. Only Windows Terminal matches it, and only on
+  Windows. Ptyxis does the container equivalent (toolbox, distrobox, podman, APX).
+- **A settings window over a text file**, applied live, the model Windows Terminal is judged by
+  above. The GPU terminals have only the file, and Terminal.app and Ptyxis have only the window.
+- **The working directory without the prompt's help.** Read from the OS, so it survives prompt
+  frameworks that drop OSC 7. Most terminals depend on the prompt.
+- **Paths are only links if the file exists.** Found under the pointer and checked, close to
+  iTerm2's semantic history. Most others match URLs only.
+- **Safety:** a paste with a line break asks first and is stripped of control characters, Escape
+  never leaves full screen, and closing a tab with a running program asks.
+- **Tab handling:** reopen closed tab, duplicate, rename, and a mark on a background tab for new
+  output or a bell.
+- **Icons without a Nerd Font installed**, which neither Alacritty nor VTE manages.
+- **Native installers with a bundled runtime and no store**: DMG, MSI, deb and rpm.
+- **Keyboard-driven:** a command palette with Emacs keys, and a searchable list of every shortcut
+  generated from the binding table.
+
+### Where it is behind
+
+In rough order of how often a user notices:
+
+1. **Split panes and scrollback search.** The first is in everything serious except Alacritty and
+   the GNOME family. Every terminal in the table has some form of search.
+2. **OSC 133, 8, 52 and notifications.** All four can be taken in `TerminalSession`'s read loop
+   without touching JediTerm (see the capability audit).
+3. **Ligatures.** A renderer question, open to us, needing the spike described in the audit.
+4. **Kitty keyboard protocol, grapheme clusters, underline styles.** Modern TUIs increasingly
+   assume them.
+5. **Images, scripting, multiplexing.** Expensive, and they matter to power users.
+6. **Footprint and fidelity.** A bundled JVM starts and uses memory more heavily than a native
+   terminal. Translucency is plain alpha, with no blur, so Apple's Clear themes render opaque.
+   JediTerm's throughput has not been measured against VTE or the GPU terminals.
+
+And maturity. Windows has not been run by a human, and none of the packages has been installed by
+anyone, so on Windows everything in Termina's column is a claim about code. Against Windows
+Terminal the case for Termina is one terminal on all three machines, not anything Windows-specific.
+
 ## Where this leaves Termina
 
 Gaps in the incumbents that are durable rather than merely current:
 
 1. **Split panes.** Nothing in the GNOME family has them and Ptyxis has ruled them out. Panes plus a
-   text config file already beats every default Linux terminal.
+   text config file already beats every GNOME-family terminal. Konsole has panes, but configures
+   them through a GUI and ini files.
 2. **A text config file that a GUI writes.** dconf is the easiest of the three to beat. WezTerm's
    Lua is the high-water mark if we ever want configuration to be programmable.
 3. **Ligatures and an image protocol.** VTE can never do the first and does not ship the second.
@@ -132,7 +232,7 @@ Gaps in the incumbents that are durable rather than merely current:
 Worth copying rather than inventing:
 
 - **The kitty keyboard protocol.** Cheap, immediately visible to anyone running a modern TUI, absent
-  from VTE. (Synchronised output would belong here too, but JediTerm already implements it.)
+  from VTE, and since 1.25 in Windows Terminal too. (Synchronised output would belong here too, but JediTerm already implements it.)
 - **Encrypted disk-backed scrollback.** Only VTE does it, and it is a real difference rather than a
   checkbox.
 - VTE's **termprop mechanism** (OSC 666 with a typed registry) is a well-designed extension point if
@@ -155,3 +255,16 @@ Windows Terminal [1.22](https://devblogs.microsoft.com/commandline/windows-termi
 [GNOME 46 latency measurements](https://bxt.rs/blog/just-how-much-faster-are-the-gnome-46-terminals/) ·
 [arewesixelyet.com](https://www.arewesixelyet.com/) ·
 [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis)
+
+For the wider field (October 2026):
+[Windows Terminal 1.25](https://devblogs.microsoft.com/commandline/windows-terminal-preview-1-25-release/) ·
+[Ghostty 1.3.0](https://ghostty.org/docs/install/release-notes/1-3-0),
+[1.2.0](https://ghostty.org/docs/install/release-notes/1-2-0),
+[AppleScript](https://ghostty.org/docs/features/applescript) ·
+[kitty overview](https://sw.kovidgoyal.net/kitty/overview/) ·
+[Konsole semantic shell integration](https://docs.kde.org/stable5/en/konsole/konsole/semantic-shell-integration.html),
+[22.08 changelog](https://konsole.kde.org/changelogs/22.08.html),
+[command palette request](https://discuss.kde.org/t/command-palette-support/35160) ·
+[Konsole graphics protocols (ucs-detect)](https://ucs-detect.readthedocs.io/sw_results/Konsole.html) ·
+[Fira Code terminal compatibility](https://github.com/tonsky/FiraCode#terminal-compatibility-list) ·
+[Ptyxis 49 NEWS](https://download.gnome.org/sources/ptyxis/49/ptyxis-49.3.news)

@@ -563,24 +563,31 @@ an app icon has to work hardest at.
 
 ## Not done yet
 
+- **Split panes.** Tabs and windows, one session per tab.
+- **Search in scrollback.**
 - **Selection refinements.** No autoscroll when dragging past the top or bottom edge, no
   rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
   keystroke rather than surviving it. Middle-click pastes the clipboard, not the X11 primary
   selection, which JavaFX cannot read.
-- **Tabs and splits.** One session per window.
-- **Configuration.** No custom themes beyond the two built in, and no per-profile settings. Key
-  bindings are one chord per command, with no multi-key sequences, and the keys the terminal view
-  answers itself (Shift+PageUp, Shift+Insert, Ctrl+Insert) are fixed.
+- **Configuration.** The four themes are built in, with no way to add or import one, and a profile
+  is a shell and a starting directory — no per-profile font or theme.
 - **OSC 8 hyperlinks.** URLs and paths are found by looking at the text, so a link an application
   declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its visible text
   happens to be the target. JediTerm parses the sequence and discards it unless a filter is
   installed; installing one is the work.
-- **Search in scrollback.**
-- **Installers.** `-Pdist` builds an app image, not a `.dmg`/`.msi`/`.deb`, and it is unsigned —
-  macOS will refuse to launch a downloaded copy until it is signed and notarised.
-- **Windows and Linux are untested.** The code paths exist and pty4j carries the natives, but only
-  macOS has actually been run — including the `-Pdist` build, whose per-OS behaviour (ConPTY, the
-  Linux launcher layout) is unverified.
+- **Other escape sequences.** No OSC 133 prompt marks, OSC 52 clipboard, OSC 7 or desktop
+  notifications; no kitty keyboard protocol, inline images or ligatures. Which of these JediTerm
+  already handles, and what each would cost, is in
+  [docs/jediterm-capabilities.md](docs/jediterm-capabilities.md); how other terminals compare is in
+  [docs/competitive-landscape.md](docs/competitive-landscape.md).
+- **The working directory on Windows.** It is read from the OS, which works on macOS and Linux
+  only, so on Windows a new tab starts at home, tabs have no directory tooltip and relative paths
+  are not links.
+- **Signing.** The installers are built (see [Installing](#installing)) but nothing is signed or
+  notarised — see [Known issues](#known-issues).
+- **Windows has not been run by a human.** CI builds and packages it on every commit, and pty4j
+  carries the ConPTY natives, but nobody has opened a window there. macOS and Linux are run; the
+  installers on all three have not been installed by anyone yet.
 
 ## Command line
 
