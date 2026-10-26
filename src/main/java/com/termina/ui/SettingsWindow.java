@@ -28,6 +28,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
@@ -237,6 +238,8 @@ public final class SettingsWindow {
             return;
         }
         reload();
+        // Asked on every opening, so a `gh auth login` since the last one offers Create on GitHub.
+        if (sync != null) sync.checkGitHub();
         SecondaryWindows.placeNear(stage, from);
         stage.show();
     }
@@ -1843,6 +1846,9 @@ public final class SettingsWindow {
     private TextField syncBranch;
     private Label syncFieldError;
     private Button syncConnect;
+    private Button syncCreateGitHub;
+    /** A repository is being made on GitHub; the connection's buttons wait for it. */
+    private boolean syncCreating;
     private Label syncState;
     private Label syncAccount;
     private Button syncNow;
@@ -1890,13 +1896,18 @@ public final class SettingsWindow {
 
         syncConnect = new Button();
         syncConnect.setOnAction(e -> toggleSyncConnection());
+        // Offered only while gh is installed and signed in, which `show` asks.
+        syncCreateGitHub = new Button(tr("settings.sync.createGithub"));
+        syncCreateGitHub.setOnAction(e -> createSyncRepositoryOnGitHub());
+        setShown(syncCreateGitHub, false);
         row(
                 Category.SYNC,
                 repository,
                 tr("settings.sync.connection"),
                 tr("settings.sync.connection.desc"),
+                new HBox(6, syncConnect, syncCreateGitHub),
                 syncConnect,
-                "sync connect disconnect enable disable");
+                "sync connect disconnect enable disable create github new private repository gh");
 
         VBox status = section(page, tr("settings.section.syncStatus"));
 
@@ -2023,6 +2034,40 @@ public final class SettingsWindow {
         refreshSync();
     }
 
+    /**
+     * "Create on GitHub…": asks for a name, makes a private repository with gh, then connects to it as
+     * though its URL had been typed — the branch field and every check on the way are the same.
+     */
+    private void createSyncRepositoryOnGitHub() {
+        if (sync == null || syncCreating) return;
+        TextInputDialog ask = new TextInputDialog(DEFAULT_SYNC_REPOSITORY_NAME);
+        ask.initOwner(stage);
+        ask.setTitle(tr("settings.cat.sync"));
+        ask.setHeaderText(tr("dialog.sync.createGithub.header"));
+        ask.setContentText(tr("dialog.sync.createGithub.name"));
+        String name = ask.showAndWait().map(String::strip).orElse("");
+        if (name.isEmpty()) return;
+        if (!com.termina.sync.GitHubRepo.isName(name)) {
+            showSyncFieldError(tr("settings.sync.createGithub.invalidName"));
+            return;
+        }
+        showSyncFieldError(null);
+        syncCreating = true;
+        refreshSync();
+        sync.createOnGitHub(name, created -> {
+            syncCreating = false;
+            if (!created.ok()) {
+                showSyncFieldError(tr("settings.sync.createGithub.failed", created.error()));
+                refreshSync();
+                return;
+            }
+            syncRepository.setText(created.url());
+            toggleSyncConnection();
+        });
+    }
+
+    static final String DEFAULT_SYNC_REPOSITORY_NAME = "termina-sync";
+
     /** The catalogue key for what stops these fields connecting, or null when they can. */
     static String syncFieldProblem(String url, String branch) {
         if (!com.termina.sync.SyncEngine.isUsableUrl(url)) return "settings.sync.repository.invalid";
@@ -2038,10 +2083,15 @@ public final class SettingsWindow {
         SettingsSync.Phase phase =
                 sync == null ? SettingsSync.Phase.OFF : sync.state().phase();
         syncConnect.setText(tr(connected ? "settings.sync.disconnect" : "settings.sync.connect"));
-        syncConnect.setDisable(sync == null);
-        syncRepository.setDisable(connected);
-        syncBranch.setDisable(connected);
-        syncState.setText(sync == null ? tr("sync.state.off") : sync.stateText(this::labelOf));
+        syncConnect.setDisable(sync == null || syncCreating);
+        syncRepository.setDisable(connected || syncCreating);
+        syncBranch.setDisable(connected || syncCreating);
+        setShown(syncCreateGitHub, sync != null && !connected && sync.gitHubAvailable());
+        syncCreateGitHub.setDisable(syncCreating);
+        syncState.setText(
+                syncCreating
+                        ? tr("sync.state.creating")
+                        : sync == null ? tr("sync.state.off") : sync.stateText(this::labelOf));
         String account = connected && sync != null ? sync.account() : "";
         syncAccount.setText(account.isEmpty() ? "" : tr("sync.state.account", account));
         setShown(syncAccount, !account.isEmpty());

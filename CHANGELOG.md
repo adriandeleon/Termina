@@ -3,6 +3,15 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **Create the sync repository from Settings.** Where the GitHub CLI is installed and signed in,
+  Settings → Sync has Create on GitHub… beside Connect: it asks for a name (`termina-sync`), makes a
+  private repository with `gh repo create`, and connects to it — over SSH if that is the protocol
+  `gh` is set to, HTTPS otherwise. As in Editora.
+
 ## 0.11.0 — 2026-10-25
 
 Split panes, scrollback search, shell integration and shortcuts that can all be changed. Four
