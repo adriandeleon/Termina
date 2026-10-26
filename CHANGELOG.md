@@ -12,6 +12,11 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   private repository with `gh repo create`, and connects to it — over SSH if that is the protocol
   `gh` is set to, HTTPS otherwise. As in Editora.
 
+### Fixed
+
+- **The shortcut reference said a middle-click pastes the clipboard** on Linux, where it pastes the
+  PRIMARY selection. It says "Paste the selection" there now.
+
 ## 0.11.0 — 2026-10-25
 
 Split panes, scrollback search, shell integration and shortcuts that can all be changed. Four
