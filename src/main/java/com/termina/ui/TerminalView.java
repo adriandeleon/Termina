@@ -227,6 +227,16 @@ public final class TerminalView extends Region {
     /** Copies each selection to the clipboard as it is made. A setting. */
     private boolean copyOnSelect;
 
+    /** Set by a press with the pane-drag chord (see {@link PaneDrag}); the drag is then the pane's. */
+    private boolean paneDragArmed;
+
+    /** Told when this pane is picked up, so the window knows which pane a drop is carrying. */
+    private java.util.function.Consumer<TerminalView> onPaneDragStarted;
+
+    public void setOnPaneDragStarted(java.util.function.Consumer<TerminalView> onPaneDragStarted) {
+        this.onPaneDragStarted = onPaneDragStarted;
+    }
+
     /**
      * Every row the text has moved up since the session began — the sum of {@link HistoryFollow}'s
      * deltas. Anything that remembers a line can record this beside it and work out later where the
@@ -438,6 +448,7 @@ public final class TerminalView extends Region {
         addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
         addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
         addEventFilter(MouseEvent.MOUSE_RELEASED, this::onMouseReleased);
+        addEventHandler(MouseEvent.DRAG_DETECTED, this::onDragDetected);
         addEventFilter(MouseEvent.MOUSE_MOVED, this::onMouseMoved);
         addEventFilter(MouseEvent.MOUSE_EXITED, e -> {
             // Forgotten, not kept: a modifier pressed with the pointer elsewhere must not underline
@@ -1404,6 +1415,11 @@ public final class TerminalView extends Region {
             pressedOnScrollBar = false;
             return;
         }
+        if (paneDragArmed) {
+            paneDragArmed = false;
+            e.consume();
+            return;
+        }
         boolean dragged = dragging;
         dragging = false;
         stopAutoScroll();
@@ -2049,6 +2065,18 @@ public final class TerminalView extends Region {
         requestFocus();
         shiftOnLastPress = e.isShiftDown();
 
+        // Before links and mouse reporting, for the reason the link gesture goes before reporting:
+        // the chord is precisely the one that means "this is the terminal's, not the program's".
+        paneDragArmed = e.getButton() == MouseButton.PRIMARY
+                && onPaneDragStarted != null
+                && PaneDrag.starts(MAC, e.isShiftDown(), e.isControlDown(), e.isAltDown(), e.isMetaDown());
+        if (paneDragArmed) {
+            // No anchor left for a drag event that slips past the gesture to find.
+            selectionAnchor = null;
+            e.consume();
+            return;
+        }
+
         // Before mouse reporting, deliberately. A program that has grabbed the mouse would
         // otherwise swallow the click, and the modifier is precisely the gesture that means "this
         // one is the terminal's". Only when something is actually under the pointer, so the
@@ -2155,6 +2183,10 @@ public final class TerminalView extends Region {
 
     private void onMouseDragged(MouseEvent e) {
         if (pressedOnScrollBar) return;
+        if (paneDragArmed) {
+            e.consume();
+            return;
+        }
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.DRAGGED)) {
             e.consume();
             return;
@@ -2171,6 +2203,23 @@ public final class TerminalView extends Region {
         } else if (past == 0) {
             stopAutoScroll();
         }
+    }
+
+    /** Starts carrying the pane, once a press with the pane-drag chord has moved far enough. */
+    private void onDragDetected(MouseEvent e) {
+        if (!paneDragArmed || onPaneDragStarted == null) return;
+        paneDragArmed = false;
+        var board = startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
+        ClipboardContent content = new ClipboardContent();
+        content.put(PaneDrag.FORMAT, "pane");
+        board.setContent(content);
+        // A small picture of the pane under the pointer: what is being moved follows the pointer.
+        var parameters = new javafx.scene.SnapshotParameters();
+        double scale = Math.min(1, 240 / Math.max(1, getWidth()));
+        parameters.setTransform(javafx.scene.transform.Transform.scale(scale, scale));
+        board.setDragView(snapshot(parameters, null));
+        onPaneDragStarted.accept(this);
+        e.consume();
     }
 
     /** Extends the drag's selection to a pointer position, clamped to the pane. */

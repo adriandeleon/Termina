@@ -167,4 +167,94 @@ class PaneGroupTest {
         assertEquals(1, PaneGroup.nearest(panes.get(0), panes, PaneGroup.Direction.RIGHT));
         assertEquals(0, PaneGroup.nearest(panes.get(2), panes, PaneGroup.Direction.LEFT));
     }
+
+    @Test
+    void maximizingShowsOnePaneAndKeepsTheRestInTheTree() throws Exception {
+        assertEquals("H[0, V[1*, 2]] maximized=1 children=2 panes=3", onFx(() -> {
+            TerminalView a = pane();
+            TerminalView b = pane();
+            PaneGroup group = new PaneGroup(a);
+            group.split(a, Orientation.HORIZONTAL, b);
+            group.split(b, Orientation.VERTICAL, pane());
+            group.setActive(b);
+            assertTrue(group.maximize(b));
+            // The pane and its badge are all the group shows; every pane is still the group's.
+            return group.describe() + " children=" + group.getChildren().size() + " panes="
+                    + group.panes().size();
+        }));
+    }
+
+    @Test
+    void restoringPutsThePaneBackWhereItWas() throws Exception {
+        assertEquals("H[0, V[1*, 2]]", onFx(() -> {
+            TerminalView a = pane();
+            TerminalView b = pane();
+            PaneGroup group = new PaneGroup(a);
+            group.split(a, Orientation.HORIZONTAL, b);
+            group.split(b, Orientation.VERTICAL, pane());
+            group.setActive(b);
+            group.maximize(b);
+            group.restore();
+            assertFalse(group.isMaximized());
+            return group.describe();
+        }));
+    }
+
+    @Test
+    void aLonePaneHasNothingToBeMaximizedOver() throws Exception {
+        assertFalse(onFx(() -> {
+            TerminalView a = pane();
+            return new PaneGroup(a).maximize(a);
+        }));
+    }
+
+    @Test
+    void splittingOrClosingWhileMaximizedRestoresFirst() throws Exception {
+        assertEquals("H[0, 1*, 2]|H[0, 1*]", onFx(() -> {
+            TerminalView a = pane();
+            TerminalView b = pane();
+            PaneGroup group = new PaneGroup(a);
+            group.split(a, Orientation.HORIZONTAL, b);
+            group.setActive(b);
+            group.maximize(b);
+            TerminalView c = pane();
+            group.split(b, Orientation.HORIZONTAL, c);
+            String afterSplit = group.describe();
+            group.maximize(b);
+            group.setActive(c);
+            group.remove(b);
+            return afterSplit + "|" + group.describe();
+        }));
+    }
+
+    @Test
+    void aLayoutRebuildsTheSameTreeWithTheSamePaneActive() throws Exception {
+        assertEquals("H[0, V[1, 2*]]|H[0, V[1, 2*]]", onFx(() -> {
+            TerminalView a = pane();
+            TerminalView b = pane();
+            TerminalView c = pane();
+            PaneGroup group = new PaneGroup(a);
+            group.split(a, Orientation.HORIZONTAL, b);
+            group.split(b, Orientation.VERTICAL, c);
+            group.setActive(c);
+            PaneLayout.Tab layout = group.layout(pane -> new PaneLayout.Leaf(pane.launchOptions(), ""));
+            PaneGroup rebuilt = PaneGroup.of(layout, leaf -> pane());
+            return group.describe() + "|" + rebuilt.describe();
+        }));
+    }
+
+    @Test
+    void aMaximizedPaneIsLaidOutInItsPlaceNotOnItsOwn() throws Exception {
+        assertEquals(2, onFx(() -> {
+            TerminalView a = pane();
+            TerminalView b = pane();
+            PaneGroup group = new PaneGroup(a);
+            group.split(a, Orientation.HORIZONTAL, b);
+            group.maximize(b);
+            return group.layout(pane -> new PaneLayout.Leaf(pane.launchOptions(), ""))
+                    .root()
+                    .leaves()
+                    .size();
+        }));
+    }
 }

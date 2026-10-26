@@ -160,6 +160,22 @@
     -fx-border-width: 0 2 0 0;
 }
 
+/* A pane dragged over a tab: the whole header outlined, since it joins the tab rather than landing beside it. */
+.tab-drop-into {
+    -fx-border-color: -color-accent-emphasis;
+    -fx-border-width: 2;
+}
+
+/* "Pane 2 of 3" over the corner of a maximized pane: the others are still there. */
+.pane-maximized-badge {
+    -fx-background-color: -color-bg-subtle;
+    -fx-text-fill: -color-fg-muted;
+    -fx-background-radius: 0 0 0 6;
+    -fx-padding: 2 8 3 8;
+    -fx-font-size: 0.85em;
+    -fx-opacity: 0.85;
+}
+
 /* New-tab button, floating over the right end of the tab strip. */
 /*
  * The two glyphs in the tab strip: a tab's close button and the new-tab button.

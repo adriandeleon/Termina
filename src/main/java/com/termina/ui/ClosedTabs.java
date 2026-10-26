@@ -9,8 +9,9 @@ import com.termina.pty.LaunchOptions;
 /**
  * The tabs a window has closed, most recent first, so one can be brought back.
  *
- * <p>What comes back is the <em>tab</em>, not its contents: the shell it was running, the
- * directory it was in when it closed, the name the user gave it, and its place in the strip. A
+ * <p>What comes back is the <em>tab</em>, not its contents: the shell each of its panes was running,
+ * the directory each was in when it closed, the arrangement of the panes and which was active, the
+ * names the user gave them, and its place in the strip (see {@link PaneLayout}). A
  * scrollback cannot be reopened — the process is gone — and pretending otherwise would be worse
  * than saying so. Browsers draw the same line, which is where the expectation comes from.
  *
@@ -24,12 +25,26 @@ final class ClosedTabs {
     static final int MAX = 10;
 
     /**
-     * @param options how to start it again — the profile's command or the shell, already carrying
-     *     the directory it was in when it closed
-     * @param userTitle the name the user gave the tab, or "" when it had the automatic title
+     * @param layout its panes, each already carrying the directory it was in when it closed
      * @param index where it sat in the strip when it closed
      */
-    record Entry(LaunchOptions options, String userTitle, int index) {}
+    record Entry(PaneLayout.Tab layout, int index) {
+
+        /** A tab of one pane. */
+        Entry(LaunchOptions options, String userTitle, int index) {
+            this(new PaneLayout.Tab(new PaneLayout.Leaf(options, userTitle), 0), index);
+        }
+
+        /** How to start the active pane again — the profile's command or the shell, and its directory. */
+        LaunchOptions options() {
+            return layout.active().options();
+        }
+
+        /** The name the user gave the active pane, or "" when it had the automatic title. */
+        String userTitle() {
+            return layout.active().userTitle();
+        }
+    }
 
     private final Deque<Entry> entries = new ArrayDeque<>();
 

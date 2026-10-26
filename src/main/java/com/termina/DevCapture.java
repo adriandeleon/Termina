@@ -156,6 +156,7 @@ final class DevCapture {
                 openPaletteIfRequested(window);
                 firePaletteKeysIfRequested(window);
                 probeDebugLog();
+                closeWindowIfRequested(windows);
                 TerminalWindow shown = windowToCapture(windows, window);
                 Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
@@ -287,13 +288,24 @@ final class DevCapture {
                 case "right!" -> window.focusPaneForCapture("RIGHT");
                 case "down!" -> window.focusPaneForCapture("DOWN");
                 case "close" -> window.closeActivePaneForCapture();
-                default -> System.out.println("[capture] panes: unknown step " + step);
+                case "max" -> window.toggleMaximizePaneForCapture();
+                case "move" -> window.moveActivePaneForCapture(-1);
+                case "closeTab" -> window.closeSelectedTabForCapture();
+                case "reopen" -> window.reopenClosedTab();
+                default -> {
+                    if (step.startsWith("move:")) {
+                        window.moveActivePaneForCapture(Integer.parseInt(step.substring(5)));
+                    } else {
+                        System.out.println("[capture] panes: unknown step " + step);
+                    }
+                }
             }
             // Laid out between steps, as a hand would leave time for: a neighbour is chosen by
             // where the panes are, and a pane split in this pulse has no bounds yet.
             window.stage().getScene().getRoot().applyCss();
             window.stage().getScene().getRoot().layout();
-            System.out.println("[capture] " + step + " -> " + window.paneReport() + " " + window.focusReport());
+            System.out.println("[capture] " + step + " -> " + window.paneReport() + " all=" + window.allPanesReport()
+                    + " " + window.focusReport());
         }
     }
 
@@ -310,6 +322,22 @@ final class DevCapture {
         int before = terminal.keyboardFlagsForCapture();
         System.out.println(
                 "[capture] keystrokes " + terminal.fireKeystrokesForCapture(tokens) + " keyboardFlags=" + before);
+    }
+
+    /**
+     * {@code -Dtermina.captureCloseWindow=N} closes window N without asking, and counts the shells
+     * before and after — a window that closes without reaping its tabs leaves them running.
+     */
+    private static void closeWindowIfRequested(WindowManager windows) {
+        Integer index = Integer.getInteger("termina.captureCloseWindow");
+        if (index == null || index < 0 || index >= windows.windows().size()) return;
+        long before = descendants();
+        windows.windows().get(index).closeForShutdown();
+        // The shells are reaped as their sessions close, which is not instant.
+        PauseTransition reap = new PauseTransition(Duration.millis(800));
+        reap.setOnFinished(e -> System.out.println(
+                "[capture] closed window " + index + ": descendants " + before + " -> " + descendants()));
+        reap.play();
     }
 
     /** {@code -Dtermina.captureWindowIndex=N} photographs a window other than the first. */

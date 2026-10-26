@@ -145,6 +145,22 @@ public final class TerminalWindow {
             applyTabBarVisibility();
         });
 
+        // A pane dropped on the strip's empty part becomes a tab of its own. On the TabPane, so it
+        // hears only what the headers' own handlers did not take.
+        tabs.addEventHandler(javafx.scene.input.DragEvent.DRAG_OVER, e -> {
+            if (!paneOverEmptyStrip(e)) return;
+            e.acceptTransferModes(TransferMode.MOVE);
+            e.consume();
+        });
+        tabs.addEventHandler(javafx.scene.input.DragEvent.DRAG_DROPPED, e -> {
+            if (!paneOverEmptyStrip(e)) return;
+            TerminalView pane = draggedPane;
+            draggedPane = null;
+            movePaneToNewTab(pane);
+            e.setDropCompleted(true);
+            e.consume();
+        });
+
         // The new-tab button floats over the right end of the tab strip rather than being a tab of
         // its own. A sentinel "+" tab would pollute every count and index in this class — tab
         // disposal, reordering, the hide-when-single rule, next/previous — each of which would then
@@ -262,6 +278,12 @@ public final class TerminalWindow {
         stage.setOnCloseRequest(e -> {
             if (!confirmClose(new ArrayList<>(tabs.getTabs()))) e.consume();
         });
+        // However the window went — its close button, Close Window, quitting — its tabs go through
+        // the tab list, which is where disposal is. Closing the stage alone took nothing out of the
+        // list, so a window closed with others still open left every one of its shells running,
+        // with their pump threads, emulator threads and directory polls, until the app quit.
+        stage.addEventHandler(
+                javafx.stage.WindowEvent.WINDOW_HIDDEN, e -> tabs.getTabs().clear());
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
             if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
@@ -761,7 +783,35 @@ public final class TerminalWindow {
     private void openTab(com.termina.pty.LaunchOptions options, int index, String userTitle) {
         Tab tab = new Tab();
         TerminalView terminal = createPane(options, tab);
-        PaneGroup group = new PaneGroup(terminal);
+        terminal.getDisplay().setUserTitle(userTitle);
+        addTab(tab, new PaneGroup(terminal), index);
+
+        try {
+            terminal.start();
+        } catch (IOException e) {
+            // Report first and remove last. Removing first fired the list listener: an empty
+            // window closed itself, the last window closing exited the toolkit, and the dialog then
+            // opened on a dead owner — so a default profile whose command had gone away left nobody
+            // a window to fix it from, and the only way back was editing the settings file.
+            boolean fallBack = shouldFallBackToDefaultShell(tabs.getTabs().size(), !options.hasCommand());
+            reportShellFailure(options, e, fallBack);
+            if (fallBack) {
+                openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                        .withWorkingDirectory(options.workingDirectory()));
+            }
+            tabs.getTabs().remove(tab);
+            return;
+        }
+        endPaneWithItsShell(tab, terminal);
+        Platform.runLater(terminal::requestFocus);
+    }
+
+    /**
+     * Puts a tab holding {@code group} into the strip at {@code index} and selects it: its title,
+     * marks, menu, close handling and drag. The panes' shells are not started here — a new tab's
+     * are, a moved pane's already run.
+     */
+    private void addTab(Tab tab, PaneGroup group, int index) {
         tab.setContent(group);
         tab.setUserData(group);
         // The title goes on a Label graphic rather than on the Tab: a Tab is not a Node, so it has
@@ -791,31 +841,11 @@ public final class TerminalWindow {
             if (!confirmClose(List.of(tab))) e.consume();
             else rememberClosed(tab);
         });
-        terminal.getDisplay().setUserTitle(userTitle);
         tabs.getTabs().add(Math.max(0, Math.min(index, tabs.getTabs().size())), tab);
         tabs.getSelectionModel().select(tab);
         // After the tab is in the list: the header this attaches to is built by the skin, and does
         // not exist until the tab does.
         installTabDrag(0);
-
-        try {
-            terminal.start();
-        } catch (IOException e) {
-            // Report first and remove last. Removing first fired the list listener: an empty
-            // window closed itself, the last window closing exited the toolkit, and the dialog then
-            // opened on a dead owner — so a default profile whose command had gone away left nobody
-            // a window to fix it from, and the only way back was editing the settings file.
-            boolean fallBack = shouldFallBackToDefaultShell(tabs.getTabs().size(), !options.hasCommand());
-            reportShellFailure(options, e, fallBack);
-            if (fallBack) {
-                openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
-                        .withWorkingDirectory(options.workingDirectory()));
-            }
-            tabs.getTabs().remove(tab);
-            return;
-        }
-        endPaneWithItsShell(tab, terminal);
-        Platform.runLater(terminal::requestFocus);
     }
 
     /**
@@ -827,6 +857,17 @@ public final class TerminalWindow {
         TerminalView terminal = new TerminalView(settings.fontSize());
         applySettingsTo(terminal);
         terminal.setSessionOptions(settings.scrollbackLines(), options);
+        wirePane(terminal, tab);
+        return terminal;
+    }
+
+    /**
+     * Everything a pane is told about the tab and window it is in. Separate from {@link
+     * #createPane} because a pane moved to another tab keeps its shell and needs only this again:
+     * its bell and output must mark the tab it is in now, not the one it came from.
+     */
+    private void wirePane(TerminalView terminal, Tab tab) {
+        terminal.setOnPaneDragStarted(pane -> draggedPane = pane);
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
         terminal.setPasteConfirmer(this::confirmPaste);
         terminal.setOnNewTab(this::openTab);
@@ -852,7 +893,6 @@ public final class TerminalWindow {
             marks.apply(TabMarks.onOutput(isSelected(tab), marks.mark, now, marks.lastOutputMs, TabMarks.QUIET_MS));
             marks.lastOutputMs = now;
         });
-        return terminal;
     }
 
     /**
@@ -936,6 +976,13 @@ public final class TerminalWindow {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         if (tab == null) return;
         PaneGroup group = groupOf(tab);
+        // The neighbours are measured on screen, and while one pane fills the tab the rest are not
+        // on it: put them back first, laid out, then move.
+        if (group.isMaximized()) {
+            group.restore();
+            group.applyCss();
+            group.layout();
+        }
         TerminalView next = group.neighbour(group.active(), direction);
         if (next == null) return;
         group.setActive(next);
@@ -957,6 +1004,85 @@ public final class TerminalWindow {
         removePane(tab, pane);
     }
 
+    /**
+     * Shows the active pane on its own, filling the tab, or puts it back among the others. The
+     * others keep running; see {@link PaneGroup#maximize}.
+     */
+    private void toggleMaximizePane() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        PaneGroup group = groupOf(tab);
+        if (group.isMaximized()) group.restore();
+        else if (!group.maximize(group.active())) return;
+        group.applyCss();
+        group.layout();
+        TerminalView active = group.active();
+        if (active != null) active.requestFocus();
+    }
+
+    /** The tab a pane is in, or null when it is in none of this window's. */
+    private Tab tabOf(TerminalView pane) {
+        for (Tab tab : tabs.getTabs()) {
+            if (groupOf(tab).contains(pane)) return tab;
+        }
+        return null;
+    }
+
+    /**
+     * Takes a pane out of its tab <em>without</em> disposing of it — it is moving, not closing. A tab
+     * left with no panes goes, and disposes nothing doing so: the list listener closes the panes the
+     * group still has, and it has none.
+     */
+    private void detachPane(Tab tab, TerminalView pane) {
+        PaneGroup group = groupOf(tab);
+        TerminalView next = group.remove(pane);
+        if (group.panes().isEmpty()) tabs.getTabs().remove(tab);
+        else if (next != null && isSelected(tab)) next.requestFocus();
+    }
+
+    /** Moves a pane of a split tab into a tab of its own, right after the one it was in. */
+    private void movePaneToNewTab(TerminalView pane) {
+        Tab from = tabOf(pane);
+        // A pane alone in its tab already is one.
+        if (from == null || !groupOf(from).isSplit()) return;
+        int index = tabs.getTabs().indexOf(from) + 1;
+        detachPane(from, pane);
+        Tab tab = new Tab();
+        wirePane(pane, tab);
+        addTab(tab, new PaneGroup(pane), index);
+        endPaneWithItsShell(tab, pane);
+        Platform.runLater(pane::requestFocus);
+    }
+
+    /** Moves a pane into another tab, to the right of that tab's active pane. */
+    private void movePaneToTab(TerminalView pane, Tab target) {
+        Tab from = tabOf(pane);
+        if (from == null || from == target || !tabs.getTabs().contains(target)) return;
+        detachPane(from, pane);
+        PaneGroup group = groupOf(target);
+        wirePane(pane, target);
+        group.split(group.active(), javafx.geometry.Orientation.HORIZONTAL, pane);
+        endPaneWithItsShell(target, pane);
+        tabs.getSelectionModel().select(target);
+        group.setActive(pane);
+        group.applyCss();
+        group.layout();
+        pane.requestFocus();
+    }
+
+    /** The pane being dragged, which the Dragboard cannot carry: a node is not serialisable. */
+    private TerminalView draggedPane;
+
+    /** Whether a drag over the strip carries a pane, and is over the strip's empty part. */
+    private boolean paneOverEmptyStrip(javafx.scene.input.DragEvent e) {
+        if (draggedPane == null || !e.getDragboard().hasContent(PaneDrag.FORMAT)) return false;
+        Tab from = tabOf(draggedPane);
+        if (from == null || !groupOf(from).isSplit()) return false;
+        javafx.scene.Node strip = tabs.lookup(".tab-header-area");
+        if (strip == null || !strip.isVisible()) return false;
+        return strip.localToScene(strip.getLayoutBounds()).contains(e.getSceneX(), e.getSceneY());
+    }
+
     /** The selected tab's panes as a tree, for the capture hook. */
     public String paneReport() {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
@@ -971,6 +1097,34 @@ public final class TerminalWindow {
     /** Moves to a neighbouring pane, by direction name — for the capture hook. */
     public void focusPaneForCapture(String direction) {
         focusPane(PaneGroup.Direction.valueOf(direction));
+    }
+
+    /** Maximizes or restores the active pane — for the capture hook. */
+    public void toggleMaximizePaneForCapture() {
+        toggleMaximizePane();
+    }
+
+    /** Moves the active pane to a new tab, or to the tab at {@code index} — for the capture hook. */
+    public void moveActivePaneForCapture(int index) {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        TerminalView pane = groupOf(tab).active();
+        if (index < 0) movePaneToNewTab(pane);
+        else if (index < tabs.getTabs().size())
+            movePaneToTab(pane, tabs.getTabs().get(index));
+    }
+
+    /** Closes the whole selected tab, split or not, as its close button would — for the capture hook. */
+    public void closeSelectedTabForCapture() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab != null) closeTab(tab);
+    }
+
+    /** Every tab's panes, for the capture hook: {@code [H[0*, 1], 0*]}. */
+    public String allPanesReport() {
+        List<String> out = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) out.add(groupOf(tab).describe());
+        return out.toString();
     }
 
     /** Closes the active pane as the chord would — for the capture hook. */
@@ -1056,6 +1210,16 @@ public final class TerminalWindow {
         });
 
         header.setOnDragOver(e -> {
+            // A pane dropped on a tab joins it; dropped on its own tab it is already there.
+            if (draggedPane != null && e.getDragboard().hasContent(PaneDrag.FORMAT)) {
+                if (!groupOf(tab).contains(draggedPane)) {
+                    e.acceptTransferModes(TransferMode.MOVE);
+                    if (!header.getStyleClass().contains("tab-drop-into"))
+                        header.getStyleClass().add("tab-drop-into");
+                }
+                e.consume();
+                return;
+            }
             if (draggedTab == null || e.getGestureSource() == header) return;
             if (!e.getDragboard().hasContent(TAB_DRAG)) return;
             e.acceptTransferModes(TransferMode.MOVE);
@@ -1067,6 +1231,14 @@ public final class TerminalWindow {
 
         header.setOnDragDropped(e -> {
             clearDropMarks(header);
+            if (draggedPane != null && e.getDragboard().hasContent(PaneDrag.FORMAT)) {
+                TerminalView pane = draggedPane;
+                draggedPane = null;
+                movePaneToTab(pane, tab);
+                e.setDropCompleted(true);
+                e.consume();
+                return;
+            }
             if (draggedTab == null || !e.getDragboard().hasContent(TAB_DRAG)) return;
             int from = tabs.getTabs().indexOf(draggedTab);
             int over = tabs.getTabs().indexOf(tab);
@@ -1093,7 +1265,7 @@ public final class TerminalWindow {
     }
 
     private static void clearDropMarks(javafx.scene.Node header) {
-        header.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
+        header.getStyleClass().removeAll("tab-drop-before", "tab-drop-after", "tab-drop-into");
     }
 
     /** Marks a header as already carrying the gesture, so a retry does not install it twice. */
@@ -1389,23 +1561,61 @@ public final class TerminalWindow {
     private final ClosedTabs closedTabs = new ClosedTabs();
 
     private void rememberClosed(Tab tab) {
-        TerminalView terminal = terminalOf(tab);
-        if (terminal == null) return;
-        FxTerminalDisplay display = terminal.getDisplay();
-        closedTabs.remember(new ClosedTabs.Entry(
-                ClosedTabs.inDirectory(terminal.launchOptions(), display.getCwd()),
-                display.getUserTitle(),
-                tabs.getTabs().indexOf(tab)));
+        PaneGroup group = groupOf(tab);
+        if (group.panes().isEmpty()) return;
+        closedTabs.remember(
+                new ClosedTabs.Entry(group.layout(this::leafOf), tabs.getTabs().indexOf(tab)));
     }
 
-    /** Brings back the most recently closed tab: same shell, its last directory, its old place. */
+    /** A pane as Reopen Closed Tab will start it again: its shell, where it is now, its name. */
+    private PaneLayout.Leaf leafOf(TerminalView pane) {
+        FxTerminalDisplay display = pane.getDisplay();
+        return new PaneLayout.Leaf(
+                ClosedTabs.inDirectory(pane.launchOptions(), display.getCwd()), display.getUserTitle());
+    }
+
+    /**
+     * Brings back the most recently closed tab: each pane's shell in its last directory, the panes
+     * arranged as they were with the same one active, and the tab in its old place.
+     */
     public void reopenClosedTab() {
-        closedTabs
-                .pop()
-                .ifPresent(entry -> openTab(
-                        entry.options(),
-                        ClosedTabs.reopenIndex(entry.index(), tabs.getTabs().size()),
-                        entry.userTitle()));
+        closedTabs.pop().ifPresent(this::reopen);
+    }
+
+    private void reopen(ClosedTabs.Entry entry) {
+        int index = ClosedTabs.reopenIndex(entry.index(), tabs.getTabs().size());
+        if (entry.layout().root() instanceof PaneLayout.Leaf leaf) {
+            openTab(leaf.options(), index, leaf.userTitle());
+            return;
+        }
+        Tab tab = new Tab();
+        PaneGroup group = PaneGroup.of(entry.layout(), leaf -> {
+            TerminalView pane = createPane(leaf.options(), tab);
+            pane.getDisplay().setUserTitle(leaf.userTitle());
+            return pane;
+        });
+        addTab(tab, group, index);
+        // Splits made in this pulse have no skin and their panes are not in the scene yet; laid out
+        // first, every shell starts at its real size. See splitActivePane.
+        tabs.applyCss();
+        tabs.layout();
+        for (TerminalView pane : new ArrayList<>(group.panes())) {
+            try {
+                pane.start();
+            } catch (IOException e) {
+                reportShellFailure(pane.launchOptions(), e, false);
+                group.remove(pane);
+                pane.close();
+                if (group.panes().isEmpty()) {
+                    tabs.getTabs().remove(tab);
+                    return;
+                }
+                continue;
+            }
+            endPaneWithItsShell(tab, pane);
+        }
+        TerminalView active = group.active();
+        if (active != null) Platform.runLater(active::requestFocus);
     }
 
     /** Opens a second tab like this one — same shell, where it is now — right after it. */
@@ -2198,7 +2408,14 @@ public final class TerminalWindow {
                 register(item(
                         "menu.splitDown",
                         MAC ? MenuAction.shiftChord(KeyCode.D) : MenuAction.appChord(KeyCode.O),
-                        () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))));
+                        () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))),
+                // iTerm2's Cmd+Shift+Enter, and the same with Ctrl elsewhere — Ctrl+Shift+Z, tmux's
+                // idea, is too close to an editor's redo to take from a program.
+                register(item("menu.maximizePane", MenuAction.shiftChord(KeyCode.ENTER), this::toggleMaximizePane)),
+                register(item("menu.movePaneToNewTab", () -> {
+                    Tab tab = tabs.getSelectionModel().getSelectedItem();
+                    if (tab != null) movePaneToNewTab(groupOf(tab).active());
+                })));
 
         // Moving between panes: chords and palette entries, no menu items — four of them would be
         // most of the Window menu. iTerm2's Cmd+Option+arrows on macOS; the same with Shift added
@@ -2732,6 +2949,21 @@ public final class TerminalWindow {
                             () -> tabs.getSelectionModel().select(selected))
                     .describedAs(tr("palette.goToTab.desc"))
                     .withKeywords(tr("palette.group.tabs")));
+        }
+        // A split tab's active pane can go to any other tab, by name, for the reason the tab rows
+        // are by name.
+        Tab current = tabs.getSelectionModel().getSelectedItem();
+        if (current != null && groupOf(current).isSplit()) {
+            TerminalView pane = groupOf(current).active();
+            for (int index = 0; index < open.size(); index++) {
+                Tab target = open.get(index);
+                if (target == current) continue;
+                all.add(MenuAction.of(
+                                tr("palette.movePaneToTab", index + 1, label(target)),
+                                () -> movePaneToTab(pane, target))
+                        .describedAs(tr("palette.movePaneToTab.desc"))
+                        .withKeywords(tr("palette.group.tabs")));
+            }
         }
         // By name rather than by number. The submenu's chords are "profile 3"; here there is room to
         // say "Ubuntu (WSL)", which is the only form anybody would search for.
