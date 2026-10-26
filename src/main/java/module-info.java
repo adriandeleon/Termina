@@ -33,5 +33,8 @@ module com.termina {
     requires java.net.http;
     requires com.fasterxml.jackson.core;
 
+    // Importing a colour scheme: iTerm2 and Terminal both write them as XML property lists.
+    requires java.xml;
+
     exports com.termina;
 }

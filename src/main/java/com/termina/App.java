@@ -7,7 +7,6 @@ import com.termina.cli.CommandLine;
 import com.termina.config.Settings;
 import com.termina.pty.LaunchOptions;
 import com.termina.ui.TerminalWindow;
-import com.termina.ui.Theme;
 import com.termina.ui.WindowManager;
 
 /** Termina — a cross-platform terminal emulator on JavaFX. */
@@ -78,8 +77,10 @@ public final class App extends Application {
                 settings.uiLanguage(), language, java.util.Locale.getDefault()));
 
         // Applied before any window is built, so the first frame is already themed.
+        // The imported themes are read first: the stored theme may be one of them.
+        com.termina.ui.Themes.useDirectory(settings.directory().resolve("themes"));
         Application.setUserAgentStylesheet(
-                Theme.byId(settings.themeId(), Theme.EDITORA_DARK).stylesheet());
+                com.termina.ui.Themes.byId(settings.themeId()).stylesheet());
 
         com.termina.ui.StallMonitor.installIfRequested();
         windows = new WindowManager(settings);

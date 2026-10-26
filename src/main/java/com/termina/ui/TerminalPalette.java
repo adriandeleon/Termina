@@ -16,7 +16,7 @@ import com.jediterm.terminal.TerminalColor;
  * @param foreground text with no explicit colour
  * @param ansi the sixteen ANSI colours, 0-7 normal and 8-15 bright
  */
-public record TerminalPalette(Color background, Color foreground, Color[] ansi) {
+public record TerminalPalette(Color background, Color foreground, Color[] ansi, Color cursor, Color selection) {
 
     /** Indices 16-255, identical in every theme. Built once. */
     private static final Color[] EXTENDED = buildExtended();
@@ -24,6 +24,15 @@ public record TerminalPalette(Color background, Color foreground, Color[] ansi) 
     public TerminalPalette {
         if (ansi.length != 16) throw new IllegalArgumentException("expected 16 ANSI colours");
         ansi = ansi.clone();
+    }
+
+    /**
+     * A palette with no cursor or selection colour of its own: the cursor is drawn in the foreground
+     * and the selection washed in blue (see {@code TerminalView}). The built-in themes are all this;
+     * an imported scheme that names the two keeps them.
+     */
+    public TerminalPalette(Color background, Color foreground, Color[] ansi) {
+        this(background, foreground, ansi, null, null);
     }
 
     private static Color[] buildExtended() {

@@ -55,10 +55,80 @@ final class PaneGroup extends StackPane {
     /** The tree's top: a terminal, or a split. */
     private Node root;
 
+    /**
+     * The pane filling the group while it is maximized, or null. Its place in the tree is held by
+     * {@link #placeholder} meanwhile — a node has one parent, so it cannot be in its split and on
+     * its own at once — and everything that walks the tree reads the placeholder as the pane, so the
+     * rest of the window still sees every pane it has.
+     */
+    private TerminalView maximized;
+
+    private Node placeholder;
+
+    /** Says which pane is showing and how to get the rest back, over the corner of the pane. */
+    private final javafx.scene.control.Label maximizedBadge = new javafx.scene.control.Label();
+
     PaneGroup(TerminalView first) {
         getStyleClass().add("pane-group");
+        maximizedBadge.getStyleClass().add("pane-maximized-badge");
+        maximizedBadge.setMouseTransparent(true);
+        maximizedBadge.setFocusTraversable(false);
+        StackPane.setAlignment(maximizedBadge, javafx.geometry.Pos.TOP_RIGHT);
         setRoot(first);
         active.set(first);
+    }
+
+    /**
+     * A group laid out as a closed tab was: the same splits, the same dividers, a pane per leaf made
+     * by {@code make}, and the same pane active. The shells are not started; that is the window's.
+     */
+    static PaneGroup of(PaneLayout.Tab layout, java.util.function.Function<PaneLayout.Leaf, TerminalView> make) {
+        List<TerminalView> made = new ArrayList<>();
+        Node tree = build(layout.root(), make, made);
+        PaneGroup group = new PaneGroup(made.getFirst());
+        group.setRoot(tree);
+        group.active.set(made.get(layout.activeLeaf()));
+        group.showFocus();
+        return group;
+    }
+
+    private static Node build(
+            PaneLayout node, java.util.function.Function<PaneLayout.Leaf, TerminalView> make, List<TerminalView> made) {
+        return switch (node) {
+            case PaneLayout.Leaf leaf -> {
+                TerminalView view = make.apply(leaf);
+                made.add(view);
+                yield view;
+            }
+            case PaneLayout.Split split -> {
+                SplitPane pane = new SplitPane();
+                pane.setOrientation(split.orientation());
+                pane.setFocusTraversable(false);
+                for (PaneLayout child : split.children()) pane.getItems().add(build(child, make, made));
+                double[] dividers = split.dividers();
+                if (dividers.length == pane.getItems().size() - 1) pane.setDividerPositions(dividers);
+                else equalize(pane);
+                yield pane;
+            }
+        };
+    }
+
+    /**
+     * The tree as data, for Reopen Closed Tab. Each pane becomes a leaf by {@code leaf}, which is
+     * the window's: it knows the directory a pane is in now and the name it was given.
+     */
+    PaneLayout.Tab layout(java.util.function.Function<TerminalView, PaneLayout.Leaf> leaf) {
+        List<TerminalView> all = panes();
+        return new PaneLayout.Tab(layoutOf(root, leaf), all.indexOf(active.get()));
+    }
+
+    private PaneLayout layoutOf(Node node, java.util.function.Function<TerminalView, PaneLayout.Leaf> leaf) {
+        if (node == placeholder && maximized != null) return leaf.apply(maximized);
+        if (node instanceof TerminalView view) return leaf.apply(view);
+        SplitPane split = (SplitPane) node;
+        List<PaneLayout> children = new ArrayList<>();
+        for (Node item : split.getItems()) children.add(layoutOf(item, leaf));
+        return new PaneLayout.Split(split.getOrientation(), split.getDividerPositions(), children);
     }
 
     TerminalView active() {
@@ -84,9 +154,45 @@ final class PaneGroup extends StackPane {
         return out;
     }
 
-    private static void collect(Node node, List<TerminalView> out) {
-        if (node instanceof TerminalView view) out.add(view);
+    private void collect(Node node, List<TerminalView> out) {
+        if (node == placeholder && maximized != null) out.add(maximized);
+        else if (node instanceof TerminalView view) out.add(view);
         else if (node instanceof SplitPane split) for (Node item : split.getItems()) collect(item, out);
+    }
+
+    boolean isMaximized() {
+        return maximized != null;
+    }
+
+    /**
+     * Shows {@code pane} on its own, filling the group, with the others kept where they were. Does
+     * nothing for a group of one, which is already that. The others keep running — their shells
+     * still read and write — and, out of the scene, simply stop painting until they are back.
+     */
+    boolean maximize(TerminalView pane) {
+        if (!isSplit() || !contains(pane)) return false;
+        restore();
+        placeholder = new javafx.scene.layout.Region();
+        replace(pane, placeholder);
+        maximized = pane;
+        List<TerminalView> all = panes();
+        maximizedBadge.setText(com.termina.i18n.Messages.tr("pane.maximized", all.indexOf(pane) + 1, all.size()));
+        getChildren().setAll(pane, maximizedBadge);
+        setActive(pane);
+        showFocus();
+        return true;
+    }
+
+    /** Puts a maximized pane back in its place among the others. Safe to call when none is. */
+    void restore() {
+        if (maximized == null) return;
+        TerminalView pane = maximized;
+        Node holder = placeholder;
+        maximized = null;
+        placeholder = null;
+        getChildren().setAll(root);
+        replace(holder, pane);
+        showFocus();
     }
 
     boolean contains(TerminalView pane) {
@@ -102,6 +208,7 @@ final class PaneGroup extends StackPane {
      * below it for {@link Orientation#VERTICAL} — JavaFX names a split by the way its items run.
      */
     void split(TerminalView target, Orientation orientation, TerminalView added) {
+        restore();
         SplitPane parent = parentOf(target);
         if (parent != null && parent.getOrientation() == orientation) {
             parent.getItems().add(parent.getItems().indexOf(target) + 1, added);
@@ -128,6 +235,7 @@ final class PaneGroup extends StackPane {
      */
     TerminalView remove(TerminalView pane) {
         if (!contains(pane)) return active.get();
+        restore();
         SplitPane parent = parentOf(pane);
         if (parent == null) {
             setRoot(null);
@@ -151,7 +259,7 @@ final class PaneGroup extends StackPane {
         return next;
     }
 
-    private static TerminalView firstPaneIn(Node node) {
+    private TerminalView firstPaneIn(Node node) {
         List<TerminalView> found = new ArrayList<>();
         collect(node, found);
         return found.isEmpty() ? null : found.getFirst();
@@ -230,7 +338,8 @@ final class PaneGroup extends StackPane {
 
     /** Marks the active pane when there is more than one, so it can be told from the rest. */
     private void showFocus() {
-        boolean split = isSplit();
+        // Not while one pane fills the group: there is nothing on screen to tell it from.
+        boolean split = isSplit() && maximized == null;
         TerminalView current = active.get();
         for (TerminalView pane : panes()) pane.setPaneFocusShown(split && pane == current);
     }
@@ -284,10 +393,12 @@ final class PaneGroup extends StackPane {
         List<TerminalView> all = panes();
         StringBuilder out = new StringBuilder();
         describe(root, all, out);
+        if (maximized != null) out.append(" maximized=").append(all.indexOf(maximized));
         return out.toString();
     }
 
     private void describe(Node node, List<TerminalView> all, StringBuilder out) {
+        if (node == placeholder && maximized != null) node = maximized;
         if (node instanceof TerminalView view) {
             out.append(all.indexOf(view)).append(view == active.get() ? "*" : "");
         } else if (node instanceof SplitPane split) {

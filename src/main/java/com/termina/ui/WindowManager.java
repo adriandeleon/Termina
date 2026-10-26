@@ -168,7 +168,7 @@ public final class WindowManager {
      * settings window says so on those rows.
      */
     private void applySettingsEverywhere() {
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+        ThemeEntry theme = Themes.byId(settings.themeId());
         // The user-agent stylesheet is application-wide, so this restyles every window at once —
         // including the settings window that is probably the one being used to change it.
         Application.setUserAgentStylesheet(theme.stylesheet());

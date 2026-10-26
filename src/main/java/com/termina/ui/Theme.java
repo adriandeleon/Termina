@@ -158,6 +158,11 @@ public enum Theme {
         return palette;
     }
 
+    /** Which of the two control stylesheets the application's own windows use with this theme. */
+    String chrome() {
+        return chrome;
+    }
+
     /** The control stylesheet URL, for {@code Application.setUserAgentStylesheet}. */
     public String stylesheet() {
         var url = Theme.class.getResource("/com/termina/styles/" + chrome + ".css");

@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!DOCTYPE plist [<!ENTITY x SYSTEM "file:///etc/passwd">]>
+<plist version="1.0"><dict><key>Background Color</key><string>&x;</string></dict></plist>

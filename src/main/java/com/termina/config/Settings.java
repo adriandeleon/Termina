@@ -32,6 +32,8 @@ public final class Settings {
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String CONFIRM_PASTE = "input.confirmPaste";
+    /** Whether a selection is copied to the clipboard as it is made, without asking. */
+    public static final String COPY_ON_SELECT = "input.copyOnSelect";
     /** Whether programs may set the clipboard with OSC 52. Never read it: that is not offered at all. */
     public static final String CLIPBOARD_WRITE = "terminal.clipboardWrite";
     /** Whether keystrokes are predicted while SSH is in the foreground and its echo is slow. */
@@ -51,6 +53,9 @@ public final class Settings {
     public static final String PROFILE_PREFIX = "profile.";
 
     public static final String BELL = "terminal.bell";
+    /** Whether a program's notification (OSC 9, OSC 777) reaches the desktop. The tab is marked either way. */
+    public static final String NOTIFICATIONS = "terminal.notifications";
+
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
@@ -375,6 +380,19 @@ public final class Settings {
         put(CONFIRM_PASTE, String.valueOf(confirmPaste));
     }
 
+    /**
+     * Whether a selection goes to the clipboard as it is made. Off by default: it replaces whatever
+     * the clipboard held with every highlight, which surprises anyone who has not asked for it. On
+     * Linux the selection is PRIMARY either way, which is the middle-click half of the same habit.
+     */
+    public boolean copyOnSelect() {
+        return readBoolean(COPY_ON_SELECT, false);
+    }
+
+    public void setCopyOnSelect(boolean copyOnSelect) {
+        put(COPY_ON_SELECT, String.valueOf(copyOnSelect));
+    }
+
     public boolean clipboardWrite() {
         return readBoolean(CLIPBOARD_WRITE, true);
     }
@@ -481,6 +499,15 @@ public final class Settings {
 
     public void setBell(boolean bell) {
         put(BELL, String.valueOf(bell));
+    }
+
+    /** Whether programs may post desktop notifications. On: a program asks only when it has news. */
+    public boolean notifications() {
+        return readBoolean(NOTIFICATIONS, true);
+    }
+
+    public void setNotifications(boolean notifications) {
+        put(NOTIFICATIONS, String.valueOf(notifications));
     }
 
     /**
@@ -741,7 +768,81 @@ public final class Settings {
 
     /** The keys that belong to the user's profiles, which a reset leaves alone. */
     public static boolean isProfileKey(String key) {
-        return key.startsWith(PROFILE_PREFIX) || PROFILE_DEFAULT.equals(key) || PROFILE_HIDDEN.equals(key);
+        return key.startsWith(PROFILE_PREFIX)
+                || key.startsWith(PROFILE_STYLE_PREFIX)
+                || PROFILE_DEFAULT.equals(key)
+                || PROFILE_HIDDEN.equals(key);
+    }
+
+    /**
+     * A profile's own font and theme, by profile id: {@code profileStyle.<id>.font}, {@code .fontSize}
+     * and {@code .theme}. Apart from the {@code profile.N.*} block because any profile can have one —
+     * the system shell and the discovered ones too, which are not stored at all — and spared by a reset
+     * with the profiles they belong to.
+     */
+    public static final String PROFILE_STYLE_PREFIX = "profileStyle.";
+
+    /** What a profile overrides; a blank or null part follows the global setting. */
+    public record ProfileStyle(String fontFamily, Double fontSize, String themeId) {
+        public static final ProfileStyle NONE = new ProfileStyle("", null, "");
+
+        public ProfileStyle {
+            fontFamily = fontFamily == null ? "" : fontFamily.strip();
+            themeId = themeId == null ? "" : themeId.strip();
+            if (fontSize != null && (fontSize.isNaN() || fontSize.isInfinite())) fontSize = null;
+            if (fontSize != null) fontSize = clamp(fontSize, MIN_FONT_SIZE, MAX_FONT_SIZE);
+        }
+
+        public boolean isEmpty() {
+            return fontFamily.isEmpty() && fontSize == null && themeId.isEmpty();
+        }
+    }
+
+    /**
+     * The size a profile's pane draws at: its own size if it has one, else the global one, either way
+     * through the global zoom — zooming is the window's gesture and applies to every pane alike.
+     */
+    public double effectiveFontSize(ProfileStyle style) {
+        double base = style == null || style.fontSize() == null ? fontSize() : style.fontSize();
+        return clamp(base * fontZoom(), MIN_FONT_SIZE, MAX_FONT_SIZE);
+    }
+
+    /** A profile's style, clamped as it is read: the file is hand-edited. */
+    public ProfileStyle profileStyle(String profileId) {
+        if (profileId == null || profileId.isBlank()) return ProfileStyle.NONE;
+        String prefix = PROFILE_STYLE_PREFIX + profileId + ".";
+        String size = properties.getProperty(prefix + "fontSize");
+        Double fontSize = null;
+        if (size != null && !size.isBlank()) {
+            try {
+                fontSize = Double.parseDouble(size.strip());
+            } catch (NumberFormatException garbled) {
+                fontSize = null;
+            }
+        }
+        return new ProfileStyle(
+                properties.getProperty(prefix + "font"), fontSize, properties.getProperty(prefix + "theme"));
+    }
+
+    /** Stores a profile's style — an empty part removes its key — with one save and one broadcast. */
+    public void setProfileStyle(String profileId, ProfileStyle style) {
+        if (profileId == null || profileId.isBlank()) return;
+        String prefix = PROFILE_STYLE_PREFIX + profileId + ".";
+        ProfileStyle next = style == null ? ProfileStyle.NONE : style;
+        boolean changed = setOrRemove(prefix + "font", next.fontFamily());
+        changed |= setOrRemove(prefix + "fontSize", next.fontSize() == null ? "" : String.valueOf(next.fontSize()));
+        changed |= setOrRemove(prefix + "theme", next.themeId());
+        if (!changed) return;
+        save();
+        fireChange();
+    }
+
+    private boolean setOrRemove(String key, String value) {
+        String previous = properties.getProperty(key);
+        if (value.isEmpty()) return properties.remove(key) != null;
+        if (value.equals(previous)) return false;
+        properties.setProperty(key, value);
+        return true;
     }
 
     // ---------------------------------------------------------------- internals

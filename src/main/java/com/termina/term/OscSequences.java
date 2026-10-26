@@ -23,11 +23,108 @@ public final class OscSequences {
     /** A program setting the clipboard, base64. */
     public static final int CLIPBOARD = 52;
 
+    /**
+     * A notification, iTerm2's form: the payload is the message. ConEmu reuses the number for a
+     * family of numbered subcommands ({@code 9;4;…} is a progress bar, {@code 9;9;…} the directory),
+     * which {@link #notification} tells apart.
+     */
+    public static final int NOTIFY = 9;
+
+    /** A notification, urxvt's form: {@code notify;title;body}. What foot, kitty and WezTerm also read. */
+    public static final int NOTIFY_RXVT = 777;
+
+    /** A title longer than this is cut: it is a line in a desktop bubble, not a document. */
+    static final int MAX_TITLE = 128;
+
+    static final int MAX_BODY = 1024;
+
     private OscSequences() {}
 
     /** The codes the session takes out of the stream. */
     public static boolean handled(int code) {
-        return code == SEMANTIC_PROMPT || code == CURRENT_DIRECTORY || code == CLIPBOARD;
+        return code == SEMANTIC_PROMPT
+                || code == CURRENT_DIRECTORY
+                || code == CLIPBOARD
+                || code == NOTIFY
+                || code == NOTIFY_RXVT;
+    }
+
+    /** A desktop notification a program asked for. The title may be empty; the body is not. */
+    public record Notification(String title, String body) {}
+
+    /**
+     * The notification an OSC 9 or 777 asks for, cleaned: control characters out, both parts cut to
+     * a length a bubble can show. Empty for anything else that arrives under those numbers — a ConEmu
+     * subcommand, a urxvt extension other than {@code notify}, a message with nothing in it.
+     */
+    public static Optional<Notification> notification(int code, String payload) {
+        if (payload == null) return Optional.empty();
+        String title;
+        String body;
+        if (code == NOTIFY) {
+            if (conEmuSubcommand(payload) >= 0) return Optional.empty();
+            title = "";
+            body = payload;
+        } else if (code == NOTIFY_RXVT) {
+            String[] parts = payload.split(";", 3);
+            if (parts.length < 2 || !parts[0].equals("notify")) return Optional.empty();
+            title = parts[1];
+            body = parts.length > 2 ? parts[2] : "";
+            // "notify;Done" is a title with nothing under it; shown as the message, not as nothing.
+            if (body.isBlank()) {
+                body = title;
+                title = "";
+            }
+        } else {
+            return Optional.empty();
+        }
+        title = clean(title, MAX_TITLE);
+        body = clean(body, MAX_BODY);
+        return body.isEmpty() ? Optional.empty() : Optional.of(new Notification(title, body));
+    }
+
+    /**
+     * The directory an OSC {@code 9;9} names — ConEmu's, which Windows Terminal reads too and which
+     * the PowerShell and cmd prompt recipes for Windows Terminal emit. The path is a Windows one, as
+     * given, and may be quoted. Empty for any other OSC 9.
+     */
+    public static Optional<String> conEmuDirectory(String payload) {
+        if (payload == null || conEmuSubcommand(payload) != 9) return Optional.empty();
+        int semicolon = payload.indexOf(';');
+        if (semicolon < 0) return Optional.empty();
+        String path = payload.substring(semicolon + 1).strip();
+        if (path.length() >= 2 && path.startsWith("\"") && path.endsWith("\"")) {
+            path = path.substring(1, path.length() - 1);
+        }
+        return path.isEmpty() ? Optional.empty() : Optional.of(path);
+    }
+
+    /**
+     * The number of a ConEmu subcommand — digits alone, or digits and a semicolon — or -1 when the
+     * payload is an ordinary message. "42 tests passed" is a message; "4;1;50" is a progress bar.
+     */
+    static int conEmuSubcommand(String payload) {
+        int end = 0;
+        while (end < payload.length() && end < 3 && Character.isDigit(payload.charAt(end))) end++;
+        if (end == 0) return -1;
+        if (end < payload.length() && payload.charAt(end) != ';') return -1;
+        return Integer.parseInt(payload.substring(0, end));
+    }
+
+    /** Text fit for a bubble: no control characters, which a program could use to forge lines. */
+    private static String clean(String text, int max) {
+        StringBuilder out = new StringBuilder(Math.min(text.length(), max));
+        for (int i = 0; i < text.length() && out.length() < max; ) {
+            int cp = text.codePointAt(i);
+            i += Character.charCount(cp);
+            if (Character.isISOControl(cp) || cp == 0x2028 || cp == 0x2029) {
+                if (out.length() > 0 && out.charAt(out.length() - 1) != ' ') out.append(' ');
+                continue;
+            }
+            if (out.length() + Character.charCount(cp) > max) break;
+            out.appendCodePoint(cp);
+        }
+        return out.toString().strip();
     }
 
     /**

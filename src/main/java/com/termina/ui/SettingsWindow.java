@@ -712,6 +712,8 @@ public final class SettingsWindow {
     private ComboBox<Settings.CursorShape> cursorShape;
     private CheckBox altIsMeta;
     private CheckBox confirmPaste;
+    private CheckBox copyOnSelect;
+    private CheckBox notifications;
     private CheckBox clipboardWrite;
     private CheckBox typeAhead;
     private CheckBox bell;
@@ -729,19 +731,65 @@ public final class SettingsWindow {
     private Label saveError;
     private CheckBox updateCheck;
 
+    private Button removeTheme;
+    private Label themeImportResult;
+
+    private void importThemeFile() {
+        javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+        chooser.setTitle(tr("settings.importTheme"));
+        chooser.getExtensionFilters()
+                .add(new javafx.stage.FileChooser.ExtensionFilter(
+                        tr("settings.importTheme.filter"), com.termina.theme.ThemeImport.EXTENSIONS));
+        java.io.File file = chooser.showOpenDialog(stage);
+        if (file == null) return;
+        importTheme(file.toPath());
+    }
+
+    /** Imports a file and selects the first theme in it, saying what happened on the row. */
+    void importTheme(java.nio.file.Path file) {
+        try {
+            List<ThemeEntry> added = Themes.importFile(file);
+            themeImportResult.setText(tr(
+                    "settings.importTheme.done",
+                    String.join(
+                            ", ", added.stream().map(ThemeEntry::displayName).toList())));
+            themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+            if (!added.isEmpty()) settings.setThemeId(added.getFirst().id());
+        } catch (com.termina.theme.ThemeImportException e) {
+            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
+        } catch (java.io.IOException e) {
+            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
+        }
+    }
+
+    private void removeChosenTheme() {
+        ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
+        if (chosen == null || chosen.isBuiltIn()) return;
+        try {
+            Themes.remove(chosen.id());
+            themeImportResult.setText(tr("settings.removeTheme.done", chosen.displayName()));
+        } catch (java.io.IOException e) {
+            themeImportResult.setText(tr("settings.removeTheme.failed", chosen.displayName(), e.getMessage()));
+        }
+        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+        // What it falls back to is Editora Dark, which the stored id now means.
+        settings.setThemeId(Theme.EDITORA_DARK.id());
+    }
+
     private void buildAppearance(VBox page) {
         VBox theme = section(page, tr("settings.section.theme"));
 
         themeCombo = new ComboBox<>();
-        themeCombo.getItems().setAll(Theme.byDisplayName().keySet());
+        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
         themeCombo.setPrefWidth(200);
         themeCombo.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            Theme chosen = Theme.byDisplayName().get(value);
+            ThemeEntry chosen = Themes.byDisplayName().get(value);
             if (chosen != null) {
                 settings.setThemeId(chosen.id());
                 refreshPreview();
             }
+            removeTheme.setDisable(chosen == null || chosen.isBuiltIn());
         });
         row(
                 Category.APPEARANCE,
@@ -750,6 +798,25 @@ public final class SettingsWindow {
                 tr("settings.theme.desc"),
                 themeCombo,
                 "theme colour color dark light appearance palette");
+
+        // Importing: a file chooser for the formats ThemeImport reads, and a line that says what
+        // happened — the new theme's name, or why the file was not one.
+        Button importTheme = new Button(tr("settings.importTheme.button"));
+        importTheme.setOnAction(e -> importThemeFile());
+        removeTheme = new Button(tr("settings.removeTheme.button"));
+        removeTheme.setOnAction(e -> removeChosenTheme());
+        themeImportResult = new Label();
+        themeImportResult.getStyleClass().add("settings-note");
+        themeImportResult.setWrapText(true);
+        HBox themeButtons = new HBox(8, importTheme, removeTheme);
+        VBox themeImport = new VBox(6, themeButtons, themeImportResult);
+        row(
+                Category.APPEARANCE,
+                theme,
+                tr("settings.importTheme"),
+                tr("settings.importTheme.desc"),
+                themeImport,
+                "import theme itermcolors terminal windows terminal ghostty kitty alacritty scheme colours file");
 
         VBox font = section(page, tr("settings.section.font"));
 
@@ -963,6 +1030,19 @@ public final class SettingsWindow {
         });
         row(Category.TERMINAL, display, tr("settings.bell"), tr("settings.bell.desc"), bell, "bell alert flash sound");
 
+        notifications = new CheckBox();
+        notifications.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setNotifications(value);
+        });
+        row(
+                Category.TERMINAL,
+                display,
+                tr("settings.notifications"),
+                tr("settings.notifications.desc"),
+                notifications,
+                "notification notify desktop osc 9 777 alert toast bubble");
+
         VBox session = section(page, tr("settings.section.session"));
 
         confirmClose = new CheckBox();
@@ -1065,6 +1145,19 @@ public final class SettingsWindow {
                 tr("settings.confirmPaste.desc"),
                 confirmPaste,
                 "paste clipboard multiline newline confirm ask safety");
+
+        copyOnSelect = new CheckBox();
+        copyOnSelect.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setCopyOnSelect(value);
+        });
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.copyOnSelect"),
+                tr("settings.copyOnSelect.desc"),
+                copyOnSelect,
+                "copy select selection clipboard automatic primary highlight");
 
         clipboardWrite = new CheckBox();
         clipboardWrite.selectedProperty().addListener((o, old, value) -> {
@@ -1305,6 +1398,13 @@ public final class SettingsWindow {
     private CheckBox profileShown;
     private Button removeProfile;
     private Label profileSource;
+    private ComboBox<String> profileFont;
+    private ComboBox<String> profileFontSize;
+    private ComboBox<String> profileTheme;
+
+    /** The sizes offered for a profile; the list's first entry, Default, follows the global one. */
+    private static final List<String> PROFILE_FONT_SIZES =
+            List.of("9", "10", "11", "12", "13", "14", "15", "16", "18", "20", "22", "24", "28", "32");
 
     /**
      * The profile list and its editor.
@@ -1384,6 +1484,22 @@ public final class SettingsWindow {
         profileSource.getStyleClass().add("settings-row-description");
         profileSource.setWrapText(true);
 
+        // A profile's own look. Every profile can have one — the system shell and the discovered
+        // ones too — because it is stored by the profile's id rather than in the profile, so these
+        // stay enabled where the fields above are read-only. Default follows the global setting.
+        String defaultLabel = tr("settings.profileStyle.default");
+        profileFont = new ComboBox<>();
+        profileFont.getItems().add(defaultLabel);
+        profileFont.getItems().addAll(MonospaceFonts.available());
+        profileFontSize = new ComboBox<>();
+        profileFontSize.getItems().add(defaultLabel);
+        profileFontSize.getItems().addAll(PROFILE_FONT_SIZES);
+        profileTheme = new ComboBox<>();
+        for (ComboBox<String> box : List.of(profileFont, profileFontSize, profileTheme)) {
+            box.setPrefWidth(box == profileFontSize ? 120 : 240);
+            box.valueProperty().addListener((o, old, value) -> commitProfileStyle());
+        }
+
         Button addProfile = new Button(tr("settings.profileAdd"));
         addProfile.setOnAction(e -> addUserProfile());
         removeProfile = new Button(tr("settings.profileRemove"));
@@ -1403,6 +1519,9 @@ public final class SettingsWindow {
                         tr("settings.profileDirectory"),
                         profileDirectory,
                         withValidation(profileDirectory, new Label(), ShellLauncher::validateDirectory)),
+                labelled(tr("settings.profileFont"), profileFont),
+                labelled(tr("settings.profileFontSize"), profileFontSize),
+                labelled(tr("settings.profileTheme"), profileTheme),
                 profileShown,
                 profileSource,
                 buttons);
@@ -1492,10 +1611,61 @@ public final class SettingsWindow {
             profileShown.setDisable(!hideable);
             profileShown.setSelected(!present || !profiles.hiddenIds().contains(profile.id()));
             profileSource.setText(present ? sourceNote(profile) : "");
+            showProfileStyle(present ? settings.profileStyle(profile.id()) : null);
         } finally {
             loading = was;
         }
         editing = profile;
+    }
+
+    /** The three style pickers, for a profile's style or none; the caller holds {@code loading}. */
+    private void showProfileStyle(com.termina.config.Settings.ProfileStyle style) {
+        String defaultLabel = tr("settings.profileStyle.default");
+        profileTheme.getItems().setAll(defaultLabel);
+        profileTheme.getItems().addAll(Themes.byDisplayName().keySet());
+        boolean present = style != null;
+        for (ComboBox<String> box : List.of(profileFont, profileFontSize, profileTheme)) box.setDisable(!present);
+        if (!present) {
+            profileFont.setValue(defaultLabel);
+            profileFontSize.setValue(defaultLabel);
+            profileTheme.setValue(defaultLabel);
+            return;
+        }
+        profileFont.setValue(style.fontFamily().isEmpty() ? defaultLabel : style.fontFamily());
+        profileFontSize.setValue(style.fontSize() == null ? defaultLabel : formatSize(style.fontSize()));
+        ThemeEntry theme = style.themeId().isEmpty() ? null : Themes.byId(style.themeId());
+        profileTheme.setValue(
+                theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
+    }
+
+    private static String formatSize(double size) {
+        return size == Math.rint(size) ? String.valueOf((long) size) : String.valueOf(size);
+    }
+
+    /** Writes the three pickers to the profile the form is showing. */
+    private void commitProfileStyle() {
+        if (loading || editing == null) return;
+        String defaultLabel = tr("settings.profileStyle.default");
+        String font = profileFont.getValue();
+        String size = profileFontSize.getValue();
+        String themeName = profileTheme.getValue();
+        ThemeEntry theme = themeName == null || themeName.equals(defaultLabel)
+                ? null
+                : Themes.byDisplayName().get(themeName);
+        Double fontSize = null;
+        if (size != null && !size.equals(defaultLabel)) {
+            try {
+                fontSize = Double.parseDouble(size);
+            } catch (NumberFormatException e) {
+                fontSize = null;
+            }
+        }
+        settings.setProfileStyle(
+                editing.id(),
+                new com.termina.config.Settings.ProfileStyle(
+                        font == null || font.equals(defaultLabel) ? "" : font,
+                        fontSize,
+                        theme == null ? "" : theme.id()));
     }
 
     /**
@@ -1913,18 +2083,22 @@ public final class SettingsWindow {
     private void reloadControls() {
         loading = true;
         try {
-            Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+            ThemeEntry theme = Themes.byId(settings.themeId());
+            themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
             themeCombo.setValue(theme.displayName());
+            removeTheme.setDisable(theme.isBuiltIn());
             fontCombo.setValue(MonospaceFonts.resolve(settings.fontFamily()));
             fontSize.getValueFactory().setValue(settings.fontSize());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
+            copyOnSelect.setSelected(settings.copyOnSelect());
             clipboardWrite.setSelected(settings.clipboardWrite());
             typeAhead.setSelected(settings.typeAhead());
             reloadKeys();
             bell.setSelected(settings.bell());
+            notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showMenuBar.setSelected(settings.showMenuBar());
@@ -1961,7 +2135,7 @@ public final class SettingsWindow {
     private void refreshPreview() {
         if (preview == null) return;
         preview.update(
-                Theme.byId(settings.themeId(), Theme.EDITORA_DARK).palette(),
+                Themes.byId(settings.themeId()).palette(),
                 MonospaceFonts.resolve(settings.fontFamily()),
                 settings.fontSize());
     }

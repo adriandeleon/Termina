@@ -145,6 +145,22 @@ public final class TerminalWindow {
             applyTabBarVisibility();
         });
 
+        // A pane dropped on the strip's empty part becomes a tab of its own. On the TabPane, so it
+        // hears only what the headers' own handlers did not take.
+        tabs.addEventHandler(javafx.scene.input.DragEvent.DRAG_OVER, e -> {
+            if (!paneOverEmptyStrip(e)) return;
+            e.acceptTransferModes(TransferMode.MOVE);
+            e.consume();
+        });
+        tabs.addEventHandler(javafx.scene.input.DragEvent.DRAG_DROPPED, e -> {
+            if (!paneOverEmptyStrip(e)) return;
+            TerminalView pane = draggedPane;
+            draggedPane = null;
+            movePaneToNewTab(pane);
+            e.setDropCompleted(true);
+            e.consume();
+        });
+
         // The new-tab button floats over the right end of the tab strip rather than being a tab of
         // its own. A sentinel "+" tab would pollute every count and index in this class — tab
         // disposal, reordering, the hide-when-single rule, next/previous — each of which would then
@@ -231,7 +247,7 @@ public final class TerminalWindow {
                     stage.setX(at[0]);
                     stage.setY(at[1]);
                 }));
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+        ThemeEntry theme = Themes.byId(settings.themeId());
         scene.setFill(theme.palette().background());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
         if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
@@ -262,8 +278,15 @@ public final class TerminalWindow {
         stage.setOnCloseRequest(e -> {
             if (!confirmClose(new ArrayList<>(tabs.getTabs()))) e.consume();
         });
+        // However the window went — its close button, Close Window, quitting — its tabs go through
+        // the tab list, which is where disposal is. Closing the stage alone took nothing out of the
+        // list, so a window closed with others still open left every one of its shells running,
+        // with their pump threads, emulator threads and directory polls, until the app quit.
+        stage.addEventHandler(
+                javafx.stage.WindowEvent.WINDOW_HIDDEN, e -> tabs.getTabs().clear());
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
+            applyWindowTheme();
             if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
             // A hidden tab defers its repaint until it is shown, and being selected makes it
             // visible without laying it out — so it has to be told. Every pane of it, not only the
@@ -546,8 +569,8 @@ public final class TerminalWindow {
      *
      * <p>Attached and detached rather than left in place with empty text: a Tooltip bound to "" is
      * still a tooltip, and hovering produces a small empty box — which reads as something broken
-     * rather than as nothing to say. Windows has no {@code ProcessCwd}, so that is the state there
-     * for every tab, not an edge case.
+     * rather than as nothing to say. A WSL tab whose shell reports no directory is in that state
+     * for good, so it is not an edge case.
      */
     private void installDirectoryTooltip(Label label, javafx.beans.property.StringProperty directory) {
         Tooltip tip = new Tooltip();
@@ -737,9 +760,11 @@ public final class TerminalWindow {
     private String currentDirectory() {
         TerminalView terminal = activeTerminal();
         if (terminal == null || terminal.getSession() == null) return "";
-        // The shell's own report (OSC 7) where the OS cannot be asked — Windows.
-        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid())
-                .orElse(terminal.getDisplay().getCwd());
+        // Where a shell's own report wins (Windows: see ProcessCwd), the directory the tab knows —
+        // reported, or polled from the OS until one was — is the answer. Elsewhere the OS, asked now.
+        String known = terminal.getDisplay().getCwd();
+        if (com.termina.pty.ProcessCwd.reportedDirectoryWins() && known != null && !known.isBlank()) return known;
+        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid()).orElse(known);
     }
 
     /**
@@ -761,42 +786,8 @@ public final class TerminalWindow {
     private void openTab(com.termina.pty.LaunchOptions options, int index, String userTitle) {
         Tab tab = new Tab();
         TerminalView terminal = createPane(options, tab);
-        PaneGroup group = new PaneGroup(terminal);
-        tab.setContent(group);
-        tab.setUserData(group);
-        // The title goes on a Label graphic rather than on the Tab: a Tab is not a Node, so it has
-        // nowhere to attach drag handlers. It binds to the *tab* title, which is the shell's own
-        // title if it set one and otherwise just the directory's name — a path would not fit, and
-        // JavaFX ellipsises from the end, keeping exactly the leading part every tab has in common.
-        // Of the active pane, in a split tab, and rebound as the keyboard moves between panes.
-        Label title = new Label();
-        title.getStyleClass().add("tab-title");
-        // What the label had to leave out. The tab shows a name; the hover shows the path it is a
-        // name for — and when a program has set a title, the path is the only place left to say
-        // where that program is running.
-        javafx.beans.property.StringProperty directory = new javafx.beans.property.SimpleStringProperty("");
-        installDirectoryTooltip(title, directory);
-        followActivePane(tab, group, title, directory);
-        // A dot after the title when something happened here while another tab was selected:
-        // a bell, or output after a quiet spell. See TabMarks for the rule.
-        TabMarkState marks = new TabMarkState(title);
-        marks.setColours(Theme.byId(settings.themeId(), Theme.EDITORA_DARK).palette());
-        tab.getProperties().put(TAB_MARKS, marks);
-        tab.setGraphic(title);
-        tab.setContextMenu(buildTabMenu(tab));
-        installCloseTooltips();
-        // The close button is JavaFX's own and does not come through closeTab(); consuming the
-        // request is the only way to stop it.
-        tab.setOnCloseRequest(e -> {
-            if (!confirmClose(List.of(tab))) e.consume();
-            else rememberClosed(tab);
-        });
         terminal.getDisplay().setUserTitle(userTitle);
-        tabs.getTabs().add(Math.max(0, Math.min(index, tabs.getTabs().size())), tab);
-        tabs.getSelectionModel().select(tab);
-        // After the tab is in the list: the header this attaches to is built by the skin, and does
-        // not exist until the tab does.
-        installTabDrag(0);
+        addTab(tab, new PaneGroup(terminal), index);
 
         try {
             terminal.start();
@@ -819,14 +810,69 @@ public final class TerminalWindow {
     }
 
     /**
+     * Puts a tab holding {@code group} into the strip at {@code index} and selects it: its title,
+     * marks, menu, close handling and drag. The panes' shells are not started here — a new tab's
+     * are, a moved pane's already run.
+     */
+    private void addTab(Tab tab, PaneGroup group, int index) {
+        tab.setContent(group);
+        tab.setUserData(group);
+        // The title goes on a Label graphic rather than on the Tab: a Tab is not a Node, so it has
+        // nowhere to attach drag handlers. It binds to the *tab* title, which is the shell's own
+        // title if it set one and otherwise just the directory's name — a path would not fit, and
+        // JavaFX ellipsises from the end, keeping exactly the leading part every tab has in common.
+        // Of the active pane, in a split tab, and rebound as the keyboard moves between panes.
+        Label title = new Label();
+        title.getStyleClass().add("tab-title");
+        // What the label had to leave out. The tab shows a name; the hover shows the path it is a
+        // name for — and when a program has set a title, the path is the only place left to say
+        // where that program is running.
+        javafx.beans.property.StringProperty directory = new javafx.beans.property.SimpleStringProperty("");
+        installDirectoryTooltip(title, directory);
+        followActivePane(tab, group, title, directory);
+        // A dot after the title when something happened here while another tab was selected:
+        // a bell, or output after a quiet spell. See TabMarks for the rule.
+        TabMarkState marks = new TabMarkState(title);
+        marks.setColours(Themes.byId(settings.themeId()).palette());
+        tab.getProperties().put(TAB_MARKS, marks);
+        tab.setGraphic(title);
+        tab.setContextMenu(buildTabMenu(tab));
+        installCloseTooltips();
+        // The close button is JavaFX's own and does not come through closeTab(); consuming the
+        // request is the only way to stop it.
+        tab.setOnCloseRequest(e -> {
+            if (!confirmClose(List.of(tab))) e.consume();
+            else rememberClosed(tab);
+        });
+        tabs.getTabs().add(Math.max(0, Math.min(index, tabs.getTabs().size())), tab);
+        tabs.getSelectionModel().select(tab);
+        // After the tab is in the list: the header this attaches to is built by the skin, and does
+        // not exist until the tab does.
+        installTabDrag(0);
+    }
+
+    /**
      * A terminal wired to this window, for a new tab or a new pane in {@code tab}: the settings,
      * the menus' actions, the link opener, and the tab's marks — any pane's bell or output marks
      * the tab it is in.
      */
     private TerminalView createPane(com.termina.pty.LaunchOptions options, Tab tab) {
         TerminalView terminal = new TerminalView(settings.fontSize());
-        applySettingsTo(terminal);
+        // Options first: they name the profile, and the profile's font and theme are part of the
+        // settings applied next.
         terminal.setSessionOptions(settings.scrollbackLines(), options);
+        applySettingsTo(terminal);
+        wirePane(terminal, tab);
+        return terminal;
+    }
+
+    /**
+     * Everything a pane is told about the tab and window it is in. Separate from {@link
+     * #createPane} because a pane moved to another tab keeps its shell and needs only this again:
+     * its bell and output must mark the tab it is in now, not the one it came from.
+     */
+    private void wirePane(TerminalView terminal, Tab tab) {
+        terminal.setOnPaneDragStarted(pane -> draggedPane = pane);
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
         terminal.setPasteConfirmer(this::confirmPaste);
         terminal.setOnNewTab(this::openTab);
@@ -845,6 +891,16 @@ public final class TerminalWindow {
             TabMarkState marks = marksOf(tab);
             if (marks != null) marks.apply(TabMarks.onBell(isSelected(tab), marks.mark));
         });
+        terminal.setOnNotify((notification, post) -> {
+            TabMarkState marks = marksOf(tab);
+            if (marks != null) marks.apply(TabMarks.onNotify(isSelected(tab)));
+            if (!post || !settings.notifications()) return;
+            PaneGroup group = groupOf(tab);
+            if (!TabMarks.postsToDesktop(stage.isFocused(), isSelected(tab), group.active() == terminal)) return;
+            // Untitled, it is named after the tab, which is how the user knows which one spoke.
+            String title = notification.title().isEmpty() ? label(tab) : notification.title();
+            DesktopNotifier.post(title.isBlank() ? com.termina.AppInfo.NAME : title, notification.body());
+        });
         terminal.setOnOutput(() -> {
             TabMarkState marks = marksOf(tab);
             if (marks == null) return;
@@ -852,7 +908,6 @@ public final class TerminalWindow {
             marks.apply(TabMarks.onOutput(isSelected(tab), marks.mark, now, marks.lastOutputMs, TabMarks.QUIET_MS));
             marks.lastOutputMs = now;
         });
-        return terminal;
     }
 
     /**
@@ -867,7 +922,10 @@ public final class TerminalWindow {
             directory.bind(pane.getDisplay().tabTooltipProperty());
             if (isSelected(tab)) bindTitleTo(tab);
         };
-        group.activeProperty().addListener((o, was, now) -> follow.accept(now));
+        group.activeProperty().addListener((o, was, now) -> {
+            follow.accept(now);
+            if (isSelected(tab)) applyWindowTheme();
+        });
         follow.accept(group.active());
     }
 
@@ -936,6 +994,13 @@ public final class TerminalWindow {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         if (tab == null) return;
         PaneGroup group = groupOf(tab);
+        // The neighbours are measured on screen, and while one pane fills the tab the rest are not
+        // on it: put them back first, laid out, then move.
+        if (group.isMaximized()) {
+            group.restore();
+            group.applyCss();
+            group.layout();
+        }
         TerminalView next = group.neighbour(group.active(), direction);
         if (next == null) return;
         group.setActive(next);
@@ -957,6 +1022,85 @@ public final class TerminalWindow {
         removePane(tab, pane);
     }
 
+    /**
+     * Shows the active pane on its own, filling the tab, or puts it back among the others. The
+     * others keep running; see {@link PaneGroup#maximize}.
+     */
+    private void toggleMaximizePane() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        PaneGroup group = groupOf(tab);
+        if (group.isMaximized()) group.restore();
+        else if (!group.maximize(group.active())) return;
+        group.applyCss();
+        group.layout();
+        TerminalView active = group.active();
+        if (active != null) active.requestFocus();
+    }
+
+    /** The tab a pane is in, or null when it is in none of this window's. */
+    private Tab tabOf(TerminalView pane) {
+        for (Tab tab : tabs.getTabs()) {
+            if (groupOf(tab).contains(pane)) return tab;
+        }
+        return null;
+    }
+
+    /**
+     * Takes a pane out of its tab <em>without</em> disposing of it — it is moving, not closing. A tab
+     * left with no panes goes, and disposes nothing doing so: the list listener closes the panes the
+     * group still has, and it has none.
+     */
+    private void detachPane(Tab tab, TerminalView pane) {
+        PaneGroup group = groupOf(tab);
+        TerminalView next = group.remove(pane);
+        if (group.panes().isEmpty()) tabs.getTabs().remove(tab);
+        else if (next != null && isSelected(tab)) next.requestFocus();
+    }
+
+    /** Moves a pane of a split tab into a tab of its own, right after the one it was in. */
+    private void movePaneToNewTab(TerminalView pane) {
+        Tab from = tabOf(pane);
+        // A pane alone in its tab already is one.
+        if (from == null || !groupOf(from).isSplit()) return;
+        int index = tabs.getTabs().indexOf(from) + 1;
+        detachPane(from, pane);
+        Tab tab = new Tab();
+        wirePane(pane, tab);
+        addTab(tab, new PaneGroup(pane), index);
+        endPaneWithItsShell(tab, pane);
+        Platform.runLater(pane::requestFocus);
+    }
+
+    /** Moves a pane into another tab, to the right of that tab's active pane. */
+    private void movePaneToTab(TerminalView pane, Tab target) {
+        Tab from = tabOf(pane);
+        if (from == null || from == target || !tabs.getTabs().contains(target)) return;
+        detachPane(from, pane);
+        PaneGroup group = groupOf(target);
+        wirePane(pane, target);
+        group.split(group.active(), javafx.geometry.Orientation.HORIZONTAL, pane);
+        endPaneWithItsShell(target, pane);
+        tabs.getSelectionModel().select(target);
+        group.setActive(pane);
+        group.applyCss();
+        group.layout();
+        pane.requestFocus();
+    }
+
+    /** The pane being dragged, which the Dragboard cannot carry: a node is not serialisable. */
+    private TerminalView draggedPane;
+
+    /** Whether a drag over the strip carries a pane, and is over the strip's empty part. */
+    private boolean paneOverEmptyStrip(javafx.scene.input.DragEvent e) {
+        if (draggedPane == null || !e.getDragboard().hasContent(PaneDrag.FORMAT)) return false;
+        Tab from = tabOf(draggedPane);
+        if (from == null || !groupOf(from).isSplit()) return false;
+        javafx.scene.Node strip = tabs.lookup(".tab-header-area");
+        if (strip == null || !strip.isVisible()) return false;
+        return strip.localToScene(strip.getLayoutBounds()).contains(e.getSceneX(), e.getSceneY());
+    }
+
     /** The selected tab's panes as a tree, for the capture hook. */
     public String paneReport() {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
@@ -971,6 +1115,52 @@ public final class TerminalWindow {
     /** Moves to a neighbouring pane, by direction name — for the capture hook. */
     public void focusPaneForCapture(String direction) {
         focusPane(PaneGroup.Direction.valueOf(direction));
+    }
+
+    /** Opens the Nth profile in a new tab, as its chord would — for the capture hook. */
+    public void openProfileForCapture(int number) {
+        openProfileByNumber(number);
+    }
+
+    /** Each pane's profile, font and background, tab by tab — for the capture hook. */
+    public String paneStyleReport() {
+        List<String> out = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) {
+            for (TerminalView pane : groupOf(tab).panes()) {
+                out.add(pane.launchOptions().profileId() + ":" + themeOf(pane).id() + ":"
+                        + pane.fontReportForCapture());
+            }
+        }
+        Object fill = stage.getScene() == null ? null : stage.getScene().getFill();
+        return out + " sceneFill=" + fill;
+    }
+
+    /** Maximizes or restores the active pane — for the capture hook. */
+    public void toggleMaximizePaneForCapture() {
+        toggleMaximizePane();
+    }
+
+    /** Moves the active pane to a new tab, or to the tab at {@code index} — for the capture hook. */
+    public void moveActivePaneForCapture(int index) {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab == null) return;
+        TerminalView pane = groupOf(tab).active();
+        if (index < 0) movePaneToNewTab(pane);
+        else if (index < tabs.getTabs().size())
+            movePaneToTab(pane, tabs.getTabs().get(index));
+    }
+
+    /** Closes the whole selected tab, split or not, as its close button would — for the capture hook. */
+    public void closeSelectedTabForCapture() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        if (tab != null) closeTab(tab);
+    }
+
+    /** Every tab's panes, for the capture hook: {@code [H[0*, 1], 0*]}. */
+    public String allPanesReport() {
+        List<String> out = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) out.add(groupOf(tab).describe());
+        return out.toString();
     }
 
     /** Closes the active pane as the chord would — for the capture hook. */
@@ -1056,6 +1246,16 @@ public final class TerminalWindow {
         });
 
         header.setOnDragOver(e -> {
+            // A pane dropped on a tab joins it; dropped on its own tab it is already there.
+            if (draggedPane != null && e.getDragboard().hasContent(PaneDrag.FORMAT)) {
+                if (!groupOf(tab).contains(draggedPane)) {
+                    e.acceptTransferModes(TransferMode.MOVE);
+                    if (!header.getStyleClass().contains("tab-drop-into"))
+                        header.getStyleClass().add("tab-drop-into");
+                }
+                e.consume();
+                return;
+            }
             if (draggedTab == null || e.getGestureSource() == header) return;
             if (!e.getDragboard().hasContent(TAB_DRAG)) return;
             e.acceptTransferModes(TransferMode.MOVE);
@@ -1067,6 +1267,14 @@ public final class TerminalWindow {
 
         header.setOnDragDropped(e -> {
             clearDropMarks(header);
+            if (draggedPane != null && e.getDragboard().hasContent(PaneDrag.FORMAT)) {
+                TerminalView pane = draggedPane;
+                draggedPane = null;
+                movePaneToTab(pane, tab);
+                e.setDropCompleted(true);
+                e.consume();
+                return;
+            }
             if (draggedTab == null || !e.getDragboard().hasContent(TAB_DRAG)) return;
             int from = tabs.getTabs().indexOf(draggedTab);
             int over = tabs.getTabs().indexOf(tab);
@@ -1093,7 +1301,7 @@ public final class TerminalWindow {
     }
 
     private static void clearDropMarks(javafx.scene.Node header) {
-        header.getStyleClass().removeAll("tab-drop-before", "tab-drop-after");
+        header.getStyleClass().removeAll("tab-drop-before", "tab-drop-after", "tab-drop-into");
     }
 
     /** Marks a header as already carrying the gesture, so a retry does not install it twice. */
@@ -1240,6 +1448,7 @@ public final class TerminalWindow {
         TabMarks.Mark mark = TabMarks.Mark.NONE;
         javafx.scene.paint.Color activity = javafx.scene.paint.Color.GRAY;
         javafx.scene.paint.Color bell = javafx.scene.paint.Color.GRAY;
+        javafx.scene.paint.Color notify = javafx.scene.paint.Color.GRAY;
 
         /** Opening the tab counts as output: its first prompt is not news. */
         long lastOutputMs = System.currentTimeMillis();
@@ -1250,10 +1459,11 @@ public final class TerminalWindow {
             title.setGraphicTextGap(6);
         }
 
-        /** Yellow for a bell and cyan for activity, in the theme's own rendering of each. */
+        /** Magenta for a notification, yellow for a bell, cyan for activity, in the theme's own rendering of each. */
         void setColours(TerminalPalette palette) {
             activity = palette.ansi()[6];
             bell = palette.ansi()[3];
+            notify = palette.ansi()[5];
             paint();
         }
 
@@ -1265,7 +1475,12 @@ public final class TerminalWindow {
         }
 
         private void paint() {
-            dot.setFill(mark == TabMarks.Mark.BELL ? bell : activity);
+            dot.setFill(
+                    switch (mark) {
+                        case NOTIFY -> notify;
+                        case BELL -> bell;
+                        default -> activity;
+                    });
         }
     }
 
@@ -1389,23 +1604,61 @@ public final class TerminalWindow {
     private final ClosedTabs closedTabs = new ClosedTabs();
 
     private void rememberClosed(Tab tab) {
-        TerminalView terminal = terminalOf(tab);
-        if (terminal == null) return;
-        FxTerminalDisplay display = terminal.getDisplay();
-        closedTabs.remember(new ClosedTabs.Entry(
-                ClosedTabs.inDirectory(terminal.launchOptions(), display.getCwd()),
-                display.getUserTitle(),
-                tabs.getTabs().indexOf(tab)));
+        PaneGroup group = groupOf(tab);
+        if (group.panes().isEmpty()) return;
+        closedTabs.remember(
+                new ClosedTabs.Entry(group.layout(this::leafOf), tabs.getTabs().indexOf(tab)));
     }
 
-    /** Brings back the most recently closed tab: same shell, its last directory, its old place. */
+    /** A pane as Reopen Closed Tab will start it again: its shell, where it is now, its name. */
+    private PaneLayout.Leaf leafOf(TerminalView pane) {
+        FxTerminalDisplay display = pane.getDisplay();
+        return new PaneLayout.Leaf(
+                ClosedTabs.inDirectory(pane.launchOptions(), display.getCwd()), display.getUserTitle());
+    }
+
+    /**
+     * Brings back the most recently closed tab: each pane's shell in its last directory, the panes
+     * arranged as they were with the same one active, and the tab in its old place.
+     */
     public void reopenClosedTab() {
-        closedTabs
-                .pop()
-                .ifPresent(entry -> openTab(
-                        entry.options(),
-                        ClosedTabs.reopenIndex(entry.index(), tabs.getTabs().size()),
-                        entry.userTitle()));
+        closedTabs.pop().ifPresent(this::reopen);
+    }
+
+    private void reopen(ClosedTabs.Entry entry) {
+        int index = ClosedTabs.reopenIndex(entry.index(), tabs.getTabs().size());
+        if (entry.layout().root() instanceof PaneLayout.Leaf leaf) {
+            openTab(leaf.options(), index, leaf.userTitle());
+            return;
+        }
+        Tab tab = new Tab();
+        PaneGroup group = PaneGroup.of(entry.layout(), leaf -> {
+            TerminalView pane = createPane(leaf.options(), tab);
+            pane.getDisplay().setUserTitle(leaf.userTitle());
+            return pane;
+        });
+        addTab(tab, group, index);
+        // Splits made in this pulse have no skin and their panes are not in the scene yet; laid out
+        // first, every shell starts at its real size. See splitActivePane.
+        tabs.applyCss();
+        tabs.layout();
+        for (TerminalView pane : new ArrayList<>(group.panes())) {
+            try {
+                pane.start();
+            } catch (IOException e) {
+                reportShellFailure(pane.launchOptions(), e, false);
+                group.remove(pane);
+                pane.close();
+                if (group.panes().isEmpty()) {
+                    tabs.getTabs().remove(tab);
+                    return;
+                }
+                continue;
+            }
+            endPaneWithItsShell(tab, pane);
+        }
+        TerminalView active = group.active();
+        if (active != null) Platform.runLater(active::requestFocus);
     }
 
     /** Opens a second tab like this one — same shell, where it is now — right after it. */
@@ -2198,7 +2451,14 @@ public final class TerminalWindow {
                 register(item(
                         "menu.splitDown",
                         MAC ? MenuAction.shiftChord(KeyCode.D) : MenuAction.appChord(KeyCode.O),
-                        () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))));
+                        () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))),
+                // iTerm2's Cmd+Shift+Enter, and the same with Ctrl elsewhere — Ctrl+Shift+Z, tmux's
+                // idea, is too close to an editor's redo to take from a program.
+                register(item("menu.maximizePane", MenuAction.shiftChord(KeyCode.ENTER), this::toggleMaximizePane)),
+                register(item("menu.movePaneToNewTab", () -> {
+                    Tab tab = tabs.getSelectionModel().getSelectedItem();
+                    if (tab != null) movePaneToNewTab(groupOf(tab).active());
+                })));
 
         // Moving between panes: chords and palette entries, no menu items — four of them would be
         // most of the Window menu. iTerm2's Cmd+Option+arrows on macOS; the same with Shift added
@@ -2639,15 +2899,8 @@ public final class TerminalWindow {
 
     /** Re-applies everything that can change while a session is running, to every tab. */
     public void applySettings() {
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
-        if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
         applyTabBarVisibility();
         applyMenuBarVisibility();
-        // The window buttons are drawn by JavaFX where the platform does not provide them, and
-        // they follow the scene's colour scheme unless told otherwise. The scene's is the OS's,
-        // not ours — a dark theme on a light desktop would get dark glyphs on a dark header.
-        if (headerBar != null)
-            HeaderBar.setSystemColorScheme(stage, theme.isDark() ? ColorScheme.DARK : ColorScheme.LIGHT);
         // Live, and on the stage rather than the scene: a decorated window's native background is
         // opaque, so scene-level transparency needs StageStyle.TRANSPARENT — which takes the title
         // bar with it and can only be chosen before the window is shown. Stage opacity keeps both
@@ -2657,21 +2910,56 @@ public final class TerminalWindow {
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         applyKeybindings();
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
+        applyWindowTheme();
+    }
+
+    /**
+     * The colours the window itself takes from a theme — the scene behind the panes, the window
+     * buttons, each tab's marks — from the theme of the pane being worked in, since with per-profile
+     * themes a window can hold several. Re-applied as the active pane or tab changes. The control
+     * stylesheet is the application's and stays with the global theme.
+     */
+    private void applyWindowTheme() {
+        TerminalView active = activeTerminal();
+        ThemeEntry theme = active == null ? Themes.byId(settings.themeId()) : themeOf(active);
+        if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
+        // The window buttons are drawn by JavaFX where the platform does not provide them, and
+        // they follow the scene's colour scheme unless told otherwise. The scene's is the OS's,
+        // not ours — a dark theme on a light desktop would get dark glyphs on a dark header.
+        if (headerBar != null)
+            HeaderBar.setSystemColorScheme(stage, theme.isDark() ? ColorScheme.DARK : ColorScheme.LIGHT);
         for (Tab tab : tabs.getTabs()) {
             TabMarkState marks = marksOf(tab);
-            if (marks != null) marks.setColours(theme.palette());
+            TerminalView pane = terminalOf(tab);
+            if (marks != null) marks.setColours((pane == null ? theme : themeOf(pane)).palette());
         }
     }
 
+    /** The theme a pane draws in: its profile's, if it names one that exists, else the global one. */
+    private ThemeEntry themeOf(TerminalView terminal) {
+        return themeFor(settings.profileStyle(terminal.launchOptions().profileId()), settings.themeId());
+    }
+
+    /** Pure: a profile's theme id if it names a theme, otherwise the global one. */
+    static ThemeEntry themeFor(com.termina.config.Settings.ProfileStyle style, String globalThemeId) {
+        if (!style.themeId().isEmpty()) {
+            ThemeEntry own = Themes.byId(style.themeId());
+            if (own.id().equals(style.themeId())) return own;
+        }
+        return Themes.byId(globalThemeId);
+    }
+
     private void applySettingsTo(TerminalView terminal) {
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
-        terminal.setPalette(theme.palette());
-        terminal.setFontFamily(settings.fontFamily());
-        terminal.setFontSize(settings.effectiveFontSize());
+        com.termina.config.Settings.ProfileStyle style =
+                settings.profileStyle(terminal.launchOptions().profileId());
+        terminal.setPalette(themeOf(terminal).palette());
+        terminal.setFontFamily(style.fontFamily().isEmpty() ? settings.fontFamily() : style.fontFamily());
+        terminal.setFontSize(settings.effectiveFontSize(style));
         terminal.setPreferredCursor(settings.cursorShape());
         terminal.setAltIsMeta(settings.altIsMeta());
         terminal.setBellEnabled(settings.bell());
         terminal.setClipboardWrites(settings.clipboardWrite());
+        terminal.setCopyOnSelect(settings.copyOnSelect());
         terminal.setTypeAheadAllowed(settings.typeAhead());
         terminal.setScrollBarEnabled(settings.showScrollBar());
     }
@@ -2732,6 +3020,21 @@ public final class TerminalWindow {
                     .describedAs(tr("palette.goToTab.desc"))
                     .withKeywords(tr("palette.group.tabs")));
         }
+        // A split tab's active pane can go to any other tab, by name, for the reason the tab rows
+        // are by name.
+        Tab current = tabs.getSelectionModel().getSelectedItem();
+        if (current != null && groupOf(current).isSplit()) {
+            TerminalView pane = groupOf(current).active();
+            for (int index = 0; index < open.size(); index++) {
+                Tab target = open.get(index);
+                if (target == current) continue;
+                all.add(MenuAction.of(
+                                tr("palette.movePaneToTab", index + 1, label(target)),
+                                () -> movePaneToTab(pane, target))
+                        .describedAs(tr("palette.movePaneToTab.desc"))
+                        .withKeywords(tr("palette.group.tabs")));
+            }
+        }
         // By name rather than by number. The submenu's chords are "profile 3"; here there is room to
         // say "Ubuntu (WSL)", which is the only form anybody would search for.
         for (com.termina.shell.Profile profile : windows.profiles().all()) {
@@ -2739,7 +3042,7 @@ public final class TerminalWindow {
                     .describedAs(tr("palette.newTabProfile.desc"))
                     .withKeywords(tr("palette.group.profiles")));
         }
-        for (Theme theme : Theme.values()) {
+        for (ThemeEntry theme : Themes.all()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
             all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id()))
                     .describedAs(tr("palette.theme.desc"))

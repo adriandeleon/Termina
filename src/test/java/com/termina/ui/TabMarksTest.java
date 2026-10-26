@@ -4,6 +4,8 @@ import com.termina.ui.TabMarks.Mark;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** When a background tab gets a dot, and when it loses it. */
 class TabMarksTest {
@@ -37,5 +39,22 @@ class TabMarksTest {
         assertEquals(Mark.BELL, TabMarks.onOutput(false, Mark.BELL, 10_000, 0, QUIET));
         assertEquals(Mark.NONE, TabMarks.onOutput(true, Mark.BELL, 10_000, 0, QUIET));
         assertEquals(Mark.NONE, TabMarks.onSelected());
+    }
+
+    @Test
+    void aNotificationOutranksEverything() {
+        assertEquals(Mark.NOTIFY, TabMarks.onNotify(false));
+        assertEquals(Mark.NONE, TabMarks.onNotify(true));
+        assertEquals(Mark.NOTIFY, TabMarks.onBell(false, Mark.NOTIFY));
+        assertEquals(Mark.NOTIFY, TabMarks.onOutput(false, Mark.NOTIFY, 10_000, 0, QUIET));
+        assertEquals(Mark.NONE, TabMarks.onOutput(true, Mark.NOTIFY, 10_000, 0, QUIET));
+    }
+
+    @Test
+    void theDesktopHearsOfItUnlessThePaneIsTheOneInFront() {
+        assertFalse(TabMarks.postsToDesktop(true, true, true));
+        assertTrue(TabMarks.postsToDesktop(false, true, true), "another window in front");
+        assertTrue(TabMarks.postsToDesktop(true, false, true), "another tab selected");
+        assertTrue(TabMarks.postsToDesktop(true, true, false), "another pane of the split");
     }
 }
