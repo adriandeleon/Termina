@@ -19,6 +19,11 @@ class DesktopNotifierTest {
 
     private static final String HOSTILE = "x\" & do shell script \"rm -rf ~\" & \"";
 
+    /** Where the fake finder says a program is, spelled as this platform spells a path. */
+    private static String bin(String name) {
+        return Path.of("/usr/bin", name).toString();
+    }
+
     private static Function<String, Path> installed(String... names) {
         Set<String> present = Set.of(names);
         return name -> present.contains(name) ? Path.of("/usr/bin", name) : null;
@@ -27,13 +32,13 @@ class DesktopNotifierTest {
     @Test
     void linuxPrefersNotifySendWithTheTextAsItsOwnArguments() {
         var command = DesktopNotifier.command("Linux", "-t", "a <b>", installed("notify-send", "gdbus"));
-        assertEquals(List.of("/usr/bin/notify-send", "--app-name=Termina", "--", "-t", "a &lt;b&gt;"), command.argv());
+        assertEquals(List.of(bin("notify-send"), "--app-name=Termina", "--", "-t", "a &lt;b&gt;"), command.argv());
     }
 
     @Test
     void linuxFallsBackToTheSessionBusWithQuotedStrings() {
         var command = DesktopNotifier.command("Linux", "it's", "back\\slash", installed("gdbus"));
-        assertEquals("/usr/bin/gdbus", command.argv().getFirst());
+        assertEquals(bin("gdbus"), command.argv().getFirst());
         // The arguments follow "--", or the trailing -1 is taken for an option.
         int separator = command.argv().indexOf("--");
         assertTrue(separator > 0 && separator < command.argv().indexOf("'Termina'"));
