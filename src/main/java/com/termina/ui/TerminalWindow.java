@@ -1583,7 +1583,10 @@ public final class TerminalWindow {
                 terminal,
                 tr("shortcuts.copyInsert"),
                 new KeyCodeCombination(KeyCode.INSERT, KeyCombination.CONTROL_DOWN).getDisplayText()));
-        out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.pasteClipboard"), tr("shortcuts.middleClick")));
+        out.add(new ShortcutReference.Shortcut(
+                terminal,
+                tr(PrimarySelection.exists() ? "shortcuts.pasteSelection" : "shortcuts.pasteClipboard"),
+                tr("shortcuts.middleClick")));
         out.add(new ShortcutReference.Shortcut(
                 terminal, tr("shortcuts.openLink"), tr("shortcuts.modifierClick", MAC ? "Cmd" : "Ctrl")));
         out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.selectionBypass"), tr("shortcuts.shiftDrag")));

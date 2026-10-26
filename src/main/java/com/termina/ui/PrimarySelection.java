@@ -87,6 +87,11 @@ final class PrimarySelection {
         return null;
     }
 
+    /** Whether this platform has a PRIMARY selection, so that a middle-click is meant to paste it. */
+    static boolean exists() {
+        return LINUX;
+    }
+
     private static boolean present(String value) {
         return value != null && !value.isBlank();
     }

@@ -641,8 +641,8 @@ colours are taken exactly as the file has them, cursor and selection included wh
 and the chrome follows its background. A `.terminal` profile is the awkward one: each colour is an
 `NSColor` archived with `NSKeyedArchiver` into a *binary* property list inside the XML one, so it has
 a small `bplist00` reader of its own. The XML is parsed with every external DTD and entity refused,
-since the file is whatever was downloaded. Imported themes are not synced; a synced theme that
-another machine does not have falls back to Editora Dark.
+since the file is whatever was downloaded. Themes are not synced at all — sync carries only the key
+bindings — and a settings file naming a theme this machine does not have falls back to Editora Dark.
 
 ## Notable details
 
