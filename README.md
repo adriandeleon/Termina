@@ -461,6 +461,32 @@ The predictor's other half, the line it edits and the code that draws it, lives 
 UI and writes into a package-private field of `TerminalLine`, which is out of reach across a module
 boundary. `TypeAheadModel` keeps the predicted line itself and the view draws it over the real one.
 
+### The kitty keyboard protocol
+
+A program can ask for the [kitty keyboard
+protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/), and Termina implements all of it:
+Escape stops being the start of every sequence, Ctrl+I stops being Tab and Shift+Enter is its own
+key; with the further flags, repeats and releases, the shifted key, every key including the
+modifiers, and the text each key types. Neovim, Vim, Helix, fish and nushell turn it on by
+themselves. Nothing changes until a program asks — every key keeps its legacy bytes — and plain
+typing, Enter, Tab and Backspace keep them under the first flag too, so `reset` can still be typed
+after a program that crashed with the mode on. `reset` clears it.
+
+**The mode requests are taken out before JediTerm sees them.** Each is a `CSI … u` with a marker
+(`>` push, `<` pop, `=` set, `?` query), and JediTerm reads any `CSI u` as SCORC, restore the saved
+cursor, ignoring the marker — so a program turning the protocol on would have had its cursor thrown
+somewhere instead. `KeyboardModeInterceptor` wraps the same stream as the OSC interceptor, and
+`KeyboardFlags` keeps a stack per screen, as the specification requires, so an editor on the
+alternate screen can change the mode there without disturbing the shell's.
+
+JavaFX reports a keystroke as three events and says neither when a press is a repeat nor which
+releases a program is owed; `KittyKeyInput` works both out — a press of a key already down is a
+repeat, and a release is sent only for a key whose press went out as an escape. `KittyKeys` is the
+encoder, pure and tested against the specification's own examples. Three things are approximated:
+JavaFX cannot tell a left modifier from a right one, so all are reported as the left; it has no
+"base layout key", so that optional field is never sent; and AltGr is told from Ctrl+Alt the way the
+legacy encoder already does, by whether the press composed something.
+
 ### Settings
 
 `Cmd/Ctrl+,` or the context menu opens preferences: theme, font family and size, cursor shape, visual bell, scrollback
@@ -657,6 +683,9 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureSelectLastOutput=true # select the last command's output and print it — read
                                        # from the buffer, never the clipboard, which is the user's
   -Dtermina.capturePredict='git status' # draw a type-ahead prediction at the cursor
+  -Dtermina.captureKeystrokes=C-a,S-enter,escape,key:SHIFT
+                                       # fire whole keystrokes (press, typed, release) at the
+                                       # terminal; pair with a program that prints what it reads
   -Dtermina.capturePanes=right,down,left,close
                                        # split, move between and close panes, printing the tree
                                        # after each step: H[0, V[1*, 2]], * on the active pane
@@ -698,8 +727,7 @@ an app icon has to work hardest at.
   is a shell and a starting directory — no per-profile font or theme.
 - **Panes.** No zooming one pane to fill the tab, no dragging a pane to another tab, and Reopen
   Closed Tab brings back the active pane's shell only.
-- **Escape sequences.** No desktop notifications (OSC 9/777), kitty keyboard protocol, inline images
-  or ligatures. Which of these JediTerm already handles, and what each would cost, is in
+- **Escape sequences.** No desktop notifications (OSC 9/777), inline images or ligatures. Which of these JediTerm already handles, and what each would cost, is in
   [docs/jediterm-capabilities.md](docs/jediterm-capabilities.md); how other terminals compare is in
   [docs/competitive-landscape.md](docs/competitive-landscape.md).
 - **The working directory on Windows** comes only from a shell that reports it with OSC 7. The OS
