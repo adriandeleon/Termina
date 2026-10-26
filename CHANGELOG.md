@@ -5,12 +5,35 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
-Split panes, scrollback search, shell integration and shortcuts that can all be changed. Three
-requests programs make of a terminal — a declared link, the clipboard, the directory — are honoured
-rather than dropped, typing over a slow SSH link is predicted, programs can ask for the kitty
-keyboard protocol, and an idle terminal lets the machine idle.
+Split panes, scrollback search, shell integration and shortcuts that can all be changed. Four
+requests programs make of a terminal — a declared link, the clipboard, the directory, a
+notification — are honoured rather than dropped, typing over a slow SSH link is predicted, programs
+can ask for the kitty keyboard protocol, and an idle terminal lets the machine idle. Selection
+autoscrolls, makes blocks and survives typing; panes maximize, move and reopen as they were; themes
+can be imported from six other terminals' formats; and a profile can have its own font and theme.
 
 ### Added
+
+- **Selection does more.** Dragging past the top or bottom edge scrolls and keeps selecting, faster
+  the further out, with the pointer held still. Alt+drag (Option on macOS, Ctrl+Alt where the window
+  manager takes Alt) selects a block, copied a row per line. Copy on select is a setting on
+  Terminal → Input. On Linux a selection is the PRIMARY selection and a middle-click pastes it,
+  through `wl-paste`/`wl-copy` or `xclip`/`xsel`.
+- **Maximize, move and drag panes.** Window → Maximize Pane (`Cmd/Ctrl+Shift+Enter`) shows the
+  active pane alone, with the others still running. Move Pane to New Tab, palette rows to move it
+  into any other tab, and Cmd+Option+Shift-drag (Ctrl+Alt+Shift elsewhere) onto a tab or the strip.
+  Reopen Closed Tab brings a split tab back with every pane, arranged as it was.
+- **Desktop notifications (OSC 9, OSC 777).** A program's notification marks its tab with a dot that
+  outranks the bell's, and reaches the desktop unless you are looking at that pane: `notify-send`
+  or the session bus on Linux, `osascript` on macOS, a toast on Windows. Terminal → Display turns the
+  desktop half off.
+- **Import a theme.** Settings → Appearance → Import… reads iTerm2 `.itermcolors`, Terminal
+  `.terminal`, Windows Terminal schemes or `settings.json`, and Ghostty, kitty and Alacritty themes,
+  colours taken exactly as written. Remove deletes one again.
+- **A profile's own font, size and theme**, on Settings → Profiles, for any profile including the
+  system shell. They follow the pane through splits, duplicates, moves and reopening.
+- **Windows tabs know their directory without OSC 7.** It is read out of the shell process. A
+  directory the shell reports still wins there, since a WSL tab's process is `wsl.exe`.
 
 - **The kitty keyboard protocol.** A program that asks — Neovim, Vim, Helix, fish and nushell do —
   gets unambiguous keys: Escape on its own, Ctrl+I apart from Tab, Shift+Enter as a key of its own,
@@ -70,6 +93,10 @@ keyboard protocol, and an idle terminal lets the machine idle.
 
 ### Changed
 
+- **A keystroke no longer clears the selection.** It goes when the text under it changes.
+- **Middle-click pastes PRIMARY on Linux** where a tool to read it is installed, rather than the
+  clipboard.
+
 - **An idle terminal lets the machine idle.** Each tab used to keep a repaint timer running from
   open to close, which held JavaFX at 60 frames a second with nothing to draw. The timer now runs
   only while there is something to paint. With one tab sitting at a prompt, CPU use went from
@@ -90,6 +117,11 @@ keyboard protocol, and an idle terminal lets the machine idle.
   changed, and a burst of window-title updates from a program is applied once.
 
 ### Fixed
+
+- **Closing one window of several left its shells running** until the app quit, with their threads
+  and directory polls. A window's tabs are now disposed however it closes.
+- **A drag held while output scrolled extended from the wrong text**: the anchor did not move with
+  its line as the selection did.
 
 - **A stray `¯` or `ÿ` before some icons in `eza` and `ls` listings.** With no Nerd Font face
   chosen, JavaFX drew private-use icons in the first installed font that claimed the code point,

@@ -205,8 +205,8 @@ In rough order of how often a user notices:
 
 1. ~~**Split panes and scrollback search.**~~ Done. The first is in everything serious except
    Alacritty and the GNOME family; every terminal in the table has some form of search.
-2. ~~**OSC 133, 8 and 52.**~~ Done, along with OSC 7 where the OS cannot be asked. Notifications
-   (OSC 9/777) remain, and JavaFX has nowhere to send them.
+2. ~~**OSC 133, 8 and 52.**~~ Done, along with OSC 7 and notifications (OSC 9/777), which go to
+   the desktop through each platform's own command since JavaFX has no API for them.
 3. **Ligatures.** A renderer question, open to us, needing the spike described in the audit.
 4. **Grapheme clusters and underline styles.** Modern TUIs increasingly assume them. (The kitty
    keyboard protocol was on this line, and is done.)

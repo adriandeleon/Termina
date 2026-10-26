@@ -43,6 +43,11 @@ Prompt, Git Bash and every WSL distribution on Windows; `/etc/shells` and the pa
 parameters rather than static calls, because the Windows branch is the one the feature exists for and
 the one that cannot be run here.
 
+**Importing a colour scheme is in `com.termina.theme`**: one reader per format, all to a
+JavaFX-free `ColorScheme`, stored as `<config>/themes/*.properties` and listed with the built-ins by
+`ui.Themes`. Anything that draws asks `Themes.byId`, never the `Theme` enum, which is only the four
+built-ins.
+
 **Settings sync is a fifth, in `com.termina.sync`, ported from Editora's.** It carries only the key
 bindings, one file per platform family (`keybindings/macos.properties`,
 `keybindings/windows-linux.properties`), through a private clone in `<config>/sync/repo` that git
@@ -140,16 +145,41 @@ Each of these cost real time, and none of them announces itself.
   extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
   rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on
   every platform.
-- **JediTerm's hyperlink layer is deliberately unused, and its OSC 8 support is inert.** The
-  dependency has a whole one: a `TextProcessing` handed to `TerminalTextBuffer` runs filters over
-  each line as it is written and marks the runs with a `HyperlinkStyle`. We do not use it. Links here
-  are found *under the pointer* instead (`com.termina.link.LinkScanner`), because a path is only a
-  link if it names a file that exists, and that check has to happen somewhere: through JediTerm it
-  would run for every token of every line as output streams past, on the emulator thread. Under the
-  pointer it runs once per hover. **OSC 8 is a separate gap**: `JediEmulator` parses it, but
-  `JediTerminal.setLinkUriStarted` drops it unless `setUrlHyperlinkFilter` has been called, which
-  nothing does — so an explicit hyperlink whose text is not itself a URL is not clickable. The
-  capabilities doc's "OSC 8: yes" is about the dependency, not about us.
+- **JediTerm's text-scanning hyperlink layer is deliberately unused; its OSC 8 path is used.** The
+  dependency has a whole layer: a `TextProcessing` handed to `TerminalTextBuffer` runs filters over
+  each line as it is written and marks the runs with a `HyperlinkStyle`. We do not use it. Links
+  found in the text are found *under the pointer* instead (`com.termina.link.LinkScanner`), because a
+  path is only a link if it names a file that exists, and that check has to happen somewhere: through
+  JediTerm it would run for every token of every line as output streams past, on the emulator thread.
+  Under the pointer it runs once per hover. **OSC 8 is the other road**: `JediTerminal.setLinkUriStarted`
+  drops a declared link unless `setUrlHyperlinkFilter` has been called, so `TerminalView.start` calls
+  it with `ExplicitLink.FILTER`, which applies the same scheme allowlist and keeps the URI on the
+  cells for the hover's status line. Install it before the emulator starts reading.
+- **Closing a stage takes nothing out of the tab list.** Disposal lives on the list, so a window
+  closed with others still open — its close button, Close Window — left every shell in it running
+  until the app quit, and nothing on screen said so. The window clears its tabs on
+  `WINDOW_HIDDEN`, which covers every way out; `-Dtermina.captureCloseWindow=N` counts the shells
+  before and after.
+- **A pane moves by leaving its group before its tab goes.** Moving one between tabs is
+  `PaneGroup.remove` first — the tab-list listener then finds no panes to close — and `wirePane`
+  after, because every callback a pane holds (bell and output marks, the session-ended close)
+  captured the tab it was created in. `TerminalView` survives leaving the scene; nothing disposes on
+  removal. A maximized pane has a placeholder in its place in the tree, and everything that walks
+  the tree reads the placeholder as the pane.
+- **A pane's launch options go in before its settings.** `createPane` used to apply settings first;
+  harmless while nothing in them depended on the pane, wrong once the profile's font and theme do —
+  the pane drew in the global ones until the next settings change.
+- **The drag anchor is buffer state too.** It moves with its line on every scroll, like the
+  selection; it used not to, and a drag held while output arrived — routine once a drag past the
+  edge autoscrolls — extended from whatever had scrolled under the press.
+- **A `.terminal` profile is two property lists deep.** Each colour is `<data>` holding an `NSColor`
+  archived by `NSKeyedArchiver` as a *binary* plist, so the import reads `bplist00` itself
+  (`theme.BinaryPlist`) and walks `$top`/`$objects` to the colour's `NSRGB` or `NSWhite` ASCII
+  components. They are taken as sRGB, like every other importer's numbers.
+- **`gdbus call` parses `-1` as an option.** The notification's expiry is the last argument and is
+  negative, so without `--` before the method's arguments gdbus prints its usage, exits 1, and —
+  run from a worker with its output discarded — posts nothing, silently. `dbus-monitor --session
+  "interface='org.freedesktop.Notifications'"` is how to see whether a notification was sent.
 - **Asking for a row above the scrollback is an ERROR line, not an exception.**
   `TerminalTextBuffer.getLine(-1)` with no history logs `Attempt to get line out of bounds` through
   slf4j and returns. On a path that runs per mouse move — walking back to find the start of a wrapped
@@ -316,8 +346,13 @@ Each of these cost real time, and none of them announces itself.
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is
-signed. Key bindings have no multi-key sequences; no notifications (OSC 9/777), images or
-ligatures. See `CHANGELOG.md` for the current list.
+signed. Key bindings have no multi-key sequences; no images or ligatures. See `CHANGELOG.md` for the
+current list.
+
+**Windows' directory read (`pty.WindowsCwd`) has never run on Windows**, nor has the PowerShell
+toast; the PEB walk is tested against a made-up address space, and the offsets are the ones every
+process explorer uses, but the system calls around it are claims. The same for the macOS
+notification and Option+drag blocks.
 
 **The shell profiles' Windows half has never run on Windows.** Every branch of it is driven in
 `ShellDiscoveryTest` with the filesystem and `wsl.exe` probes replaced, and the macOS half is

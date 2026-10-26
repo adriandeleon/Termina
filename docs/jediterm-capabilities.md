@@ -46,7 +46,8 @@ the OSC dispatch handles 0, 1, 2, 7, 8, 10, 11, 104 and 1341, and returns false 
   of the stream before the emulator sees it — see "What each gap costs" below for where, and why
   there.
 - **4** — colours can be queried (10, 11) but not set, so programs cannot theme the palette.
-- **9 / 777** — no desktop notifications.
+- **9 / 777** — no desktop notifications in JediTerm. Handled on our side since October 2026, by the
+  same interceptor, and posted through each platform's notification command (`ui.DesktopNotifier`).
 
 **No kitty keyboard protocol** (no CSI u) — and worse than none: JediTerm reads every `CSI … u` as
 SCORC, restore cursor, ignoring the private marker, so a program turning the protocol on had its
@@ -93,7 +94,8 @@ are. *Where* matters: `OscInterceptor` wraps the `TerminalDataStream` JediTerm p
 from, not the PTY's reads, because the emulator acts on each character before pulling the next —
 so a prompt mark is seen with everything before it already on screen, and the cursor on the
 prompt's row. Intercepting the PTY would have seen a whole read at once and placed marks a chunk
-early. 9 remains, and JavaFX has no notification API to send it to.
+early. 9 and 777 followed; JavaFX has no notification API, so they go to the desktop through a
+command per platform rather than through the toolkit.
 
 **Type-ahead was half there.** The predictor is in the core; the model it edits and the code that
 draws its guesses are in JediTerm's Swing UI, which writes them into a package-private field of

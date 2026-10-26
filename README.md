@@ -140,6 +140,26 @@ The highlight is a translucent wash painted *over* the text. Painting it behind 
 selection state through every style run and splitting runs at its edges; the wash keeps the run loop
 untouched and stays legible over any of 16 million possible foreground colours.
 
+**Past the edge.** Dragging above or below the pane scrolls the scrollback and keeps extending the
+selection, faster the further out the pointer is, and keeps going with the pointer held still — no
+event arrives then, so it runs on the painter's frames rather than on mouse events. The drag's
+anchor moves with its text as output scrolls, as the selection does; otherwise a drag held while a
+build runs extends from whatever has since scrolled under where it began.
+
+**Blocks.** `Option`+drag on macOS, `Alt`+drag elsewhere — `Ctrl+Alt`+drag where the window manager
+takes Alt+drag to move windows, as GNOME and KDE do — selects a rectangle: the same columns on every
+row, copied one row per line whether or not a row wrapped. A block is measured in columns, not slots,
+so it stays straight over Nerd Font icons and wide glyphs.
+
+**It survives typing.** A keystroke no longer clears the selection. What does is the text under it
+changing — a line editor redrawing the prompt — checked on the next frame against the text it was
+made with, since copying a highlight over redrawn text would produce something nobody selected.
+
+**Copy on select** is a setting on Terminal → Input, off by default. On Linux every selection is
+also the **PRIMARY** selection, and a middle-click pastes PRIMARY, as on any X11 terminal. JavaFX
+cannot reach PRIMARY at all, so both go through `wl-paste`/`wl-copy` under Wayland or `xclip`/`xsel`
+under X11; without one of them, and on macOS and Windows, middle-click pastes the clipboard.
+
 ### Mouse reporting
 
 Clicks, drags and the wheel are offered to the program running in the terminal before any local
@@ -369,6 +389,15 @@ Pane" while that is what it will do — and the tab with its last pane. The tab'
 and menu still close every pane, asking once if anything is running in any of them. A shell that
 exits closes its own pane.
 
+**Window → Maximize Pane** (`Cmd+Shift+Enter`, `Ctrl+Shift+Enter` elsewhere) shows the active pane
+on its own, with "Pane 2 of 3" in its corner; the others keep running, and splitting, moving between
+or closing panes puts them back first. **Move Pane to New Tab** gives a pane a tab of its own, and
+the palette lists **Move Pane to Tab** for each other tab by name. A pane can also be dragged:
+`Cmd+Option+Shift`+drag (`Ctrl+Alt+Shift`+drag elsewhere) picks it up, a drop on a tab joins that tab
+and a drop on the strip's empty part makes it a tab. Its shell keeps running throughout; only its
+place changes. **Reopen Closed Tab** brings a split tab back as it was — every pane, in its last
+directory, arranged the same, with the same one active.
+
 Two things about the layout cost time and do not announce themselves. A new `SplitPane` has no skin
 until the next CSS pass, and without one its items are not in the scene — a pane started there
 began at a guessed 80×24 and dropped the focus request, so the split is styled and laid out before
@@ -444,9 +473,20 @@ does for the cursor and the selection, with no hook to have it do the same for a
 - **The clipboard (OSC 52).** A program can put text on the clipboard; it is how vim and tmux copy
   across SSH. Programs can never *read* it — that would hand the clipboard to anything on the far
   side of an `ssh` that asked — and Terminal → Input turns writing off too.
-- **The directory (OSC 7).** Used only where the OS cannot be asked — Windows — and only for a
-  directory on this machine that exists, so a shell inside `ssh` cannot claim the tab for another
-  machine's path.
+- **The directory (OSC 7, and ConEmu's OSC 9;9).** Believed only on Windows, and only for a
+  directory on this machine that exists. Elsewhere the OS is asked instead, so a shell inside `ssh`
+  cannot claim the tab for another machine's path. Windows is asked too — the directory is read out
+  of the shell process's own parameters — but a WSL tab's process is `wsl.exe`, whose directory is
+  not the Linux shell's, so there a shell's report wins and WSL's launchers are never asked.
+- **Notifications (OSC 9, OSC 777).** `printf '\e]777;notify;Build;done\a'` (urxvt's form, which
+  foot, kitty and WezTerm read too) or `printf '\e]9;done\a'` (iTerm2's). The tab is marked with a
+  magenta dot that outranks the bell's, and the message goes to the desktop unless you are looking
+  at that pane — through `notify-send`, or `gdbus` straight to the session bus, on Linux;
+  `osascript` on macOS; a PowerShell toast on Windows. One per pane every two seconds reaches the
+  desktop. The text is treated as hostile: control characters are stripped, it is capped, and it
+  reaches each command as an argument or an environment variable, never inside a script. ConEmu's
+  numbered OSC 9 subcommands (`9;4` is a progress bar) are not notifications. Terminal → Display
+  turns the desktop half off.
 
 ### Type-ahead over SSH
 
@@ -556,13 +596,20 @@ hid it would leave a window with no way to open a tab at all. Everything is keye
 rather than by position, so installing a shell does not silently change which profile the `+` opens,
 and a default naming something since uninstalled falls back rather than refusing to start.
 
+A profile can have **its own font, size and theme** — Settings → Profiles, Default following the
+global setting. They are stored by the profile's id rather than in the profile, so the system shell
+and the discovered profiles can have one too, and the id travels with each pane, so a split, a
+duplicate, a reopened tab or a moved pane keeps its profile's look. A profile's size goes through the
+global zoom. With several themes in one window, the window's own colours — behind the panes, the
+window buttons, the tab marks — follow the pane being typed in.
+
 Font choices are restricted to **monospace faces**, filtered by measuring whether `i` and `M` have
 the same advance. That is not tidiness — the renderer places every glyph on a fixed cell grid, so a
 proportional face misaligns every column on screen.
 
 ### Themes
 
-Four. **Editora Dark** and **Editora Light** are carried over from Editora — Caret teal on Ink
+Four built in, and any number imported. **Editora Dark** and **Editora Light** are carried over from Editora — Caret teal on Ink
 navy. Their control stylesheets are AtlantaFX-derived and self-contained, so they are applied with
 `Application.setUserAgentStylesheet` directly and AtlantaFX is not a dependency.
 
@@ -584,6 +631,18 @@ cyan — so a shell's `ls` colours stay in the same family as the editor's code 
 On the light theme ANSI "white" is rendered **dark**. It has to be: a program that sets colour 7 on
 a white background would otherwise write invisible text. `ThemeTest` enforces this as a contrast
 ratio rather than leaving it to judgement, for every colour in both themes.
+
+**Importing.** Settings → Appearance → **Import…** reads a scheme another terminal wrote: an iTerm2
+`.itermcolors`, a Terminal `.terminal` profile, a Windows Terminal scheme or a whole `settings.json`
+(every scheme in it), or a Ghostty, kitty or Alacritty theme — the formats iTerm2-Color-Schemes
+publishes every scheme in. It is stored as `<config>/themes/<name>.properties`, plain and editable,
+and listed after the built-in four; importing it again replaces it, and **Remove** deletes it. Its
+colours are taken exactly as the file has them, cursor and selection included where it names them,
+and the chrome follows its background. A `.terminal` profile is the awkward one: each colour is an
+`NSColor` archived with `NSKeyedArchiver` into a *binary* property list inside the XML one, so it has
+a small `bplist00` reader of its own. The XML is parsed with every external DTD and entity refused,
+since the file is whatever was downloaded. Imported themes are not synced; a synced theme that
+another machine does not have falls back to Editora Dark.
 
 ## Notable details
 
@@ -688,7 +747,17 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # terminal; pair with a program that prints what it reads
   -Dtermina.capturePanes=right,down,left,close
                                        # split, move between and close panes, printing the tree
-                                       # after each step: H[0, V[1*, 2]], * on the active pane
+                                       # after each step: H[0, V[1*, 2]], * on the active pane;
+                                       # also max, move (to a new tab), move:N, closeTab, reopen,
+                                       # profile:N (open profile N) and styles (each pane's
+                                       # profile, theme and font)
+  -Dtermina.captureDragPath='10,300;10,-60' # press, drag through the points, hold the last for
+  -Dtermina.captureDragHoldMs=1000     # ...this long (a pointer past the edge autoscrolls), release
+  -Dtermina.captureDragAlt=true        # ...holding Alt, for a block
+  -Dtermina.captureSelectionAtEnd=true # print the selection again just before the photograph
+  -Dtermina.captureMiddleClick=200,100 # paste with the middle button (PRIMARY on Linux)
+  -Dtermina.captureImportTheme=Dracula.terminal # import a scheme, select it, print its colours
+  -Dtermina.captureCloseWindow=1       # close window N, counting the shells before and after
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
@@ -719,20 +788,18 @@ an app icon has to work hardest at.
 
 ## Not done yet
 
-- **Selection refinements.** No autoscroll when dragging past the top or bottom edge, no
-  rectangular (block) selection, no copy-on-select, and a selection is dropped on the next
-  keystroke rather than surviving it. Middle-click pastes the clipboard, not the X11 primary
-  selection, which JavaFX cannot read.
-- **Configuration.** The four themes are built in, with no way to add or import one, and a profile
-  is a shell and a starting directory — no per-profile font or theme.
-- **Panes.** No zooming one pane to fill the tab, no dragging a pane to another tab, and Reopen
-  Closed Tab brings back the active pane's shell only.
-- **Escape sequences.** No desktop notifications (OSC 9/777), inline images or ligatures. Which of these JediTerm already handles, and what each would cost, is in
+- **Panes.** No dragging a pane to another *window*, and no dropping one where the tab strip is
+  hidden (a single tab) — Move Pane to New Tab covers that case.
+- **Escape sequences.** No inline images or ligatures. JavaFX 27 looks not to shape plain Latin
+  text through `fillText` at all, so ligatures may be blocked by the toolkit before they are a
+  renderer question; that wants the spike in the capabilities doc first. Which of these JediTerm
+  already handles, and what each would cost, is in
   [docs/jediterm-capabilities.md](docs/jediterm-capabilities.md); how other terminals compare is in
   [docs/competitive-landscape.md](docs/competitive-landscape.md).
-- **The working directory on Windows** comes only from a shell that reports it with OSC 7. The OS
-  cannot be asked there, so a shell that does not report one leaves a new tab starting at home, no
-  directory tooltip and relative paths that are not links.
+- **Unrun on Windows and macOS:** the Windows directory read (the PEB walk is tested against a
+  made-up address space; the system calls have not run), the PowerShell toast, the `osascript`
+  notification and Option+drag blocks. PRIMARY and `notify-send` have not been tried on a machine
+  that has `wl-clipboard`, `xclip` or `libnotify-bin`; the `gdbus` route has.
 - **Signing.** The installers are built (see [Installing](#installing)) but nothing is signed or
   notarised — see [Known issues](#known-issues).
 - **Windows has not been run by a human.** CI builds and packages it on every commit, and pty4j
