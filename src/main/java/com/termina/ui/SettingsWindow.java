@@ -712,6 +712,7 @@ public final class SettingsWindow {
     private ComboBox<Settings.CursorShape> cursorShape;
     private CheckBox altIsMeta;
     private CheckBox confirmPaste;
+    private CheckBox copyOnSelect;
     private CheckBox clipboardWrite;
     private CheckBox typeAhead;
     private CheckBox bell;
@@ -1065,6 +1066,19 @@ public final class SettingsWindow {
                 tr("settings.confirmPaste.desc"),
                 confirmPaste,
                 "paste clipboard multiline newline confirm ask safety");
+
+        copyOnSelect = new CheckBox();
+        copyOnSelect.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setCopyOnSelect(value);
+        });
+        row(
+                Category.TERMINAL,
+                input,
+                tr("settings.copyOnSelect"),
+                tr("settings.copyOnSelect.desc"),
+                copyOnSelect,
+                "copy select selection clipboard automatic primary highlight");
 
         clipboardWrite = new CheckBox();
         clipboardWrite.selectedProperty().addListener((o, old, value) -> {
@@ -1921,6 +1935,7 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
+            copyOnSelect.setSelected(settings.copyOnSelect());
             clipboardWrite.setSelected(settings.clipboardWrite());
             typeAhead.setSelected(settings.typeAhead());
             reloadKeys();

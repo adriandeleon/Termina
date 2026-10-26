@@ -2672,6 +2672,7 @@ public final class TerminalWindow {
         terminal.setAltIsMeta(settings.altIsMeta());
         terminal.setBellEnabled(settings.bell());
         terminal.setClipboardWrites(settings.clipboardWrite());
+        terminal.setCopyOnSelect(settings.copyOnSelect());
         terminal.setTypeAheadAllowed(settings.typeAhead());
         terminal.setScrollBarEnabled(settings.showScrollBar());
     }

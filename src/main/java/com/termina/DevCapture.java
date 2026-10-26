@@ -130,6 +130,7 @@ final class DevCapture {
             afterCommand.setOnFinished(e2 -> {
                 TerminalView active = window.activeTerminal();
                 if (active != null) driveInput(window, active);
+                long dragHoldMs = active == null ? 0 : dragPathIfRequested(active);
                 // Before the typing below, so captureTypeAtFocus can type into an open find bar.
                 searchIfRequested(window);
                 keystrokesIfRequested(window);
@@ -161,7 +162,7 @@ final class DevCapture {
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the input, which looks exactly like input that did nothing.
                 long selectLaterMs = selectTabLaterIfRequested(window);
-                PauseTransition settleFrame = new PauseTransition(Duration.millis(150 + selectLaterMs));
+                PauseTransition settleFrame = new PauseTransition(Duration.millis(150 + selectLaterMs + dragHoldMs));
                 settleFrame.setOnFinished(e3 -> {
                     try {
                         write(captured, new File(target));
@@ -170,6 +171,12 @@ final class DevCapture {
                         System.err.println("[capture] failed: " + io);
                     }
                     printScreenTextIfRequested(shown.activeTerminal());
+                    if (Boolean.getBoolean("termina.captureSelectionAtEnd") && shown.activeTerminal() != null) {
+                        System.out.println("[capture] selection at end=\""
+                                + shown.activeTerminal()
+                                        .selectionTextForCapture()
+                                        .replace("\n", "\\n") + "\"");
+                    }
                     report(windows);
                     windows.closeAll();
                     Platform.exit();
@@ -739,6 +746,68 @@ final class DevCapture {
         dragSelectIfRequested(terminal);
         dragScrollBarWithMouseIfRequested(terminal);
         hoverLinkIfRequested(terminal);
+        middleClickIfRequested(terminal);
+    }
+
+    /**
+     * A drag through several points, held at the last before the release.
+     *
+     * <pre>-Dtermina.captureDragPath=x1,y1;x2,y2;…   -Dtermina.captureDragHoldMs=1500
+     * -Dtermina.captureDragAlt=true</pre>
+     *
+     * <p>The hold is what {@code captureDrag} cannot do: a pointer held still past the pane's edge
+     * sends no events, and the autoscroll it starts runs on the painter's frames, so the release has
+     * to come later rather than in the same pulse. Alt makes it a block. Returns the hold, so the
+     * photograph waits for it.
+     */
+    private static long dragPathIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.captureDragPath");
+        if (spec == null || spec.isBlank()) return 0;
+        String[] points = spec.split(";");
+        boolean alt = Boolean.getBoolean("termina.captureDragAlt");
+        long holdMs = Long.getLong("termina.captureDragHoldMs", 0L);
+        double[] last = null;
+        for (int i = 0; i < points.length; i++) {
+            String[] xy = points[i].split(",");
+            double x = Double.parseDouble(xy[0].trim());
+            double y = Double.parseDouble(xy[1].trim());
+            var type = i == 0 ? MouseEvent.MOUSE_PRESSED : MouseEvent.MOUSE_DRAGGED;
+            Event.fireEvent(terminal, mouse(type, x, y, 1, MouseButton.PRIMARY, false, false, alt, false));
+            last = new double[] {x, y};
+        }
+        double[] at = last;
+        Runnable release = () -> {
+            Event.fireEvent(
+                    terminal,
+                    mouse(MouseEvent.MOUSE_RELEASED, at[0], at[1], 1, MouseButton.PRIMARY, false, false, alt, false));
+            System.out.println("[capture] drag-path selection=\""
+                    + terminal.selectionTextForCapture().replace("\n", "\\n") + "\" " + terminal.scrollBarReport());
+            String clip = javafx.scene.input.Clipboard.getSystemClipboard().getString();
+            System.out.println(
+                    "[capture] clipboard after drag=\"" + (clip == null ? "" : clip.replace("\n", "\\n")) + "\"");
+        };
+        if (holdMs <= 0) {
+            release.run();
+            return 0;
+        }
+        PauseTransition hold = new PauseTransition(Duration.millis(holdMs));
+        hold.setOnFinished(e -> release.run());
+        hold.play();
+        return holdMs + 100;
+    }
+
+    /** {@code -Dtermina.captureMiddleClick=x,y} pastes with the middle button — PRIMARY on Linux. */
+    private static void middleClickIfRequested(TerminalView terminal) {
+        String spec = System.getProperty("termina.captureMiddleClick");
+        if (spec == null || spec.isBlank()) return;
+        String[] xy = spec.split(",");
+        double x = Double.parseDouble(xy[0].trim());
+        double y = Double.parseDouble(xy[1].trim());
+        Event.fireEvent(
+                terminal, mouse(MouseEvent.MOUSE_PRESSED, x, y, 1, MouseButton.MIDDLE, false, false, false, false));
+        Event.fireEvent(
+                terminal, mouse(MouseEvent.MOUSE_RELEASED, x, y, 1, MouseButton.MIDDLE, false, false, false, false));
+        System.out.println("[capture] middle-click at " + spec);
     }
 
     /**
@@ -1157,21 +1226,35 @@ final class DevCapture {
     }
 
     private static MouseEvent mouse(EventType<MouseEvent> type, double x, double y, int clicks, boolean shift) {
+        return mouse(type, x, y, clicks, MouseButton.PRIMARY, shift, false, false, false);
+    }
+
+    private static MouseEvent mouse(
+            EventType<MouseEvent> type,
+            double x,
+            double y,
+            int clicks,
+            MouseButton button,
+            boolean shift,
+            boolean control,
+            boolean alt,
+            boolean meta) {
+        boolean down = type != MouseEvent.MOUSE_RELEASED;
         return new MouseEvent(
                 type,
                 x,
                 y,
                 x,
                 y,
-                MouseButton.PRIMARY,
+                button,
                 clicks,
                 shift,
-                false,
-                false,
-                false, // shift, control, alt, meta
-                true,
-                false,
-                false, // primary/middle/secondary button down
+                control,
+                alt,
+                meta,
+                down && button == MouseButton.PRIMARY,
+                down && button == MouseButton.MIDDLE,
+                down && button == MouseButton.SECONDARY,
                 false,
                 false,
                 false, // synthesized, popup trigger, still since press

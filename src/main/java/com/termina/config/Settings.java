@@ -32,6 +32,8 @@ public final class Settings {
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String CONFIRM_PASTE = "input.confirmPaste";
+    /** Whether a selection is copied to the clipboard as it is made, without asking. */
+    public static final String COPY_ON_SELECT = "input.copyOnSelect";
     /** Whether programs may set the clipboard with OSC 52. Never read it: that is not offered at all. */
     public static final String CLIPBOARD_WRITE = "terminal.clipboardWrite";
     /** Whether keystrokes are predicted while SSH is in the foreground and its echo is slow. */
@@ -373,6 +375,19 @@ public final class Settings {
 
     public void setConfirmPaste(boolean confirmPaste) {
         put(CONFIRM_PASTE, String.valueOf(confirmPaste));
+    }
+
+    /**
+     * Whether a selection goes to the clipboard as it is made. Off by default: it replaces whatever
+     * the clipboard held with every highlight, which surprises anyone who has not asked for it. On
+     * Linux the selection is PRIMARY either way, which is the middle-click half of the same habit.
+     */
+    public boolean copyOnSelect() {
+        return readBoolean(COPY_ON_SELECT, false);
+    }
+
+    public void setCopyOnSelect(boolean copyOnSelect) {
+        put(COPY_ON_SELECT, String.valueOf(copyOnSelect));
     }
 
     public boolean clipboardWrite() {

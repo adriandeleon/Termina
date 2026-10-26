@@ -70,6 +70,40 @@ final class SelectionGeometry {
         return row != anchor.y || boundary < anchor.x || boundary > anchor.x + 1;
     }
 
+    /**
+     * The block a rectangular drag describes, in <b>columns</b> rather than slots: a block is the
+     * same columns on every row, and a slot is a different column on each row that has an icon or a
+     * wide glyph to its left. Start is the top-left corner, end the bottom-right with its x
+     * exclusive, so the anchor's cell is in whichever way the drag went — the rule {@link #drag}
+     * keeps for a stream.
+     *
+     * @param anchorColumn the column under the press
+     * @param anchorRow the row under the press
+     * @param row the row under the pointer now
+     * @param boundary the column boundary nearest the pointer
+     */
+    static TerminalSelection blockDrag(int anchorColumn, int anchorRow, int row, int boundary) {
+        int left = boundary > anchorColumn ? anchorColumn : boundary;
+        int right = boundary > anchorColumn ? boundary : anchorColumn + 1;
+        return new TerminalSelection(
+                new Point(left, Math.min(anchorRow, row)), new Point(right, Math.max(anchorRow, row)));
+    }
+
+    /**
+     * The columns a block covers on one row, as {@code {from, to}} with {@code to} exclusive, or
+     * null when the row is outside it. The same span on every row, which is the point of a block.
+     */
+    static int[] blockOnRow(TerminalSelection block, int row) {
+        Point start = block.getStart();
+        Point end = block.getEnd();
+        int top = Math.min(start.y, end.y);
+        int bottom = Math.max(start.y, end.y);
+        if (row < top || row > bottom) return null;
+        int from = Math.min(start.x, end.x);
+        int to = Math.max(start.x, end.x);
+        return to > from ? new int[] {from, to} : null;
+    }
+
     private static boolean after(Point a, Point b) {
         return a.y > b.y || (a.y == b.y && a.x > b.x);
     }
