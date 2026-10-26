@@ -3,7 +3,10 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.12.0 — 2026-10-25
+
+The sync repository can be created on GitHub from Settings, and the shortcut reference names what a
+middle-click pastes on Linux. New user-visible behaviour, so the minor number moves.
 
 ### Added
 
