@@ -3,7 +3,7 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.11.0 — 2026-10-25
 
 Split panes, scrollback search, shell integration and shortcuts that can all be changed. Four
 requests programs make of a terminal — a declared link, the clipboard, the directory, a
