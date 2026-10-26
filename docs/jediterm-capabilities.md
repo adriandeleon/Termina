@@ -48,7 +48,10 @@ the OSC dispatch handles 0, 1, 2, 7, 8, 10, 11, 104 and 1341, and returns false 
 - **4** — colours can be queried (10, 11) but not set, so programs cannot theme the palette.
 - **9 / 777** — no desktop notifications.
 
-**No kitty keyboard protocol** (no CSI u).
+**No kitty keyboard protocol** (no CSI u) — and worse than none: JediTerm reads every `CSI … u` as
+SCORC, restore cursor, ignoring the private marker, so a program turning the protocol on had its
+cursor moved instead. Implemented on our side since October 2026: `KeyboardModeInterceptor` takes the
+mode requests out of the stream, and the encoding is `KittyKeys`.
 
 **SGR is thinner than it appears.** The style model is exactly eight options: bold, italic, dim, slow
 blink, rapid blink, inverse, underline, hidden. No strikethrough (SGR 9), no double underline (21),

@@ -278,6 +278,15 @@ Each of these cost real time, and none of them announces itself.
   reach, so `TypeAheadModel` keeps the predicted line and the view draws it. Wanted only while
   `ssh` is the foreground program, and the predictor shows nothing until it has measured echoes
   over 100 ms.
+- **JediTerm reads any `CSI … u` as SCORC, restore cursor, and ignores the private marker.** So
+  the kitty keyboard protocol's `CSI > 1 u` moved the cursor instead of doing nothing — worse than
+  unsupported. `KeyboardModeInterceptor` takes the four mode requests (`>` `<` `=` `?`) out first,
+  and lets everything else, DA2's `CSI > c` included, through untouched. Kitty encoding happens
+  only while a program has set flags; at zero every key takes the legacy path, byte for byte.
+- **Keys fired at a program right after it starts can race its startup.** Neovim asks the terminal
+  for the kitty protocol as it starts and turns it on when answered; a capture that typed into it
+  within its first seconds saw Escape ignored, and the same keys after a longer
+  `captureAfterCommandMs` worked. Settle before concluding a key is broken.
 - **The close prompt is modal, and a capture run that reaches it hangs.** A fresh shell often has a
   child for a moment (a prompt framework's helper), so closing a pane or tab in a capture asks —
   pass `-Dtermina.captureCloseAnswer=close`, which `capturePanes` and `captureCloseTabs` both read.
@@ -307,8 +316,8 @@ Each of these cost real time, and none of them announces itself.
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is
-signed. Key bindings have no multi-key sequences; no notifications (OSC 9/777), kitty keyboard
-protocol, images or ligatures. See `CHANGELOG.md` for the current list.
+signed. Key bindings have no multi-key sequences; no notifications (OSC 9/777), images or
+ligatures. See `CHANGELOG.md` for the current list.
 
 **The shell profiles' Windows half has never run on Windows.** Every branch of it is driven in
 `ShellDiscoveryTest` with the filesystem and `wsl.exe` probes replaced, and the macOS half is

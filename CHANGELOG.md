@@ -7,10 +7,16 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 Split panes, scrollback search, shell integration and shortcuts that can all be changed. Three
 requests programs make of a terminal — a declared link, the clipboard, the directory — are honoured
-rather than dropped, typing over a slow SSH link is predicted, and an idle terminal lets the machine
-idle.
+rather than dropped, typing over a slow SSH link is predicted, programs can ask for the kitty
+keyboard protocol, and an idle terminal lets the machine idle.
 
 ### Added
+
+- **The kitty keyboard protocol.** A program that asks — Neovim, Vim, Helix, fish and nushell do —
+  gets unambiguous keys: Escape on its own, Ctrl+I apart from Tab, Shift+Enter as a key of its own,
+  and with the further flags repeats and releases, the shifted key, every key including the
+  modifiers, and the text each types. Each screen keeps its own mode, a query is answered, and
+  `reset` clears it. Nothing changes for a program that does not ask.
 
 - **Split panes.** Window → Split Right and Split Down (`Cmd+D`/`Cmd+Shift+D` on macOS,
   `Ctrl+Shift+E`/`Ctrl+Shift+O` elsewhere) open another shell beside or below the one you are in,

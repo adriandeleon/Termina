@@ -243,6 +243,9 @@ public final class TerminalView extends Region {
     /** Alt/Option prefixes ESC rather than composing a character; see {@link KeyEncoding}. */
     private boolean altIsMeta = true;
 
+    /** The kitty keyboard protocol's view of the keys: repeats, and the releases owed. */
+    private final KittyKeyInput kittyInput = new KittyKeyInput();
+
     /** Told once per frame in which the shell wrote something; the window marks a background tab. */
     private Runnable onOutput = () -> {};
 
@@ -393,6 +396,11 @@ public final class TerminalView extends Region {
         // unhandled here, and it never consumes.
         addEventFilter(KeyEvent.KEY_RELEASED, this::onKeyReleased);
         addEventFilter(KeyEvent.KEY_TYPED, this::onKeyTyped);
+        // Keys held when focus leaves are released somewhere else; forgetting them keeps the next
+        // press of one from being reported as a repeat, and no release from being owed for it.
+        focusedProperty().addListener((o, was, now) -> {
+            if (!now) kittyInput.reset();
+        });
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
         setOnContextMenuRequested(this::onContextMenuRequested);
         // A scene's window can be set after the view joins it, so both moves are followed.
@@ -1107,6 +1115,23 @@ public final class TerminalView extends Region {
         }
         if (session == null || !session.isRunning()) return;
 
+        // A program that asked for the kitty keyboard protocol gets it; everything else, and every
+        // key the protocol leaves alone — plain typing, Enter at a shell — takes the legacy route.
+        int kittyFlags = session.keyboardFlags(display.isAlternateScreen());
+        if (kittyFlags != 0) {
+            byte[] kitty = kittyInput.pressed(e, kittyFlags, altIsMeta);
+            if (kitty != null) {
+                if (KeyTrace.enabled()) KeyTrace.log(e, kitty);
+                if (kitty.length > 0) {
+                    snapToLive();
+                    clearSelection();
+                    session.send(kitty);
+                }
+                e.consume();
+                return;
+            }
+        }
+
         byte[] encoded = KeyEncoding.encodePressed(e, session::keyCode, altIsMeta);
         if (KeyTrace.enabled()) KeyTrace.log(e, encoded);
         if (encoded != null) {
@@ -1140,6 +1165,18 @@ public final class TerminalView extends Region {
     private void onKeyTyped(KeyEvent e) {
         if (fromSearchBar(e)) return;
         if (session == null || !session.isRunning()) return;
+        int kittyFlags = session.keyboardFlags(display.isAlternateScreen());
+        if (kittyFlags != 0) {
+            byte[] kitty = kittyInput.typed(e, kittyFlags);
+            if (kitty != null) {
+                if (kitty.length > 0) {
+                    snapToLive();
+                    session.send(kitty);
+                }
+                e.consume();
+                return;
+            }
+        }
         byte[] encoded = KeyEncoding.encodeTyped(e, altIsMeta);
         if (KeyTrace.enabled()) KeyTrace.log(e, encoded);
         if (encoded != null) {
@@ -2012,6 +2049,12 @@ public final class TerminalView extends Region {
     private void onKeyReleased(KeyEvent e) {
         if (fromSearchBar(e)) return;
         onLinkModifierChanged(e);
+        // Always, flags or not: the release is what takes the key out of the held set, and a key
+        // left in it would make its next press look like a repeat.
+        if (session != null && session.isRunning()) {
+            byte[] kitty = kittyInput.released(e, session.keyboardFlags(display.isAlternateScreen()), altIsMeta);
+            if (kitty != null) session.send(kitty);
+        }
     }
 
     private void onMouseDragged(MouseEvent e) {
@@ -2422,6 +2465,73 @@ public final class TerminalView extends Region {
             buffer.unlock();
         }
         markDirty();
+    }
+
+    /**
+     * Fires whole keystrokes at the view — press, then the typed character a keyboard would produce,
+     * then release — by {@link KeyChord} token ({@code C-a}, {@code S-enter}, {@code escape}), or a
+     * bare key by {@code key:NAME} ({@code key:SHIFT}). For the development capture hook: the kitty
+     * protocol is about all three events and their order, which one synthetic press cannot show.
+     */
+    public String fireKeystrokesForCapture(String tokens) {
+        StringBuilder out = new StringBuilder();
+        for (String raw : tokens.split(",")) {
+            String token = raw.trim();
+            if (token.isEmpty()) continue;
+            KeyCode code;
+            boolean shift = false, control = false, alt = false, meta = false;
+            if (token.startsWith("key:")) {
+                code = KeyCode.valueOf(token.substring(4));
+                shift = code == KeyCode.SHIFT;
+                control = code == KeyCode.CONTROL;
+            } else {
+                var combination = (javafx.scene.input.KeyCodeCombination) KeyChord.toCombination(token);
+                if (combination == null) {
+                    out.append(token).append("=? ");
+                    continue;
+                }
+                code = combination.getCode();
+                shift = combination.getShift() == javafx.scene.input.KeyCombination.ModifierValue.DOWN;
+                control = combination.getControl() == javafx.scene.input.KeyCombination.ModifierValue.DOWN;
+                alt = combination.getAlt() == javafx.scene.input.KeyCombination.ModifierValue.DOWN;
+                meta = combination.getMeta() == javafx.scene.input.KeyCombination.ModifierValue.DOWN;
+            }
+            String text = switch (code) {
+                case ENTER -> "\r";
+                case TAB -> "\t";
+                case SPACE -> " ";
+                default ->
+                    code.isLetterKey()
+                                    || code.isDigitKey()
+                                    || code.getChar().length() == 1
+                                            && code.getChar().charAt(0) < 0x7f
+                            ? (shift
+                                    ? code.getChar().toUpperCase(java.util.Locale.ROOT)
+                                    : code.getChar().toLowerCase(java.util.Locale.ROOT))
+                            : "";
+            };
+            if (code.isModifierKey()
+                    || code.ordinal() >= KeyCode.F1.ordinal() && code.ordinal() <= KeyCode.F24.ordinal()) text = "";
+            String typed = control && code.isLetterKey()
+                    ? String.valueOf((char) (code.getChar().charAt(0) - 'A' + 1))
+                    : text;
+            javafx.event.Event.fireEvent(
+                    this, new KeyEvent(KeyEvent.KEY_PRESSED, "", text, code, shift, control, alt, meta));
+            if (!typed.isEmpty()) {
+                javafx.event.Event.fireEvent(
+                        this,
+                        new KeyEvent(KeyEvent.KEY_TYPED, typed, "", KeyCode.UNDEFINED, shift, control, alt, meta));
+            }
+            javafx.event.Event.fireEvent(
+                    this, new KeyEvent(KeyEvent.KEY_RELEASED, "", text, code, false, false, false, false));
+            out.append(token).append(' ');
+        }
+        return out.toString().trim();
+    }
+
+    /** The kitty keyboard flags a program has set on the screen in front — for the capture hook. */
+    public int keyboardFlagsForCapture() {
+        return session == null ? 0 : session.keyboardFlags(display.isAlternateScreen());
     }
 
     /** Where the view is scrolled to — for the development capture hook. */

@@ -174,7 +174,8 @@ Notes on the partial and less obvious cells:
   release notes mentions it.
 
 Outside the table: the **kitty keyboard protocol** is now in kitty, Ghostty, WezTerm (opt-in),
-Alacritty and Windows Terminal 1.25, so VTE and Termina are increasingly the exceptions.
+Alacritty, Windows Terminal 1.25 and — since late October 2026 — Termina, so VTE is increasingly the
+exception.
 
 ### Where Termina is ahead or level
 
@@ -207,8 +208,8 @@ In rough order of how often a user notices:
 2. ~~**OSC 133, 8 and 52.**~~ Done, along with OSC 7 where the OS cannot be asked. Notifications
    (OSC 9/777) remain, and JavaFX has nowhere to send them.
 3. **Ligatures.** A renderer question, open to us, needing the spike described in the audit.
-4. **Kitty keyboard protocol, grapheme clusters, underline styles.** Modern TUIs increasingly
-   assume them.
+4. **Grapheme clusters and underline styles.** Modern TUIs increasingly assume them. (The kitty
+   keyboard protocol was on this line, and is done.)
 5. **Images, scripting, multiplexing.** Expensive, and they matter to power users.
 6. **Footprint and fidelity.** A bundled JVM starts and uses memory more heavily than a native
    terminal. Translucency is plain alpha, with no blur, so Apple's Clear themes render opaque.
@@ -236,7 +237,7 @@ Gaps in the incumbents that are durable rather than merely current:
 Worth copying rather than inventing:
 
 - **The kitty keyboard protocol.** Cheap, immediately visible to anyone running a modern TUI, absent
-  from VTE, and since 1.25 in Windows Terminal too. (Synchronised output would belong here too, but JediTerm already implements it.)
+  from VTE, and since 1.25 in Windows Terminal too. Done in October 2026. (Synchronised output would belong here too, but JediTerm already implements it.)
 - **Encrypted disk-backed scrollback.** Only VTE does it, and it is a real difference rather than a
   checkbox.
 - VTE's **termprop mechanism** (OSC 666 with a typed registry) is a well-designed extension point if
