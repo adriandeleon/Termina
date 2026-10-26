@@ -569,8 +569,8 @@ public final class TerminalWindow {
      *
      * <p>Attached and detached rather than left in place with empty text: a Tooltip bound to "" is
      * still a tooltip, and hovering produces a small empty box — which reads as something broken
-     * rather than as nothing to say. Windows has no {@code ProcessCwd}, so that is the state there
-     * for every tab, not an edge case.
+     * rather than as nothing to say. A WSL tab whose shell reports no directory is in that state
+     * for good, so it is not an edge case.
      */
     private void installDirectoryTooltip(Label label, javafx.beans.property.StringProperty directory) {
         Tooltip tip = new Tooltip();
@@ -760,9 +760,11 @@ public final class TerminalWindow {
     private String currentDirectory() {
         TerminalView terminal = activeTerminal();
         if (terminal == null || terminal.getSession() == null) return "";
-        // The shell's own report (OSC 7) where the OS cannot be asked — Windows.
-        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid())
-                .orElse(terminal.getDisplay().getCwd());
+        // Where a shell's own report wins (Windows: see ProcessCwd), the directory the tab knows —
+        // reported, or polled from the OS until one was — is the answer. Elsewhere the OS, asked now.
+        String known = terminal.getDisplay().getCwd();
+        if (com.termina.pty.ProcessCwd.reportedDirectoryWins() && known != null && !known.isBlank()) return known;
+        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid()).orElse(known);
     }
 
     /**

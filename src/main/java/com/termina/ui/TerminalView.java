@@ -557,7 +557,16 @@ public final class TerminalView extends Region {
         // *for* is a UI question. The term layer reports the shell's state; it does not decide what
         // a tab is called. On every platform, since the program half needs only ProcessHandle; the
         // watcher skips the directory where the OS cannot answer.
-        cwdWatch = CwdWatcher.watch(session.pid(), display::setCwd, display::setProgram);
+        // The OS's answer stands until the shell reports one where a report wins (Windows), and is
+        // not asked for at all where the process is not the shell (WSL's launcher). See ProcessCwd.
+        boolean osKnows = com.termina.pty.ProcessCwd.osKnowsDirectoryOf(
+                launchOptions.hasCommand() ? launchOptions.command().getFirst() : launchOptions.shell());
+        cwdWatch = CwdWatcher.watch(
+                session.pid(),
+                cwd -> {
+                    if (osKnows && !directoryReported) display.setCwd(cwd);
+                },
+                display::setProgram);
         markDirty();
     }
 
@@ -2543,32 +2552,42 @@ public final class TerminalView extends Region {
         }
     }
 
+    /** Set once the shell has reported a directory where a report wins; the OS's answers then stop. */
+    private volatile boolean directoryReported;
+
     /**
-     * Where the shell is, when the OS will not say.
+     * Where the shell says it is — believed only on Windows.
      *
-     * <p>Only there. Where {@code ProcessCwd} works it reads the shell's real directory, which a
-     * prompt cannot get wrong and which every shell has whether or not it was set up to report one —
-     * and an OSC 7 from a shell inside {@code ssh} would otherwise claim this tab for another
-     * machine's directory. On Windows nothing else answers, and this is how a tab learns where it is.
+     * <p>On Linux and macOS {@code ProcessCwd} reads the shell's real directory, which a prompt
+     * cannot get wrong and which every shell has whether or not it was set up to report one — and an
+     * OSC 7 from a shell inside {@code ssh} would otherwise claim this tab for another machine's
+     * directory. On Windows the OS can be asked too, but a WSL tab's process is {@code wsl.exe},
+     * whose directory is not the Linux shell's; there the shell's own report wins once it has made
+     * one. See {@link com.termina.pty.ProcessCwd#reportedDirectoryWins}.
      */
     private void onDirectoryReported(String payload) {
-        if (com.termina.pty.ProcessCwd.isSupported()) return;
+        if (!com.termina.pty.ProcessCwd.reportedDirectoryWins()) return;
         com.termina.term.OscSequences.localDirectory(
                         payload,
                         com.termina.link.LocalHost::isLocal,
                         path -> java.nio.file.Files.isDirectory(java.nio.file.Path.of(path)))
-                .ifPresent(display::setCwd);
+                .ifPresent(this::reportedDirectory);
+    }
+
+    private void reportedDirectory(String path) {
+        directoryReported = true;
+        display.setCwd(path);
     }
 
     /**
      * The directory an OSC {@code 9;9} reports, ConEmu's form, which Windows shells set up for
      * Windows Terminal emit instead of OSC 7. Held to the same rules: a directory on this machine
-     * that exists, and only where the OS cannot be asked.
+     * that exists, and only where a report wins.
      */
     private void onWindowsDirectoryReported(String path) {
-        if (com.termina.pty.ProcessCwd.isSupported()) return;
+        if (!com.termina.pty.ProcessCwd.reportedDirectoryWins()) return;
         try {
-            if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(path))) display.setCwd(path);
+            if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(path))) reportedDirectory(path);
         } catch (RuntimeException invalid) {
             // Not a path this platform can read.
         }

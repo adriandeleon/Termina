@@ -82,7 +82,7 @@ final class ClosedTabs {
      *
      * <p>The options a tab was opened with name where it <em>started</em>; by the time it closes or
      * is duplicated the shell has usually moved. The directory the watcher last reported wins when
-     * there is one; where the OS will not say (Windows) the original stands.
+     * there is one; where nothing has said (a WSL tab whose shell reports none) the original stands.
      */
     static LaunchOptions inDirectory(LaunchOptions options, String currentDirectory) {
         if (options == null) return LaunchOptions.DEFAULTS;

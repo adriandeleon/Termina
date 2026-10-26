@@ -32,9 +32,43 @@ public final class ProcessCwd {
     private static final boolean MAC =
             System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
 
+    private static final boolean WINDOWS =
+            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+
     /** True where {@link #of(long)} can ever return a value, so callers can skip polling entirely. */
     public static boolean isSupported() {
-        return LINUX || MAC;
+        return LINUX || MAC || WINDOWS;
+    }
+
+    /**
+     * Whether a directory the shell reports (OSC 7, or ConEmu's OSC 9;9) is to be believed over the
+     * OS's answer. On Windows it is: the process a WSL tab runs is {@code wsl.exe}, whose Windows
+     * directory says nothing about where the Linux shell inside it is, and only the shell can say.
+     * Elsewhere the OS is the better witness — a shell inside {@code ssh} reports the other machine's
+     * directories — and a report is ignored.
+     */
+    public static boolean reportedDirectoryWins() {
+        return reportedDirectoryWins(System.getProperty("os.name", ""));
+    }
+
+    static boolean reportedDirectoryWins(String os) {
+        return os.toLowerCase(Locale.ROOT).startsWith("windows");
+    }
+
+    /**
+     * Whether the OS's answer for the process a command starts means anything. Not for WSL's
+     * launchers: the process is a Windows one standing in for a Linux shell, and its directory is
+     * wherever it was started, however far the shell inside has moved. Such a tab learns its
+     * directory from the shell's own report or not at all.
+     *
+     * @param executable the program the tab started — a path or a bare name
+     */
+    public static boolean osKnowsDirectoryOf(String executable) {
+        if (executable == null || executable.isBlank()) return true;
+        String name = executable.strip();
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        name = name.substring(slash + 1).toLowerCase(Locale.ROOT);
+        return !(name.equals("wsl.exe") || name.equals("wsl") || name.equals("wslhost.exe") || name.equals("bash.exe"));
     }
 
     /**
@@ -46,6 +80,7 @@ public final class ProcessCwd {
         try {
             if (LINUX) return linux(pid);
             if (MAC) return mac(pid);
+            if (WINDOWS) return WindowsCwd.of(pid);
         } catch (Throwable t) {
             // Includes UnsatisfiedLinkError from the macOS path on a system that has moved libproc.
             // A terminal that cannot read a cwd shows a less useful title; it does not fail.
