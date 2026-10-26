@@ -42,6 +42,7 @@ import javafx.util.Duration;
 
 import com.termina.config.Settings;
 import com.termina.link.CommandPath;
+import com.termina.sync.GitHubRepo;
 import com.termina.sync.GitRunner;
 import com.termina.sync.KeybindingsFile;
 import com.termina.sync.SyncAccount;
@@ -126,6 +127,8 @@ final class SettingsSync {
     private boolean accountSearched;
     /** The last run could not reach the repository: the next one looks at the account again. */
     private boolean remoteFailed;
+    /** gh answered that it is signed in; see {@link #checkGitHub}. */
+    private boolean gitHubAvailable;
 
     /** The key bindings as {@link #onSettingsChanged} last saw them. */
     private String keybindingsSeen;
@@ -355,6 +358,39 @@ final class SettingsSync {
      */
     String account() {
         return account;
+    }
+
+    /**
+     * Whether the GitHub CLI is installed and signed in, so a repository can be made with it; false
+     * until {@link #checkGitHub} has heard back.
+     */
+    boolean gitHubAvailable() {
+        return gitHubAvailable;
+    }
+
+    /** Asks gh whether it is signed in, off the FX thread; listeners run when the answer changes. */
+    void checkGitHub() {
+        worker.execute(() -> {
+            boolean available = GitHubRepo.signedIn(ghCommand());
+            Platform.runLater(() -> {
+                if (available == gitHubAvailable) return;
+                gitHubAvailable = available;
+                for (Runnable listener : List.copyOf(listeners)) listener.run();
+            });
+        });
+    }
+
+    /**
+     * Makes a private repository called {@code name} with gh, off the FX thread, and hands back the URL
+     * to connect to. Does not connect: the caller puts the URL in the field and connects as the user
+     * would have.
+     */
+    void createOnGitHub(String name, Consumer<GitHubRepo.Created> done) {
+        String description = tr("settings.sync.githubDescription");
+        worker.execute(() -> {
+            GitHubRepo.Created created = GitHubRepo.createPrivate(ghCommand(), name, description);
+            Platform.runLater(() -> done.accept(created));
+        });
     }
 
     /** Sync was just switched on: runs the first sync now. */
