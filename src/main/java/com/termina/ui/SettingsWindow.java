@@ -1398,6 +1398,13 @@ public final class SettingsWindow {
     private CheckBox profileShown;
     private Button removeProfile;
     private Label profileSource;
+    private ComboBox<String> profileFont;
+    private ComboBox<String> profileFontSize;
+    private ComboBox<String> profileTheme;
+
+    /** The sizes offered for a profile; the list's first entry, Default, follows the global one. */
+    private static final List<String> PROFILE_FONT_SIZES =
+            List.of("9", "10", "11", "12", "13", "14", "15", "16", "18", "20", "22", "24", "28", "32");
 
     /**
      * The profile list and its editor.
@@ -1477,6 +1484,22 @@ public final class SettingsWindow {
         profileSource.getStyleClass().add("settings-row-description");
         profileSource.setWrapText(true);
 
+        // A profile's own look. Every profile can have one — the system shell and the discovered
+        // ones too — because it is stored by the profile's id rather than in the profile, so these
+        // stay enabled where the fields above are read-only. Default follows the global setting.
+        String defaultLabel = tr("settings.profileStyle.default");
+        profileFont = new ComboBox<>();
+        profileFont.getItems().add(defaultLabel);
+        profileFont.getItems().addAll(MonospaceFonts.available());
+        profileFontSize = new ComboBox<>();
+        profileFontSize.getItems().add(defaultLabel);
+        profileFontSize.getItems().addAll(PROFILE_FONT_SIZES);
+        profileTheme = new ComboBox<>();
+        for (ComboBox<String> box : List.of(profileFont, profileFontSize, profileTheme)) {
+            box.setPrefWidth(box == profileFontSize ? 120 : 240);
+            box.valueProperty().addListener((o, old, value) -> commitProfileStyle());
+        }
+
         Button addProfile = new Button(tr("settings.profileAdd"));
         addProfile.setOnAction(e -> addUserProfile());
         removeProfile = new Button(tr("settings.profileRemove"));
@@ -1496,6 +1519,9 @@ public final class SettingsWindow {
                         tr("settings.profileDirectory"),
                         profileDirectory,
                         withValidation(profileDirectory, new Label(), ShellLauncher::validateDirectory)),
+                labelled(tr("settings.profileFont"), profileFont),
+                labelled(tr("settings.profileFontSize"), profileFontSize),
+                labelled(tr("settings.profileTheme"), profileTheme),
                 profileShown,
                 profileSource,
                 buttons);
@@ -1585,10 +1611,61 @@ public final class SettingsWindow {
             profileShown.setDisable(!hideable);
             profileShown.setSelected(!present || !profiles.hiddenIds().contains(profile.id()));
             profileSource.setText(present ? sourceNote(profile) : "");
+            showProfileStyle(present ? settings.profileStyle(profile.id()) : null);
         } finally {
             loading = was;
         }
         editing = profile;
+    }
+
+    /** The three style pickers, for a profile's style or none; the caller holds {@code loading}. */
+    private void showProfileStyle(com.termina.config.Settings.ProfileStyle style) {
+        String defaultLabel = tr("settings.profileStyle.default");
+        profileTheme.getItems().setAll(defaultLabel);
+        profileTheme.getItems().addAll(Themes.byDisplayName().keySet());
+        boolean present = style != null;
+        for (ComboBox<String> box : List.of(profileFont, profileFontSize, profileTheme)) box.setDisable(!present);
+        if (!present) {
+            profileFont.setValue(defaultLabel);
+            profileFontSize.setValue(defaultLabel);
+            profileTheme.setValue(defaultLabel);
+            return;
+        }
+        profileFont.setValue(style.fontFamily().isEmpty() ? defaultLabel : style.fontFamily());
+        profileFontSize.setValue(style.fontSize() == null ? defaultLabel : formatSize(style.fontSize()));
+        ThemeEntry theme = style.themeId().isEmpty() ? null : Themes.byId(style.themeId());
+        profileTheme.setValue(
+                theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
+    }
+
+    private static String formatSize(double size) {
+        return size == Math.rint(size) ? String.valueOf((long) size) : String.valueOf(size);
+    }
+
+    /** Writes the three pickers to the profile the form is showing. */
+    private void commitProfileStyle() {
+        if (loading || editing == null) return;
+        String defaultLabel = tr("settings.profileStyle.default");
+        String font = profileFont.getValue();
+        String size = profileFontSize.getValue();
+        String themeName = profileTheme.getValue();
+        ThemeEntry theme = themeName == null || themeName.equals(defaultLabel)
+                ? null
+                : Themes.byDisplayName().get(themeName);
+        Double fontSize = null;
+        if (size != null && !size.equals(defaultLabel)) {
+            try {
+                fontSize = Double.parseDouble(size);
+            } catch (NumberFormatException e) {
+                fontSize = null;
+            }
+        }
+        settings.setProfileStyle(
+                editing.id(),
+                new com.termina.config.Settings.ProfileStyle(
+                        font == null || font.equals(defaultLabel) ? "" : font,
+                        fontSize,
+                        theme == null ? "" : theme.id()));
     }
 
     /**

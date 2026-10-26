@@ -172,4 +172,16 @@ class ShellProfilesTest {
         assertEquals(written.command(), read.command(), "a path with a space must stay one argument");
         assertNotNull(read.commandLine());
     }
+
+    @Test
+    void aProfilesLaunchOptionsCarryItsIdThroughADirectoryChange() {
+        var profile = new Profile(
+                "wsl-ubuntu", "Ubuntu", java.util.List.of("wsl.exe", "-d", "Ubuntu"), "", Profile.Source.DISCOVERED);
+        var options = profile.toLaunchOptions("/home");
+        org.junit.jupiter.api.Assertions.assertEquals("wsl-ubuntu", options.profileId());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "wsl-ubuntu", options.withWorkingDirectory("/tmp").profileId());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "", com.termina.pty.LaunchOptions.ofShell("/bin/sh").profileId());
+    }
 }

@@ -316,9 +316,12 @@ final class DevCapture {
                 case "move" -> window.moveActivePaneForCapture(-1);
                 case "closeTab" -> window.closeSelectedTabForCapture();
                 case "reopen" -> window.reopenClosedTab();
+                case "styles" -> System.out.println("[capture] styles " + window.paneStyleReport());
                 default -> {
                     if (step.startsWith("move:")) {
                         window.moveActivePaneForCapture(Integer.parseInt(step.substring(5)));
+                    } else if (step.startsWith("profile:")) {
+                        window.openProfileForCapture(Integer.parseInt(step.substring(8)));
                     } else {
                         System.out.println("[capture] panes: unknown step " + step);
                     }

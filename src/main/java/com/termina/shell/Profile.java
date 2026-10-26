@@ -81,6 +81,6 @@ public record Profile(String id, String name, List<String> command, String worki
     /** What to hand the launcher: this profile's command, started in {@code fallbackDirectory}. */
     public com.termina.pty.LaunchOptions toLaunchOptions(String fallbackDirectory) {
         String directory = workingDirectory.isBlank() ? fallbackDirectory : workingDirectory;
-        return new com.termina.pty.LaunchOptions("", directory, command);
+        return new com.termina.pty.LaunchOptions("", directory, command, id);
     }
 }

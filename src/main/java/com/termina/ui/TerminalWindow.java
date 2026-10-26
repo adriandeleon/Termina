@@ -286,6 +286,7 @@ public final class TerminalWindow {
                 javafx.stage.WindowEvent.WINDOW_HIDDEN, e -> tabs.getTabs().clear());
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
+            applyWindowTheme();
             if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
             // A hidden tab defers its repaint until it is shown, and being selected makes it
             // visible without laying it out — so it has to be told. Every pane of it, not only the
@@ -855,8 +856,10 @@ public final class TerminalWindow {
      */
     private TerminalView createPane(com.termina.pty.LaunchOptions options, Tab tab) {
         TerminalView terminal = new TerminalView(settings.fontSize());
-        applySettingsTo(terminal);
+        // Options first: they name the profile, and the profile's font and theme are part of the
+        // settings applied next.
         terminal.setSessionOptions(settings.scrollbackLines(), options);
+        applySettingsTo(terminal);
         wirePane(terminal, tab);
         return terminal;
     }
@@ -917,7 +920,10 @@ public final class TerminalWindow {
             directory.bind(pane.getDisplay().tabTooltipProperty());
             if (isSelected(tab)) bindTitleTo(tab);
         };
-        group.activeProperty().addListener((o, was, now) -> follow.accept(now));
+        group.activeProperty().addListener((o, was, now) -> {
+            follow.accept(now);
+            if (isSelected(tab)) applyWindowTheme();
+        });
         follow.accept(group.active());
     }
 
@@ -1107,6 +1113,24 @@ public final class TerminalWindow {
     /** Moves to a neighbouring pane, by direction name — for the capture hook. */
     public void focusPaneForCapture(String direction) {
         focusPane(PaneGroup.Direction.valueOf(direction));
+    }
+
+    /** Opens the Nth profile in a new tab, as its chord would — for the capture hook. */
+    public void openProfileForCapture(int number) {
+        openProfileByNumber(number);
+    }
+
+    /** Each pane's profile, font and background, tab by tab — for the capture hook. */
+    public String paneStyleReport() {
+        List<String> out = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) {
+            for (TerminalView pane : groupOf(tab).panes()) {
+                out.add(pane.launchOptions().profileId() + ":" + themeOf(pane).id() + ":"
+                        + pane.fontReportForCapture());
+            }
+        }
+        Object fill = stage.getScene() == null ? null : stage.getScene().getFill();
+        return out + " sceneFill=" + fill;
     }
 
     /** Maximizes or restores the active pane — for the capture hook. */
@@ -2873,15 +2897,8 @@ public final class TerminalWindow {
 
     /** Re-applies everything that can change while a session is running, to every tab. */
     public void applySettings() {
-        ThemeEntry theme = Themes.byId(settings.themeId());
-        if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
         applyTabBarVisibility();
         applyMenuBarVisibility();
-        // The window buttons are drawn by JavaFX where the platform does not provide them, and
-        // they follow the scene's colour scheme unless told otherwise. The scene's is the OS's,
-        // not ours — a dark theme on a light desktop would get dark glyphs on a dark header.
-        if (headerBar != null)
-            HeaderBar.setSystemColorScheme(stage, theme.isDark() ? ColorScheme.DARK : ColorScheme.LIGHT);
         // Live, and on the stage rather than the scene: a decorated window's native background is
         // opaque, so scene-level transparency needs StageStyle.TRANSPARENT — which takes the title
         // bar with it and can only be chosen before the window is shown. Stage opacity keeps both
@@ -2891,17 +2908,51 @@ public final class TerminalWindow {
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         applyKeybindings();
         for (TerminalView terminal : terminals()) applySettingsTo(terminal);
+        applyWindowTheme();
+    }
+
+    /**
+     * The colours the window itself takes from a theme — the scene behind the panes, the window
+     * buttons, each tab's marks — from the theme of the pane being worked in, since with per-profile
+     * themes a window can hold several. Re-applied as the active pane or tab changes. The control
+     * stylesheet is the application's and stays with the global theme.
+     */
+    private void applyWindowTheme() {
+        TerminalView active = activeTerminal();
+        ThemeEntry theme = active == null ? Themes.byId(settings.themeId()) : themeOf(active);
+        if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
+        // The window buttons are drawn by JavaFX where the platform does not provide them, and
+        // they follow the scene's colour scheme unless told otherwise. The scene's is the OS's,
+        // not ours — a dark theme on a light desktop would get dark glyphs on a dark header.
+        if (headerBar != null)
+            HeaderBar.setSystemColorScheme(stage, theme.isDark() ? ColorScheme.DARK : ColorScheme.LIGHT);
         for (Tab tab : tabs.getTabs()) {
             TabMarkState marks = marksOf(tab);
-            if (marks != null) marks.setColours(theme.palette());
+            TerminalView pane = terminalOf(tab);
+            if (marks != null) marks.setColours((pane == null ? theme : themeOf(pane)).palette());
         }
     }
 
+    /** The theme a pane draws in: its profile's, if it names one that exists, else the global one. */
+    private ThemeEntry themeOf(TerminalView terminal) {
+        return themeFor(settings.profileStyle(terminal.launchOptions().profileId()), settings.themeId());
+    }
+
+    /** Pure: a profile's theme id if it names a theme, otherwise the global one. */
+    static ThemeEntry themeFor(com.termina.config.Settings.ProfileStyle style, String globalThemeId) {
+        if (!style.themeId().isEmpty()) {
+            ThemeEntry own = Themes.byId(style.themeId());
+            if (own.id().equals(style.themeId())) return own;
+        }
+        return Themes.byId(globalThemeId);
+    }
+
     private void applySettingsTo(TerminalView terminal) {
-        ThemeEntry theme = Themes.byId(settings.themeId());
-        terminal.setPalette(theme.palette());
-        terminal.setFontFamily(settings.fontFamily());
-        terminal.setFontSize(settings.effectiveFontSize());
+        com.termina.config.Settings.ProfileStyle style =
+                settings.profileStyle(terminal.launchOptions().profileId());
+        terminal.setPalette(themeOf(terminal).palette());
+        terminal.setFontFamily(style.fontFamily().isEmpty() ? settings.fontFamily() : style.fontFamily());
+        terminal.setFontSize(settings.effectiveFontSize(style));
         terminal.setPreferredCursor(settings.cursorShape());
         terminal.setAltIsMeta(settings.altIsMeta());
         terminal.setBellEnabled(settings.bell());

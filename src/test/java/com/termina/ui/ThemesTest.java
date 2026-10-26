@@ -106,4 +106,17 @@ class ThemesTest {
         assertEquals("theme", Themes.slug("***"));
         assertFalse(Themes.slug("../../etc/passwd").contains("/"));
     }
+
+    @Test
+    void aProfileThemeThatNamesNothingFallsBackToTheGlobalOneNotToTheDefault() {
+        var style = new com.termina.config.Settings.ProfileStyle("", null, "user-gone");
+        assertEquals(
+                "clear-light", TerminalWindow.themeFor(style, "clear-light").id());
+        var own = new com.termina.config.Settings.ProfileStyle("", null, "clear-dark");
+        assertEquals("clear-dark", TerminalWindow.themeFor(own, "clear-light").id());
+        assertEquals(
+                "clear-light",
+                TerminalWindow.themeFor(com.termina.config.Settings.ProfileStyle.NONE, "clear-light")
+                        .id());
+    }
 }

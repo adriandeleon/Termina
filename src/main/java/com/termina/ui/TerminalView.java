@@ -2764,6 +2764,11 @@ public final class TerminalView extends Region {
         return LogicalLines.of(-history, wrapped, buffer.getWidth());
     }
 
+    /** The face and size this pane draws in — for the development capture hook. */
+    public String fontReportForCapture() {
+        return font == null ? "-" : font.getFamily() + "@" + fontSize;
+    }
+
     /** The selection's text, without touching the clipboard — for the development capture hook. */
     public String selectionTextForCapture() {
         String text = lockedSelectedText();
