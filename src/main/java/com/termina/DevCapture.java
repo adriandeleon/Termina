@@ -148,6 +148,7 @@ final class DevCapture {
                 reopenTabIfRequested(window);
                 bellInTabIfRequested(window);
                 typeInTabIfRequested(window);
+                if (settings != null) importThemeIfRequested(settings);
                 if (settings != null) switchThemeIfRequested(settings);
                 // Before the settle pause, not after: a resize applied in the same pulse as the
                 // exit never reaches the scene, so the geometry written on close is the old one and
@@ -203,6 +204,29 @@ final class DevCapture {
      * broadcast gets checked: photograph a window that was open *before* the change and see whether
      * it followed.
      */
+    /**
+     * {@code -Dtermina.captureImportTheme=<file>} imports a colour scheme as Settings → Import would,
+     * selects it, and prints what was read — so the picture and the numbers can be checked together.
+     */
+    private static void importThemeIfRequested(com.termina.config.Settings settings) {
+        String file = System.getProperty("termina.captureImportTheme");
+        if (file == null || file.isBlank()) return;
+        try {
+            var added = com.termina.ui.Themes.importFile(java.nio.file.Path.of(file));
+            for (var theme : added) {
+                var palette = theme.palette();
+                StringBuilder ansi = new StringBuilder();
+                for (var colour : palette.ansi()) ansi.append(' ').append(colour);
+                System.out.println("[capture] imported " + theme.id() + " \"" + theme.displayName() + "\" dark="
+                        + theme.isDark() + " bg=" + palette.background() + " fg=" + palette.foreground()
+                        + " cursor=" + palette.cursor() + " selection=" + palette.selection() + " ansi=" + ansi);
+            }
+            if (!added.isEmpty()) settings.setThemeId(added.getFirst().id());
+        } catch (Exception e) {
+            System.out.println("[capture] import failed: " + e.getMessage());
+        }
+    }
+
     private static void switchThemeIfRequested(com.termina.config.Settings settings) {
         String theme = System.getProperty("termina.captureTheme");
         if (theme == null || theme.isBlank()) return;

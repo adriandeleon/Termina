@@ -247,7 +247,7 @@ public final class TerminalWindow {
                     stage.setX(at[0]);
                     stage.setY(at[1]);
                 }));
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+        ThemeEntry theme = Themes.byId(settings.themeId());
         scene.setFill(theme.palette().background());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
         if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
@@ -830,7 +830,7 @@ public final class TerminalWindow {
         // A dot after the title when something happened here while another tab was selected:
         // a bell, or output after a quiet spell. See TabMarks for the rule.
         TabMarkState marks = new TabMarkState(title);
-        marks.setColours(Theme.byId(settings.themeId(), Theme.EDITORA_DARK).palette());
+        marks.setColours(Themes.byId(settings.themeId()).palette());
         tab.getProperties().put(TAB_MARKS, marks);
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
@@ -2873,7 +2873,7 @@ public final class TerminalWindow {
 
     /** Re-applies everything that can change while a session is running, to every tab. */
     public void applySettings() {
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+        ThemeEntry theme = Themes.byId(settings.themeId());
         if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
         applyTabBarVisibility();
         applyMenuBarVisibility();
@@ -2898,7 +2898,7 @@ public final class TerminalWindow {
     }
 
     private void applySettingsTo(TerminalView terminal) {
-        Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+        ThemeEntry theme = Themes.byId(settings.themeId());
         terminal.setPalette(theme.palette());
         terminal.setFontFamily(settings.fontFamily());
         terminal.setFontSize(settings.effectiveFontSize());
@@ -2989,7 +2989,7 @@ public final class TerminalWindow {
                     .describedAs(tr("palette.newTabProfile.desc"))
                     .withKeywords(tr("palette.group.profiles")));
         }
-        for (Theme theme : Theme.values()) {
+        for (ThemeEntry theme : Themes.all()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
             all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id()))
                     .describedAs(tr("palette.theme.desc"))

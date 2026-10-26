@@ -698,6 +698,12 @@ public final class TerminalView extends Region {
     }
 
     private static Color washFor(TerminalPalette palette) {
+        // A scheme's own selection colour is meant to sit behind the text, so it is laid over it
+        // more strongly than the blue wash is; still translucent, since it is drawn on top.
+        if (palette.selection() != null) {
+            Color own = palette.selection();
+            return Color.color(own.getRed(), own.getGreen(), own.getBlue(), 0.55);
+        }
         Color blue = palette.ansi()[4];
         return Color.color(blue.getRed(), blue.getGreen(), blue.getBlue(), SELECTION_ALPHA);
     }
@@ -1117,7 +1123,8 @@ public final class TerminalView extends Region {
 
         double x = column * charWidth;
         double y = row * lineHeight;
-        g.setFill(palette.foreground());
+        // An imported scheme may name its cursor colour; the built-ins draw it in the foreground.
+        g.setFill(palette.cursor() != null ? palette.cursor() : palette.foreground());
 
         switch (effectiveCursorShape()) {
             case UNDERLINE -> g.fillRect(x, y + lineHeight - 2, charWidth, 2);

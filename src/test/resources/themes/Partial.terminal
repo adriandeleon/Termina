@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BackgroundColor</key>
+	<data>
+	YnBsaXN0MDDUAQIDBAUGFRhZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25f
+	EA9OU0tleWVkQXJjaGl2ZXKjBwgPVSRudWxs0wkKCwwNDlYkY2xhc3NcTlNDb2xvclNw
+	YWNlVU5TUkdCgAIQAU8QJzAuMDYyNzQ1MDk4MCAwLjEyNTQ5MDE5NjEgMC4xODgyMzUy
+	OTQxANIQERITWCRjbGFzc2VzWiRjbGFzc25hbWWiExRXTlNDb2xvclhOU09iamVjdNEW
+	F1Ryb290gAESAAGGoAgRGyQpMkRITlVcaW9xc52iq7a5wcrN0tQAAAAAAAABAQAAAAAA
+	AAAZAAAAAAAAAAAAAAAAAAAA2Q==
+	</data>
+	<key>TextColor</key>
+	<data>
+	YnBsaXN0MDDUAQIDBAUGFRhZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25f
+	EA9OU0tleWVkQXJjaGl2ZXKjBwgPVSRudWxs0wkKCwwNDlYkY2xhc3NcTlNDb2xvclNw
+	YWNlVU5TUkdCgAIQAU8QJzAuODc4NDMxMzcyNSAwLjg3ODQzMTM3MjUgMC44Nzg0MzEz
+	NzI1ANIQERITWCRjbGFzc2VzWiRjbGFzc25hbWWiExRXTlNDb2xvclhOU09iamVjdNEW
+	F1Ryb290gAESAAGGoAgRGyQpMkRITlVcaW9xc52iq7a5wcrN0tQAAAAAAAABAQAAAAAA
+	AAAZAAAAAAAAAAAAAAAAAAAA2Q==
+	</data>
+	<key>name</key>
+	<string>Only Background</string>
+	<key>type</key>
+	<string>Window Settings</string>
+</dict>
+</plist>

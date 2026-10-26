@@ -731,19 +731,65 @@ public final class SettingsWindow {
     private Label saveError;
     private CheckBox updateCheck;
 
+    private Button removeTheme;
+    private Label themeImportResult;
+
+    private void importThemeFile() {
+        javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+        chooser.setTitle(tr("settings.importTheme"));
+        chooser.getExtensionFilters()
+                .add(new javafx.stage.FileChooser.ExtensionFilter(
+                        tr("settings.importTheme.filter"), com.termina.theme.ThemeImport.EXTENSIONS));
+        java.io.File file = chooser.showOpenDialog(stage);
+        if (file == null) return;
+        importTheme(file.toPath());
+    }
+
+    /** Imports a file and selects the first theme in it, saying what happened on the row. */
+    void importTheme(java.nio.file.Path file) {
+        try {
+            List<ThemeEntry> added = Themes.importFile(file);
+            themeImportResult.setText(tr(
+                    "settings.importTheme.done",
+                    String.join(
+                            ", ", added.stream().map(ThemeEntry::displayName).toList())));
+            themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+            if (!added.isEmpty()) settings.setThemeId(added.getFirst().id());
+        } catch (com.termina.theme.ThemeImportException e) {
+            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
+        } catch (java.io.IOException e) {
+            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
+        }
+    }
+
+    private void removeChosenTheme() {
+        ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
+        if (chosen == null || chosen.isBuiltIn()) return;
+        try {
+            Themes.remove(chosen.id());
+            themeImportResult.setText(tr("settings.removeTheme.done", chosen.displayName()));
+        } catch (java.io.IOException e) {
+            themeImportResult.setText(tr("settings.removeTheme.failed", chosen.displayName(), e.getMessage()));
+        }
+        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+        // What it falls back to is Editora Dark, which the stored id now means.
+        settings.setThemeId(Theme.EDITORA_DARK.id());
+    }
+
     private void buildAppearance(VBox page) {
         VBox theme = section(page, tr("settings.section.theme"));
 
         themeCombo = new ComboBox<>();
-        themeCombo.getItems().setAll(Theme.byDisplayName().keySet());
+        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
         themeCombo.setPrefWidth(200);
         themeCombo.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            Theme chosen = Theme.byDisplayName().get(value);
+            ThemeEntry chosen = Themes.byDisplayName().get(value);
             if (chosen != null) {
                 settings.setThemeId(chosen.id());
                 refreshPreview();
             }
+            removeTheme.setDisable(chosen == null || chosen.isBuiltIn());
         });
         row(
                 Category.APPEARANCE,
@@ -752,6 +798,25 @@ public final class SettingsWindow {
                 tr("settings.theme.desc"),
                 themeCombo,
                 "theme colour color dark light appearance palette");
+
+        // Importing: a file chooser for the formats ThemeImport reads, and a line that says what
+        // happened — the new theme's name, or why the file was not one.
+        Button importTheme = new Button(tr("settings.importTheme.button"));
+        importTheme.setOnAction(e -> importThemeFile());
+        removeTheme = new Button(tr("settings.removeTheme.button"));
+        removeTheme.setOnAction(e -> removeChosenTheme());
+        themeImportResult = new Label();
+        themeImportResult.getStyleClass().add("settings-note");
+        themeImportResult.setWrapText(true);
+        HBox themeButtons = new HBox(8, importTheme, removeTheme);
+        VBox themeImport = new VBox(6, themeButtons, themeImportResult);
+        row(
+                Category.APPEARANCE,
+                theme,
+                tr("settings.importTheme"),
+                tr("settings.importTheme.desc"),
+                themeImport,
+                "import theme itermcolors terminal windows terminal ghostty kitty alacritty scheme colours file");
 
         VBox font = section(page, tr("settings.section.font"));
 
@@ -1941,8 +2006,10 @@ public final class SettingsWindow {
     private void reloadControls() {
         loading = true;
         try {
-            Theme theme = Theme.byId(settings.themeId(), Theme.EDITORA_DARK);
+            ThemeEntry theme = Themes.byId(settings.themeId());
+            themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
             themeCombo.setValue(theme.displayName());
+            removeTheme.setDisable(theme.isBuiltIn());
             fontCombo.setValue(MonospaceFonts.resolve(settings.fontFamily()));
             fontSize.getValueFactory().setValue(settings.fontSize());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
@@ -1991,7 +2058,7 @@ public final class SettingsWindow {
     private void refreshPreview() {
         if (preview == null) return;
         preview.update(
-                Theme.byId(settings.themeId(), Theme.EDITORA_DARK).palette(),
+                Themes.byId(settings.themeId()).palette(),
                 MonospaceFonts.resolve(settings.fontFamily()),
                 settings.fontSize());
     }
