@@ -1849,6 +1849,7 @@ public final class SettingsWindow {
     private Button syncCreateGitHub;
     /** A repository is being made on GitHub; the connection's buttons wait for it. */
     private boolean syncCreating;
+
     private Label syncState;
     private Label syncAccount;
     private Button syncNow;

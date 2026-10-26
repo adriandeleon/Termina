@@ -34,8 +34,8 @@ public final class GitHubRepo {
             System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 
     /** The repository named by the address {@code gh repo create} prints. */
-    private static final Pattern WEB_URL = Pattern.compile(
-            "https://([A-Za-z0-9.-]+)/([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+?)(?:\\.git)?/?\\s*$");
+    private static final Pattern WEB_URL =
+            Pattern.compile("https://([A-Za-z0-9.-]+)/([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+?)(?:\\.git)?/?\\s*$");
 
     /**
      * A repository {@link #createPrivate} made.
