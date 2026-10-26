@@ -1,7 +1,6 @@
 package com.termina.ui;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -16,7 +15,6 @@ import java.util.function.Function;
 
 import javafx.application.Platform;
 
-import com.termina.link.CommandPath;
 import com.termina.process.CommandInput;
 import com.termina.process.CommandOutput;
 
@@ -33,8 +31,7 @@ import com.termina.process.CommandOutput;
  * <p>Where none is installed, or on macOS and Windows, which have no PRIMARY, a middle-click pastes
  * the clipboard, as it always has, and selecting sets nothing.
  *
- * <p>All of it off the FX thread, on one worker: finding the tools may start a login shell to read
- * its PATH (see {@link LoginShellPath}), and a tool that hangs must hang there.
+ * <p>All of it off the FX thread, on one worker, so a tool that hangs hangs there.
  */
 final class PrimarySelection {
 
@@ -94,17 +91,12 @@ final class PrimarySelection {
         return value != null && !value.isBlank();
     }
 
-    /** Never on the FX thread: the first call may wait for a login shell. */
     private static Optional<Tools> tools() {
         Optional<Tools> found = tools;
         if (found != null) return found;
         synchronized (PrimarySelection.class) {
             if (tools == null) {
-                tools = LINUX
-                        ? Optional.ofNullable(choose(
-                                System.getenv(),
-                                name -> CommandPath.resolve(name, LoginShellPath.directories(), Files::isExecutable)))
-                        : Optional.empty();
+                tools = LINUX ? Optional.ofNullable(choose(System.getenv(), SystemTools::find)) : Optional.empty();
             }
             return tools;
         }

@@ -2517,6 +2517,12 @@ public final class TerminalView extends Region {
             case com.termina.term.OscSequences.SEMANTIC_PROMPT ->
                 com.termina.term.OscSequences.promptMark(payload).ifPresent(this::onPromptMark);
             case com.termina.term.OscSequences.CURRENT_DIRECTORY -> onDirectoryReported(payload);
+            case com.termina.term.OscSequences.NOTIFY, com.termina.term.OscSequences.NOTIFY_RXVT -> {
+                if (code == com.termina.term.OscSequences.NOTIFY) {
+                    com.termina.term.OscSequences.conEmuDirectory(payload).ifPresent(this::onWindowsDirectoryReported);
+                }
+                com.termina.term.OscSequences.notification(code, payload).ifPresent(this::onNotification);
+            }
             case com.termina.term.OscSequences.CLIPBOARD -> {
                 if (!clipboardWrites) return;
                 com.termina.term.OscSequences.clipboardText(payload)
@@ -2545,6 +2551,49 @@ public final class TerminalView extends Region {
                         com.termina.link.LocalHost::isLocal,
                         path -> java.nio.file.Files.isDirectory(java.nio.file.Path.of(path)))
                 .ifPresent(display::setCwd);
+    }
+
+    /**
+     * The directory an OSC {@code 9;9} reports, ConEmu's form, which Windows shells set up for
+     * Windows Terminal emit instead of OSC 7. Held to the same rules: a directory on this machine
+     * that exists, and only where the OS cannot be asked.
+     */
+    private void onWindowsDirectoryReported(String path) {
+        if (com.termina.pty.ProcessCwd.isSupported()) return;
+        try {
+            if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(path))) display.setCwd(path);
+        } catch (RuntimeException invalid) {
+            // Not a path this platform can read.
+        }
+    }
+
+    /** Told on the FX thread when a program asks for a notification; see {@link #onNotification}. */
+    private java.util.function.BiConsumer<com.termina.term.OscSequences.Notification, Boolean> onNotify =
+            (n, post) -> {};
+
+    public void setOnNotify(
+            java.util.function.BiConsumer<com.termina.term.OscSequences.Notification, Boolean> onNotify) {
+        this.onNotify = onNotify == null ? (n, post) -> {} : onNotify;
+    }
+
+    /** A program cannot post more than one notification per pane in this long; the rest only mark. */
+    static final long NOTIFY_INTERVAL_MS = 2_000;
+
+    /** When this pane last posted one. Written on the FX thread only. */
+    private long lastNotifiedMs = Long.MIN_VALUE / 2;
+
+    /**
+     * A program asked for a notification. The window decides whether it reaches the desktop — not
+     * while you are looking at the pane — but the pane decides how often: a loop printing OSC 9
+     * would otherwise fill the screen with bubbles. Every one still marks the tab.
+     */
+    private void onNotification(com.termina.term.OscSequences.Notification notification) {
+        Platform.runLater(() -> {
+            long now = System.currentTimeMillis();
+            boolean post = now - lastNotifiedMs >= NOTIFY_INTERVAL_MS;
+            if (post) lastNotifiedMs = now;
+            onNotify.accept(notification, post);
+        });
     }
 
     /** Records a mark at the cursor, in coordinates that survive scrolling. */

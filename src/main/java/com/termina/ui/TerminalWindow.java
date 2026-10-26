@@ -886,6 +886,16 @@ public final class TerminalWindow {
             TabMarkState marks = marksOf(tab);
             if (marks != null) marks.apply(TabMarks.onBell(isSelected(tab), marks.mark));
         });
+        terminal.setOnNotify((notification, post) -> {
+            TabMarkState marks = marksOf(tab);
+            if (marks != null) marks.apply(TabMarks.onNotify(isSelected(tab)));
+            if (!post || !settings.notifications()) return;
+            PaneGroup group = groupOf(tab);
+            if (!TabMarks.postsToDesktop(stage.isFocused(), isSelected(tab), group.active() == terminal)) return;
+            // Untitled, it is named after the tab, which is how the user knows which one spoke.
+            String title = notification.title().isEmpty() ? label(tab) : notification.title();
+            DesktopNotifier.post(title.isBlank() ? com.termina.AppInfo.NAME : title, notification.body());
+        });
         terminal.setOnOutput(() -> {
             TabMarkState marks = marksOf(tab);
             if (marks == null) return;
@@ -1412,6 +1422,7 @@ public final class TerminalWindow {
         TabMarks.Mark mark = TabMarks.Mark.NONE;
         javafx.scene.paint.Color activity = javafx.scene.paint.Color.GRAY;
         javafx.scene.paint.Color bell = javafx.scene.paint.Color.GRAY;
+        javafx.scene.paint.Color notify = javafx.scene.paint.Color.GRAY;
 
         /** Opening the tab counts as output: its first prompt is not news. */
         long lastOutputMs = System.currentTimeMillis();
@@ -1422,10 +1433,11 @@ public final class TerminalWindow {
             title.setGraphicTextGap(6);
         }
 
-        /** Yellow for a bell and cyan for activity, in the theme's own rendering of each. */
+        /** Magenta for a notification, yellow for a bell, cyan for activity, in the theme's own rendering of each. */
         void setColours(TerminalPalette palette) {
             activity = palette.ansi()[6];
             bell = palette.ansi()[3];
+            notify = palette.ansi()[5];
             paint();
         }
 
@@ -1437,7 +1449,12 @@ public final class TerminalWindow {
         }
 
         private void paint() {
-            dot.setFill(mark == TabMarks.Mark.BELL ? bell : activity);
+            dot.setFill(
+                    switch (mark) {
+                        case NOTIFY -> notify;
+                        case BELL -> bell;
+                        default -> activity;
+                    });
         }
     }
 

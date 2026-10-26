@@ -53,6 +53,9 @@ public final class Settings {
     public static final String PROFILE_PREFIX = "profile.";
 
     public static final String BELL = "terminal.bell";
+    /** Whether a program's notification (OSC 9, OSC 777) reaches the desktop. The tab is marked either way. */
+    public static final String NOTIFICATIONS = "terminal.notifications";
+
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
@@ -496,6 +499,15 @@ public final class Settings {
 
     public void setBell(boolean bell) {
         put(BELL, String.valueOf(bell));
+    }
+
+    /** Whether programs may post desktop notifications. On: a program asks only when it has news. */
+    public boolean notifications() {
+        return readBoolean(NOTIFICATIONS, true);
+    }
+
+    public void setNotifications(boolean notifications) {
+        put(NOTIFICATIONS, String.valueOf(notifications));
     }
 
     /**

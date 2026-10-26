@@ -713,6 +713,7 @@ public final class SettingsWindow {
     private CheckBox altIsMeta;
     private CheckBox confirmPaste;
     private CheckBox copyOnSelect;
+    private CheckBox notifications;
     private CheckBox clipboardWrite;
     private CheckBox typeAhead;
     private CheckBox bell;
@@ -963,6 +964,19 @@ public final class SettingsWindow {
             settings.setBell(value);
         });
         row(Category.TERMINAL, display, tr("settings.bell"), tr("settings.bell.desc"), bell, "bell alert flash sound");
+
+        notifications = new CheckBox();
+        notifications.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            settings.setNotifications(value);
+        });
+        row(
+                Category.TERMINAL,
+                display,
+                tr("settings.notifications"),
+                tr("settings.notifications.desc"),
+                notifications,
+                "notification notify desktop osc 9 777 alert toast bubble");
 
         VBox session = section(page, tr("settings.section.session"));
 
@@ -1940,6 +1954,7 @@ public final class SettingsWindow {
             typeAhead.setSelected(settings.typeAhead());
             reloadKeys();
             bell.setSelected(settings.bell());
+            notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showMenuBar.setSelected(settings.showMenuBar());
