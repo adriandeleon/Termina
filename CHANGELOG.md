@@ -12,8 +12,6 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   private repository with `gh repo create`, and connects to it — over SSH if that is the protocol
   `gh` is set to, HTTPS otherwise. As in Editora.
 
-## Unreleased
-
 ### Fixed
 
 - **The shortcut reference said a middle-click pastes the clipboard** on Linux, where it pastes the
