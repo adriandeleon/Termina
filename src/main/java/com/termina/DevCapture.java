@@ -132,6 +132,7 @@ final class DevCapture {
                 if (active != null) driveInput(window, active);
                 // Before the typing below, so captureTypeAtFocus can type into an open find bar.
                 searchIfRequested(window);
+                keystrokesIfRequested(window);
                 promptMarksIfRequested(window);
                 panesIfRequested(window);
                 fireChordIfRequested(window);
@@ -287,6 +288,21 @@ final class DevCapture {
             window.stage().getScene().getRoot().layout();
             System.out.println("[capture] " + step + " -> " + window.paneReport() + " " + window.focusReport());
         }
+    }
+
+    /**
+     * {@code -Dtermina.captureKeystrokes=C-a,S-enter,escape,key:SHIFT} fires whole keystrokes — press,
+     * typed, release — at the active terminal. Pair it with a program that prints what it receives:
+     * the kitty keyboard protocol is about exactly which bytes each of the three produces.
+     */
+    private static void keystrokesIfRequested(TerminalWindow window) {
+        String tokens = System.getProperty("termina.captureKeystrokes");
+        if (tokens == null) return;
+        TerminalView terminal = window.activeTerminal();
+        if (terminal == null) return;
+        int before = terminal.keyboardFlagsForCapture();
+        System.out.println(
+                "[capture] keystrokes " + terminal.fireKeystrokesForCapture(tokens) + " keyboardFlags=" + before);
     }
 
     /** {@code -Dtermina.captureWindowIndex=N} photographs a window other than the first. */

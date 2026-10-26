@@ -30,6 +30,10 @@ public final class TerminalSession {
     private final TerminalStarter starter;
     private final TerminalExecutors executors;
     private final TypeAheadModel typeAheadModel;
+
+    /** What programs have asked of the keyboard with the kitty protocol. */
+    private final KeyboardFlags keyboardFlags = new KeyboardFlags();
+
     private final TerminalTypeAheadManager typeAhead;
 
     /** Whether predictions are wanted now. Off until the view says otherwise. */
@@ -81,10 +85,24 @@ public final class TerminalSession {
         textBuffer.addModelListener(typeAhead::onTerminalStateChanged);
         // The commands JediTerm leaves unhandled are taken out where the emulator reads, so each is
         // seen at its place in the output — see OscInterceptor.
-        OscInterceptor stream = new OscInterceptor(
+        OscInterceptor osc = new OscInterceptor(
                 new TtyBasedArrayDataStream(connector),
                 OscSequences::handled,
                 (code, payload) -> oscListener.osc(code, payload));
+        // The kitty keyboard protocol's mode requests, likewise taken where the emulator reads, so a
+        // program that switches screens and then sets a mode sets it on the screen it meant.
+        KeyboardModeInterceptor stream = new KeyboardModeInterceptor(osc, new KeyboardModeInterceptor.Listener() {
+            @Override
+            public void keyboardMode(char marker, String params) {
+                byte[] answer = keyboardFlags.apply(marker, params, textBuffer.isUsingAlternateBuffer());
+                if (answer != null) answerProgram(answer);
+            }
+
+            @Override
+            public void reset() {
+                keyboardFlags.reset();
+            }
+        });
         starter = new TerminalStarter(terminal, connector, stream, typeAhead, executors);
 
         emulatorThread = new Thread(this::runEmulator, "termina-emulator");
@@ -158,6 +176,19 @@ public final class TerminalSession {
      */
     public void setTypeAheadWanted(java.util.function.BooleanSupplier wanted) {
         this.typeAheadWanted = wanted == null ? () -> false : wanted;
+    }
+
+    /**
+     * The kitty keyboard protocol flags in force on a screen: 0 until a program asks, which is the
+     * legacy encoding every key has always had.
+     */
+    public int keyboardFlags(boolean alternateScreen) {
+        return keyboardFlags.current(alternateScreen);
+    }
+
+    /** Sends a reply to a query, the way JediTerm sends its own: not as typing. */
+    private void answerProgram(byte[] answer) {
+        if (!closed) starter.sendBytes(answer, false);
     }
 
     /** The predicted line, for the view to draw. */
