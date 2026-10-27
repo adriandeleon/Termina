@@ -2894,6 +2894,9 @@ public final class TerminalView extends Region {
      */
     private void onWindowsDirectoryReported(String path) {
         if (!com.termina.pty.ProcessCwd.reportedDirectoryWins()) return;
+        // Not a share: asking whether \\host\share is a directory is a connection to the host
+        // the sequence named, as for OSC 7.
+        if (com.termina.link.LinkPaths.isUnc(path)) return;
         try {
             if (java.nio.file.Files.isDirectory(java.nio.file.Path.of(path))) reportedDirectory(path);
         } catch (RuntimeException invalid) {
