@@ -6,7 +6,7 @@
 
     <groupId>com.termina</groupId>
     <artifactId>termina</artifactId>
-    <version>0.12.0</version>
+    <version>0.13.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Termina</name>
@@ -635,6 +635,13 @@
                                   hardcoding a number, which is what this replaced: the bundle
                                   claimed 1.0.0 while the application reported 0.1.0-SNAPSHOT, so
                                   Finder, the About box and the update check all disagreed.
+
+                                  numericVersion drops any suffix, not just -SNAPSHOT: jpackage
+                                  rejects 0.13.0-rc1 outright, so a pre-release tag could never
+                                  build. The suffix is not lost — the application reads the pom
+                                  version through build-info.properties, and release.yml names the
+                                  installers after it — it is only kept out of the one field that
+                                  must be numbers.
                                 -->
                                 <id>derive-versions</id>
                                 <phase>initialize</phase>
@@ -642,16 +649,16 @@
                                 <configuration>
                                     <exportAntProperties>true</exportAntProperties>
                                     <target>
-                                        <loadresource property="jpackage.publicVersion">
+                                        <loadresource property="jpackage.numericVersion">
                                             <string value="${project.version}"/>
                                             <filterchain>
                                                 <tokenfilter>
-                                                    <replaceregex pattern="-SNAPSHOT$" replace=""/>
+                                                    <replaceregex pattern="-.*$" replace=""/>
                                                 </tokenfilter>
                                             </filterchain>
                                         </loadresource>
                                         <loadresource property="jpackage.macVersion">
-                                            <string value="${jpackage.publicVersion}"/>
+                                            <string value="${jpackage.numericVersion}"/>
                                             <filterchain>
                                                 <tokenfilter>
                                                     <replaceregex pattern="^0\." replace="1."/>
@@ -660,10 +667,10 @@
                                         </loadresource>
                                         <condition property="jpackage.appVersion"
                                                    value="${jpackage.macVersion}"
-                                                   else="${jpackage.publicVersion}">
+                                                   else="${jpackage.numericVersion}">
                                             <os family="mac"/>
                                         </condition>
-                                        <echo message="version ${project.version}: public ${jpackage.publicVersion}, bundle ${jpackage.appVersion}"/>
+                                        <echo message="version ${project.version}: numeric ${jpackage.numericVersion}, bundle ${jpackage.appVersion}"/>
                                     </target>
                                 </configuration>
                             </execution>
@@ -811,7 +818,7 @@
                             <arguments>
                                 <argument>${project.basedir}/scripts/fix-mac-bundle-version.sh</argument>
                                 <argument>${project.build.directory}/dist/Termina.app</argument>
-                                <argument>${jpackage.publicVersion}</argument>
+                                <argument>${jpackage.numericVersion}</argument>
                             </arguments>
                             <!-- Nothing to fix where there is no bundle; the script exits 0 anyway. -->
                             <skip>${skip.mac.version.fix}</skip>
