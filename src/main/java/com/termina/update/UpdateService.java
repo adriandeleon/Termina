@@ -1,15 +1,22 @@
 package com.termina.update;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import javafx.application.Platform;
@@ -50,7 +57,15 @@ public final class UpdateService {
     /** The response is a few kilobytes; the cap is there so a wrong URL cannot stream forever. */
     static final int MAX_BYTES = 1024 * 1024;
 
+    /** Connecting, and waiting for the response headers. */
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
+
+    /**
+     * The whole request, body included. {@code HttpRequest.timeout} stops at the headers: a server that
+     * sent them and then nothing held the one checking thread forever, and every later check — a manual
+     * one too — queued behind it unanswered.
+     */
+    static final Duration DEADLINE = Duration.ofSeconds(30);
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "termina-update-check");
@@ -59,6 +74,7 @@ public final class UpdateService {
     });
 
     private final String endpoint;
+    private final Duration deadline;
 
     /**
      * One client for the life of the service. A client owns a connection pool and a selector
@@ -67,11 +83,12 @@ public final class UpdateService {
     private volatile @Nullable HttpClient client;
 
     public UpdateService() {
-        this(AppInfo.LATEST_RELEASE_API);
+        this(AppInfo.LATEST_RELEASE_API, DEADLINE);
     }
 
-    UpdateService(String endpoint) {
+    UpdateService(String endpoint, Duration deadline) {
         this.endpoint = endpoint;
+        this.deadline = deadline;
     }
 
     /** Checks in the background and calls back on the FX thread. */
@@ -96,7 +113,9 @@ public final class UpdateService {
         }
     }
 
-    private Outcome checkNow(String currentVersion) {
+    /** One check, on the calling thread; returns within {@link #deadline} whatever the server does. */
+    Outcome checkNow(String currentVersion) {
+        CompletableFuture<HttpResponse<@Nullable String>> pending = null;
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
                     .timeout(TIMEOUT)
@@ -106,7 +125,14 @@ public final class UpdateService {
                     .GET()
                     .build();
 
-            HttpResponse<InputStream> response = client().send(request, HttpResponse.BodyHandlers.ofInputStream());
+            // The body is read whole, under the cap, before the future completes, so one wait bounds
+            // everything. Only a 200 has a body worth reading.
+            pending = client().sendAsync(
+                            request,
+                            info -> info.statusCode() == 200
+                                    ? new CappedBody(MAX_BYTES)
+                                    : HttpResponse.BodySubscribers.replacing(null));
+            HttpResponse<@Nullable String> response = pending.get(deadline.toNanos(), TimeUnit.NANOSECONDS);
             if (response.statusCode() == 404) {
                 // No releases published yet, or the repository is private. Not an error worth
                 // showing: there is simply nothing newer.
@@ -115,10 +141,7 @@ public final class UpdateService {
             if (response.statusCode() != 200) {
                 return Outcome.failed(UpdateCheck.ErrorKind.HTTP, String.valueOf(response.statusCode()));
             }
-            String body;
-            try (InputStream in = response.body()) {
-                body = readCapped(in, MAX_BYTES);
-            }
+            String body = response.body();
             // A body past the cap is not a release payload, whatever it is. Treated as nothing
             // newer rather than as an error: the user did nothing wrong and can do nothing about it.
             if (body == null) return Outcome.none();
@@ -126,6 +149,16 @@ public final class UpdateService {
             ReleaseInfo latest = UpdateCheck.parseLatest(body);
             if (latest == null) return Outcome.none();
             return UpdateCheck.isNewer(currentVersion, latest.version()) ? Outcome.found(latest) : Outcome.none();
+        } catch (TimeoutException e) {
+            if (pending != null) pending.cancel(true); // aborts the exchange rather than leaving it reading
+            return Outcome.failed(UpdateCheck.ErrorKind.TIMEOUT, e.getClass().getSimpleName());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            if (pending != null) pending.cancel(true);
+            return Outcome.failed(UpdateCheck.ErrorKind.OTHER, e.getClass().getSimpleName());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            return Outcome.failed(UpdateCheck.classify(cause), cause.getClass().getSimpleName());
         } catch (Exception e) {
             // Offline, DNS failure, timeout, TLS problem. A background check that fails is not the
             // user's problem; only a check they asked for reports anything.
@@ -134,16 +167,61 @@ public final class UpdateService {
     }
 
     /**
-     * Reads at most {@code max} bytes, or returns null when there are more.
+     * The body as text once it has all arrived, or null as soon as it passes {@code max} bytes — and
+     * the rest is then not read.
      *
-     * <p>Streamed rather than {@code BodyHandlers.ofString}, which buffers the whole body before
-     * anything can look at its length — so a cap applied to the string only ever bounded memory
-     * after the fact, and the real limit was the timeout.
+     * <p>Not {@code BodyHandlers.ofString}, which buffers the whole body before anything can look at its
+     * length, so a cap on the string bounded memory only after the fact. Not {@code ofInputStream}
+     * either: that completes at the headers, and a read of a body that never comes blocks outside any
+     * timeout.
      */
-    static @Nullable String readCapped(InputStream in, int max) throws IOException {
-        byte[] buffer = in.readNBytes(max + 1);
-        if (buffer.length > max) return null;
-        return new String(buffer, StandardCharsets.UTF_8);
+    static final class CappedBody implements HttpResponse.BodySubscriber<@Nullable String> {
+        private final int max;
+        private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        private final CompletableFuture<@Nullable String> result = new CompletableFuture<>();
+        private Flow.@Nullable Subscription subscription;
+
+        CappedBody(int max) {
+            this.max = max;
+        }
+
+        @Override
+        public CompletionStage<@Nullable String> getBody() {
+            return result;
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            this.subscription = subscription;
+            subscription.request(Long.MAX_VALUE);
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> items) {
+            if (result.isDone()) return;
+            for (ByteBuffer item : items) {
+                int n = item.remaining();
+                if (bytes.size() + (long) n > max) {
+                    result.complete(null);
+                    Flow.Subscription s = subscription;
+                    if (s != null) s.cancel();
+                    return;
+                }
+                byte[] chunk = new byte[n];
+                item.get(chunk);
+                bytes.write(chunk, 0, n);
+            }
+        }
+
+        @Override
+        public void onError(Throwable error) {
+            result.completeExceptionally(error);
+        }
+
+        @Override
+        public void onComplete() {
+            result.complete(bytes.toString(StandardCharsets.UTF_8));
+        }
     }
 
     public void shutdown() {
