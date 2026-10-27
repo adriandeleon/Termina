@@ -280,7 +280,7 @@
                                         </limit>
                                     </limits>
                                 </rule>
-                                <!-- Measured on a Unix build: i18n 80%, update 61%, config 59%.
+                                <!-- Measured on a Unix build: i18n 88%, config 75%, update 62%.
                                      Each holds on Windows too, which is the point of gating these
                                      and not the two that spawn a shell. -->
                                 <rule>
@@ -322,12 +322,71 @@
                                         </limit>
                                     </limits>
                                 </rule>
+                                <!-- Measured on a Unix build: link 92%, theme 86%, shell 81%. No test
+                                     in them is skipped on Windows; shell's Windows half is driven
+                                     through replaced probes, so it is measured on every platform. -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.link</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.75</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.theme</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.shell</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.65</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <!-- sync is 92% on Unix, but five of its tests (the gh credential
+                                     helper and the gh protocol) are disabled on Windows, and the git
+                                     ones skip where git is missing. Without the Windows-disabled
+                                     five it measures 83%, so the floor is set from that. -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.sync</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.65</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
                                 <!--
                                   com.termina.ui, com.termina, com.termina.term and com.termina.pty
                                   are deliberately ungated. The last two are covered by an
                                   integration test that starts a real shell, which only runs on
                                   POSIX; gating them would encode "this build ran on Unix". The ui
-                                  package is 2,100 lines of which the great majority is the renderer,
+                                  package is 7,600 lines of which the great majority is the renderer,
                                   the window and the settings sheet — toolkit code a headless suite
                                   cannot reach — so a package-level number there says nothing about
                                   whether the tested parts of it are still tested. Its pure pieces
