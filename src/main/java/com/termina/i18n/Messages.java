@@ -41,8 +41,14 @@ public final class Messages {
         LANGUAGES.put("de", "Deutsch");
     }
 
-    private static Map<String, String> base = Map.of();
-    private static Map<String, String> active = Map.of();
+    /**
+     * English until {@link #init} says otherwise, rather than empty: what the app shows is always
+     * initialised first, but a message made by a non-UI class — a theme import's reason, read in a
+     * test or a tool — should still read as words, not as its key.
+     */
+    private static Map<String, String> base = load("en");
+
+    private static Map<String, String> active = base;
     private static String currentLang = "en";
 
     private Messages() {}

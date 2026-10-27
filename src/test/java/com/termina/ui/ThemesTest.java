@@ -103,8 +103,60 @@ class ThemesTest {
     void slugsAreFileNames() {
         assertEquals("solarized-dark", Themes.slug("Solarized Dark"));
         assertEquals("cafe-noir", Themes.slug("Café  Noir!"));
-        assertEquals("theme", Themes.slug("***"));
         assertFalse(Themes.slug("../../etc/passwd").contains("/"));
+        // Nothing Latin to keep: named for a hash, the same for the same name, never just "theme".
+        assertTrue(Themes.slug("夜").matches("theme-[0-9a-f]{8}"), Themes.slug("夜"));
+        assertEquals(Themes.slug("夜"), Themes.slug("夜"));
+        assertFalse(Themes.slug("夜").equals(Themes.slug("Ночь")));
+        for (String name : List.of("***", "夜", "Ночь", "Café  Noir!", "a/b\\c:d")) {
+            assertTrue(Themes.slug(name).matches("[a-z0-9-]+"), name);
+        }
+    }
+
+    @Test
+    void namesThatSlugAlikeGetFilesOfTheirOwn() {
+        java.util.Map<String, String> stored = new java.util.HashMap<>();
+        assertEquals("gruvbox-dark", Themes.fileStem("Gruvbox Dark", stored));
+        stored.put("gruvbox-dark", "Gruvbox Dark");
+        assertEquals("gruvbox-dark-2", Themes.fileStem("Gruvbox (Dark)", stored));
+        assertEquals("gruvbox-dark", Themes.fileStem("Gruvbox Dark", stored), "the exact name replaces itself");
+        stored.put("gruvbox-dark-2", "Gruvbox (Dark)");
+        assertEquals("gruvbox-dark-2", Themes.fileStem("Gruvbox (Dark)", stored));
+        stored.put("x", null); // a file that does not read is somebody's
+        assertEquals("x-2", Themes.fileStem("X", stored));
+    }
+
+    @Test
+    void twoCollidingSchemesInOneFileAreBothKeptAndReportedOnce() throws Exception {
+        Themes.useDirectory(config.resolve("themes"));
+        String dracula = Files.readString(fixture("Dracula.json"));
+        String one = dracula.replace("\"Dracula\"", "\"Gruvbox Dark\"");
+        String two = dracula.replace("\"Dracula\"", "\"Gruvbox (Dark)\"");
+        Path settings = config.resolve("settings.json");
+        Files.writeString(settings, "{\"schemes\": [" + one + "," + two + "," + one + "]}");
+
+        List<ThemeEntry> added = Themes.importFile(settings);
+
+        assertEquals(
+                List.of("Gruvbox Dark", "Gruvbox (Dark)"),
+                added.stream().map(ThemeEntry::displayName).toList());
+        assertEquals(Theme.values().length + 2, Themes.all().size());
+        // Again: both replace themselves, nothing is added.
+        Themes.importFile(settings);
+        assertEquals(Theme.values().length + 2, Themes.all().size());
+    }
+
+    @Test
+    void namesWithNoLatinLettersDoNotShareAFile() throws Exception {
+        Themes.useDirectory(config.resolve("themes"));
+        String dracula = Files.readString(fixture("Dracula.json"));
+        Path night = config.resolve("night.json");
+        Files.writeString(night, dracula.replace("\"Dracula\"", "\"夜\""));
+        Path dark = config.resolve("dark.json");
+        Files.writeString(dark, dracula.replace("\"Dracula\"", "\"Ночь\""));
+        Themes.importFile(night);
+        Themes.importFile(dark);
+        assertEquals(Theme.values().length + 2, Themes.all().size());
     }
 
     @Test

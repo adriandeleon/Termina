@@ -753,21 +753,46 @@ public final class SettingsWindow {
         importTheme(file.toPath());
     }
 
-    /** Imports a file and selects the first theme in it, saying what happened on the row. */
+    /**
+     * Imports a file and selects the first theme in it, saying what happened on the row.
+     *
+     * <p>Read and parsed off the FX thread: the file is a download, and a hostile one used to be able
+     * to hang the window (a property list that shares objects exponentially) or take it down (one
+     * nested deep enough to overflow the stack). Anything at all that goes wrong is shown on the row;
+     * the result is applied back on the FX thread.
+     */
     void importTheme(java.nio.file.Path file) {
-        try {
-            List<ThemeEntry> added = Themes.importFile(file);
-            themeImportResult.setText(tr(
-                    "settings.importTheme.done",
-                    String.join(
-                            ", ", added.stream().map(ThemeEntry::displayName).toList())));
-            themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-            if (!added.isEmpty()) settings.setThemeId(added.getFirst().id());
-        } catch (com.termina.theme.ThemeImportException e) {
-            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
-        } catch (java.io.IOException e) {
-            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
-        }
+        Object name = file.getFileName() == null ? file : file.getFileName();
+        themeImportResult.setText(tr("settings.importTheme.working", name));
+        Thread worker = new Thread(
+                () -> {
+                    List<ThemeEntry> added;
+                    try {
+                        added = Themes.importFile(file);
+                    } catch (Throwable e) {
+                        String reason = e.getMessage() == null || e.getMessage().isBlank()
+                                ? e.getClass().getSimpleName()
+                                : e.getMessage();
+                        javafx.application.Platform.runLater(
+                                () -> themeImportResult.setText(tr("settings.importTheme.failed", name, reason)));
+                        return;
+                    }
+                    javafx.application.Platform.runLater(() -> {
+                        themeImportResult.setText(tr(
+                                "settings.importTheme.done",
+                                String.join(
+                                        ", ",
+                                        added.stream()
+                                                .map(ThemeEntry::displayName)
+                                                .toList())));
+                        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+                        if (!added.isEmpty())
+                            settings.setThemeId(added.getFirst().id());
+                    });
+                },
+                "termina-theme-import");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void removeChosenTheme() {
