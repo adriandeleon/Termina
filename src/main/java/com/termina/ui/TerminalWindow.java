@@ -240,6 +240,9 @@ public final class TerminalWindow {
                 usesHeaderBar(SYSTEM_MENU_BAR, settings.menuBarInTitleBar(), extendedWindows) ? buildHeaderBar() : null;
         if (headerBar != null && !stage.isShowing()) stage.initStyle(StageStyle.EXTENDED);
         root.setTop(headerBar != null ? headerBar : menuBar);
+        // Full screen has no title bar, and the header bar is one: left in place it kept the title
+        // and the window buttons over the terminal. The menus stay, as an ordinary row.
+        if (headerBar != null) stage.fullScreenProperty().addListener((o, was, full) -> placeHeaderBar(root, full));
         applyMenuBarVisibility();
 
         // A StackPane over the whole window so the palette has somewhere to be. It is empty until
@@ -520,6 +523,24 @@ public final class TerminalWindow {
     }
 
     private static final String COLLAPSED_MENU_BAR = "collapsed-menu-bar";
+
+    /**
+     * Takes the header bar out for full screen and puts it back after. The menu bar moves rather
+     * than going with it, so a full-screen window looks like a decorated one in full screen: the
+     * menus if they are on, and nothing above them.
+     */
+    private void placeHeaderBar(BorderPane root, boolean fullScreen) {
+        HeaderBar header = headerBar;
+        if (header == null) return;
+        if (fullScreen) {
+            header.setLeft(null);
+            root.setTop(menuBar);
+        } else {
+            root.setTop(header);
+            header.setLeft(menuBar);
+        }
+        HeaderBar.setSystemButtonHeight(stage, fullScreen ? 0 : HeaderBar.USE_DEFAULT_SIZE);
+    }
 
     /** Whether the tab strip is worth its row of chrome. */
     static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
