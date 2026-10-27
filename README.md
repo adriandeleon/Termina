@@ -840,6 +840,7 @@ termina [options] [-e command [args...]]
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
   -d, --working-directory=DIR    Start the shell in DIR
+  -T, --title=TITLE              Name the first tab TITLE
   -e, --command CMD [args...]    Run CMD instead of the shell; must come last
       --config-dir=DIR           Read and write settings in DIR
 ```

@@ -89,7 +89,23 @@ public final class WindowManager {
      *     every later tab and window uses the configured shell and the home directory
      */
     public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli) {
+        return openFirstWindow(primary, cli, "");
+    }
+
+    /** @param title names the first tab, as Rename Tab would ({@code -T}); "" leaves it automatic */
+    public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli, String title) {
+        firstTabTitle = title;
         return open(primary, cli);
+    }
+
+    /** The command line's {@code -T}, spent on the first tab that opens. */
+    private String firstTabTitle = "";
+
+    /** Returns the {@code -T} title once, then "" — it names the first tab only. */
+    private String takeFirstTabTitle() {
+        String title = firstTabTitle;
+        firstTabTitle = "";
+        return title;
     }
 
     /** A new window, cascaded from the most recently opened one. */
@@ -150,7 +166,7 @@ public final class WindowManager {
         if (fill != null) {
             fill.accept(window);
         } else if (cli != null && cli.hasCommand()) {
-            window.openTab(cli.withShell(settings.shell()));
+            window.openTab(cli.withShell(settings.shell()), takeFirstTabTitle());
         } else {
             profiles.whenDefaultReady(profile -> {
                 // A window closed while discovery was running must not spawn a session afterward.
@@ -163,7 +179,7 @@ public final class WindowManager {
                 if (cli != null && !cli.workingDirectory().isBlank()) {
                     options = options.withWorkingDirectory(cli.workingDirectory());
                 }
-                window.openTab(options);
+                window.openTab(options, takeFirstTabTitle());
             });
         }
         return window;

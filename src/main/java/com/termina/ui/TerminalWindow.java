@@ -930,7 +930,12 @@ public final class TerminalWindow {
      * navigated away from — is not what anybody means by it.
      */
     public void openTab(com.termina.pty.LaunchOptions options) {
-        openTab(options, tabs.getTabs().size(), "");
+        openTab(options, "");
+    }
+
+    /** As {@link #openTab(com.termina.pty.LaunchOptions)}, named as a rename would name it ({@code -T}). */
+    public void openTab(com.termina.pty.LaunchOptions options, String userTitle) {
+        openTab(options, tabs.getTabs().size(), userTitle);
     }
 
     /**

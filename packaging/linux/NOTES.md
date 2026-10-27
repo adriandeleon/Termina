@@ -79,9 +79,8 @@ ls /tmp/jp/jdk.jpackage/jdk/jpackage/internal/resources/template.*
 The removal side runs on `remove`, not on `upgrade`: the new `postinst` puts the same things back,
 and dropping the alternative in between would forget a user's choice of Termina as the default.
 
-Termina takes `-e` as `x-terminal-emulator` and `xdg-terminal-exec` (`X-TerminalArgExec=-e`) expect.
-It does **not** take `-T title`, which Debian policy also asks of an `x-terminal-emulator`; a caller
-passing it gets "unknown option".
+Termina takes `-e` as `x-terminal-emulator` and `xdg-terminal-exec` (`X-TerminalArgExec=-e`) expect,
+and `-T title`, which Debian policy also asks of an `x-terminal-emulator`; it names the first tab.
 
 **The metainfo's `<releases>` is written by hand.** Add the version and date there when cutting a
 release, or Software lists the previous one as the latest.

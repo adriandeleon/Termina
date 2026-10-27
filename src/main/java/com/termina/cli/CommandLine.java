@@ -14,7 +14,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The option names follow the terminals people already have. {@code -e} takes the rest of the
  * line as a command, which is xterm's convention and GNOME Terminal's; {@code --working-directory}
- * is GNOME's spelling and {@code -d} the short form.
+ * is GNOME's spelling and {@code -d} the short form. {@code -T} is xterm's title option, which
+ * Debian's {@code x-terminal-emulator} contract requires every registered terminal to accept.
  */
 public record CommandLine(
         boolean help,
@@ -22,6 +23,7 @@ public record CommandLine(
         String workingDirectory,
         List<String> command,
         String configDir,
+        String title,
         @Nullable String error) {
 
     /** Parsed successfully and the application should start. */
@@ -39,6 +41,7 @@ public record CommandLine(
         boolean version = false;
         String workingDirectory = "";
         String configDir = "";
+        String title = "";
         List<String> command = new ArrayList<>();
 
         for (int i = 0; args != null && i < args.length; i++) {
@@ -70,11 +73,17 @@ public record CommandLine(
                     if (i + 1 >= args.length) return error(arg + " needs a directory");
                     configDir = args[++i];
                 }
+                case "-T", "--title" -> {
+                    if (i + 1 >= args.length) return error(arg + " needs a title");
+                    title = args[++i];
+                }
                 default -> {
                     if (arg.startsWith("--working-directory=")) {
                         workingDirectory = value(arg);
                     } else if (arg.startsWith("--config-dir=")) {
                         configDir = value(arg);
+                    } else if (arg.startsWith("--title=")) {
+                        title = value(arg);
                     } else if (arg.startsWith("-") && !arg.equals("-")) {
                         // Refused rather than ignored: a mistyped option that is silently dropped
                         // looks like the option did not work.
@@ -85,7 +94,7 @@ public record CommandLine(
                 }
             }
         }
-        return new CommandLine(help, version, workingDirectory, List.copyOf(command), configDir, null);
+        return new CommandLine(help, version, workingDirectory, List.copyOf(command), configDir, title, null);
     }
 
     private static String value(String arg) {
@@ -93,7 +102,7 @@ public record CommandLine(
     }
 
     private static CommandLine error(String message) {
-        return new CommandLine(false, false, "", List.of(), "", message);
+        return new CommandLine(false, false, "", List.of(), "", "", message);
     }
 
     /** The text {@code --help} prints. */
@@ -107,6 +116,7 @@ public record CommandLine(
                   -h, --help                     Show this help and exit
                   -v, --version                  Show the version and exit
                   -d, --working-directory=DIR    Start the shell in DIR
+                  -T, --title=TITLE              Name the first tab TITLE
                   -e, --command CMD [args...]    Run CMD instead of the shell; must come last
                       --config-dir=DIR           Read and write settings in DIR
 

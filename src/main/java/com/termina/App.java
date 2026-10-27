@@ -88,7 +88,7 @@ public final class App extends Application {
         windows.setLinkOpener(url -> getHostServices().showDocument(url));
         com.termina.perf.Startup.mark("pre-window");
         TerminalWindow first = windows.openFirstWindow(
-                stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()));
+                stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()), cli.title());
         com.termina.perf.Startup.mark("window-shown");
         windows.maybeCheckForUpdates();
 
