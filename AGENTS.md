@@ -317,6 +317,14 @@ Each of these cost real time, and none of them announces itself.
   unsupported. `KeyboardModeInterceptor` takes the four mode requests (`>` `<` `=` `?`) out first,
   and lets everything else, DA2's `CSI > c` included, through untouched. Kitty encoding happens
   only while a program has set flags; at zero every key takes the legacy path, byte for byte.
+- **What the emulator reads is a chain, built in one place.** `TerminalSession.readThrough` wraps
+  the PTY stream in four interceptors: APC/SOS/PM strings dropped (JediTerm prints their bodies — a
+  kitty image arrived as base64), the OSC commands above, the kitty keyboard modes, and colon SGR
+  respelled with semicolons (JediTerm prints from the first colon on and loses the colour).
+  Underline colour (`58`) is dropped rather than respelled: JediTerm has no such attribute, and read
+  with semicolons its `2` and `5` are faint and blink. `EmulatorGapsTest` feeds sequences through
+  that same chain, and pins the gaps nothing repairs yet — REP, DECSLRM, `?12` — at what JediTerm
+  does now, so a JediTerm upgrade that fixes one fails its test.
 - **Keys fired at a program right after it starts can race its startup.** Neovim asks the terminal
   for the kitty protocol as it starts and turns it on when answered; a capture that typed into it
   within its first seconds saw Escape ignored, and the same keys after a longer

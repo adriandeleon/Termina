@@ -12,6 +12,14 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ### Fixed
 
+- **Colours written with colons printed the colons.** `ESC[38:2::255:0:0m`, the form newer
+  programs use for true colour, showed `:::::` before the text and dropped the colour; the palette
+  form `38:5:n` and underline styles (`4:3`, Neovim's curly underline) did the same. They are now
+  read like their semicolon forms. Underline styles all draw as the one underline, and an underline
+  colour is ignored.
+- **Kitty graphics and other application strings printed as text.** An image sent with the kitty
+  graphics protocol appeared as a line of base64; APC, SOS and PM strings are now discarded, as
+  xterm does.
 - **Full screen kept the title bar** when the menu bar is in the title bar: the title and the
   window buttons stayed at the top of the screen. Full screen now has no title bar; the menus, if
   shown, stay as an ordinary row.

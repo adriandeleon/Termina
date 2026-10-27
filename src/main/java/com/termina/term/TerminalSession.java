@@ -6,6 +6,7 @@ import java.util.List;
 import com.jediterm.core.typeahead.TerminalTypeAheadManager;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.RequestOrigin;
+import com.jediterm.terminal.TerminalDataStream;
 import com.jediterm.terminal.TerminalStarter;
 import com.jediterm.terminal.TtyBasedArrayDataStream;
 import com.jediterm.terminal.model.JediTerminal;
@@ -83,30 +84,47 @@ public final class TerminalSession {
         // Output is how a prediction is confirmed or refuted. Cheap when predictions are off: the
         // first thing it asks is whether they are on.
         textBuffer.addModelListener(typeAhead::onTerminalStateChanged);
-        // The commands JediTerm leaves unhandled are taken out where the emulator reads, so each is
-        // seen at its place in the output — see OscInterceptor.
-        OscInterceptor osc = new OscInterceptor(
+        TerminalDataStream stream = readThrough(
                 new TtyBasedArrayDataStream(connector),
-                OscSequences::handled,
-                (code, payload) -> oscListener.osc(code, payload));
-        // The kitty keyboard protocol's mode requests, likewise taken where the emulator reads, so a
-        // program that switches screens and then sets a mode sets it on the screen it meant.
-        KeyboardModeInterceptor stream = new KeyboardModeInterceptor(osc, new KeyboardModeInterceptor.Listener() {
-            @Override
-            public void keyboardMode(char marker, String params) {
-                byte[] answer = keyboardFlags.apply(marker, params, textBuffer.isUsingAlternateBuffer());
-                if (answer != null) answerProgram(answer);
-            }
+                (code, payload) -> oscListener.osc(code, payload),
+                new KeyboardModeInterceptor.Listener() {
+                    @Override
+                    public void keyboardMode(char marker, String params) {
+                        byte[] answer = keyboardFlags.apply(marker, params, textBuffer.isUsingAlternateBuffer());
+                        if (answer != null) answerProgram(answer);
+                    }
 
-            @Override
-            public void reset() {
-                keyboardFlags.reset();
-            }
-        });
+                    @Override
+                    public void reset() {
+                        keyboardFlags.reset();
+                    }
+                });
         starter = new TerminalStarter(terminal, connector, stream, typeAhead, executors);
 
         emulatorThread = new Thread(this::runEmulator, "termina-emulator");
         emulatorThread.setDaemon(true);
+    }
+
+    /**
+     * What the emulator reads: the PTY's output with everything JediTerm would mishandle taken out
+     * or rewritten first. Each layer works where the emulator reads, not where the PTY delivers, so
+     * what it sees arrives at its place in the output — see {@link OscInterceptor}.
+     *
+     * <ul>
+     *   <li>{@link ControlStringInterceptor}: APC, SOS and PM, which JediTerm would print, dropped.
+     *   <li>{@link OscInterceptor}: the commands JediTerm leaves unhandled, to {@code osc}.
+     *   <li>{@link KeyboardModeInterceptor}: the kitty keyboard protocol's mode requests, to
+     *       {@code keyboard}, so a program that switches screens and then sets a mode sets it on the
+     *       screen it meant.
+     *   <li>{@link SgrColonInterceptor}: colon-separated SGR, respelled with semicolons.
+     * </ul>
+     */
+    static TerminalDataStream readThrough(
+            TerminalDataStream source, OscInterceptor.Listener osc, KeyboardModeInterceptor.Listener keyboard) {
+        TerminalDataStream strings = new ControlStringInterceptor(source);
+        TerminalDataStream commands = new OscInterceptor(strings, OscSequences::handled, osc);
+        TerminalDataStream modes = new KeyboardModeInterceptor(commands, keyboard);
+        return new SgrColonInterceptor(modes);
     }
 
     public void start() {
