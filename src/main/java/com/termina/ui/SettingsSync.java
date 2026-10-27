@@ -30,6 +30,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -442,34 +443,67 @@ final class SettingsSync {
         boolean search = remoteFailed || !accountSearched;
         accountSearched = true;
         worker.execute(() -> {
-            List<String> path =
-                    LoginShellPath.directories().stream().map(Path::toString).toList();
-            List<String> command = gitCommand();
-            String pathVariable = String.join(File.pathSeparator, path);
-            if (insideAnotherRepository(new GitRunner(command, configDir, false, pathVariable))) {
-                SyncReport refused = new SyncReport(
-                        SyncReport.Status.INSIDE_REPOSITORY, List.of(), List.of(), List.of(), configDir.toString());
-                Platform.runLater(() -> finished(refused, "", userAsked));
-                return;
-            }
-            GitRunner git = new GitRunner(command, repo, userAsked, pathVariable);
-            // The clone has to exist before an account can be remembered in it; the run would create it
-            // anyway, and only after the sign-in had already been decided.
-            String login = "";
-            String host = SyncAccount.httpsHost(url);
-            if (!host.isEmpty() && SyncEngine.prepare(git, url)) {
-                List<String> gh = ghCommand();
-                login = SyncAccount.choose(git, gh, url, h -> SyncAccount.logins(gh, h, GH_TIMEOUT), verify, search);
-                git = git.with(SyncAccount.credentialConfig(gh, host, login));
-            }
-            SyncEngine engine = new SyncEngine(git, url, branch, target, machine);
-            runningEngine = engine;
-            if (cancelRequested) engine.cancel();
-            SyncReport report = engine.run(allowLargeRemoval);
+            Outcome outcome = guarded(
+                    () -> runOnce(url, branch, repo, configDir, target, userAsked, verify, search, allowLargeRemoval));
             runningEngine = null;
-            String signedInAs = login;
-            Platform.runLater(() -> finished(report, signedInAs, userAsked));
+            Platform.runLater(() -> finished(outcome.report(), outcome.login(), userAsked));
         });
+    }
+
+    /** What a run on the worker hands back to the FX thread: its report and the account it signed in as. */
+    record Outcome(SyncReport report, String login) {}
+
+    /**
+     * {@code run}'s outcome, or a {@link SyncReport.Status#FAILED FAILED} one saying what it threw.
+     * Whatever happens on the worker, the FX thread hears back: a run that never reports leaves the Sync
+     * page saying "Syncing…", and every later request queued behind {@code running}, until a restart.
+     * Catches {@code Error} too, for that reason; the run is over either way.
+     */
+    static Outcome guarded(Supplier<Outcome> run) {
+        try {
+            return run.get();
+        } catch (Throwable e) {
+            String message = e.getMessage();
+            String name = e.getClass().getSimpleName();
+            String detail = message == null ? name : name + ": " + message;
+            return new Outcome(new SyncReport(SyncReport.Status.FAILED, List.of(), List.of(), List.of(), detail), "");
+        }
+    }
+
+    /** One run, on the worker. */
+    private Outcome runOnce(
+            String url,
+            String branch,
+            Path repo,
+            Path configDir,
+            SyncTarget target,
+            boolean userAsked,
+            boolean verify,
+            boolean search,
+            boolean allowLargeRemoval) {
+        List<String> path =
+                LoginShellPath.directories().stream().map(Path::toString).toList();
+        List<String> command = gitCommand();
+        String pathVariable = String.join(File.pathSeparator, path);
+        if (insideAnotherRepository(new GitRunner(command, configDir, false, pathVariable))) {
+            SyncReport refused = new SyncReport(
+                    SyncReport.Status.INSIDE_REPOSITORY, List.of(), List.of(), List.of(), configDir.toString());
+            return new Outcome(refused, "");
+        }
+        GitRunner git = new GitRunner(command, repo, userAsked, pathVariable);
+        // The clone has to exist before an account can be remembered in it; the run would create it
+        // anyway, and only after the sign-in had already been decided.
+        String login = "";
+        String host = SyncAccount.httpsHost(url);
+        if (!host.isEmpty() && SyncEngine.prepare(git, url)) {
+            List<String> gh = ghCommand();
+            login = SyncAccount.choose(git, gh, url, h -> SyncAccount.logins(gh, h, GH_TIMEOUT), verify, search);
+            git = git.with(SyncAccount.credentialConfig(gh, host, login));
+        }
+        SyncEngine engine = new SyncEngine(git, url, branch, target, machine);
+        runningEngine = engine;
+        if (cancelRequested) engine.cancel();
+        return new Outcome(engine.run(allowLargeRemoval), login);
     }
 
     /**

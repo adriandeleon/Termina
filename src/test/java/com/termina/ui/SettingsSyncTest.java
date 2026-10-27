@@ -87,6 +87,27 @@ class SettingsSyncTest {
     }
 
     @Test
+    void aRunThatThrowsStillReportsAndSaysWhat() {
+        // An Error on the worker used to skip "finished", leaving "Syncing…" until a restart.
+        SettingsSync.Outcome crashed = SettingsSync.guarded(() -> {
+            throw new StackOverflowError("deep");
+        });
+        assertEquals(SyncReport.Status.FAILED, crashed.report().status());
+        assertEquals("StackOverflowError: deep", crashed.report().detail());
+        assertEquals("", crashed.login());
+
+        SettingsSync.Outcome npe = SettingsSync.guarded(() -> {
+            throw new NullPointerException();
+        });
+        assertEquals(SyncReport.Status.FAILED, npe.report().status());
+        assertEquals("NullPointerException", npe.report().detail());
+
+        SettingsSync.Outcome fine = new SettingsSync.Outcome(
+                new SyncReport(SyncReport.Status.OK, List.of(), List.of(), List.of(), ""), "me");
+        assertEquals(fine, SettingsSync.guarded(() -> fine));
+    }
+
+    @Test
     void aSettingsFolderInsideADotfilesRepositoryIsFound(@TempDir Path home) throws Exception {
         GitRunner probe = new GitRunner(List.of("git"), home, false, "");
         assumeTrue(probe.available(), "git is not installed");

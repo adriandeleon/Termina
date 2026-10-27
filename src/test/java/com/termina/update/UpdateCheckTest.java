@@ -137,6 +137,9 @@ class UpdateCheckTest {
         assertEquals(UpdateCheck.ErrorKind.OFFLINE, UpdateCheck.classify(new java.net.ConnectException("refused")));
         assertEquals(
                 UpdateCheck.ErrorKind.TIMEOUT, UpdateCheck.classify(new java.net.http.HttpTimeoutException("slow")));
+        assertEquals(
+                UpdateCheck.ErrorKind.TIMEOUT,
+                UpdateCheck.classify(new java.util.concurrent.TimeoutException("the whole request")));
         // Wrapped, as the HTTP client delivers them.
         assertEquals(
                 UpdateCheck.ErrorKind.OFFLINE,
