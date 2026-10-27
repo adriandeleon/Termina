@@ -763,6 +763,35 @@ public final class TerminalView extends Region {
     }
 
     /**
+     * Space between the text and the pane's edges, in pixels — a setting.
+     *
+     * <p>Everything measured in cells is measured from inside it: the grid the shell is told about,
+     * the cell under the pointer (selection, links, mouse reporting), and every overlay drawn on the
+     * text. The scrollbar stays at the pane's edge, with the padding between it and the text, and the
+     * find bar keeps its own inset unless the padding is wider. Changing it changes how many columns
+     * fit, so the shell is resized, the same way the scrollbar appearing does.
+     */
+    private int textPadding = Settings.DEFAULT_PADDING;
+
+    public void setTextPadding(int pixels) {
+        int next = Math.max(Settings.MIN_PADDING, Math.min(Settings.MAX_PADDING, pixels));
+        if (next == textPadding) return;
+        textPadding = next;
+        requestLayout();
+        markDirty();
+    }
+
+    /** A view x as an x in the text area, where column 0 starts at 0. */
+    private double textX(double x) {
+        return x - textPadding;
+    }
+
+    /** A view y as a y in the text area, where row 0 starts at 0. */
+    private double textY(double y) {
+        return y - textPadding;
+    }
+
+    /**
      * Shows or hides the scrollbar. This changes how many columns fit, so the shell is resized —
      * the bar takes real width rather than floating over the text, where it would cover the last
      * column of every line.
@@ -837,6 +866,7 @@ public final class TerminalView extends Region {
     /** State of the scrollbar, so a capture run can assert on it rather than eyeball the thumb. */
     public String scrollBarReport() {
         return "shown=" + scrollBar.isManaged()
+                + " padding=" + textPadding
                 + " value=" + Math.round(scrollBar.getValue())
                 + " max=" + Math.round(scrollBar.getMax())
                 + " thumb=" + Math.round(scrollBar.getVisibleAmount())
@@ -887,8 +917,10 @@ public final class TerminalView extends Region {
         layoutSearchBar(w - barWidth);
         layoutLinkStatus(w - barWidth, h);
 
-        int newColumns = Math.max(MIN_COLUMNS, (int) Math.floor((w - barWidth) / charWidth));
-        int newRows = Math.max(MIN_ROWS, (int) Math.floor(h / lineHeight));
+        double textWidth = Math.max(0, w - barWidth - 2 * textPadding);
+        double textHeight = Math.max(0, h - 2 * textPadding);
+        int newColumns = Math.max(MIN_COLUMNS, (int) Math.floor(textWidth / charWidth));
+        int newRows = Math.max(MIN_ROWS, (int) Math.floor(textHeight / lineHeight));
         boolean resized = canvas.getWidth() != renderedWidth || canvas.getHeight() != renderedHeight;
         if (newColumns != columns || newRows != rows) {
             columns = newColumns;
@@ -919,12 +951,12 @@ public final class TerminalView extends Region {
 
     @Override
     protected double computePrefWidth(double height) {
-        return charWidth * 80;
+        return charWidth * 80 + 2 * textPadding;
     }
 
     @Override
     protected double computePrefHeight(double width) {
-        return lineHeight * 24;
+        return lineHeight * 24 + 2 * textPadding;
     }
 
     // ---------------------------------------------------------------- rendering
@@ -947,20 +979,29 @@ public final class TerminalView extends Region {
         // internally consistent rather than a mix of two states.
         buffer.lock();
         try {
-            // x arrives as an index into the line's char[], which is not its column: see
-            // RunColumns. Translating here rather than inside drawRun keeps every consumer
-            // callback on the same footing, including the background-only one.
-            buffer.processHistoryAndScreenLines(scrollOrigin, rows, runDrawer(g, new RunColumns()));
-            if (selectionToVerify && !dragging) {
-                selectionToVerify = false;
-                dropSelectionIfRewritten();
+            // Everything on the text is drawn in text coordinates, inside the padding: the runs,
+            // and the cursor, selection, search and link overlays that must sit on them. Restored
+            // however the frame ends, or the next one is drawn a padding further in.
+            g.save();
+            try {
+                g.translate(textPadding, textPadding);
+                // x arrives as an index into the line's char[], which is not its column: see
+                // RunColumns. Translating here rather than inside drawRun keeps every consumer
+                // callback on the same footing, including the background-only one.
+                buffer.processHistoryAndScreenLines(scrollOrigin, rows, runDrawer(g, new RunColumns()));
+                if (selectionToVerify && !dragging) {
+                    selectionToVerify = false;
+                    dropSelectionIfRewritten();
+                }
+                drawPrediction(g, w);
+                drawPromptMarks(g);
+                drawSearchMatches(g);
+                drawSelection(g);
+                drawLinkUnderline(g);
+                drawCursor(g);
+            } finally {
+                g.restore();
             }
-            drawPrediction(g, w);
-            drawPromptMarks(g);
-            drawSearchMatches(g);
-            drawSelection(g);
-            drawLinkUnderline(g);
-            drawCursor(g);
             drawPaneFocus(g, w, h);
             updateScrollBar();
         } finally {
@@ -1002,7 +1043,7 @@ public final class TerminalView extends Region {
         int row = prediction.row() - scrollOrigin;
         if (row < 0 || row >= rows) return;
         g.setFill(palette.background());
-        g.fillRect(0, row * lineHeight, width, lineHeight);
+        g.fillRect(0, row * lineHeight, Math.min(width, columns * charWidth), lineHeight);
         prediction.line().process(prediction.row(), runDrawer(g, new RunColumns()), scrollOrigin);
     }
 
@@ -1432,8 +1473,8 @@ public final class TerminalView extends Region {
      * row is measured against {@link #scrollOrigin}, which the emulator moves under that lock.
      */
     private Point cellAt(MouseEvent e) {
-        int column = (int) Math.floor(e.getX() / charWidth);
-        int row = (int) Math.floor(e.getY() / lineHeight);
+        int column = (int) Math.floor(textX(e.getX()) / charWidth);
+        int row = (int) Math.floor(textY(e.getY()) / lineHeight);
         column = Math.max(0, Math.min(columns, column));
         row = Math.max(0, Math.min(rows - 1, row));
         int line = scrollOrigin + row;
@@ -1451,8 +1492,8 @@ public final class TerminalView extends Region {
 
     /** {@link #boundaryAt} as a column — what a block is measured in. */
     private Point boundaryColumnAt(double x, double y) {
-        int column = (int) Math.round(x / charWidth);
-        int row = (int) Math.floor(y / lineHeight);
+        int column = (int) Math.round(textX(x) / charWidth);
+        int row = (int) Math.floor(textY(y) / lineHeight);
         column = Math.max(0, Math.min(columns, column));
         row = Math.max(0, Math.min(rows - 1, row));
         return new Point(column, scrollOrigin + row);
@@ -1518,8 +1559,8 @@ public final class TerminalView extends Region {
         int code = MouseEncoding.wheelButtonCode(e.getDeltaY());
         var event = new com.jediterm.core.input.MouseWheelEvent(
                 code, MouseEncoding.modifierFlags(e), MouseEncoding.unitsToScroll(e.getDeltaY(), lineHeight));
-        int column = Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
-        int row = Math.max(0, Math.min(rows - 1, (int) Math.floor(e.getY() / lineHeight)));
+        int column = Math.max(0, Math.min(columns - 1, (int) Math.floor(textX(e.getX()) / charWidth)));
+        int row = Math.max(0, Math.min(rows - 1, (int) Math.floor(textY(e.getY()) / lineHeight)));
         return session.getTerminal().onMouseEvent(column, row, event, mouseSettings());
     }
 
@@ -1530,12 +1571,12 @@ public final class TerminalView extends Region {
     }
 
     private int column(MouseEvent e) {
-        return Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
+        return Math.max(0, Math.min(columns - 1, (int) Math.floor(textX(e.getX()) / charWidth)));
     }
 
     /** Row relative to the visible screen — what the reporting protocol addresses. */
     private int visibleRow(MouseEvent e) {
-        return Math.max(0, Math.min(rows - 1, (int) Math.floor(e.getY() / lineHeight)));
+        return Math.max(0, Math.min(rows - 1, (int) Math.floor(textY(e.getY()) / lineHeight)));
     }
 
     private void onMouseReleased(MouseEvent e) {
@@ -1679,9 +1720,10 @@ public final class TerminalView extends Region {
     /** Bottom left, inset, and cut to the terminal's width with an ellipsis in the middle. */
     private void layoutLinkStatus(double width, double height) {
         if (linkStatus == null || !linkStatus.isVisible()) return;
-        double w = Math.min(linkStatus.prefWidth(-1), Math.max(0, width - 2 * SEARCH_BAR_INSET));
+        double inset = overlayInset();
+        double w = Math.min(linkStatus.prefWidth(-1), Math.max(0, width - 2 * inset));
         double h = linkStatus.prefHeight(w);
-        linkStatus.resizeRelocate(SEARCH_BAR_INSET, height - h - SEARCH_BAR_INSET, w, h);
+        linkStatus.resizeRelocate(inset, height - h - inset, w, h);
     }
 
     private static boolean sameHover(@Nullable Hover a, @Nullable Hover b) {
@@ -1732,9 +1774,10 @@ public final class TerminalView extends Region {
         if (buffer == null || linkActions == null) return null;
         if (x < 0 || y < 0 || x >= getWidth() || y >= getHeight()) return null;
 
-        int row = (int) Math.floor(y / lineHeight);
+        // The padding is no cell: floor of a negative is below zero, and is refused with the rest.
+        int row = (int) Math.floor(textY(y) / lineHeight);
         if (row < 0 || row >= rows) return null;
-        int column = (int) Math.floor(x / charWidth);
+        int column = (int) Math.floor(textX(x) / charWidth);
         if (column < 0 || column >= columns) return null;
         // Read once, here: the directory is the shell's and changes on its own.
         java.nio.file.Path cwd = shellDirectory();
@@ -2392,7 +2435,7 @@ public final class TerminalView extends Region {
                     // Terminal and Konsole. Ctrl+Alt works too, and is the one to use where the
                     // window manager takes Alt+drag to move windows, as GNOME and KDE do.
                     blockDrag = e.isAltDown();
-                    anchorColumn = Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
+                    anchorColumn = Math.max(0, Math.min(columns - 1, (int) Math.floor(textX(e.getX()) / charWidth)));
                     dragging = true;
                     autoScroll.reset();
                 }
@@ -2532,12 +2575,14 @@ public final class TerminalView extends Region {
 
     /**
      * How far past the top (negative) or bottom (positive) edge the pointer is, in pixels; zero
-     * inside. The bottom edge is the last whole row's, not the pane's, which can have a sliver below.
+     * inside. The edges are the text's — the first row's top, the last whole row's bottom — not the
+     * pane's, which has the padding and can have a sliver below.
      */
     private double pastEdge(double y) {
-        if (y < 0) return y;
+        double text = textY(y);
+        if (text < 0) return text;
         double bottom = rows * lineHeight;
-        return y >= bottom ? y - bottom + 1 : 0;
+        return text >= bottom ? text - bottom + 1 : 0;
     }
 
     /** One frame of a drag held past the edge: scroll by time and distance, and follow the pointer. */
@@ -2985,7 +3030,10 @@ public final class TerminalView extends Region {
             int row = (int) (command.prompt().line() - linesScrolled) - scrollOrigin;
             if (row < 0 || row >= rows) continue;
             g.setFill(red);
-            g.fillRect(0, row * lineHeight + 2, FAILED_MARK_WIDTH, lineHeight - 4);
+            // In the padding, left of the text, where there is room for it; over the first column
+            // where there is not.
+            double x = -Math.min(textPadding, FAILED_MARK_WIDTH);
+            g.fillRect(x, row * lineHeight + 2, FAILED_MARK_WIDTH, lineHeight - 4);
         }
     }
 
@@ -3454,12 +3502,21 @@ public final class TerminalView extends Region {
     /** Top right of the text area, clear of the scrollbar, and never wider than the terminal. */
     private void layoutSearchBar(double width) {
         if (searchBar == null || !searchBar.isVisible()) return;
-        double w = Math.min(searchBar.prefWidth(-1), Math.max(0, width - 2 * SEARCH_BAR_INSET));
+        double inset = overlayInset();
+        double w = Math.min(searchBar.prefWidth(-1), Math.max(0, width - 2 * inset));
         double h = searchBar.prefHeight(w);
-        searchBar.resizeRelocate(Math.max(0, width - w - SEARCH_BAR_INSET), SEARCH_BAR_INSET, w, h);
+        searchBar.resizeRelocate(Math.max(0, width - w - inset), inset, w, h);
     }
 
     private static final double SEARCH_BAR_INSET = 8;
+
+    /**
+     * How far the find bar and the link status sit from the pane's edges: their own inset, or the
+     * padding when that is wider, so they stay over the text rather than in the frame around it.
+     */
+    private double overlayInset() {
+        return Math.max(SEARCH_BAR_INSET, textPadding);
+    }
 
     /** Whether an event is headed for the find bar, which handles its own keys and clicks. */
     private boolean fromSearchBar(javafx.event.Event e) {

@@ -32,6 +32,9 @@ public final class Settings {
     public static final String FONT_ZOOM = "font.zoom";
     public static final String SCROLLBACK_LINES = "terminal.scrollback";
     public static final String CURSOR_SHAPE = "terminal.cursorShape";
+    /** Space between the text and the pane's edges, in pixels. */
+    public static final String PADDING = "terminal.padding";
+
     public static final String ALT_IS_META = "input.altIsMeta";
     public static final String CONFIRM_PASTE = "input.confirmPaste";
     /** Whether a selection is copied to the clipboard as it is made, without asking. */
@@ -109,6 +112,11 @@ public final class Settings {
     public static final int MIN_SCROLLBACK = 0;
     /** A hard ceiling: scrollback is retained in memory, so this is a footprint decision. */
     public static final int MAX_SCROLLBACK = 200_000;
+
+    public static final int DEFAULT_PADDING = 4;
+    public static final int MIN_PADDING = 0;
+    /** Past this the padding is a frame rather than a margin, and costs columns on a small pane. */
+    public static final int MAX_PADDING = 32;
 
     /**
      * The furthest a remembered window position is believed. Nothing real sits a hundred thousand
@@ -318,6 +326,15 @@ public final class Settings {
 
     public void setCursorShape(CursorShape shape) {
         put(CURSOR_SHAPE, shape.name());
+    }
+
+    /** The inner padding, in pixels: clamped on read as well as write, since the file is hand-edited. */
+    public int padding() {
+        return (int) clamp(readInt(PADDING, DEFAULT_PADDING), MIN_PADDING, MAX_PADDING);
+    }
+
+    public void setPadding(int pixels) {
+        put(PADDING, String.valueOf((int) clamp(pixels, MIN_PADDING, MAX_PADDING)));
     }
 
     public boolean altIsMeta() {

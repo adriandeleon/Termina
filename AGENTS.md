@@ -244,6 +244,17 @@ Each of these cost real time, and none of them announces itself.
   drawing it produces a stray bar between every pair of CJK characters. Runs containing non-ASCII
   fall back to per-glyph drawing, because a wide glyph's natural advance would otherwise push the
   rest of the line off the grid.
+- **JediTerm's cursor x is a slot, not a column.** An astral character (an emoji, a Nerd Font
+  Material icon) is two slots and one column, so drawing `getCursorX()` as a column put the cursor a
+  cell right per icon on the line. `CursorDraw.cell` converts for drawing; the glyph under a block
+  cursor and an OSC 133 mark want the slot as it is. A zero-advance code point (a combining mark,
+  ZWJ, VS16) is the opposite: a cell in the buffer and no advance in one `fillText`, so
+  `CellWidth.isOneCellPerChar` sends those runs per glyph.
+- **Every pixel-to-cell sum goes through the padding.** `terminal.padding` insets the text inside
+  the pane; the grid sent to the PTY, the cell under the pointer (`textX`/`textY`), and every
+  overlay drawn on the text (translated in `render`) are measured from inside it. A new
+  `e.getX() / charWidth` that skips it is off by the padding — a few pixels, so it looks right
+  until it selects the wrong cell at an edge.
 - **JavaFX's fallback list is not a Nerd Font lookup.** No bundled face has private-use glyphs, so
   an icon goes to fontconfig's *sans* ordering and the first face that maps the code point wins.
   Arial (msttcorefonts) maps U+F016 and MathJax_WinIE6 maps U+E271 to glyphs of their own, both
