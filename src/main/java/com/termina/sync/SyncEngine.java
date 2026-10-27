@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,9 +29,13 @@ import org.jspecify.annotations.Nullable;
  * committed and pushed. So there are no conflict markers and no half-finished rebase to recover from.
  *
  * <p>The three sides of the merge are the live data (mine), the remote branch (theirs) and
- * {@value #BASE_REF} — the commit this computer last finished a sync at (base). The base moves only after
- * the push succeeded and the live data was written, so a sync interrupted anywhere is simply repeated by
- * the next one: until then this computer's edits still differ from the base and are sent again.
+ * {@value #BASE_REF} — what this computer and the repository last agreed on (base). After a push it is
+ * the commit pushed. When the live data was written but the push did not go through (it lost a race and
+ * the round is repeated, or it failed), the base moves only as far as the agreement does: to the
+ * repository's entry for everything this computer took or already had, and nowhere for what it has still
+ * to send ({@link SyncMerge.FileResult#settled}). So a sync interrupted anywhere is simply repeated by
+ * the next one — this computer's edits still differ from the base and are sent again — while what it
+ * received is no longer mistaken for an edit of its own, which would send it back over a newer one.
  *
  * <p>A port of Editora's settings sync, which has run this design for longer; the two repositories are
  * separate and do not share files.
@@ -173,7 +178,7 @@ public final class SyncEngine {
             return SyncReport.failure(SyncReport.Status.FAILED, "the repository URL contains a password or token");
         }
         if (!git.available()) return SyncReport.failure(SyncReport.Status.NO_GIT, "");
-        List<String> received = new ArrayList<>();
+        Set<String> received = new LinkedHashSet<>();
         try {
             if (stopHere()) return cancelled();
             prepareClone(git, url);
@@ -196,8 +201,7 @@ public final class SyncEngine {
     }
 
     /** One fetch-merge-push round; null when the push lost a race and the round must be repeated. */
-    private @Nullable SyncReport cycle(boolean allowLargeRemoval, List<String> received)
-            throws IOException, GitFailure {
+    private @Nullable SyncReport cycle(boolean allowLargeRemoval, Set<String> received) throws IOException, GitFailure {
         GitRunner.Result fetch = fetch();
         if (fetch == null || fetch.cancelled() || stopHere()) return cancelled();
         if (!fetch.ok()) return SyncReport.failure(SyncReport.Status.FETCH_FAILED, fetch.transcript());
@@ -244,7 +248,7 @@ public final class SyncEngine {
         List<String> conflicts = new ArrayList<>();
         Map<String, String> liveChanges = new LinkedHashMap<>();
         for (SyncMerge.FileResult r : results) {
-            received.addAll(r.received());
+            received.addAll(r.received()); // a set: a repeated round receives some entries again
             sent.addAll(r.sent());
             conflicts.addAll(r.conflicts());
             if (!Objects.equals(r.text(), SyncMerge.normalize(r.path(), mine.get(r.path())))) {
@@ -255,6 +259,8 @@ public final class SyncEngine {
         if (!liveChanges.isEmpty() && !target.apply(mine, liveChanges)) {
             return SyncReport.failure(SyncReport.Status.LOCAL_BUSY, "");
         }
+
+        String settled = settledBase(results, base);
 
         for (SyncMerge.FileResult r : results) writeOrDelete(clone.resolve(r.path()), r.text());
         writeIfAbsent(FORMAT_FILE, "formatVersion=" + FORMAT_VERSION + "\n");
@@ -268,15 +274,43 @@ public final class SyncEngine {
         }
         if (!remoteHas || !rev("HEAD").equals(rev(remoteRef))) {
             GitRunner.Result push = git.network("push", "--quiet", "origin", "HEAD:refs/heads/" + branch);
+            if (push.nonFastForward() || !push.ok()) {
+                // The live data already holds the merge. What it took from the repository is agreed
+                // now; what it has to send is not, and goes again next round.
+                if (settled != null) must(git.run("update-ref", BASE_REF, settled));
+            }
             if (push.nonFastForward()) return null; // another computer pushed first; merged next round
             if (!push.ok()) {
-                // The live data already holds the merge; the base stays, so the next sync sends again.
                 return new SyncReport(
                         SyncReport.Status.PUSH_FAILED, List.copyOf(received), List.of(), conflicts, push.transcript());
             }
         }
         must(git.run("update-ref", BASE_REF, "HEAD"));
         return new SyncReport(SyncReport.Status.OK, List.copyOf(received), sent, conflicts, "");
+    }
+
+    /**
+     * Writes the {@link SyncMerge.FileResult#settled settled} base as a commit of its own, for
+     * {@value #BASE_REF} to move to if this round's push does not go through; null when it is the base
+     * already. Goes through the clone's work tree and index, which the merged files then overwrite.
+     */
+    private @Nullable String settledBase(List<SyncMerge.FileResult> results, Map<String, String> base)
+            throws IOException, GitFailure {
+        boolean moved = false;
+        for (SyncMerge.FileResult r : results) {
+            if (!r.settled().equals(KeybindingsFile.entries(base.get(r.path())))) moved = true;
+        }
+        if (!moved) return null;
+        List<String> paths = new ArrayList<>();
+        for (SyncMerge.FileResult r : results) {
+            writeOrDelete(clone.resolve(r.path()), KeybindingsFile.text(r.path(), r.settled()));
+            paths.add(r.path());
+        }
+        stage(paths);
+        String tree = must(git.run("write-tree")).out().strip();
+        return must(git.run(withIdentity("commit-tree", tree, "-m", "Agreed with the repository by " + machine)))
+                .out()
+                .strip();
     }
 
     /**

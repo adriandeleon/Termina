@@ -38,6 +38,11 @@ class SyncEngineTest {
         Map<String, String> bindings = new LinkedHashMap<>();
         boolean refuseWrites;
         int writes;
+        /**
+         * Runs once, after the live data is written and before the push: the window in which another
+         * computer can push first.
+         */
+        Runnable duringSync;
 
         Computer(String name, boolean mac) {
             this.name = name;
@@ -65,6 +70,9 @@ class SyncEngineTest {
             if (refuseWrites || !Objects.equals(read().get(path()), expected.get(path()))) return false;
             bindings = new LinkedHashMap<>(KeybindingsFile.entries(changes.get(path())));
             writes++;
+            Runnable then = duringSync;
+            duringSync = null;
+            if (then != null) then.run();
             return true;
         }
 
@@ -139,8 +147,111 @@ class SyncEngineTest {
         assertEquals("formatVersion=" + SyncEngine.FORMAT_VERSION + "\n", remoteFile(SyncEngine.FORMAT_FILE));
     }
 
+    /** Three computers that have all synced with the repository, every one holding {@code newTab=v0}. */
+    private List<Computer> threeInStep() {
+        Computer a = new Computer("a", false);
+        Computer b = new Computer("b", false);
+        Computer c = new Computer("c", false);
+        a.bindings.put("newTab", "Ctrl+Alt+0");
+        for (Computer each : List.of(a, b, c))
+            assertEquals(SyncReport.Status.OK, each.sync().status());
+        for (Computer each : List.of(a, b, c)) assertEquals(Map.of("newTab", "Ctrl+Alt+0"), each.bindings);
+        return List.of(a, b, c);
+    }
+
     private static String binding(String file, String id) {
         return file == null ? null : KeybindingsFile.entries(file).get(id);
+    }
+
+    @Test
+    void aRetryAfterALostPushRaceKeepsTheNewerRemoteEdit() {
+        List<Computer> all = threeInStep();
+        Computer a = all.get(0);
+        Computer b = all.get(1);
+        Computer c = all.get(2);
+        b.bindings.put("newTab", "Ctrl+Alt+1");
+        assertEquals(SyncReport.Status.OK, b.sync().status());
+        assertEquals(SyncReport.Status.OK, c.sync().status()); // c has v1 too
+
+        // a takes v1 and has something of its own to push; c pushes v2 in between.
+        a.bindings.put("copy", "Ctrl+Alt+C");
+        a.duringSync = () -> {
+            c.bindings.put("newTab", "Ctrl+Alt+2");
+            assertEquals(SyncReport.Status.OK, c.sync().status());
+        };
+        SyncReport r = a.sync();
+
+        assertEquals(SyncReport.Status.OK, r.status(), r.detail());
+        assertEquals(List.of(), r.conflicts(), "the user of a never touched newTab");
+        assertEquals(List.of("newTab"), r.received(), "received once, however many rounds it took");
+        assertEquals(List.of("copy"), r.sent());
+        assertEquals(Map.of("newTab", "Ctrl+Alt+2", "copy", "Ctrl+Alt+C"), a.bindings);
+        assertEquals("Ctrl+Alt+2", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.OTHER_PATH), "copy"));
+    }
+
+    @Test
+    void aLocalEditStillWinsTheRoundAfterALostRace() {
+        List<Computer> all = threeInStep();
+        Computer a = all.get(0);
+        Computer c = all.get(2);
+        a.bindings.put("newTab", "Ctrl+Alt+A");
+        a.bindings.put("copy", "Ctrl+Alt+C");
+        c.bindings.put("paste", "Ctrl+Alt+V");
+        assertEquals(SyncReport.Status.OK, c.sync().status()); // something for a to receive
+
+        a.duringSync = () -> {
+            c.bindings.put("newTab", "Ctrl+Alt+2");
+            assertEquals(SyncReport.Status.OK, c.sync().status());
+        };
+        SyncReport r = a.sync();
+
+        assertEquals(SyncReport.Status.OK, r.status(), r.detail());
+        assertEquals(List.of("newTab"), r.conflicts(), "changed on both sides, and still not pushed");
+        assertEquals(List.of("copy", "newTab"), r.sent());
+        assertEquals(List.of("paste"), r.received());
+        assertEquals(Map.of("newTab", "Ctrl+Alt+A", "copy", "Ctrl+Alt+C", "paste", "Ctrl+Alt+V"), a.bindings);
+        assertEquals("Ctrl+Alt+A", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+        assertEquals("Ctrl+Alt+V", binding(remoteFile(KeybindingsFile.OTHER_PATH), "paste"));
+    }
+
+    @Test
+    void whatAFailedPushReceivedIsNotSentBackOverALaterEdit() throws IOException {
+        List<Computer> all = threeInStep();
+        Computer a = all.get(0);
+        Computer b = all.get(1);
+        b.bindings.put("newTab", "Ctrl+Alt+1");
+        assertEquals(SyncReport.Status.OK, b.sync().status());
+
+        // a receives v1, and its own edit cannot be pushed: the repository is gone for a while.
+        Path repository = dir.resolve("remote.git");
+        Path away = dir.resolve("remote-away.git");
+        a.bindings.put("copy", "Ctrl+Alt+C");
+        a.duringSync = () -> {
+            try {
+                Files.move(repository, away);
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        };
+        SyncReport failed = a.sync();
+        Files.move(away, repository);
+        assertEquals(SyncReport.Status.PUSH_FAILED, failed.status(), failed.detail());
+        assertEquals(List.of("newTab"), failed.received());
+        assertEquals("Ctrl+Alt+1", a.bindings.get("newTab"));
+
+        // Later, b changes it again; a is to take that, not to push its old copy over it.
+        b.bindings.put("newTab", "Ctrl+Alt+3");
+        assertEquals(SyncReport.Status.OK, b.sync().status());
+        SyncReport r = a.sync();
+
+        assertEquals(SyncReport.Status.OK, r.status(), r.detail());
+        assertEquals(List.of(), r.conflicts());
+        assertEquals(List.of("newTab"), r.received());
+        assertEquals(List.of("copy"), r.sent(), "the edit that failed to go is sent now");
+        assertEquals(Map.of("newTab", "Ctrl+Alt+3", "copy", "Ctrl+Alt+C"), a.bindings);
+        assertEquals("Ctrl+Alt+3", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.OTHER_PATH), "copy"));
     }
 
     @Test
