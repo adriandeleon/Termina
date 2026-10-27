@@ -112,6 +112,45 @@ class MenuActionTest {
     }
 
     @Test
+    void theProfileChordsStayOffTheMacScreenshotKeys() {
+        // Cmd+Shift+3, 4 and 5 are macOS's screenshots, taken before an application sees them.
+        for (int n = 1; n <= 9; n++) {
+            KeyCode digit = KeyCode.valueOf("DIGIT" + n);
+            KeyCombination mac = MenuAction.profileChord(digit, true);
+            assertEquals(new KeyCodeCombination(digit, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN), mac);
+            assertEquals(
+                    new KeyCodeCombination(digit, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+                    MenuAction.profileChord(digit, false));
+        }
+    }
+
+    @Test
+    void theProfileChordsCollideWithNoOtherDigitChord() {
+        // register() throws on two defaults on one chord; this says so before a window is built.
+        for (boolean mac : new boolean[] {true, false}) {
+            java.util.List<KeyCombination> all = new java.util.ArrayList<>();
+            for (int n = 1; n <= 9; n++) {
+                KeyCode digit = KeyCode.valueOf("DIGIT" + n);
+                all.add(Keybindings.normalize(MenuAction.profileChord(digit, mac), mac));
+                all.add(Keybindings.normalize(MenuAction.tabChord(digit, mac), mac));
+            }
+            all.add(Keybindings.normalize(new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN), mac));
+            assertTrue(MenuAction.duplicateAccelerators(all).isEmpty(), "mac=" + mac);
+        }
+    }
+
+    @Test
+    void thePaletteIsNotOnAKeyTheShellOwns() {
+        // Alt+X is M-x in emacs -nw and zsh's execute-named-cmd. Ctrl/Cmd+Shift+P is Windows
+        // Terminal's and VS Code's, and Ctrl+Shift+letter is the application's on every platform.
+        assertEquals(
+                new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+                MenuAction.DEFAULT_PALETTE_CHORD);
+        assertFalse(MenuAction.DEFAULT_PALETTE_CHORD.match(
+                new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.X, false, false, true, false)));
+    }
+
+    @Test
     void duplicateAcceleratorsAreNamedOnceEach() {
         KeyCombination w = MenuAction.shiftChord(KeyCode.W);
         KeyCombination t = MenuAction.shiftChord(KeyCode.T);
