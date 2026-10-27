@@ -208,9 +208,162 @@ class SettingsTest {
         settings.setFontSize(19);
 
         assertTrue(Files.readString(file).contains("editora-light"));
-        assertFalse(Files.exists(Settings.tempFileFor(file)), "the temporary must have been renamed away");
-        assertEquals(dir, Settings.tempFileFor(file).getParent(), "same directory, so the rename stays on one volume");
+        try (var listing = Files.list(dir)) {
+            assertEquals(
+                    java.util.List.of(),
+                    listing.map(p -> p.getFileName().toString())
+                            .filter(name -> name.endsWith(".tmp"))
+                            .toList(),
+                    "the temporary must have been renamed away");
+        }
         assertNull(settings.lastSaveError());
+    }
+
+    @Test
+    void twoProcessesOnOneFileKeepEachOthersChanges(@TempDir Path dir) {
+        // Each used to rewrite the whole file from its own memory: change the theme in one, close a
+        // window of the other, and the theme was back — and the other's stale keys.* could then sync
+        // out as a local edit.
+        Path file = dir.resolve("settings.properties");
+        Settings seed = new Settings(file);
+        seed.setThemeId("editora-dark");
+        seed.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+
+        Settings first = new Settings(file);
+        first.load();
+        Settings second = new Settings(file);
+        second.load();
+
+        first.setThemeId("editora-light");
+        first.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+U"));
+        second.setWindowGeometry(10, 20, 800, 600, false); // closing a window
+        second.setFontSize(19);
+
+        Settings read = new Settings(file);
+        read.load();
+        assertEquals("editora-light", read.themeId(), "the other process's save must not revert it");
+        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+U"), read.keyBindings());
+        assertEquals(19, read.fontSize());
+        assertEquals(800, read.windowWidth());
+    }
+
+    @Test
+    void aRemovalIsAChangeToo(@TempDir Path dir) {
+        Path file = dir.resolve("settings.properties");
+        Settings first = new Settings(file);
+        first.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"));
+        Settings second = new Settings(file);
+        second.load();
+
+        second.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        first.setFontSize(18); // must not put closeTab back
+
+        Settings read = new Settings(file);
+        read.load();
+        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y"), read.keyBindings());
+        assertEquals(18, read.fontSize());
+    }
+
+    @Test
+    void concurrentSavesLoseNothing(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("settings.properties");
+        Settings a = new Settings(file);
+        Settings b = new Settings(file);
+        Thread one = new Thread(() -> {
+            for (int i = 0; i < 40; i++) a.setLinkOpenCommand("a" + i);
+        });
+        Thread two = new Thread(() -> {
+            for (int i = 0; i < 40; i++) b.setShell("b" + i);
+        });
+        one.start();
+        two.start();
+        one.join();
+        two.join();
+        assertNull(a.lastSaveError());
+        assertNull(b.lastSaveError());
+
+        Settings read = new Settings(file);
+        read.load();
+        assertEquals("a39", read.linkOpenCommand());
+        assertEquals("b39", read.shell());
+    }
+
+    @Test
+    void theMergeAppliesOnlyWhatChanged() {
+        java.util.Map<String, String> disk = java.util.Map.of("theme", "theirs", "font.size", "12", "gone", "x");
+        java.util.Map<String, String> base = java.util.Map.of("theme", "old", "font.size", "12", "gone", "x");
+        java.util.Map<String, String> mine = java.util.Map.of("theme", "old", "font.size", "20", "added", "y");
+        assertEquals(
+                java.util.Map.of("theme", "theirs", "font.size", "20", "added", "y"), Settings.merge(disk, base, mine));
+    }
+
+    @Test
+    void anUnreadableFileFallsBackToDefaultsAndIsKept(@TempDir Path dir) throws IOException {
+        // A directory where the file should be: reading fails. Nothing may escape load().
+        Path file = dir.resolve("settings.properties");
+        Files.createDirectory(file);
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals("editora-dark", settings.themeId());
+    }
+
+    @Test
+    void aBadFileIsCopiedAsideBeforeAnythingOverwritesIt(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("settings.properties");
+        Files.writeString(file, "theme=mine\n");
+        Path backup = Settings.backUpUnreadable(file, 0);
+        assertNotNull(backup);
+        assertTrue(backup.getFileName().toString().startsWith("settings.properties.bad-"), backup.toString());
+        assertEquals("theme=mine\n", Files.readString(backup));
+        assertNull(Settings.backUpUnreadable(dir.resolve("missing.properties"), 0));
+    }
+
+    @Test
+    void aMalformedEscapeNoLongerStopsTheAppStarting(@TempDir Path dir) throws IOException {
+        // Properties.load threw IllegalArgumentException for this, out of App.start.
+        Path file = dir.resolve("settings.properties");
+        Files.writeString(file, "terminal.shell=C:\\uxyz\\shell.exe\ntheme=editora-light\n");
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals("C:\\uxyz\\shell.exe", settings.shell());
+        assertEquals("editora-light", settings.themeId());
+    }
+
+    @Test
+    void aHandTypedWindowsPathSurvivesLoadAndSave(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("settings.properties");
+        Files.writeString(
+                file,
+                "terminal.shell=C:\\Windows\\System32\\wsl.exe\nlinks.openCommand=C:\\tools\\nu.exe {file}\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals("C:\\Windows\\System32\\wsl.exe", settings.shell());
+        assertEquals("C:\\tools\\nu.exe {file}", settings.linkOpenCommand());
+
+        settings.setFontSize(15);
+        Settings read = new Settings(file);
+        read.load();
+        assertEquals("C:\\Windows\\System32\\wsl.exe", read.shell());
+        assertEquals("C:\\tools\\nu.exe {file}", read.linkOpenCommand());
+    }
+
+    @Test
+    void theFileIsUtf8AndOldEscapesStillRead(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("settings.properties");
+        Files.writeString(
+                file,
+                "terminal.shell=/home/josé/bin/fish\nlinks.openCommand=caf\\u00e9 {file}\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals("/home/josé/bin/fish", settings.shell());
+        assertEquals("café {file}", settings.linkOpenCommand());
+
+        settings.setThemeId("editora-light");
+        assertTrue(
+                Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).contains("/home/josé/bin/fish"),
+                "written back as UTF-8, legible");
     }
 
     @Test

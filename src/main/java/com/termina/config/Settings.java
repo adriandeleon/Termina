@@ -1,15 +1,18 @@
 package com.termina.config;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Properties;
 import java.util.Set;
@@ -22,7 +25,8 @@ import org.jspecify.annotations.Nullable;
  * <p>Properties rather than JSON or TOML because it needs no dependency, and because a terminal's
  * settings file is one someone will reasonably open in a text editor. Every getter falls back to a
  * default, so a hand-edited file with a typo degrades to the default for that one key instead of
- * failing to load.
+ * failing to load. The syntax is properties with backslashes taken literally, in UTF-8 — see
+ * {@link SettingsFormat} — so a Windows path can be typed as it is.
  */
 public final class Settings {
 
@@ -121,6 +125,13 @@ public final class Settings {
     private final Properties properties = new Properties();
     private final List<Runnable> onChange = new ArrayList<>();
 
+    /** What the file held when this process last loaded or saved it: the base a save diffs against. */
+    private volatile Map<String, String> baseline = Map.of();
+
+    /** One per settings file in this process; a {@link FileLock} does not exclude its own JVM. */
+    private static final java.util.concurrent.ConcurrentMap<Path, Object> MONITORS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     /** Why the last save failed, or null when it succeeded. */
     private volatile @Nullable String lastSaveError;
 
@@ -172,50 +183,139 @@ public final class Settings {
         for (Runnable listener : List.copyOf(onChange)) listener.run();
     }
 
+    /**
+     * Reads the file, if there is one. Never throws: whatever goes wrong, the app opens on defaults.
+     *
+     * <p>Settings are a convenience, and a terminal that will not open is not one. The format itself
+     * cannot fail ({@link SettingsFormat}); what is left is a file that cannot be read at all, or a
+     * bug. Either way the file is copied aside first, as {@code settings.properties.bad-<time>}, so
+     * the next save — which writes only the keys this process changes, but still writes — cannot be
+     * the end of whatever the user had in it.
+     */
     public void load() {
-        if (!Files.isReadable(file)) return;
-        try (InputStream in = Files.newInputStream(file)) {
-            properties.load(in);
-        } catch (IOException e) {
-            // A corrupt or unreadable file falls back to defaults rather than refusing to start:
-            // settings are a convenience, and a terminal that will not open is not one.
+        if (!Files.exists(file)) return;
+        try {
+            Map<String, String> read = SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(file)));
+            read.forEach(properties::setProperty);
+        } catch (IOException | RuntimeException e) {
+            Path backup = backUpUnreadable(file, System.currentTimeMillis());
             System.getLogger(Settings.class.getName())
-                    .log(System.Logger.Level.WARNING, "could not read " + file + "; using defaults", e);
+                    .log(
+                            System.Logger.Level.WARNING,
+                            "could not read " + file + "; using defaults"
+                                    + (backup == null ? "" : "; the file is kept as " + backup),
+                            e);
+        }
+        baseline = snapshot();
+    }
+
+    /**
+     * Copies a settings file that failed to load beside itself, named for when.
+     *
+     * @return the copy, or null when even that failed (the warning still names the original)
+     */
+    static @Nullable Path backUpUnreadable(Path file, long epochMs) {
+        String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+                .withZone(java.time.ZoneId.systemDefault())
+                .format(java.time.Instant.ofEpochMilli(epochMs));
+        Path backup = file.resolveSibling(file.getFileName() + ".bad-" + stamp);
+        try {
+            return Files.copy(file, backup, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException | RuntimeException e) {
+            return null;
         }
     }
 
     /**
-     * Writes the file, through a sibling temporary and a rename.
+     * Writes this process's changes into the file — only those — through a temporary and a rename.
      *
-     * <p>Rewriting in place truncates first and fills afterwards, and a kill or a power cut between
-     * the two leaves an empty file — which the next launch reads as "no settings", profiles
-     * included, without a word. The rename is atomic where the filesystem offers it and a plain
+     * <p>Only the changes, because more than one Termina can be running on one config folder, and
+     * each used to rewrite the whole file from its own memory on every change and on every window
+     * close: change the theme in one, close a window of the other, and the theme was back. So a save
+     * takes a lock (a {@link FileLock} on {@code settings.properties.lock}, plus a monitor for two
+     * {@code Settings} in one process, which a file lock does not separate), re-reads the file,
+     * applies what differs between memory and what was last loaded or saved — set or removed — and
+     * writes the result. Keys another process changed meanwhile stay as it left them; this process
+     * does not adopt them until it next loads.
+     *
+     * <p>Through a temporary because rewriting in place truncates first and fills afterwards, and a
+     * kill or a power cut between the two leaves an empty file — which the next launch reads as "no
+     * settings", profiles included, without a word. The temporary's name is unique to the save, so
+     * two writers never share one. The rename is atomic where the filesystem offers it and a plain
      * replace where it does not, which still leaves either the whole new file or the old one.
      */
-    public void save() {
-        Path temp = tempFileFor(file);
+    public synchronized void save() {
+        Path temp = null;
         try {
-            Path parent = file.getParent();
-            if (parent != null) Files.createDirectories(parent);
-            try (OutputStream out = Files.newOutputStream(temp)) {
-                properties.store(out, "Termina settings");
+            Path parent = file.toAbsolutePath().getParent();
+            if (parent == null) throw new IOException("no folder to write " + file + " into");
+            Files.createDirectories(parent);
+            Object monitor = MONITORS.computeIfAbsent(file.toAbsolutePath().normalize(), k -> new Object());
+            synchronized (monitor) {
+                try (FileChannel lockChannel = FileChannel.open(
+                                lockFileFor(file), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                        FileLock held = lockChannel.lock()) {
+                    Map<String, String> mine = snapshot();
+                    Map<String, String> merged = merge(readOnDisk(), baseline, mine);
+                    temp = Files.createTempFile(parent, file.getFileName() + ".", ".tmp");
+                    Files.writeString(temp, SettingsFormat.format(merged), StandardCharsets.UTF_8);
+                    moveIntoPlace(temp, file);
+                    temp = null;
+                    baseline = mine;
+                }
             }
-            moveIntoPlace(temp, file);
             lastSaveError = null;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             lastSaveError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + file, e);
-            try {
-                Files.deleteIfExists(temp);
-            } catch (IOException ignored) {
-                // The leftover temporary is the lesser problem; the warning above names the file.
+        } finally {
+            if (temp != null) {
+                try {
+                    Files.deleteIfExists(temp);
+                } catch (IOException ignored) {
+                    // The leftover temporary is the lesser problem; the warning above names the file.
+                }
             }
         }
     }
 
-    /** The scratch file a save goes through: beside the real one, so the rename stays on one volume. */
-    static Path tempFileFor(Path file) {
-        return file.resolveSibling(file.getFileName() + ".tmp");
+    /** What the file holds now, or what this process last knew it to hold if it cannot be read. */
+    private Map<String, String> readOnDisk() {
+        if (!Files.exists(file)) return new java.util.HashMap<>();
+        try {
+            return SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(file)));
+        } catch (IOException | RuntimeException e) {
+            return new java.util.HashMap<>(baseline);
+        }
+    }
+
+    /**
+     * The file to write: what is on disk, with every key that differs between {@code base} (what this
+     * process last loaded or saved) and {@code mine} (its memory now) set to {@code mine}'s value, or
+     * removed where {@code mine} has none. Everything else on disk is left as found.
+     */
+    static Map<String, String> merge(Map<String, String> onDisk, Map<String, String> base, Map<String, String> mine) {
+        Map<String, String> merged = new java.util.HashMap<>(onDisk);
+        Set<String> keys = new java.util.HashSet<>(base.keySet());
+        keys.addAll(mine.keySet());
+        for (String key : keys) {
+            String now = mine.get(key);
+            if (java.util.Objects.equals(now, base.get(key))) continue;
+            if (now == null) merged.remove(key);
+            else merged.put(key, now);
+        }
+        return merged;
+    }
+
+    private Map<String, String> snapshot() {
+        Map<String, String> copy = new java.util.HashMap<>();
+        for (String name : properties.stringPropertyNames()) copy.put(name, properties.getProperty(name));
+        return copy;
+    }
+
+    /** Where saves queue up between processes: beside the file, never replaced, never deleted. */
+    static Path lockFileFor(Path file) {
+        return file.resolveSibling(file.getFileName() + ".lock");
     }
 
     private static void moveIntoPlace(Path temp, Path target) throws IOException {
