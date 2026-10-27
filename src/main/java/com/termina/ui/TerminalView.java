@@ -197,6 +197,16 @@ public final class TerminalView extends Region {
     /** Whether the current drag makes a block, decided at the press and kept for the drag. */
     private boolean blockDrag;
 
+    /**
+     * Whether {@link #selectionAnchor} is the stream selection's start — true unless the drag went
+     * backwards, when it is just before the end. A reflow moves the selection's ends and not the
+     * anchor; this is how the anchor finds its end again.
+     */
+    private volatile boolean anchorIsStart = true;
+
+    /** Which presses the running program was told about, and so is owed the rest of. */
+    private final ReportedPresses reportedPresses = new ReportedPresses();
+
     /** Whether the button is down on a drag of our own (not the scrollbar's, not a program's). */
     private boolean dragging;
 
@@ -763,8 +773,37 @@ public final class TerminalView extends Region {
 
     private void onScrollBarMoved(double value) {
         if (updatingScrollBar || buffer == null) return;
-        scrollOrigin = ScrollBarModel.origin(buffer.getHistoryLinesCount(), value);
+        moveOrigin(origin -> ScrollBarModel.origin(buffer().getHistoryLinesCount(), value));
         markDirty();
+    }
+
+    /**
+     * Moves the viewport from the FX thread: reads the origin, works out the next one, clamps it to
+     * the history and writes it, all under the buffer lock.
+     *
+     * <p>The emulator thread shifts {@link #scrollOrigin} under that lock as output scrolls (see
+     * {@link #onModelChanged}). A read-modify-write here without it could read the origin, lose the
+     * shift that landed meanwhile, and write back a value measured against rows that have since
+     * moved: wheel-scrolling during a build jumped. Only on a user's move — a wheel notch, a key, a
+     * frame of autoscroll that actually scrolls — so a frame that draws pays nothing for it.
+     *
+     * @return whether the origin changed
+     */
+    private boolean moveOrigin(java.util.function.IntUnaryOperator next) {
+        TerminalTextBuffer locked = buffer;
+        if (locked == null) return false;
+        boolean moved;
+        locked.lock();
+        try {
+            int history = locked.getHistoryLinesCount();
+            int to = Math.max(-history, Math.min(0, next.applyAsInt(scrollOrigin)));
+            moved = to != scrollOrigin;
+            scrollOrigin = to;
+        } finally {
+            locked.unlock();
+        }
+        if (moved) markDirty();
+        return moved;
     }
 
     /** Reflects the buffer into the scrollbar. Cheap: property setters no-op on an equal value. */
@@ -1291,13 +1330,8 @@ public final class TerminalView extends Region {
             }
             case PASTE -> paste();
             case COPY -> copySelection();
-            default -> {
-                int next = ViewKeys.scrolledOrigin(action, scrollOrigin, rows, buffer().getHistoryLinesCount());
-                if (next != scrollOrigin) {
-                    scrollOrigin = next;
-                    markDirty();
-                }
-            }
+            default ->
+                moveOrigin(origin -> ViewKeys.scrolledOrigin(action, origin, rows, buffer().getHistoryLinesCount()));
         }
         return true;
     }
@@ -1350,6 +1384,7 @@ public final class TerminalView extends Region {
             // columns, and its rows have just been rewrapped into other rows: nothing it covered
             // is where it was.
             if (rectangular) selection = null;
+            selectionAnchor = anchorAfterReflow(selection, anchorIsStart, rectangular);
         } else if (change.delta() != 0) {
             scrollOrigin = HistoryFollow.origin(scrollOrigin, change.delta(), history);
             linesScrolled += change.delta();
@@ -1365,6 +1400,20 @@ public final class TerminalView extends Region {
     }
 
     /**
+     * Where a drag's anchor is once a reflow has moved the selection's ends, which it does and the
+     * anchor's it does not: the end the anchor was. With no stream selection to follow — a press not
+     * yet dragged, or a block, whose rows have been rewrapped — there is nothing to extend from, and
+     * a drag continuing after the resize starts afresh rather than from text that has moved.
+     */
+    static @Nullable Point anchorAfterReflow(
+            @Nullable TerminalSelection selection, boolean anchorIsStart, boolean rectangular) {
+        if (selection == null || rectangular) return null;
+        Point start = selection.getStart();
+        Point end = selection.getEnd();
+        return anchorIsStart ? new Point(start.x, start.y) : new Point(Math.max(0, end.x - 1), end.y);
+    }
+
+    /**
      * The buffer cell under a mouse position, clamped to the grid.
      *
      * <p>The x it returns is a <b>slot</b>, not the column the pointer is over: a selection is
@@ -1375,6 +1424,9 @@ public final class TerminalView extends Region {
      * <p>Mouse <i>reporting</i> is the opposite case and deliberately does not come through here:
      * xterm's protocol speaks columns, and a program being told where its own cursor should go
      * wants what the user pointed at.
+     *
+     * <p>Callers hold the lock, and write what they make of the answer before releasing it: the
+     * row is measured against {@link #scrollOrigin}, which the emulator moves under that lock.
      */
     private Point cellAt(MouseEvent e) {
         int column = (int) Math.floor(e.getX() / charWidth);
@@ -1447,7 +1499,12 @@ public final class TerminalView extends Region {
      * htop makes the text impossible to select.
      */
     private boolean reportMouse(MouseEvent e, com.jediterm.core.input.MouseEvent.Type type) {
-        if (session == null || e.isShiftDown()) return false;
+        return reportMouse(e, type, e.isShiftDown());
+    }
+
+    /** @param bypass Shift's escape hatch; false for the rest of a press the program already has */
+    private boolean reportMouse(MouseEvent e, com.jediterm.core.input.MouseEvent.Type type, boolean bypass) {
+        if (session == null || bypass) return false;
         int code = MouseEncoding.buttonCode(e.getButton());
         var event = new com.jediterm.core.input.MouseEvent(type, code, MouseEncoding.modifierFlags(e));
         return session.getTerminal().onMouseEvent(column(e), visibleRow(e), event, mouseSettings());
@@ -1491,7 +1548,10 @@ public final class TerminalView extends Region {
         boolean dragged = dragging;
         dragging = false;
         stopAutoScroll();
-        if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.RELEASED)) {
+        // Only the release of a press the program saw, and that one even with Shift down by now:
+        // see ReportedPresses.
+        if (reportedPresses.owesRelease(e.getButton())) {
+            reportMouse(e, com.jediterm.core.input.MouseEvent.Type.RELEASED, false);
             e.consume();
             return;
         }
@@ -2194,6 +2254,7 @@ public final class TerminalView extends Region {
             rectangular = false;
             selection = all;
             selectionAnchor = new Point(0, -history);
+            anchorIsStart = true;
         } finally {
             buffer.unlock();
         }
@@ -2236,6 +2297,9 @@ public final class TerminalView extends Region {
         // A click anywhere in the terminal dismisses the menu instead of acting on the terminal.
         // ContextMenu's own auto-hide covers clicks outside the window, but this filter runs first
         // for clicks inside it, which would otherwise start a selection under the open menu.
+        // Kept from the program until reportMouse below says otherwise: every way out before it —
+        // the menu, the bars, the pane drag, a link — is a press the program never hears of.
+        reportedPresses.pressed(e.getButton(), false);
         ContextMenu shownMenu = shownContextMenu();
         if (shownMenu != null) {
             shownMenu.hide();
@@ -2283,6 +2347,7 @@ public final class TerminalView extends Region {
         }
 
         if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.PRESSED)) {
+            reportedPresses.pressed(e.getButton(), true);
             // The program has this press, so nothing local may grow out of it. In mode 1000 the
             // program hears press and release only, the drag between them is not reported, and a
             // drag that falls through to selection must not find an anchor from some earlier
@@ -2303,31 +2368,37 @@ public final class TerminalView extends Region {
         }
         if (e.getButton() != MouseButton.PRIMARY) return;
 
-        Point at = cellAt(e);
-        switch (e.getClickCount()) {
-            case 2 -> {
-                selectWordAt(at);
-                settleSelection();
+        // The cell, and the selection made from it, under one lock: the row is measured against an
+        // origin the emulator moves as output scrolls, and an anchor written after a shift it
+        // missed would name the row that has since scrolled under the press.
+        boolean made = e.getClickCount() == 2 || e.getClickCount() == 3;
+        buffer.lock();
+        try {
+            Point at = cellAt(e);
+            anchorIsStart = true;
+            switch (e.getClickCount()) {
+                case 2 -> selectWordAt(at);
+                case 3 -> selectLineAt(at);
+                default -> {
+                    // A press with no drag clears the selection, matching every terminal: it is
+                    // how you dismiss a highlight without copying it.
+                    selectionAnchor = at;
+                    selection = null;
+                    settledText = null;
+                    // Option on macOS, as in Terminal and iTerm2; Alt elsewhere, as in Windows
+                    // Terminal and Konsole. Ctrl+Alt works too, and is the one to use where the
+                    // window manager takes Alt+drag to move windows, as GNOME and KDE do.
+                    blockDrag = e.isAltDown();
+                    anchorColumn = Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
+                    dragging = true;
+                    autoScroll.reset();
+                }
             }
-            case 3 -> {
-                selectLineAt(at);
-                settleSelection();
-            }
-            default -> {
-                // A press with no drag clears the selection, matching every terminal: it is how
-                // you dismiss a highlight without copying it.
-                selectionAnchor = at;
-                selection = null;
-                settledText = null;
-                // Option on macOS, as in Terminal and iTerm2; Alt elsewhere, as in Windows Terminal
-                // and Konsole. Ctrl+Alt works too, and is the one to use where the window manager
-                // takes Alt+drag to move windows, as GNOME and KDE do.
-                blockDrag = e.isAltDown();
-                anchorColumn = Math.max(0, Math.min(columns - 1, (int) Math.floor(e.getX() / charWidth)));
-                dragging = true;
-                autoScroll.reset();
-            }
+        } finally {
+            buffer.unlock();
         }
+        // After the lock: settling offers PRIMARY, which can start a process.
+        if (made) settleSelection();
         markDirty();
     }
 
@@ -2379,7 +2450,10 @@ public final class TerminalView extends Region {
             e.consume();
             return;
         }
-        if (reportMouse(e, com.jediterm.core.input.MouseEvent.Type.DRAGGED)) {
+        // A drag belongs to whoever had the press. The program's, if it was told of it, whether or
+        // not its mode reports motion; never the program's otherwise.
+        if (reportedPresses.owesDrag(e.getButton())) {
+            reportMouse(e, com.jediterm.core.input.MouseEvent.Type.DRAGGED, false);
             e.consume();
             return;
         }
@@ -2414,8 +2488,23 @@ public final class TerminalView extends Region {
         e.consume();
     }
 
-    /** Extends the drag's selection to a pointer position, clamped to the pane. */
+    /**
+     * Extends the drag's selection to a pointer position, clamped to the pane. Under the lock, from
+     * reading the anchor to writing the selection: the emulator shifts both as output scrolls, and a
+     * selection built from an anchor read before a shift and written after it is off by the shift.
+     */
     private void extendDragTo(double x, double y) {
+        TerminalTextBuffer locked = buffer;
+        if (locked == null) return;
+        locked.lock();
+        try {
+            extendDragToLocked(x, y);
+        } finally {
+            locked.unlock();
+        }
+    }
+
+    private void extendDragToLocked(double x, double y) {
         Point anchor = selectionAnchor;
         if (anchor == null) return;
         if (blockDrag) {
@@ -2431,7 +2520,9 @@ public final class TerminalView extends Region {
             // drag is extending it and every movement counts.
             if (selection == null && !SelectionGeometry.leftPressCell(anchor, to.y, to.x)) return;
             rectangular = false;
-            selection = SelectionGeometry.drag(anchor, to.y, to.x);
+            TerminalSelection dragged = SelectionGeometry.drag(anchor, to.y, to.x);
+            anchorIsStart = dragged.getStart().x == anchor.x && dragged.getStart().y == anchor.y;
+            selection = dragged;
         }
         markDirty();
     }
@@ -2459,10 +2550,7 @@ public final class TerminalView extends Region {
         }
         int lines = autoScroll.step(now, Math.abs(past), lineHeight);
         if (lines == 0) return;
-        int history = buffer.getHistoryLinesCount();
-        int next = Math.max(-history, Math.min(0, scrollOrigin + (past < 0 ? -lines : lines)));
-        if (next == scrollOrigin) return;
-        scrollOrigin = next;
+        if (!moveOrigin(origin -> origin + (past < 0 ? -lines : lines))) return;
         extendDragTo(dragX, dragY);
     }
 
@@ -2495,6 +2583,7 @@ public final class TerminalView extends Region {
         }
     }
 
+    /** Caller holds the lock. */
     private void selectWordAt(Point at) {
         TerminalSelection word = wordSelection(at, buffer());
         rectangular = false;
@@ -2502,9 +2591,10 @@ public final class TerminalView extends Region {
         selectionAnchor = new Point(word.getStart().x, word.getStart().y);
     }
 
+    /** Caller holds the lock. */
     private void selectLineAt(Point at) {
         TerminalSelection line = new TerminalSelection(new Point(0, at.y));
-        line.updateEnd(new Point(Math.max(columns, lockedLineTextAt(at.y).length()), at.y));
+        line.updateEnd(new Point(Math.max(columns, lineTextAt(at.y).length()), at.y));
         rectangular = false;
         selection = line;
         selectionAnchor = new Point(0, at.y);
@@ -2619,10 +2709,9 @@ public final class TerminalView extends Region {
 
     /** Any keystroke returns the view to the live screen, as every terminal does. */
     private void snapToLive() {
-        if (scrollOrigin != 0) {
-            scrollOrigin = 0;
-            markDirty();
-        }
+        // Read without the lock first: at the live screen, which is nearly every keystroke, there is
+        // nothing to move and nothing to wait for.
+        if (scrollOrigin != 0) moveOrigin(origin -> 0);
     }
 
     private void onScroll(ScrollEvent e) {
@@ -2639,12 +2728,7 @@ public final class TerminalView extends Region {
         int lines = wheel.lines(e.getDeltaY(), lineHeight);
         e.consume();
         if (lines == 0) return;
-        int history = buffer.getHistoryLinesCount();
-        int next = Math.max(-history, Math.min(0, scrollOrigin - lines));
-        if (next != scrollOrigin) {
-            scrollOrigin = next;
-            markDirty();
-        }
+        moveOrigin(origin -> origin - lines);
     }
 
     /**
@@ -2838,26 +2922,15 @@ public final class TerminalView extends Region {
      */
     public void jumpToPrompt(boolean previous) {
         if (buffer == null || display.isAlternateScreen()) return;
-        int next;
-        buffer.lock();
-        try {
-            long top = scrollOrigin + linesScrolled;
+        // Worked out and written under one lock, so output arriving meanwhile cannot slide the
+        // prompt out from under the line it was found at.
+        moveOrigin(origin -> {
             List<PromptMarks.Command> all = marks.all();
+            long top = origin + linesScrolled;
             PromptMarks.Command target = previous ? PromptMarks.previous(all, top) : PromptMarks.next(all, top);
-            if (target == null) {
-                if (previous) return;
-                next = 0;
-            } else {
-                next = (int) (target.prompt().line() - linesScrolled);
-            }
-            next = Math.max(-buffer.getHistoryLinesCount(), Math.min(0, next));
-        } finally {
-            buffer.unlock();
-        }
-        if (next != scrollOrigin) {
-            scrollOrigin = next;
-            markDirty();
-        }
+            if (target == null) return previous ? origin : 0;
+            return (int) (target.prompt().line() - linesScrolled);
+        });
     }
 
     /**
@@ -2885,6 +2958,7 @@ public final class TerminalView extends Region {
             rectangular = false;
             selection = output;
             selectionAnchor = new Point(outputAt.column(), from);
+            anchorIsStart = true;
             if (from < scrollOrigin || from >= scrollOrigin + rows) {
                 scrollOrigin = Math.max(-buffer.getHistoryLinesCount(), Math.min(0, from));
             }
@@ -3261,16 +3335,13 @@ public final class TerminalView extends Region {
         SearchState state = search;
         if (state.current() < 0 || buffer == null || display.isAlternateScreen()) return;
         ScrollbackSearch.Match match = state.matches().get(state.current());
-        int moved = (int) (linesScrolled - state.scrolledAt());
-        int first = match.firstLine() - moved;
-        int last = match.lastLine() - moved;
-        if (first >= scrollOrigin && last < scrollOrigin + rows) return;
-        int history = buffer.getHistoryLinesCount();
-        int next = Math.max(-history, Math.min(0, first - rows / 2));
-        if (next != scrollOrigin) {
-            scrollOrigin = next;
-            markDirty();
-        }
+        moveOrigin(origin -> {
+            int moved = (int) (linesScrolled - state.scrolledAt());
+            int first = match.firstLine() - moved;
+            int last = match.lastLine() - moved;
+            if (first >= origin && last < origin + rows) return origin;
+            return first - rows / 2;
+        });
     }
 
     /**
