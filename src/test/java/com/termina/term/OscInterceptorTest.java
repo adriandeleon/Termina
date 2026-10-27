@@ -76,4 +76,24 @@ class OscInterceptorTest {
         assertEquals("after", readAll("\u001b]52;c;" + huge + "\u0007after"));
         assertEquals(List.of(), taken);
     }
+
+    @Test
+    void aListenerThatThrowsCostsItsSequenceAndNotTheStream() throws IOException {
+        // The listener runs inside the emulator's read; an exception escaping it ended the session.
+        TerminalDataStream stream = new OscInterceptor(
+                new ArrayTerminalDataStream("a\u001b]7;file:///C:/a%2Ab\u0007b\u001b]133;A\u0007c".toCharArray()),
+                OscSequences::handled,
+                (code, payload) -> {
+                    taken.add(code + ":" + payload);
+                    throw new IllegalStateException("listener failed");
+                });
+        StringBuilder out = new StringBuilder();
+        try {
+            while (true) out.append(stream.getChar());
+        } catch (TerminalDataStream.EOF end) {
+            // drained
+        }
+        assertEquals("abc", out.toString());
+        assertEquals(List.of("7:file:///C:/a%2Ab", "133:A"), taken);
+    }
 }

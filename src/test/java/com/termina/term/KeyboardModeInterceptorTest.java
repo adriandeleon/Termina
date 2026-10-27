@@ -63,6 +63,33 @@ class KeyboardModeInterceptorTest {
         assertEquals(List.of("reset"), seen);
     }
 
+    @Test
+    void aListenerThatThrowsCostsItsSequenceAndNotTheStream() throws IOException {
+        TerminalDataStream stream = new KeyboardModeInterceptor(
+                new ArrayTerminalDataStream("a\u001b[>1ub\u001bcc".toCharArray()),
+                new KeyboardModeInterceptor.Listener() {
+                    @Override
+                    public void keyboardMode(char marker, String params) {
+                        seen.add(marker + params);
+                        throw new IllegalStateException("listener failed");
+                    }
+
+                    @Override
+                    public void reset() {
+                        seen.add("reset");
+                        throw new IllegalStateException("listener failed");
+                    }
+                });
+        StringBuilder out = new StringBuilder();
+        try {
+            while (true) out.append(stream.getChar());
+        } catch (TerminalDataStream.EOF end) {
+            // drained
+        }
+        assertEquals("ab\u001bcc", out.toString());
+        assertEquals(List.of(">1", "reset"), seen);
+    }
+
     private String read(String input) {
         try {
             return readAll(input);
