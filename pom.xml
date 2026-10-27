@@ -786,6 +786,19 @@
                                         <jLinkOption>--no-man-pages</jLinkOption>
                                         <jLinkOption>--no-header-files</jLinkOption>
                                         <jLinkOption>--compress=zip-6</jLinkOption>
+                                        <!--
+                                          javax.sound's native half. Termina plays no sound — the
+                                          bell is visual or a desktop notification — but java.desktop
+                                          carries libjsound, and jpackage's deb bundler declares a
+                                          dependency on whatever package owns each library it links,
+                                          as named on the build host. On ubuntu-latest that is
+                                          libasound2t64, which exists only from Debian 13 and Ubuntu
+                                          24.04, so the 0.12.0 debs could not be installed on Debian
+                                          12 or Ubuntu 22.04 at all. Left out of the image, the
+                                          dependency goes with it. The pattern covers each platform's
+                                          spelling (libjsound.so, libjsound.dylib, jsound.dll).
+                                        -->
+                                        <jLinkOption>--exclude-files=glob:/java.desktop/**jsound.*</jLinkOption>
                                     </jLinkOptions>
                                 </configuration>
                             </execution>
