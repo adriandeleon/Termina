@@ -8,6 +8,8 @@ import java.util.function.Predicate;
 import javafx.scene.control.ListView;
 import javafx.scene.input.KeyEvent;
 
+import org.jspecify.annotations.Nullable;
+
 import static com.termina.i18n.Messages.tr;
 
 /**
@@ -68,7 +70,7 @@ final class PaletteKeys {
      * Home/End move the query field's caret when there is one (as in every search box); Ctrl/Cmd+Home
      * and Ctrl/Cmd+End always jump to the first/last row.
      */
-    static Action resolve(String token, boolean queryField) {
+    static Action resolve(@Nullable String token, boolean queryField) {
         if (token == null) return Action.NONE;
         switch (token) {
             case "down":
@@ -174,7 +176,7 @@ final class PaletteKeys {
      * One legend entry: the localised {@code pickerKeys.<what>} pattern filled with the keys that
      * trigger it, or null when there are none (the entry is then left out of the legend).
      */
-    static String hint(String what, String keys) {
+    static @Nullable String hint(String what, String keys) {
         return keys == null || keys.isBlank() ? null : tr("pickerKeys." + what, keys);
     }
 
@@ -182,7 +184,7 @@ final class PaletteKeys {
      * The palette legend: "move", the palette's own entries (nulls skipped), "cancel". The Emacs
      * chords are shown beside the fixed keys in the platform's notation, which is what the menus use.
      */
-    static String legend(String... entries) {
+    static String legend(@Nullable String... entries) {
         List<String> parts = new ArrayList<>();
         parts.add(hint("move", "↑↓ / " + KeyChord.display("C-n") + " " + KeyChord.display("C-p")));
         for (String entry : entries) {

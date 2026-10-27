@@ -1,4 +1,6 @@
 module com.termina {
+    // Null annotations, read by NullAway at compile time only (AGENTS.md, "Null annotations").
+    requires static org.jspecify;
     requires javafx.controls;
     requires javafx.graphics;
 

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.function.IntPredicate;
 
 import com.jediterm.terminal.TerminalDataStream;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Takes the operating-system commands JediTerm does not handle out of the stream before it sees
@@ -89,7 +90,7 @@ public final class OscInterceptor implements TerminalDataStream {
     }
 
     /** Reads to the terminator. Null when the payload overran the limit and was discarded. */
-    private String readPayload() throws IOException {
+    private @Nullable String readPayload() throws IOException {
         StringBuilder payload = new StringBuilder();
         boolean overran = false;
         while (true) {

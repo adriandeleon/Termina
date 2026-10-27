@@ -17,6 +17,7 @@ import javafx.application.Platform;
 
 import com.termina.process.CommandInput;
 import com.termina.process.CommandOutput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The X11 PRIMARY selection — what a middle-click pastes on Linux, and what selecting text sets —
@@ -50,10 +51,10 @@ final class PrimarySelection {
     });
 
     /** Resolved once, on the worker. Empty means "looked, and there is nothing". */
-    private static volatile Optional<Tools> tools;
+    private static volatile @Nullable Optional<Tools> tools;
 
     /** The text waiting to be written, so a burst of selections is one write of the last of them. */
-    private static final AtomicReference<String> pending = new AtomicReference<>();
+    private static final AtomicReference<@Nullable String> pending = new AtomicReference<>();
 
     private PrimarySelection() {}
 
@@ -63,7 +64,7 @@ final class PrimarySelection {
      *
      * @param find a program's absolute path, or null when it is not installed
      */
-    static Tools choose(Map<String, String> env, Function<String, Path> find) {
+    static @Nullable Tools choose(Map<String, String> env, Function<String, @Nullable Path> find) {
         if (present(env.get("WAYLAND_DISPLAY"))) {
             Path paste = find.apply("wl-paste");
             Path copy = find.apply("wl-copy");
@@ -92,7 +93,7 @@ final class PrimarySelection {
         return LINUX;
     }
 
-    private static boolean present(String value) {
+    private static boolean present(@Nullable String value) {
         return value != null && !value.isBlank();
     }
 

@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Finds the program a configured command names.
  *
@@ -54,7 +56,7 @@ public final class CommandPath {
      * @param isExecutable supplied so the rule is testable; in production this is {@code
      *     Files::isExecutable}
      */
-    public static Path resolve(String command, List<Path> directories, Predicate<Path> isExecutable) {
+    public static @Nullable Path resolve(String command, List<Path> directories, Predicate<Path> isExecutable) {
         if (command == null || command.isBlank()) return null;
         if (looksLikePath(command)) {
             Path direct = Path.of(command);

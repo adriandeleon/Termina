@@ -14,6 +14,8 @@ import java.util.OptionalDouble;
 import java.util.Properties;
 import java.util.Set;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * User preferences, stored as a plain properties file in {@code ~/.termina/settings.properties}.
  *
@@ -120,7 +122,7 @@ public final class Settings {
     private final List<Runnable> onChange = new ArrayList<>();
 
     /** Why the last save failed, or null when it succeeded. */
-    private volatile String lastSaveError;
+    private volatile @Nullable String lastSaveError;
 
     public Settings(Path file) {
         this.file = file;
@@ -231,7 +233,7 @@ public final class Settings {
      * a lie the user discovers at the next launch. The settings window puts this on the row that
      * names the file.
      */
-    public String lastSaveError() {
+    public @Nullable String lastSaveError() {
         return lastSaveError;
     }
 
@@ -783,7 +785,7 @@ public final class Settings {
     public static final String PROFILE_STYLE_PREFIX = "profileStyle.";
 
     /** What a profile overrides; a blank or null part follows the global setting. */
-    public record ProfileStyle(String fontFamily, Double fontSize, String themeId) {
+    public record ProfileStyle(String fontFamily, @Nullable Double fontSize, String themeId) {
         public static final ProfileStyle NONE = new ProfileStyle("", null, "");
 
         public ProfileStyle {

@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import com.jediterm.terminal.util.CharUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Finds a query in the scrollback and the screen, as runs of buffer cells.
@@ -74,7 +75,7 @@ final class ScrollbackSearch {
      * it exact. That is the rule vim, ripgrep and most editors call smart case, and it saves a
      * toggle: typing "error" finds every Error, and typing "Error" is asking for that one.
      */
-    static Pattern compile(String query, boolean regex) {
+    static @Nullable Pattern compile(String query, boolean regex) {
         if (query == null || query.isEmpty()) return null;
         int flags = caseSensitive(query) ? 0 : Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
         try {
@@ -96,7 +97,7 @@ final class ScrollbackSearch {
      * @param wrapped whether each row continues onto the next — a soft wrap, not a newline
      * @param firstLine the buffer line of {@code rows[0]}, negative for history
      */
-    static List<Match> find(List<String> rows, List<Boolean> wrapped, int firstLine, Pattern pattern) {
+    static List<Match> find(List<String> rows, List<Boolean> wrapped, int firstLine, @Nullable Pattern pattern) {
         List<Match> out = new ArrayList<>();
         if (pattern == null) return out;
         int row = 0;

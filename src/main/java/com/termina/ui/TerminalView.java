@@ -51,6 +51,7 @@ import com.termina.link.LinkMatch;
 import com.termina.link.LinkScanner;
 import com.termina.pty.CwdWatcher;
 import com.termina.term.TerminalSession;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -107,8 +108,8 @@ public final class TerminalView extends Region {
 
     private final FxTerminalDisplay display = new FxTerminalDisplay();
 
-    private TerminalSession session;
-    private TerminalTextBuffer buffer;
+    private @Nullable TerminalSession session;
+    private @Nullable TerminalTextBuffer buffer;
 
     /**
      * Theme colours. Held rather than read from a constant so a theme change repaints in place —
@@ -138,17 +139,17 @@ public final class TerminalView extends Region {
     private Font italicFont;
     private Font boldItalicFont;
     /** Faces for private-use code points, null when the terminal face should draw them: see IconFont. */
-    private Font iconFont;
+    private @Nullable Font iconFont;
 
-    private Font boldIconFont;
-    private Font italicIconFont;
-    private Font boldItalicIconFont;
+    private @Nullable Font boldIconFont;
+    private @Nullable Font italicIconFont;
+    private @Nullable Font boldItalicIconFont;
     /**
      * The bundled icon face sized from the cell (see {@link IconFont#iconSize}), and how far below
      * the text baseline to draw it so it sits centred in the row. Null when the icons come from a
      * Nerd build of the terminal face, whose icons are already drawn to its cell.
      */
-    private Font scaledIconFont;
+    private @Nullable Font scaledIconFont;
 
     private double scaledIconShift;
     private double fontSize;
@@ -172,7 +173,7 @@ public final class TerminalView extends Region {
      * <p>Volatile because the emulator reads it through {@code TerminalDisplay.getSelection()} on
      * its own thread while the mouse mutates it on the FX thread.
      */
-    private volatile TerminalSelection selection;
+    private volatile @Nullable TerminalSelection selection;
 
     /**
      * Where the current drag began, so a backwards drag extends rather than restarts.
@@ -182,7 +183,7 @@ public final class TerminalView extends Region {
      * autoscroll a drag routinely lasts long enough for that. Volatile for the same reason the
      * selection is: the emulator thread moves it.
      */
-    private volatile Point selectionAnchor;
+    private volatile @Nullable Point selectionAnchor;
 
     /**
      * Whether {@link #selection} is a block — the same columns on every row — rather than a stream.
@@ -216,7 +217,7 @@ public final class TerminalView extends Region {
      * text that has been redrawn in place — a line editor rewriting the prompt — because copying it
      * would then produce something the user never selected.
      */
-    private volatile String settledText;
+    private volatile @Nullable String settledText;
 
     /** Set by any buffer change while there is a selection; the next frame compares the text. */
     private volatile boolean selectionToVerify;
@@ -231,7 +232,7 @@ public final class TerminalView extends Region {
     private boolean paneDragArmed;
 
     /** Told when this pane is picked up, so the window knows which pane a drop is carrying. */
-    private java.util.function.Consumer<TerminalView> onPaneDragStarted;
+    private java.util.function.@Nullable Consumer<TerminalView> onPaneDragStarted;
 
     public void setOnPaneDragStarted(java.util.function.Consumer<TerminalView> onPaneDragStarted) {
         this.onPaneDragStarted = onPaneDragStarted;
@@ -410,7 +411,7 @@ public final class TerminalView extends Region {
     /** Wakes the painter when the window it is in is shown or restored, which no layout announces. */
     private final javafx.beans.InvalidationListener wakeOnWindowChange = o -> wake();
 
-    private javafx.stage.Window watchedWindow;
+    private javafx.stage.@Nullable Window watchedWindow;
 
     private void watchWindowOf(javafx.scene.Scene scene) {
         if (watchedWindow != null) {
@@ -570,9 +571,9 @@ public final class TerminalView extends Region {
         markDirty();
     }
 
-    private CwdWatcher cwdWatch;
+    private @Nullable CwdWatcher cwdWatch;
 
-    private Runnable onSessionEnded;
+    private @Nullable Runnable onSessionEnded;
 
     public void setOnSessionEnded(Runnable onSessionEnded) {
         this.onSessionEnded = onSessionEnded;
@@ -582,8 +583,23 @@ public final class TerminalView extends Region {
         return display;
     }
 
+    /** The shell's session. Only once {@link #start} has run; before that it fails, saying so. */
     public TerminalSession getSession() {
-        return session;
+        TerminalSession started = session;
+        if (started == null) throw new IllegalStateException("the shell has not started");
+        return started;
+    }
+
+    /** Whether {@link #start} has run, so that {@link #getSession} has a session to give. */
+    public boolean isStarted() {
+        return session != null;
+    }
+
+    /** The session's buffer, on the same terms as {@link #getSession}. */
+    private TerminalTextBuffer buffer() {
+        TerminalTextBuffer started = buffer;
+        if (started == null) throw new IllegalStateException("the shell has not started");
+        return started;
     }
 
     public void close() {
@@ -657,7 +673,7 @@ public final class TerminalView extends Region {
     }
 
     /** After {@link #measureFont}: the bundled face is sized from the cell. */
-    private void applyIconFont(String icons) {
+    private void applyIconFont(@Nullable String icons) {
         scaledIconFont = null;
         if (icons == null) {
             iconFont = boldIconFont = italicIconFont = boldItalicIconFont = null;
@@ -942,7 +958,7 @@ public final class TerminalView extends Region {
     }
 
     /** The prediction, unless there is no session or a full-screen program owns the screen. */
-    private com.termina.term.TypeAheadModel.Prediction predictionToDraw() {
+    private com.termina.term.TypeAheadModel.@Nullable Prediction predictionToDraw() {
         if (session == null || display.isAlternateScreen()) return null;
         return session.typeAhead().prediction();
     }
@@ -1029,7 +1045,7 @@ public final class TerminalView extends Region {
      *
      * @param iconFace the face for private-use code points, or null to leave them to the run's
      */
-    private void drawGlyphs(GraphicsContext g, String text, double x, double baseline, Font iconFace) {
+    private void drawGlyphs(GraphicsContext g, String text, double x, double baseline, @Nullable Font iconFace) {
         if (CellWidth.isOneCellPerChar(text) && (iconFace == null || !IconFont.containsPrivateUse(text))) {
             g.fillText(text, x, baseline);
             return;
@@ -1064,7 +1080,8 @@ public final class TerminalView extends Region {
      * Draws one code point in {@code face}, which the context is already set to — or, for a
      * private-use one when {@code iconFace} is set, in the icon face, leaving {@code face} set after.
      */
-    private void drawCodePoint(GraphicsContext g, int codePoint, double x, double baseline, Font face, Font iconFace) {
+    private void drawCodePoint(
+            GraphicsContext g, int codePoint, double x, double baseline, Font face, @Nullable Font iconFace) {
         String glyph = new String(Character.toChars(codePoint));
         if (iconFace == null || !IconFont.isPrivateUse(codePoint)) {
             g.fillText(glyph, x, baseline);
@@ -1086,7 +1103,7 @@ public final class TerminalView extends Region {
     }
 
     /** The face for private-use code points in this style, or null to draw them in {@link #fontFor}. */
-    private Font iconFontFor(TextStyle style) {
+    private @Nullable Font iconFontFor(TextStyle style) {
         if (iconFont == null) return null;
         boolean bold = style.hasOption(TextStyle.Option.BOLD);
         boolean italic = style.hasOption(TextStyle.Option.ITALIC);
@@ -1149,7 +1166,7 @@ public final class TerminalView extends Region {
                 if (slot >= text.length()) return;
                 int codePoint = text.codePointAt(slot);
                 if (codePoint == 0 || codePoint == ' ' || codePoint == CharUtils.DWC) return;
-                TextStyle style = buffer.getStyleAt(slot, cursorRow);
+                TextStyle style = buffer().getStyleAt(slot, cursorRow);
                 g.setFill(style == null ? palette.background() : backgroundOf(style));
                 Font face = style == null ? font : fontFor(style);
                 g.setFont(face);
@@ -1184,9 +1201,10 @@ public final class TerminalView extends Region {
         // Escape closes the context menu rather than reaching the shell. This filter runs before
         // the menu would see the key, and Escape now encodes to a real byte, so without this the
         // menu stays open and the shell gets an ESC nobody asked for.
-        if (contextMenu != null && contextMenu.isShowing()) {
+        ContextMenu shownMenu = shownContextMenu();
+        if (shownMenu != null) {
             if (e.getCode() == KeyCode.ESCAPE) {
-                contextMenu.hide();
+                shownMenu.hide();
                 e.consume();
                 return;
             }
@@ -1240,7 +1258,7 @@ public final class TerminalView extends Region {
             case PASTE -> paste();
             case COPY -> copySelection();
             default -> {
-                int next = ViewKeys.scrolledOrigin(action, scrollOrigin, rows, buffer.getHistoryLinesCount());
+                int next = ViewKeys.scrolledOrigin(action, scrollOrigin, rows, buffer().getHistoryLinesCount());
                 if (next != scrollOrigin) {
                     scrollOrigin = next;
                     markDirty();
@@ -1459,7 +1477,8 @@ public final class TerminalView extends Region {
      * @param spans the run split across the rows it occupies, since a wrapped URL is one link drawn
      *     on two lines
      */
-    private record Hover(LinkMatch match, java.nio.file.Path file, java.util.List<LinkSpan> spans, boolean declared) {}
+    private record Hover(
+            LinkMatch match, java.nio.file.@Nullable Path file, java.util.List<LinkSpan> spans, boolean declared) {}
 
     /** One row's worth of an underline: a line index and the slots it covers. */
     private record LinkSpan(int line, int fromSlot, int toSlot) {}
@@ -1475,9 +1494,9 @@ public final class TerminalView extends Region {
      */
     private static final int MAX_WRAP_ROWS = 8;
 
-    private com.termina.link.LinkActions linkActions;
-    private Hover hover;
-    private Hover menuLink;
+    private com.termina.link.@Nullable LinkActions linkActions;
+    private @Nullable Hover hover;
+    private @Nullable Hover menuLink;
     private double lastMouseX = -1;
     private double lastMouseY = -1;
 
@@ -1509,9 +1528,10 @@ public final class TerminalView extends Region {
      * browser's status bubble. A link found in the text is its own address; a declared one can say
      * anything, and its target should be visible before the click rather than after.
      */
-    private void showLinkTarget(Hover target) {
-        boolean show = target != null && target.declared();
-        if (show) {
+    private void showLinkTarget(@Nullable Hover target) {
+        String address = target != null && target.declared() ? target.match().target() : null;
+        boolean show = address != null;
+        if (address != null) {
             if (linkStatus == null) {
                 linkStatus = new javafx.scene.control.Label();
                 linkStatus.getStyleClass().add("link-status");
@@ -1521,13 +1541,13 @@ public final class TerminalView extends Region {
                 linkStatus.setManaged(false);
                 getChildren().add(linkStatus);
             }
-            linkStatus.setText(target.match().target());
+            linkStatus.setText(address);
         }
         if (linkStatus != null && linkStatus.isVisible() != show) linkStatus.setVisible(show);
         requestLayout();
     }
 
-    private javafx.scene.control.Label linkStatus;
+    private javafx.scene.control.@Nullable Label linkStatus;
 
     /** Bottom left, inset, and cut to the terminal's width with an ellipsis in the middle. */
     private void layoutLinkStatus(double width, double height) {
@@ -1537,13 +1557,13 @@ public final class TerminalView extends Region {
         linkStatus.resizeRelocate(SEARCH_BAR_INSET, height - h - SEARCH_BAR_INSET, w, h);
     }
 
-    private static boolean sameHover(Hover a, Hover b) {
+    private static boolean sameHover(@Nullable Hover a, @Nullable Hover b) {
         if (a == null || b == null) return a == b;
         return a.spans().equals(b.spans()) && a.match().equals(b.match());
     }
 
     /** The link at a point in the view, or null. Reads the buffer, so it takes the lock. */
-    private Hover linkAt(double x, double y) {
+    private @Nullable Hover linkAt(double x, double y) {
         if (buffer == null || linkActions == null) return null;
         if (x < 0 || y < 0 || x >= getWidth() || y >= getHeight()) return null;
 
@@ -1583,9 +1603,9 @@ public final class TerminalView extends Region {
     }
 
     /** The OSC 8 link on a cell, or null. Caller holds the lock. */
-    private ExplicitLink explicitLinkAt(int slot, int line) {
+    private @Nullable ExplicitLink explicitLinkAt(int slot, int line) {
         try {
-            return buffer.getStyleAt(slot, line) instanceof com.jediterm.terminal.HyperlinkStyle style
+            return buffer().getStyleAt(slot, line) instanceof com.jediterm.terminal.HyperlinkStyle style
                             && style.getLinkInfo() instanceof ExplicitLink link
                     ? link
                     : null;
@@ -1599,7 +1619,7 @@ public final class TerminalView extends Region {
      * link is underlined, so a declared link wrapped onto a second row lights up as one. Caller
      * holds the lock.
      */
-    private Hover declaredLinkAt(LogicalLine logical, int line, int slot) {
+    private @Nullable Hover declaredLinkAt(LogicalLine logical, int line, int slot) {
         ExplicitLink link = explicitLinkAt(slot, line);
         if (link == null) return null;
         List<LinkSpan> spans = new ArrayList<>();
@@ -1640,7 +1660,7 @@ public final class TerminalView extends Region {
      * something that is actually there. A pattern cannot tell a filename from a word; the
      * filesystem can.
      */
-    private java.nio.file.Path fileFor(LinkMatch match) {
+    private java.nio.file.@Nullable Path fileFor(LinkMatch match) {
         String target = match.target();
         if (match.kind() == LinkMatch.Kind.URL) {
             java.nio.file.Path fromUri = com.termina.link.LinkPaths.fromFileUri(target);
@@ -1653,7 +1673,7 @@ public final class TerminalView extends Region {
     }
 
     /** Opens the hovered link. */
-    private void openLink(Hover target) {
+    private void openLink(@Nullable Hover target) {
         if (target == null || linkActions == null) return;
         if (target.file() != null) {
             linkActions.openFile(
@@ -1664,7 +1684,7 @@ public final class TerminalView extends Region {
     }
 
     /** What the link points at, for the clipboard: the URL, or the resolved file. */
-    private String linkAddress(Hover target) {
+    private String linkAddress(@Nullable Hover target) {
         if (target == null) return "";
         if (target.match().isUrl() && target.file() == null)
             return target.match().target();
@@ -1702,11 +1722,11 @@ public final class TerminalView extends Region {
     }
 
     /** Builds the logical line containing a row. Caller holds the buffer lock. */
-    private LogicalLine logicalLineAt(int line) {
+    private @Nullable LogicalLine logicalLineAt(int line) {
         // Bounded by the history that exists as well as by MAX_WRAP_ROWS: asking for row -1 with an
         // empty scrollback is not an exception but an ERROR line in JediTerm's own log, once per
         // mouse move, which turns a hover into a log flood.
-        int floor = -buffer.getHistoryLinesCount();
+        int floor = -buffer().getHistoryLinesCount();
         int first = line;
         int back = 0;
         while (back < MAX_WRAP_ROWS && first - 1 >= floor && isWrapped(first - 1)) {
@@ -1786,20 +1806,27 @@ public final class TerminalView extends Region {
 
     // ---------------------------------------------------------------- context menu
 
-    private ContextMenu contextMenu;
-    private MenuItem openLinkItem;
-    private MenuItem copyLinkItem;
-    private SeparatorMenuItem linkSeparator;
-    private MenuItem copyItem;
-    private MenuItem pasteItem;
-    private CheckMenuItem menuBarItem;
+    /**
+     * The right-click menu and the items it brings up to date on every show. Built together on the
+     * first right-click, so they are present together or not at all.
+     */
+    private record ContextItems(
+            ContextMenu menu,
+            MenuItem openLink,
+            MenuItem copyLink,
+            SeparatorMenuItem linkSeparator,
+            MenuItem copy,
+            MenuItem paste,
+            @Nullable CheckMenuItem menuBar) {}
+
+    private @Nullable ContextItems contextItems;
     private Runnable onOpenSettings = () -> {};
     private Runnable onNewTab = () -> {};
     private Runnable onNewWindow = () -> {};
-    private ZoomMenuRow.Actions zoomActions;
-    private ZoomMenuRow zoomRow;
-    private BooleanSupplier menuBarShown;
-    private Runnable onToggleMenuBar;
+    private ZoomMenuRow.@Nullable Actions zoomActions;
+    private @Nullable ZoomMenuRow zoomRow;
+    private @Nullable BooleanSupplier menuBarShown;
+    private @Nullable Runnable onToggleMenuBar;
 
     /**
      * Menu actions the view cannot perform itself. A terminal knows nothing about tabs, windows or
@@ -1865,25 +1892,38 @@ public final class TerminalView extends Region {
         // it — so shift is read from the press that triggered it.
         if (!shouldShowMenu(display.getMouseMode(), shiftOnLastPress, e.isKeyboardTrigger())) return;
 
-        if (contextMenu == null) contextMenu = buildContextMenu();
+        ContextItems items = contextItems();
         // Refreshed per show: the menu is built once and reused, while everything it reports on
         // moves underneath it. Copy and Paste depend on the selection and the clipboard; the
         // menu-bar checkbox on a setting the View menu, its own chord and the settings window can
         // all change while this menu sits built and invisible.
-        copyItem.setDisable(!hasSelection());
-        pasteItem.setDisable(!Clipboard.getSystemClipboard().hasString());
+        items.copy().setDisable(!hasSelection());
+        items.paste().setDisable(!Clipboard.getSystemClipboard().hasString());
         // The link items are the menu's answer to a gesture nobody was told about: they need no
         // modifier and they say what is there. Computed for the right-clicked cell, not the last
         // hovered one — the menu can be raised from the keyboard, and the pointer may be elsewhere.
         menuLink = linkAt(e.getX(), e.getY());
         boolean onLink = menuLink != null;
-        openLinkItem.setVisible(onLink);
-        copyLinkItem.setVisible(onLink);
-        linkSeparator.setVisible(onLink);
-        if (menuBarItem != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
+        items.openLink().setVisible(onLink);
+        items.copyLink().setVisible(onLink);
+        items.linkSeparator().setVisible(onLink);
+        CheckMenuItem menuBarItem = items.menuBar();
+        if (menuBarItem != null && menuBarShown != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
         if (zoomRow != null) zoomRow.refresh();
-        contextMenu.show(this, e.getScreenX(), e.getScreenY());
+        items.menu().show(this, e.getScreenX(), e.getScreenY());
         e.consume();
+    }
+
+    private ContextItems contextItems() {
+        ContextItems items = contextItems;
+        if (items == null) contextItems = items = buildContextMenu();
+        return items;
+    }
+
+    /** The context menu when it is on screen, or null. */
+    private @Nullable ContextMenu shownContextMenu() {
+        ContextItems items = contextItems;
+        return items != null && items.menu().isShowing() ? items.menu() : null;
     }
 
     /**
@@ -1891,17 +1931,18 @@ public final class TerminalView extends Region {
      * owns the mouse and shift was not held. For the development capture hook — a ContextMenu is a
      * popup with its own scene, so the main window's snapshot cannot show it.
      */
-    public javafx.scene.Scene showContextMenuForCapture(double screenX, double screenY, boolean shift) {
+    public javafx.scene.@Nullable Scene showContextMenuForCapture(double screenX, double screenY, boolean shift) {
         shiftOnLastPress = shift;
         ContextMenuEvent event =
                 new ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 0, 0, screenX, screenY, false, null);
         onContextMenuRequested(event);
-        return contextMenu != null && contextMenu.isShowing() ? contextMenu.getScene() : null;
+        ContextMenu shown = shownContextMenu();
+        return shown == null ? null : shown.getScene();
     }
 
     /** Whether the context menu is open — for the development capture hook. */
     public boolean isContextMenuShowing() {
-        return contextMenu != null && contextMenu.isShowing();
+        return shownContextMenu() != null;
     }
 
     /**
@@ -1911,7 +1952,7 @@ public final class TerminalView extends Region {
      * left unwired.
      */
     public boolean fireContextMenuItemForCapture(String label) {
-        if (contextMenu == null) contextMenu = buildContextMenu();
+        ContextMenu contextMenu = contextItems().menu();
         // Shown first, and left open: the row's buttons are pressed with the menu on screen, which
         // is a different thing from firing a MenuItem and is exactly the gesture being tested.
         if (!contextMenu.isShowing()) contextMenu.show(this, 300, 200);
@@ -1945,11 +1986,11 @@ public final class TerminalView extends Region {
         return false;
     }
 
-    private ContextMenu buildContextMenu() {
-        copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
-        pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
-        openLinkItem = item(tr("menu.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
-        copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> {
+    private ContextItems buildContextMenu() {
+        MenuItem copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
+        MenuItem pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
+        MenuItem openLinkItem = item(tr("menu.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
+        MenuItem copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> {
             ClipboardContent content = new ClipboardContent();
             content.putString(linkAddress(menuLink));
             Clipboard.getSystemClipboard().setContent(content);
@@ -1957,7 +1998,7 @@ public final class TerminalView extends Region {
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.
-        linkSeparator = new SeparatorMenuItem();
+        SeparatorMenuItem linkSeparator = new SeparatorMenuItem();
 
         List<MenuItem> items = new ArrayList<>(List.of(
                 openLinkItem,
@@ -1979,7 +2020,9 @@ public final class TerminalView extends Region {
             items.add(zoomRow.item());
         }
 
-        if (onToggleMenuBar != null && menuBarShown != null) {
+        Runnable toggleMenuBar = onToggleMenuBar;
+        CheckMenuItem menuBarItem = null;
+        if (toggleMenuBar != null && menuBarShown != null) {
             // "Show Menu Bar", checked — not the View menu's "Hide Menu Bar". The two menus are
             // reached from different places: the View menu is inside the bar, so it can only ever
             // be opened while the bar is showing and "Hide" is the only move it has. This menu is
@@ -1989,7 +2032,7 @@ public final class TerminalView extends Region {
             // No leading glyph, against the convention the rest of these follow: a CheckMenuItem
             // draws its tick in the graphic column, and an icon there either fights it or hides it.
             menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
-            menuBarItem.setOnAction(e -> onToggleMenuBar.run());
+            menuBarItem.setOnAction(e -> toggleMenuBar.run());
             items.add(new SeparatorMenuItem());
             items.add(menuBarItem);
         }
@@ -1999,7 +2042,7 @@ public final class TerminalView extends Region {
 
         ContextMenu menu = new ContextMenu(items.toArray(MenuItem[]::new));
         menu.setAutoHide(true);
-        return menu;
+        return new ContextItems(menu, openLinkItem, copyLinkItem, linkSeparator, copyItem, pasteItem, menuBarItem);
     }
 
     private static MenuItem item(String text, Node icon, Runnable action) {
@@ -2061,8 +2104,9 @@ public final class TerminalView extends Region {
         // A click anywhere in the terminal dismisses the menu instead of acting on the terminal.
         // ContextMenu's own auto-hide covers clicks outside the window, but this filter runs first
         // for clicks inside it, which would otherwise start a selection under the open menu.
-        if (contextMenu != null && contextMenu.isShowing()) {
-            contextMenu.hide();
+        ContextMenu shownMenu = shownContextMenu();
+        if (shownMenu != null) {
+            shownMenu.hide();
             e.consume();
             return;
         }
@@ -2320,7 +2364,7 @@ public final class TerminalView extends Region {
     }
 
     private void selectWordAt(Point at) {
-        TerminalSelection word = wordSelection(at, buffer);
+        TerminalSelection word = wordSelection(at, buffer());
         rectangular = false;
         selection = word;
         selectionAnchor = new Point(word.getStart().x, word.getStart().y);
@@ -2340,14 +2384,14 @@ public final class TerminalView extends Region {
 
     /** The text a selection stands for, a stream's or a block's. The caller holds the lock. */
     private String selectedText(TerminalSelection current) {
-        if (rectangular) return BlockSelection.text(current, buffer);
+        if (rectangular) return BlockSelection.text(current, buffer());
         // JediTerm's extractor, not ours: it understands that a wrapped line is one logical line
         // and must not gain a newline in the middle.
         return SelectionUtil.getSelectionText(current, buffer);
     }
 
     /** {@link #selectedText} for a caller without the lock; null when there is no selection. */
-    private String lockedSelectedText() {
+    private @Nullable String lockedSelectedText() {
         TerminalSelection current = selection;
         if (current == null || buffer == null) return null;
         buffer.lock();
@@ -2508,7 +2552,7 @@ public final class TerminalView extends Region {
     private final PromptMarks marks = new PromptMarks();
 
     /** The marks as logical positions, taken just before a resize the view asked for. */
-    private volatile java.util.Map<PromptMarks.Pos, int[]> marksBeforeResize;
+    private volatile java.util.@Nullable Map<PromptMarks.Pos, int[]> marksBeforeResize;
 
     /** Whether a program may set the clipboard with OSC 52. A setting; see {@link #onOsc}. */
     private volatile boolean clipboardWrites = true;
@@ -2630,7 +2674,7 @@ public final class TerminalView extends Region {
         try {
             // The emulator's own cursor, which is exactly where the program's output has reached —
             // the display's copy is told of moves, and this is the thread doing the moving.
-            var terminal = session.getTerminal();
+            var terminal = getSession().getTerminal();
             int row = terminal.getCursorY() - 1;
             int slot = ColumnMap.slotAt(lineTextAt(row), terminal.getCursorX() - 1);
             at = new PromptMarks.Pos(row + linesScrolled, slot);
@@ -2692,18 +2736,21 @@ public final class TerminalView extends Region {
         if (buffer == null || display.isAlternateScreen()) return false;
         PromptMarks.Command command = PromptMarks.lastWithOutput(marks.all());
         if (command == null) return false;
+        // lastWithOutput picks a command that has both; the type does not say so.
+        PromptMarks.Pos outputAt = command.output();
+        PromptMarks.Pos endAt = command.end();
+        if (outputAt == null || endAt == null) return false;
         buffer.lock();
         try {
-            int from = (int) (command.output().line() - linesScrolled);
-            int to = (int) (command.end().line() - linesScrolled);
+            int from = (int) (outputAt.line() - linesScrolled);
+            int to = (int) (endAt.line() - linesScrolled);
             if (to < -buffer.getHistoryLinesCount()) return false;
             from = Math.max(from, -buffer.getHistoryLinesCount());
-            TerminalSelection output =
-                    new TerminalSelection(new Point(command.output().column(), from));
-            output.updateEnd(new Point(command.end().column(), to));
+            TerminalSelection output = new TerminalSelection(new Point(outputAt.column(), from));
+            output.updateEnd(new Point(endAt.column(), to));
             rectangular = false;
             selection = output;
-            selectionAnchor = new Point(command.output().column(), from);
+            selectionAnchor = new Point(outputAt.column(), from);
             if (from < scrollOrigin || from >= scrollOrigin + rows) {
                 scrollOrigin = Math.max(-buffer.getHistoryLinesCount(), Math.min(0, from));
             }
@@ -2734,7 +2781,7 @@ public final class TerminalView extends Region {
     private static final double FAILED_MARK_WIDTH = 2;
 
     /** Every logical position a mark has, against the rows as they are now. Caller is on the FX thread. */
-    private java.util.Map<PromptMarks.Pos, int[]> logicalMarks() {
+    private java.util.@Nullable Map<PromptMarks.Pos, int[]> logicalMarks() {
         if (buffer == null || marks.isEmpty()) return null;
         buffer.lock();
         try {
@@ -2776,11 +2823,11 @@ public final class TerminalView extends Region {
 
     /** The whole buffer's rows grouped into logical lines. Caller holds the lock. */
     private LogicalLines logicalLines() {
-        int history = buffer.getHistoryLinesCount();
-        int height = buffer.getHeight();
+        int history = buffer().getHistoryLinesCount();
+        int height = buffer().getHeight();
         boolean[] wrapped = new boolean[history + height];
         for (int i = 0; i < wrapped.length; i++) wrapped[i] = isWrapped(i - history);
-        return LogicalLines.of(-history, wrapped, buffer.getWidth());
+        return LogicalLines.of(-history, wrapped, buffer().getWidth());
     }
 
     /** The face and size this pane draws in — for the development capture hook. */
@@ -2800,13 +2847,13 @@ public final class TerminalView extends Region {
      */
     public void predictForCapture(String text) {
         if (session == null) return;
-        buffer.lock();
+        buffer().lock();
         try {
             int at = session.getTerminal().getCursorX() - 1;
             for (int i = 0; i < text.length(); i++) session.typeAhead().insertCharacter(text.charAt(i), at + i);
             session.typeAhead().moveCursor(at + text.length());
         } finally {
-            buffer.unlock();
+            buffer().unlock();
         }
         markDirty();
     }
@@ -2886,7 +2933,7 @@ public final class TerminalView extends Region {
     /** What the marks are, for the development capture hook. */
     public String promptMarkReport() {
         StringBuilder out = new StringBuilder("marks=" + marks.all().size());
-        buffer.lock();
+        buffer().lock();
         try {
             for (PromptMarks.Command command : marks.all()) {
                 out.append(" [prompt@").append(command.prompt().line() - linesScrolled);
@@ -2900,7 +2947,7 @@ public final class TerminalView extends Region {
                 out.append(']');
             }
         } finally {
-            buffer.unlock();
+            buffer().unlock();
         }
         return out.toString();
     }
@@ -2921,7 +2968,7 @@ public final class TerminalView extends Region {
         static final SearchState NONE = new SearchState(List.of(), -1, 0, -1);
     }
 
-    private SearchBar searchBar;
+    private @Nullable SearchBar searchBar;
 
     private volatile SearchState search = SearchState.NONE;
 
@@ -3007,7 +3054,7 @@ public final class TerminalView extends Region {
     }
 
     /** The selection's text if it is short and on one line, which is what makes a useful query. */
-    private String selectionForSearch() {
+    private @Nullable String selectionForSearch() {
         String text = lockedSelectedText();
         if (text == null || text.isBlank() || text.length() > 200 || text.contains("\n")) return null;
         return text;
@@ -3070,7 +3117,7 @@ public final class TerminalView extends Region {
         SearchState state = search;
         int next = ScrollbackSearch.step(state.current(), state.matches().size(), older);
         search = new SearchState(state.matches(), next, state.scrolledAt(), state.epoch());
-        searchBar.showCount(next, state.matches().size(), true);
+        if (searchBar != null) searchBar.showCount(next, state.matches().size(), true);
         revealMatch();
         markDirty();
     }
@@ -3166,7 +3213,7 @@ public final class TerminalView extends Region {
             getScene().getRoot().applyCss();
             getScene().getRoot().layout();
         }
-        searchBar.setQuery(query, regex);
+        java.util.Objects.requireNonNull(searchBar, "showSearch makes the bar").setQuery(query, regex);
         for (int i = 0; i < steps; i++) stepSearch(true);
         SearchState state = search;
         return "count=<" + searchBar.countText() + "> matches="

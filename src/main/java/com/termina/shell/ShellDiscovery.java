@@ -16,6 +16,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import com.termina.process.CommandOutput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What shells are installed on this machine.
@@ -298,7 +299,7 @@ public final class ShellDiscovery {
         return List.copyOf(ordered);
     }
 
-    private static UnixShell unixShell(String executable) {
+    private static @Nullable UnixShell unixShell(String executable) {
         for (UnixShell shell : UNIX_SHELLS) {
             if (shell.executable().equals(executable)) return shell;
         }
@@ -335,7 +336,8 @@ public final class ShellDiscovery {
         return slug.toString();
     }
 
-    private static Path onPath(Function<String, String> env, Predicate<Path> isExecutable, String executable) {
+    private static @Nullable Path onPath(
+            Function<String, String> env, Predicate<Path> isExecutable, String executable) {
         String path = env.apply("PATH");
         if (path == null || path.isBlank()) return null;
         for (String directory : path.split(java.io.File.pathSeparator)) {
@@ -346,14 +348,14 @@ public final class ShellDiscovery {
         return null;
     }
 
-    private static Path firstExisting(Predicate<Path> isExecutable, Path... candidates) {
+    private static @Nullable Path firstExisting(Predicate<Path> isExecutable, @Nullable Path... candidates) {
         for (Path candidate : candidates) {
             if (candidate != null && isExecutable.test(candidate)) return candidate;
         }
         return null;
     }
 
-    private static Path pathOrNull(String raw) {
+    private static @Nullable Path pathOrNull(String raw) {
         if (raw == null || raw.isBlank()) return null;
         try {
             return Path.of(raw.trim());

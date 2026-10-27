@@ -8,6 +8,8 @@ import javafx.application.Platform;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * One view's keyboard, as the kitty protocol sees it: JavaFX's three events per keystroke turned
  * into the protocol's press, repeat and release, with the bookkeeping that takes.
@@ -44,7 +46,7 @@ final class KittyKeyInput {
     /** What the reported press said it typed, to tell its own KEY_TYPED from a composition. */
     private String pressText = "";
 
-    byte[] pressed(KeyEvent e, int flags, boolean altIsMeta) {
+    byte @Nullable [] pressed(KeyEvent e, int flags, boolean altIsMeta) {
         boolean repeat = !held.add(e.getCode());
         pressSent = false;
         if (flags == 0) return null;
@@ -58,7 +60,7 @@ final class KittyKeyInput {
         return bytes(sequence);
     }
 
-    byte[] typed(KeyEvent e, int flags) {
+    byte @Nullable [] typed(KeyEvent e, int flags) {
         String text = e.getCharacter();
         if (flags == 0 || text == null || text.isEmpty() || text.equals(KeyEvent.CHAR_UNDEFINED)) return null;
         boolean all = (flags & KittyKeys.ALL_KEYS) != 0;
@@ -76,7 +78,7 @@ final class KittyKeyInput {
         return bytes(sequence);
     }
 
-    byte[] released(KeyEvent e, int flags, boolean altIsMeta) {
+    byte @Nullable [] released(KeyEvent e, int flags, boolean altIsMeta) {
         held.remove(e.getCode());
         boolean owed = reported.remove(e.getCode());
         if (!owed || flags == 0) return null;

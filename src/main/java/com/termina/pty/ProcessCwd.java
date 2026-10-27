@@ -9,6 +9,7 @@ import com.sun.jna.Library;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+import org.jspecify.annotations.NullUnmarked;
 
 /**
  * The working directory of a running process, read from the OS.
@@ -128,6 +129,7 @@ public final class ProcessCwd {
      * Loaded lazily so that the JNA classes are never touched off macOS — a plain static field
      * would run {@code Native.load} at class initialisation on every platform.
      */
+    @NullUnmarked // a native binding follows the C API's nullness
     private interface LibProc extends Library {
         LibProc INSTANCE = Native.load("proc", LibProc.class);
 

@@ -2,6 +2,8 @@ package com.termina.theme;
 
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * An iTerm2 {@code .itermcolors} file — an XML property list of colours, each a dictionary of
  * {@code Red Component}, {@code Green Component} and {@code Blue Component} between 0 and 1. The
@@ -34,7 +36,7 @@ final class ItermColors {
                 colour(colours.get("Selection Color")));
     }
 
-    private static Integer colour(Object entry) throws ThemeImportException {
+    private static @Nullable Integer colour(@Nullable Object entry) throws ThemeImportException {
         if (entry == null) return null;
         if (!(entry instanceof Map<?, ?> c)) throw new ThemeImportException("a colour that is not a dictionary");
         return ColorScheme.rgb(

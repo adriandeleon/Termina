@@ -4,6 +4,8 @@ import java.util.Map;
 
 import javafx.scene.input.KeyCode;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Encodes a key event in the kitty keyboard protocol, once a program has asked for it.
  *
@@ -260,7 +262,7 @@ final class KittyKeys {
         return "\u001b[0;;" + codepoints(printable) + "u";
     }
 
-    private static String sequence(int number, char last, int mods, Type type, int flags, String alternates) {
+    private static String sequence(int number, char last, int mods, Type type, int flags, @Nullable String alternates) {
         return sequence(number, last, mods, type, flags, alternates, null);
     }
 
@@ -270,7 +272,7 @@ final class KittyKeys {
      * number is always 1.
      */
     private static String sequence(
-            int number, char last, int mods, Type type, int flags, String alternates, String text) {
+            int number, char last, int mods, Type type, int flags, @Nullable String alternates, @Nullable String text) {
         boolean showType = (flags & EVENT_TYPES) != 0 && type != Type.PRESS;
         String eventType = showType ? ":" + (type == Type.REPEAT ? 2 : 3) : "";
         String modField = mods != 0 || showType ? (1 + mods) + eventType : "";
@@ -333,7 +335,7 @@ final class KittyKeys {
     }
 
     /** The shifted key, when Shift is held and the flag asks for it: {@code A} for {@code a}. */
-    private static String alternates(Key key, int base, int flags) {
+    private static @Nullable String alternates(Key key, int base, int flags) {
         if ((flags & ALTERNATES) == 0 || !key.shift()) return null;
         int shifted = -1;
         String text = key.text();
@@ -345,7 +347,7 @@ final class KittyKeys {
     }
 
     /** The text if it is something a key could type, or null: no controls, C0 or C1. */
-    private static String printable(String text) {
+    private static @Nullable String printable(String text) {
         if (text == null || text.isEmpty()) return null;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);

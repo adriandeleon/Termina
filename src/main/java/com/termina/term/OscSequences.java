@@ -6,6 +6,8 @@ import java.util.Base64;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * What the operating-system commands Termina handles itself mean — parsed, and nothing more.
  *
@@ -134,7 +136,7 @@ public final class OscSequences {
      *     command's output starts, {@code D} the command has finished
      * @param exitCode for {@code D}, the status the shell reported, or null when it gave none
      */
-    public record PromptMark(char kind, Integer exitCode) {}
+    public record PromptMark(char kind, @Nullable Integer exitCode) {}
 
     /**
      * Reads {@code A}, {@code B}, {@code C} or {@code D;<status>}, ignoring the {@code key=value}

@@ -2,6 +2,7 @@ package com.termina.ui;
 
 import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.model.TerminalSelection;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The one convention for where a selection ends: <b>exclusive</b>, in slots.
@@ -28,7 +29,7 @@ final class SelectionGeometry {
      * @param rowSlots how many slots the row has, so a middle row of a multi-row selection is
      *     covered to its end
      */
-    static int[] onRow(TerminalSelection selection, int row, int rowSlots) {
+    static int @Nullable [] onRow(TerminalSelection selection, int row, int rowSlots) {
         Point start = selection.getStart();
         Point end = selection.getEnd();
         if (after(start, end)) {
@@ -93,7 +94,7 @@ final class SelectionGeometry {
      * The columns a block covers on one row, as {@code {from, to}} with {@code to} exclusive, or
      * null when the row is outside it. The same span on every row, which is the point of a block.
      */
-    static int[] blockOnRow(TerminalSelection block, int row) {
+    static int @Nullable [] blockOnRow(TerminalSelection block, int row) {
         Point start = block.getStart();
         Point end = block.getEnd();
         int top = Math.min(start.y, end.y);

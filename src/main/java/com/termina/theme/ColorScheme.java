@@ -2,6 +2,8 @@ package com.termina.theme;
 
 import java.util.Arrays;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A terminal colour scheme as another terminal described it: sixteen ANSI colours, a background and
  * a foreground, and the cursor and selection colours where the format has them.
@@ -13,7 +15,13 @@ import java.util.Arrays;
  * @param cursor the cursor's colour, or null where the format has none
  * @param selection the selection's colour, or null where the format has none
  */
-public record ColorScheme(String name, int background, int foreground, int[] ansi, Integer cursor, Integer selection) {
+public record ColorScheme(
+        String name,
+        int background,
+        int foreground,
+        int[] ansi,
+        @Nullable Integer cursor,
+        @Nullable Integer selection) {
 
     public ColorScheme {
         if (name == null || name.isBlank()) name = "Imported";

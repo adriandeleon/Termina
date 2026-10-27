@@ -9,6 +9,7 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 
 import com.termina.config.Settings;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -23,8 +24,8 @@ public final class WindowManager {
 
     private final Settings settings;
     private final List<TerminalWindow> windows = new ArrayList<>();
-    private SettingsWindow settingsWindow;
-    private AboutWindow aboutWindow;
+    private @Nullable SettingsWindow settingsWindow;
+    private @Nullable AboutWindow aboutWindow;
 
     private final com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
 
@@ -32,14 +33,14 @@ public final class WindowManager {
      * The newer release the menus advertise, or null. Held app-wide so every window's Help menu
      * agrees. Cleared once the user has acted on it, so the item goes back to being the check.
      */
-    private com.termina.update.ReleaseInfo availableUpdate;
+    private com.termina.update.@Nullable ReleaseInfo availableUpdate;
 
     /**
      * The newest release known of, whether or not the user has already acted on it. About shows
      * this one: a dismissed update is still a fact about this build, and "You are up to date" after
      * clicking through to the release page would be a lie.
      */
-    private com.termina.update.ReleaseInfo knownUpdate;
+    private com.termina.update.@Nullable ReleaseInfo knownUpdate;
 
     private final List<Runnable> updateListeners = new ArrayList<>();
     private java.util.function.Consumer<String> openLink = url -> {};
@@ -87,7 +88,7 @@ public final class WindowManager {
      * @param cli launch options from the command line, applied to this window's first tab only —
      *     every later tab and window uses the configured shell and the home directory
      */
-    public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.LaunchOptions cli) {
+    public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli) {
         return open(primary, cli);
     }
 
@@ -104,15 +105,16 @@ public final class WindowManager {
      * recently. {@code from} may be null, in which case the window opens where the stage would on
      * its own.
      */
-    public TerminalWindow openWindow(TerminalWindow from) {
+    public TerminalWindow openWindow(@Nullable TerminalWindow from) {
         return open(new Stage(), null, from);
     }
 
-    private TerminalWindow open(Stage stage, com.termina.pty.LaunchOptions cli) {
+    private TerminalWindow open(Stage stage, com.termina.pty.@Nullable LaunchOptions cli) {
         return open(stage, cli, null);
     }
 
-    private TerminalWindow open(Stage stage, com.termina.pty.LaunchOptions cli, TerminalWindow from) {
+    private TerminalWindow open(
+            Stage stage, com.termina.pty.@Nullable LaunchOptions cli, @Nullable TerminalWindow from) {
         TerminalWindow window = new TerminalWindow(this, settings, stage);
         windows.add(window);
 
@@ -187,15 +189,22 @@ public final class WindowManager {
 
     /** One About window for the application, shown beside whichever window asked. */
     public void showAbout(Window from) {
-        if (aboutWindow == null) aboutWindow = new AboutWindow(settings, openLink);
-        aboutWindow.setUpdate(knownUpdate);
-        aboutWindow.show(from);
+        AboutWindow about = aboutWindow();
+        about.setUpdate(knownUpdate);
+        about.show(from);
     }
 
     /** For the development capture hook. */
     public javafx.scene.Scene showAboutForCapture(Window owner) {
         showAbout(owner);
-        return aboutWindow.scene();
+        return aboutWindow().scene();
+    }
+
+    /** The About window, made on first use. */
+    private AboutWindow aboutWindow() {
+        AboutWindow about = aboutWindow;
+        if (about == null) aboutWindow = about = new AboutWindow(settings, openLink);
+        return about;
     }
 
     // ---------------------------------------------------------------- updates
@@ -223,10 +232,12 @@ public final class WindowManager {
         settings.setLastUpdateCheck(System.currentTimeMillis());
         updates.check(com.termina.AppInfo.VERSION, outcome -> {
             onUpdateOutcome(outcome, true);
-            if (outcome.error() != null) {
-                report.accept(describeFailure(outcome.error(), outcome.detail()));
-            } else if (outcome.available()) {
-                report.accept(tr("status.updateAvailable", outcome.latest().version()));
+            var error = outcome.error();
+            var latest = outcome.latest();
+            if (error != null) {
+                report.accept(describeFailure(error, outcome.detail()));
+            } else if (outcome.available() && latest != null) {
+                report.accept(tr("status.updateAvailable", latest.version()));
             } else {
                 report.accept(tr("status.upToDate", com.termina.AppInfo.NAME));
             }
@@ -237,7 +248,7 @@ public final class WindowManager {
      * A failed check in words. The exception's class name went into the dialog in the first
      * version, and {@code UnknownHostException} tells the person reading it nothing they can act on.
      */
-    static String describeFailure(com.termina.update.UpdateCheck.ErrorKind kind, String detail) {
+    static String describeFailure(com.termina.update.UpdateCheck.ErrorKind kind, @Nullable String detail) {
         return switch (kind) {
             case OFFLINE -> tr("status.updateCheckOffline");
             case TIMEOUT -> tr("status.updateCheckTimeout");
@@ -247,13 +258,15 @@ public final class WindowManager {
     }
 
     private void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
-        if (!outcome.available()) return;
-        knownUpdate = outcome.latest();
-        if (aboutWindow != null) aboutWindow.setUpdate(knownUpdate);
+        com.termina.update.ReleaseInfo latest = outcome.latest();
+        // Available always comes with the release; the pair is checked so the type says so too.
+        if (!outcome.available() || latest == null) return;
+        knownUpdate = latest;
+        if (aboutWindow != null) aboutWindow.setUpdate(latest);
         // A version the user has already been shown stays out of the menu, but a manual check
         // surfaces it again — they just asked.
-        if (!manual && outcome.latest().version().equals(settings.dismissedUpdate())) return;
-        availableUpdate = outcome.latest();
+        if (!manual && latest.version().equals(settings.dismissedUpdate())) return;
+        availableUpdate = latest;
         notifyUpdateListeners();
     }
 
@@ -261,7 +274,7 @@ public final class WindowManager {
         for (Runnable listener : List.copyOf(updateListeners)) listener.run();
     }
 
-    public com.termina.update.ReleaseInfo availableUpdate() {
+    public com.termina.update.@Nullable ReleaseInfo availableUpdate() {
         return availableUpdate;
     }
 
@@ -299,15 +312,21 @@ public final class WindowManager {
      * to open it. See {@link SecondaryWindows}.
      */
     public void showSettings(Window from) {
-        if (settingsWindow == null) {
+        settingsWindow().show(from);
+    }
+
+    /** The settings window, made on first use. */
+    private SettingsWindow settingsWindow() {
+        SettingsWindow window = settingsWindow;
+        if (window == null) {
             // Every window has the same commands, so the first one answers for all of them.
-            settingsWindow = new SettingsWindow(
+            settingsWindow = window = new SettingsWindow(
                     settings,
                     profiles,
                     windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
                     sync);
         }
-        settingsWindow.show(from);
+        return window;
     }
 
     /**
@@ -331,13 +350,13 @@ public final class WindowManager {
     public javafx.scene.Scene showSettingsForCapture(Window owner, String query) {
         showSettings(owner);
         if (query != null && !query.isBlank() && !"true".equals(query)) {
-            settingsWindow.searchForCapture(query);
+            settingsWindow().searchForCapture(query);
         }
         String keys = System.getProperty("termina.captureSettingsKeys");
         if (keys != null && !keys.isBlank()) {
-            System.out.println("[capture] settings keys " + settingsWindow.fireKeysForCapture(keys));
+            System.out.println("[capture] settings keys " + settingsWindow().fireKeysForCapture(keys));
         }
-        return settingsWindow.scene();
+        return settingsWindow().scene();
     }
 
     public List<TerminalWindow> windows() {

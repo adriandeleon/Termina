@@ -8,11 +8,12 @@ import com.termina.config.Settings;
 import com.termina.pty.LaunchOptions;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
+import org.jspecify.annotations.Nullable;
 
 /** Termina — a cross-platform terminal emulator on JavaFX. */
 public final class App extends Application {
 
-    private WindowManager windows;
+    private @Nullable WindowManager windows;
 
     /** How the launcher is invoked, for the usage text. */
     private static final String LAUNCH_NAME = "termina";
@@ -61,7 +62,7 @@ public final class App extends Application {
         Settings settings = new Settings(Settings.defaultFile(cli.configDir()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
-        com.termina.ui.DebugLog.attachFile(settings.file().getParent());
+        com.termina.ui.DebugLog.attachFile(settings.directory());
 
         // Before the command names, menus and Settings rows are built — all of which read the
         // catalogue as they are constructed, once.

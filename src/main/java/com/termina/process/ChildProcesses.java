@@ -14,6 +14,7 @@ import com.sun.jna.Library;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
+import org.jspecify.annotations.NullUnmarked;
 
 /**
  * The direct children of a process, asked of the OS by parent rather than found by search.
@@ -109,6 +110,7 @@ public final class ChildProcesses {
     private static final int MAX_CHILDREN = 256;
 
     /** Loaded lazily so that JNA never touches libproc off macOS. */
+    @NullUnmarked // a native binding follows the C API's nullness
     private interface LibProc extends Library {
         LibProc INSTANCE = Native.load("proc", LibProc.class);
 

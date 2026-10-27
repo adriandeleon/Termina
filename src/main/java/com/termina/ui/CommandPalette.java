@@ -28,6 +28,8 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.TextFlow;
 
+import org.jspecify.annotations.Nullable;
+
 import static com.termina.i18n.Messages.tr;
 
 /**
@@ -82,7 +84,7 @@ final class CommandPalette {
     /** Which commands can run right now; the rest are listed greyed and stepped over. */
     private Predicate<MenuAction> enabled = a -> true;
     /** Why a greyed command cannot run, for its tooltip; null or blank installs none. */
-    private Function<MenuAction, String> disabledReason = a -> null;
+    private Function<MenuAction, @Nullable String> disabledReason = a -> null;
 
     CommandPalette(StackPane host, Runnable onHidden) {
         this.host = host;
@@ -150,7 +152,7 @@ final class CommandPalette {
     }
 
     /** Names the chord that opens the palette on the chip; null hides the chip rather than lying. */
-    void setOpener(KeyCombination opener) {
+    void setOpener(@Nullable KeyCombination opener) {
         prefixChip.setText(opener == null ? "" : opener.getDisplayText());
         prefixChip.setVisible(opener != null);
         prefixChip.setManaged(opener != null);
@@ -171,7 +173,10 @@ final class CommandPalette {
      * @param enabled which commands can run right now; the others are listed greyed and stepped over
      * @param disabledReason why a greyed command cannot run, shown as its tooltip; null for no tooltip
      */
-    void show(List<MenuAction> commands, Predicate<MenuAction> enabled, Function<MenuAction, String> disabledReason) {
+    void show(
+            List<MenuAction> commands,
+            @Nullable Predicate<MenuAction> enabled,
+            @Nullable Function<MenuAction, @Nullable String> disabledReason) {
         if (isShowing()) {
             hide();
             return;

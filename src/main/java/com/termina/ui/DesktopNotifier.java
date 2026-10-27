@@ -10,6 +10,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Puts a program's notification (OSC 9, OSC 777) on the desktop.
  *
@@ -68,7 +70,7 @@ final class DesktopNotifier {
      * @param os the {@code os.name} property
      * @param find a program's absolute path, or null when it is not installed
      */
-    static Command command(String os, String title, String body, Function<String, Path> find) {
+    static @Nullable Command command(String os, String title, String body, Function<String, @Nullable Path> find) {
         String name = os == null ? "" : os.toLowerCase(Locale.ROOT);
         if (name.startsWith("mac")) {
             return new Command(

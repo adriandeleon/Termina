@@ -343,6 +343,48 @@ Each of these cost real time, and none of them announces itself.
   own `.terminal` profiles. Clear Light is genuinely low-contrast in four places; that is pinned in
   `ThemeTest` rather than corrected, because a port that "fixes" its source is no longer that theme.
 
+## Null annotations
+
+JSpecify annotations, checked by [NullAway](https://github.com/uber/NullAway) (an Error Prone
+plugin) in the main compile. The setup is Editora's, so the rules below are the same in both projects.
+`mvn compile` fails on any null that can reach a type not marked nullable.
+
+- **Every package is `@NullMarked`, and a new one starts that way.** Give it a `package-info.java`:
+  `@NullMarked package com.termina.example;` with `import org.jspecify.annotations.NullMarked;`.
+  `NullMarkedPackagesTest` fails for a package without one, and fails if NullAway leaves the pom.
+- **In a marked package everything is non-null unless it says `@Nullable`.** Mark what really may be
+  null: a field set later, a parameter callers pass null to, a "not found" return. The annotations are
+  type-use, so they go next to the type: `private @Nullable Foo foo`, `java.nio.file.@Nullable Path`,
+  `Settings.@Nullable ProfileStyle`, `byte @Nullable []` (the array may be null),
+  `List<@Nullable String>` (its elements may be).
+- **Prefer a shape that cannot be null over `@Nullable`** when the null is an accident of the code,
+  not part of its meaning. For state that must exist by the time it is used, write an accessor that
+  fails with a clear message: `TerminalView.getSession()`/`buffer()` (null until `start`), with
+  `isStarted()` for the two callers that ask. Make lazily built things through one method that
+  builds them (`WindowManager.settingsWindow()`, `TerminalWindow.shortcutsWindow()`). Things built
+  together go in one record behind one nullable field (`TerminalView.ContextItems`), not six.
+- **NullAway does not credit an assignment it cannot see as initialization.** A field assigned inside
+  another call's argument list, or by a builder reached through a loop and a switch, counts as
+  unassigned. `TerminalWindow`'s palette and prompt actions are `final` fields with initializers for
+  that reason; `buildMenuBar` only registers them. `SettingsWindow`, whose controls are all made by
+  `build()`, suppresses only the initialization check on its constructor
+  (`@SuppressWarnings("NullAway.Init")`). Reads of those fields are still checked.
+- **NullAway does not follow a boolean that holds a null check.** After `boolean present = style !=
+  null; if (!present) return;`, `style` still counts as nullable. Write the check inline. The same goes
+  for calling a getter twice: `if (x.y() != null) x.y().z()` is flagged, so read it into a local.
+- **JavaFX returns null more often than it looks:** `Node.getScene()`, `Scene.getWindow()`,
+  `Node.getParent()`, a selection model's selected item, a `ComboBox` value.
+- **Watch for over-wide annotations.** When a caller has a null for a parameter that does not take
+  one, make the parameter `@Nullable` only if the method already copes with null. NullAway then
+  checks that it does. Otherwise check at the caller. Widening one method after another until the
+  error moves out of sight is how a whole API turns `@Nullable`.
+- **Native bindings are `@NullUnmarked`.** A JNA `Library` interface follows the C API's nullness
+  (`ProcessCwd`, `WindowsCwd`, `ChildProcesses`).
+- **Suppress rarely**, on the narrowest element, with a comment saying why.
+- **Plumbing.** Only NullAway runs (`-XepDisableAllChecks -Xep:NullAway:ERROR`), and only in the main
+  compile, not on tests. `.mvn/jvm.config` exports the javac internals that Error Prone needs. JSpecify
+  is a `provided` dependency read through `requires static org.jspecify`, so nothing ships.
+
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is

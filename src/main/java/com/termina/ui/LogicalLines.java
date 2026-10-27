@@ -1,5 +1,7 @@
 package com.termina.ui;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Rows grouped into the lines they were written as — a row and the rows a soft wrap carried it
  * onto — so a position can be described in a way a reflow does not change.
@@ -61,7 +63,7 @@ final class LogicalLines {
     }
 
     /** {line, cells into it} for a buffer position, or null when the row is not in the buffer. */
-    int[] toLogical(int row, int column) {
+    int @Nullable [] toLogical(int row, int column) {
         int r = row - firstRow;
         if (r < 0 || r >= lineOfRow.length) return null;
         int line = lineOfRow[r];
@@ -73,7 +75,7 @@ final class LogicalLines {
      * the end of its line — the line got shorter, or the offset was the cursor parked past its last
      * character — is kept on the line's last row rather than spilling onto the next line.
      */
-    int[] fromLogical(int line, int offset) {
+    int @Nullable [] fromLogical(int line, int offset) {
         if (line < 0 || line >= firstRowOf.length) return null;
         int rowsIn = offset / width;
         int r = Math.min(firstRowOf[line] + rowsIn, lastRowOf[line]);

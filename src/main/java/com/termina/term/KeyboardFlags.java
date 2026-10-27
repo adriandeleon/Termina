@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The kitty keyboard protocol's progressive-enhancement flags, as programs have set them.
  *
@@ -42,7 +44,7 @@ public final class KeyboardFlags {
      * @param params as written: {@code "1"}, {@code "3;2"}, or empty for the defaults
      * @return the bytes to answer with — only a query has an answer — or null
      */
-    public synchronized byte[] apply(char marker, String params, boolean alternateScreen) {
+    public synchronized byte @Nullable [] apply(char marker, String params, boolean alternateScreen) {
         Deque<Integer> stack = stack(alternateScreen);
         int[] p = numbers(params);
         switch (marker) {

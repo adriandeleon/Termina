@@ -41,6 +41,7 @@ import javafx.util.Duration;
 
 import com.termina.config.Settings;
 import com.termina.process.RunningProgram;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -88,17 +89,37 @@ public final class TerminalWindow {
 
     private CommandPalette palette;
 
+    // The actions below are made here, not in buildMenuBar where they are registered: the palette
+    // and the constructor ask after them, and NullAway cannot see an assignment in a builder as
+    // initialization.
+
     /** The palette's own entry: rebound live when the setting changes, and kept out of its own list. */
-    private MenuAction paletteAction;
+    private final MenuAction paletteAction =
+            item("menu.commandPalette", MenuAction.DEFAULT_PALETTE_CHORD, this::showPalette);
 
-    /** Reopen Closed Tab, which the palette greys while there is nothing to reopen. */
-    private MenuAction reopenAction;
+    /**
+     * Reopen Closed Tab, which the palette greys while there is nothing to reopen. Cmd+Z on macOS,
+     * which is iTerm2's "Undo Close"; Ctrl+Shift+Z elsewhere, where the browsers' Ctrl+Shift+T is
+     * already New Tab.
+     */
+    private final MenuAction reopenAction =
+            item("menu.reopenClosedTab", MenuAction.appChord(KeyCode.Z), this::reopenClosedTab);
 
-    /** The commands that need the shell's prompt marks, greyed in the palette until there are some. */
-    private MenuAction previousPromptAction;
+    /**
+     * The commands that need the shell's prompt marks, greyed in the palette until there are some.
+     * Terminal.app's Cmd+Up and Cmd+Down on macOS.
+     */
+    private final MenuAction previousPromptAction = item(
+            "menu.previousPrompt",
+            MenuAction.appChord(KeyCode.UP),
+            () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)));
 
-    private MenuAction nextPromptAction;
-    private MenuAction selectOutputAction;
+    private final MenuAction nextPromptAction = item(
+            "menu.nextPrompt",
+            MenuAction.appChord(KeyCode.DOWN),
+            () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)));
+    private final MenuAction selectOutputAction =
+            item("menu.selectLastOutput", () -> withActiveTerminal(TerminalView::selectLastOutput));
 
     /**
      * Set when a scene binding has just run on KEY_PRESSED, so the KEY_TYPED that follows it is
@@ -153,8 +174,8 @@ public final class TerminalWindow {
             e.consume();
         });
         tabs.addEventHandler(javafx.scene.input.DragEvent.DRAG_DROPPED, e -> {
-            if (!paneOverEmptyStrip(e)) return;
             TerminalView pane = draggedPane;
+            if (pane == null || !paneOverEmptyStrip(e)) return;
             draggedPane = null;
             movePaneToNewTab(pane);
             e.setDropCompleted(true);
@@ -287,7 +308,8 @@ public final class TerminalWindow {
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
             applyWindowTheme();
-            if (tab != null) marksOf(tab).apply(TabMarks.onSelected());
+            TabMarkState marks = tab == null ? null : marksOf(tab);
+            if (marks != null) marks.apply(TabMarks.onSelected());
             // A hidden tab defers its repaint until it is shown, and being selected makes it
             // visible without laying it out — so it has to be told. Every pane of it, not only the
             // active one: they were all hidden together.
@@ -335,7 +357,7 @@ public final class TerminalWindow {
     }
 
     /** The pane a node is in — the pane itself, or something inside it — or null. */
-    private static TerminalView paneContaining(javafx.scene.Node node) {
+    private static @Nullable TerminalView paneContaining(javafx.scene.Node node) {
         for (javafx.scene.Node n = node; n != null; n = n.getParent()) {
             if (n instanceof TerminalView view) return view;
         }
@@ -343,7 +365,7 @@ public final class TerminalWindow {
     }
 
     /** Whether something on screen is entitled to the keyboard instead of the terminal. */
-    private boolean overlayWantsKeys(TerminalView terminal) {
+    private boolean overlayWantsKeys(@Nullable TerminalView terminal) {
         if (palette != null && palette.isShowing()) return true;
         // A context menu is a popup that dismisses when focus moves, so reclaiming under it would
         // make right-click unusable rather than merely rude. The profile dropdown is the same kind
@@ -368,7 +390,7 @@ public final class TerminalWindow {
      * and has nowhere to attach drag handlers — which left {@code getText()} null and the window
      * title empty.
      */
-    private void bindTitleTo(Tab tab) {
+    private void bindTitleTo(@Nullable Tab tab) {
         stage.titleProperty().unbind();
         if (tab == null) {
             stage.setTitle(com.termina.AppInfo.NAME);
@@ -615,7 +637,7 @@ public final class TerminalWindow {
      * the same rule a plain new tab has always followed, and the reason a profile's directory is
      * blank by default rather than set to home.
      */
-    public void openTab(com.termina.shell.Profile profile) {
+    public void openTab(com.termina.shell.@Nullable Profile profile) {
         if (profile == null) {
             openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()).withWorkingDirectory(currentDirectory()));
             return;
@@ -759,7 +781,7 @@ public final class TerminalWindow {
      */
     private String currentDirectory() {
         TerminalView terminal = activeTerminal();
-        if (terminal == null || terminal.getSession() == null) return "";
+        if (terminal == null || !terminal.isStarted()) return "";
         // Where a shell's own report wins (Windows: see ProcessCwd), the directory the tab knows —
         // reported, or polled from the OS until one was — is the answer. Elsewhere the OS, asked now.
         String known = terminal.getDisplay().getCwd();
@@ -1039,7 +1061,7 @@ public final class TerminalWindow {
     }
 
     /** The tab a pane is in, or null when it is in none of this window's. */
-    private Tab tabOf(TerminalView pane) {
+    private @Nullable Tab tabOf(TerminalView pane) {
         for (Tab tab : tabs.getTabs()) {
             if (groupOf(tab).contains(pane)) return tab;
         }
@@ -1089,7 +1111,7 @@ public final class TerminalWindow {
     }
 
     /** The pane being dragged, which the Dragboard cannot carry: a node is not serialisable. */
-    private TerminalView draggedPane;
+    private @Nullable TerminalView draggedPane;
 
     /** Whether a drag over the strip carries a pane, and is over the strip's empty part. */
     private boolean paneOverEmptyStrip(javafx.scene.input.DragEvent e) {
@@ -1172,7 +1194,7 @@ public final class TerminalWindow {
     private static final DataFormat TAB_DRAG = new DataFormat("application/x-termina-tab");
 
     /** The tab being dragged. The Dragboard can only carry serialisable data, and a Tab is not. */
-    private Tab draggedTab;
+    private @Nullable Tab draggedTab;
 
     /**
      * Drag-to-reorder.
@@ -1484,7 +1506,7 @@ public final class TerminalWindow {
         }
     }
 
-    private static TabMarkState marksOf(Tab tab) {
+    private static @Nullable TabMarkState marksOf(Tab tab) {
         return (TabMarkState) tab.getProperties().get(TAB_MARKS);
     }
 
@@ -1532,19 +1554,26 @@ public final class TerminalWindow {
         return register(action);
     }
 
-    private ShortcutsWindow shortcutsWindow;
+    private @Nullable ShortcutsWindow shortcutsWindow;
 
     private void showShortcuts() {
-        if (shortcutsWindow == null) shortcutsWindow = new ShortcutsWindow();
-        shortcutsWindow.show(stage, shortcuts());
+        shortcutsWindow().show(stage, shortcuts());
+    }
+
+    /** The shortcut reference, made on first use. */
+    private ShortcutsWindow shortcutsWindow() {
+        ShortcutsWindow window = shortcutsWindow;
+        if (window == null) shortcutsWindow = window = new ShortcutsWindow();
+        return window;
     }
 
     /** Opens the reference, filters it, prints its rows and returns its scene — for the capture hook. */
     public javafx.scene.Scene showShortcutsForCapture(String query) {
         showShortcuts();
-        if (query != null && !query.isBlank()) shortcutsWindow.setQueryForCapture(query);
-        System.out.println("[capture] shortcuts " + String.join(" | ", shortcutsWindow.rows()));
-        return shortcutsWindow.scene();
+        ShortcutsWindow window = shortcutsWindow();
+        if (query != null && !query.isBlank()) window.setQueryForCapture(query);
+        System.out.println("[capture] shortcuts " + String.join(" | ", window.rows()));
+        return window.scene();
     }
 
     /**
@@ -1567,11 +1596,12 @@ public final class TerminalWindow {
             }
         }
         for (MenuAction binding : bindings) {
-            if (!listed.add(binding.accelerator())) continue;
+            KeyCombination chord = binding.accelerator();
+            if (chord == null || !listed.add(chord)) continue;
             out.add(new ShortcutReference.Shortcut(
                     bindingGroups.getOrDefault(binding.id(), tr("menu.window")),
                     binding.label(),
-                    binding.accelerator().getDisplayText()));
+                    chord.getDisplayText()));
         }
         String terminal = tr("shortcuts.group.terminal");
         out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.pageUp"), shifted(KeyCode.PAGE_UP)));
@@ -1739,7 +1769,7 @@ public final class TerminalWindow {
         if (!settings.confirmClose()) return true;
         List<String> running = new ArrayList<>();
         for (TerminalView terminal : doomed) {
-            if (terminal == null || terminal.getSession() == null) continue;
+            if (terminal == null || !terminal.isStarted()) continue;
             running.addAll(RunningProgram.in(terminal.getSession().pid()));
         }
         if (running.isEmpty()) return true;
@@ -1848,7 +1878,7 @@ public final class TerminalWindow {
     }
 
     /** The clicked tab's menu, for the development capture hook. */
-    public javafx.scene.Scene showTabMenuForCapture(int index, double screenX, double screenY) {
+    public javafx.scene.@Nullable Scene showTabMenuForCapture(int index, double screenX, double screenY) {
         if (index < 0 || index >= tabs.getTabs().size()) return null;
         ContextMenu menu = tabs.getTabs().get(index).getContextMenu();
         if (menu == null) return null;
@@ -1918,7 +1948,7 @@ public final class TerminalWindow {
 
     /** Every live terminal in this window. */
     /** The terminal of the selected tab, or null when there is none. */
-    public TerminalView selectedTerminal() {
+    public @Nullable TerminalView selectedTerminal() {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         return tab == null ? null : terminalOf(tab);
     }
@@ -1930,7 +1960,7 @@ public final class TerminalWindow {
         return views;
     }
 
-    public TerminalView activeTerminal() {
+    public @Nullable TerminalView activeTerminal() {
         Tab selected = tabs.getSelectionModel().getSelectedItem();
         return selected == null ? null : terminalOf(selected);
     }
@@ -2062,7 +2092,7 @@ public final class TerminalWindow {
     private MenuBar menuBar;
 
     /** The window's own title bar, holding the menu bar; null when the platform draws one. */
-    private final HeaderBar headerBar;
+    private final @Nullable HeaderBar headerBar;
 
     private final Button newTabButton = new Button();
 
@@ -2240,11 +2270,7 @@ public final class TerminalWindow {
                 null,
                 register(item("menu.closeTab", MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
                 register(item("menu.closeWindow", MenuAction.closeWindowChord(), this::close)),
-                // Cmd+Z on macOS, which is iTerm2's "Undo Close"; Ctrl+Shift+Z elsewhere, where the
-                // browsers' Ctrl+Shift+T is already New Tab.
-                register(
-                        reopenAction =
-                                item("menu.reopenClosedTab", MenuAction.appChord(KeyCode.Z), this::reopenClosedTab)),
+                register(reopenAction),
                 null,
                 register(item(
                         "menu.settings",
@@ -2324,20 +2350,9 @@ public final class TerminalWindow {
                         MAC ? MenuAction.shiftChord(KeyCode.G) : MenuAction.appChord(KeyCode.H),
                         () -> withActiveTerminal(terminal -> terminal.findNext(false)))),
                 null,
-                // Terminal.app's Cmd+Up and Cmd+Down on macOS. They need the shell to mark its
-                // prompts (OSC 133), and are greyed until it has.
-                register(
-                        previousPromptAction = item(
-                                "menu.previousPrompt",
-                                MenuAction.appChord(KeyCode.UP),
-                                () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)))),
-                register(
-                        nextPromptAction = item(
-                                "menu.nextPrompt",
-                                MenuAction.appChord(KeyCode.DOWN),
-                                () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)))),
-                selectOutputAction =
-                        item("menu.selectLastOutput", () -> withActiveTerminal(TerminalView::selectLastOutput)));
+                register(previousPromptAction),
+                register(nextPromptAction),
+                selectOutputAction);
         edit.setOnShowing(e -> {
             boolean marked = promptMarksAvailable();
             for (MenuItem item : edit.getItems()) {
@@ -2378,7 +2393,7 @@ public final class TerminalWindow {
             viewActions.forEach(this::register);
         }
 
-        List<MenuAction> viewItems = new java.util.ArrayList<>();
+        List<@Nullable MenuAction> viewItems = new java.util.ArrayList<>();
         if (!showsZoomRow(SYSTEM_MENU_BAR)) {
             // Full Screen last and on its own, which is where macOS's own View menus put it.
             viewItems.add(zoomIn);
@@ -2408,7 +2423,7 @@ public final class TerminalWindow {
         // as it was when this was the only chord that could be changed. showPalette keeps it out of
         // its own list — a palette that offers to open the palette is noise in every search.
         viewItems.add(null);
-        paletteAction = register(item("menu.commandPalette", MenuAction.DEFAULT_PALETTE_CHORD, this::showPalette));
+        register(paletteAction);
         viewItems.add(paletteAction);
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
         if (showsZoomRow(SYSTEM_MENU_BAR)) {
@@ -2533,7 +2548,7 @@ public final class TerminalWindow {
      * {@code key} and {@code key.desc}. The description is what the palette shows under the list
      * for the highlighted row.
      */
-    private static MenuAction item(String key, KeyCombination chord, Runnable action) {
+    private static MenuAction item(String key, @Nullable KeyCombination chord, Runnable action) {
         return MenuAction.of(tr(key), chord, action)
                 .describedAs(description(key))
                 .withId(idOf(key));
@@ -2584,7 +2599,7 @@ public final class TerminalWindow {
     }
 
     /** "New Tab (Ctrl+Shift+T)", or "New Tab" once the user has taken its chord away. */
-    private static String withChord(String labelKey, String withChordKey, KeyCombination chord) {
+    private static String withChord(String labelKey, String withChordKey, @Nullable KeyCombination chord) {
         return chord == null ? tr(labelKey) : tr(withChordKey, chord.getDisplayText());
     }
 
@@ -2596,8 +2611,9 @@ public final class TerminalWindow {
     }
 
     /** The chord command {@code id} is on now, or null when it has none. */
-    KeyCombination chordOf(String id) {
-        return chords.get(id);
+    @Nullable
+    KeyCombination chordOf(@Nullable String id) {
+        return id == null ? null : chords.get(id);
     }
 
     /** {@code action} on the chord it is on now, for a list that shows it — the palette's. */
@@ -2615,7 +2631,7 @@ public final class TerminalWindow {
         List<Keybindings.Command> out = new ArrayList<>();
         for (MenuAction action : table) {
             out.add(new Keybindings.Command(
-                    action.id(),
+                    action.requireId(),
                     bindingGroups.getOrDefault(action.id(), tr("menu.window")),
                     action.label(),
                     action.accelerator()));
@@ -2623,7 +2639,7 @@ public final class TerminalWindow {
         return out;
     }
 
-    private javafx.scene.control.MenuItem updateItem;
+    private javafx.scene.control.@Nullable MenuItem updateItem;
 
     private void refreshUpdateItem() {
         if (updateItem == null) return;
@@ -2683,7 +2699,7 @@ public final class TerminalWindow {
     }
 
     /** The live {@link #report} dialog, so a follow-up message replaces it instead of stacking. */
-    private Alert reportAlert;
+    private @Nullable Alert reportAlert;
 
     /** Drives {@link #report} from the development capture hook. */
     public void reportForCapture(String message) {
@@ -2709,7 +2725,7 @@ public final class TerminalWindow {
     static final int TAB_CHORD_COUNT = 9;
 
     /** The View menu's hide/show entry, relabelled for the palette to say which one it is. */
-    private MenuAction menuBarToggle;
+    private @Nullable MenuAction menuBarToggle;
 
     /**
      * The number whose chord selects a tab, or 0 when none does — the inverse of {@link
@@ -2722,7 +2738,7 @@ public final class TerminalWindow {
         return index < TAB_CHORD_COUNT - 1 ? index + 1 : 0;
     }
 
-    private KeyCombination tabChordFor(int index, int tabCount) {
+    private @Nullable KeyCombination tabChordFor(int index, int tabCount) {
         int number = tabNumberFor(index, tabCount);
         return number == 0 ? null : chordOf(TAB_CHORD_ID + number);
     }
@@ -2750,8 +2766,8 @@ public final class TerminalWindow {
      * actions arrive here twice — once as they are built, once from {@link #menu}.
      */
     private MenuAction register(MenuAction action) {
-        if (action.id() == null) throw new IllegalStateException("a binding needs an id: " + action.label());
-        if (table.stream().anyMatch(a -> a.id().equals(action.id()))) return action;
+        String id = action.requireId();
+        if (table.stream().anyMatch(a -> id.equals(a.id()))) return action;
         table.add(action);
         // Loud, because the quiet form already shipped: a second binding on a chord is never
         // reached, while its menu item and palette row go on advertising it. The user's own
@@ -2784,7 +2800,7 @@ public final class TerminalWindow {
      * here — its items act on the tab that was right-clicked, which is not a thing the palette can
      * supply.
      */
-    private Menu menu(String title, MenuAction... actions) {
+    private Menu menu(String title, @Nullable MenuAction... actions) {
         Menu menu = new Menu(title);
         for (MenuAction action : actions) {
             menu.getItems().add(action == null ? new SeparatorMenuItem() : menuItem(action));
@@ -2834,7 +2850,7 @@ public final class TerminalWindow {
      * Ctrl+Shift+Z is a field's redo. In the find bar they act on the query; acting on the terminal
      * behind it instead would copy a selection nobody can see and paste into the shell.
      */
-    static boolean yieldsToTextField(String id) {
+    static boolean yieldsToTextField(@Nullable String id) {
         return switch (id == null ? "" : id) {
             case "copy", "paste", "selectAll", "reopenClosedTab" -> true;
             default -> false;

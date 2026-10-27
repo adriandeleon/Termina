@@ -16,6 +16,8 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * One settings sync between this computer and the user's repository. Blocking and free of JavaFX; the
  * caller picks the thread.
@@ -57,7 +59,7 @@ public final class SyncEngine {
     /** Past the point where this computer's data is written: a cancel no longer stops the run. */
     private boolean committed;
 
-    private GitRunner.Cancellation inFlight;
+    private GitRunner.@Nullable Cancellation inFlight;
 
     /**
      * @param git a runner whose directory is the clone
@@ -188,7 +190,8 @@ public final class SyncEngine {
     }
 
     /** One fetch-merge-push round; null when the push lost a race and the round must be repeated. */
-    private SyncReport cycle(boolean allowLargeRemoval, List<String> received) throws IOException, GitFailure {
+    private @Nullable SyncReport cycle(boolean allowLargeRemoval, List<String> received)
+            throws IOException, GitFailure {
         GitRunner.Result fetch = fetch();
         if (fetch == null || fetch.cancelled() || stopHere()) return cancelled();
         if (!fetch.ok()) return SyncReport.failure(SyncReport.Status.FETCH_FAILED, fetch.transcript());
@@ -222,9 +225,8 @@ public final class SyncEngine {
         for (String path : paths) {
             results.add(SyncMerge.merge(path, base.get(path), mine.get(path), theirs.get(path)));
         }
-        if (!allowLargeRemoval && largeRemoval(results) != null) {
-            return SyncReport.failure(SyncReport.Status.NEEDS_CONFIRMATION, largeRemoval(results));
-        }
+        String largeRemoval = allowLargeRemoval ? null : largeRemoval(results);
+        if (largeRemoval != null) return SyncReport.failure(SyncReport.Status.NEEDS_CONFIRMATION, largeRemoval);
 
         List<String> sent = new ArrayList<>();
         List<String> conflicts = new ArrayList<>();
@@ -268,7 +270,7 @@ public final class SyncEngine {
         return new SyncReport(SyncReport.Status.OK, List.copyOf(received), sent, conflicts, "");
     }
 
-    private GitRunner.Result fetch() {
+    private GitRunner.@Nullable Result fetch() {
         GitRunner.Cancellation c = new GitRunner.Cancellation();
         synchronized (this) {
             if (cancelled) return null;
@@ -340,7 +342,7 @@ public final class SyncEngine {
      * healthy computers never does that; an emptied or damaged file on one of them does, and would
      * otherwise be carried to every other computer.
      */
-    static String largeRemoval(List<SyncMerge.FileResult> results) {
+    static @Nullable String largeRemoval(List<SyncMerge.FileResult> results) {
         for (SyncMerge.FileResult r : results) {
             int left = r.merged().size();
             if ((r.mineEntries() >= GUARDED_SIZE && left * 2 < r.mineEntries())
@@ -364,7 +366,7 @@ public final class SyncEngine {
     }
 
     /** Writes {@code text} to {@code file}, or deletes it when {@code text} is null. */
-    static void writeOrDelete(Path file, String text) throws IOException {
+    static void writeOrDelete(Path file, @Nullable String text) throws IOException {
         if (text == null) {
             Files.deleteIfExists(file);
             return;

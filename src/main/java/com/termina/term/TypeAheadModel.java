@@ -9,6 +9,7 @@ import com.jediterm.terminal.model.CharBuffer;
 import com.jediterm.terminal.model.JediTerminal;
 import com.jediterm.terminal.model.TerminalLine;
 import com.jediterm.terminal.model.TerminalTextBuffer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What JediTerm's type-ahead predictor edits: a copy of the cursor's line with the keystrokes the
@@ -45,7 +46,7 @@ public final class TypeAheadModel implements TypeAheadTerminalModel {
     private volatile Runnable onRedraw = () -> {};
 
     /** The cursor's line with the predictions applied, or null when nothing is predicted. */
-    private volatile TerminalLine predicted;
+    private volatile @Nullable TerminalLine predicted;
 
     private volatile int predictedRow;
     private volatile int predictedCursor = -1;
@@ -70,7 +71,7 @@ public final class TypeAheadModel implements TypeAheadTerminalModel {
     }
 
     /** What to draw, or null. Read under the buffer lock. */
-    public Prediction prediction() {
+    public @Nullable Prediction prediction() {
         TerminalLine line = predicted;
         return line == null ? null : new Prediction(predictedRow, line, predictedCursor);
     }

@@ -3,6 +3,8 @@ package com.termina.ui;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * How a typed query is matched against a command title, and how well — Editora's matcher, brought
  * over whole so the two palettes rank the same way.
@@ -93,7 +95,7 @@ final class FuzzyMatch {
      * <p>A blank query returns {@code null} rather than a neutral match: "show everything" is the
      * caller's decision, and the palette already special-cases the empty field before filtering.
      */
-    static Match of(String candidate, String query) {
+    static @Nullable Match of(String candidate, String query) {
         List<int[]> spans = new ArrayList<>();
         int total = run(candidate, query, spans);
         if (total == NO_SCORE) return null;
@@ -112,7 +114,7 @@ final class FuzzyMatch {
     }
 
     /** Scoring core shared by {@link #of} and {@link #scoreOf}; fills {@code spans} when non-null. */
-    private static int run(String candidate, String query, List<int[]> spans) {
+    private static int run(String candidate, String query, @Nullable List<int[]> spans) {
         if (candidate == null || candidate.isEmpty() || query == null) return NO_SCORE;
         String q = query.strip();
         if (q.isEmpty()) return NO_SCORE;
@@ -148,7 +150,7 @@ final class FuzzyMatch {
      * matched character to {@code spans} and returning the term's score. Returns {@link #NO_SCORE} —
      * leaving {@code spans} untouched — when the term does not match.
      */
-    private static int matchTerm(String s, String query, int qStart, int qEnd, List<int[]> spans) {
+    private static int matchTerm(String s, String query, int qStart, int qEnd, @Nullable List<int[]> spans) {
         int m = qEnd - qStart;
         int n = s.length();
         if (m > n) return NO_SCORE;

@@ -7,6 +7,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A binary property list ({@code bplist00}) read into maps, lists and values — the format of each
  * colour inside a Terminal {@code .terminal} profile, where an {@code NSColor} is archived with
@@ -54,8 +56,8 @@ final class BinaryPlist {
         reading = new boolean[(int) count];
     }
 
-    /** The top object. */
-    static Object parse(byte[] data) throws ThemeImportException {
+    /** The top object, or null when it is the property list's null. */
+    static @Nullable Object parse(byte[] data) throws ThemeImportException {
         BinaryPlist plist = new BinaryPlist(data);
         long top = plist.bytes.getLong(data.length - 32 + 16);
         try {
@@ -65,7 +67,7 @@ final class BinaryPlist {
         }
     }
 
-    private Object object(long ref) throws ThemeImportException {
+    private @Nullable Object object(long ref) throws ThemeImportException {
         if (ref < 0 || ref >= offsets.length) throw new ThemeImportException("a damaged binary property list");
         int index = (int) ref;
         if (reading[index]) throw new ThemeImportException("a binary property list that refers to itself");
@@ -77,7 +79,7 @@ final class BinaryPlist {
         }
     }
 
-    private Object read(int at) throws ThemeImportException {
+    private @Nullable Object read(int at) throws ThemeImportException {
         int marker = bytes.get(at) & 0xff;
         int high = marker >> 4;
         int low = marker & 0x0f;

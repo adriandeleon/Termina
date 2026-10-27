@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.Properties;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * An imported scheme as Termina stores it: a small properties file in {@code <config>/themes/},
  * written once at import and readable — and editable — by hand, like the settings file beside it.
@@ -68,7 +70,7 @@ public final class ThemeFile {
         return TextSchemes.hexColour(value);
     }
 
-    private static Integer optional(Properties properties, String key) throws ThemeImportException {
+    private static @Nullable Integer optional(Properties properties, String key) throws ThemeImportException {
         String value = properties.getProperty(key);
         return value == null || value.isBlank() ? null : TextSchemes.hexColour(value);
     }

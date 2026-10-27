@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A Terminal {@code .terminal} profile: an XML property list whose colours are each an {@code
  * NSColor} archived with {@code NSKeyedArchiver} into a <em>binary</em> property list, stored as
@@ -60,7 +62,7 @@ final class AppleTerminalProfile {
     }
 
     /** One archived colour, or null when the key is absent. */
-    static Integer colour(Object data) throws ThemeImportException {
+    static @Nullable Integer colour(@Nullable Object data) throws ThemeImportException {
         if (data == null) return null;
         if (!(data instanceof byte[] archive)) throw new ThemeImportException("a colour that is not archived data");
         if (!(BinaryPlist.parse(archive) instanceof Map<?, ?> top)

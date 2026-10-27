@@ -2,6 +2,8 @@ package com.termina.ui;
 
 import java.nio.file.Path;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A theme the user can choose: one of the built-in {@link Theme}s, or a scheme imported from
  * another terminal (see {@link Themes}). Everything that draws asks one of these, so the two kinds
@@ -14,9 +16,10 @@ public final class ThemeEntry {
     private final boolean dark;
     private final String chrome;
     private final TerminalPalette palette;
-    private final Path file;
+    private final @Nullable Path file;
 
-    ThemeEntry(String id, String displayName, boolean dark, String chrome, TerminalPalette palette, Path file) {
+    ThemeEntry(
+            String id, String displayName, boolean dark, String chrome, TerminalPalette palette, @Nullable Path file) {
         this.id = id;
         this.displayName = displayName;
         this.dark = dark;
@@ -51,6 +54,7 @@ public final class ThemeEntry {
     }
 
     /** The file an imported theme lives in, or null for a built-in one. */
+    @Nullable
     Path file() {
         return file;
     }

@@ -11,6 +11,8 @@ import javafx.scene.Node;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.StackPane;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A tab's content: one terminal, or several side by side and one above another.
  *
@@ -53,7 +55,8 @@ final class PaneGroup extends StackPane {
     private final ReadOnlyObjectWrapper<TerminalView> active = new ReadOnlyObjectWrapper<>();
 
     /** The tree's top: a terminal, or a split. */
-    private Node root;
+    /** Null once the last pane has left, which happens only as the tab closes. */
+    private @Nullable Node root;
 
     /**
      * The pane filling the group while it is maximized, or null. Its place in the tree is held by
@@ -61,9 +64,9 @@ final class PaneGroup extends StackPane {
      * its own at once — and everything that walks the tree reads the placeholder as the pane, so the
      * rest of the window still sees every pane it has.
      */
-    private TerminalView maximized;
+    private @Nullable TerminalView maximized;
 
-    private Node placeholder;
+    private @Nullable Node placeholder;
 
     /** Says which pane is showing and how to get the rest back, over the corner of the pane. */
     private final javafx.scene.control.Label maximizedBadge = new javafx.scene.control.Label();
@@ -118,8 +121,10 @@ final class PaneGroup extends StackPane {
      * the window's: it knows the directory a pane is in now and the name it was given.
      */
     PaneLayout.Tab layout(java.util.function.Function<TerminalView, PaneLayout.Leaf> leaf) {
+        Node tree = root;
+        if (tree == null) throw new IllegalStateException("an empty group has no layout");
         List<TerminalView> all = panes();
-        return new PaneLayout.Tab(layoutOf(root, leaf), all.indexOf(active.get()));
+        return new PaneLayout.Tab(layoutOf(tree, leaf), all.indexOf(active.get()));
     }
 
     private PaneLayout layoutOf(Node node, java.util.function.Function<TerminalView, PaneLayout.Leaf> leaf) {
@@ -154,7 +159,7 @@ final class PaneGroup extends StackPane {
         return out;
     }
 
-    private void collect(Node node, List<TerminalView> out) {
+    private void collect(@Nullable Node node, List<TerminalView> out) {
         if (node == placeholder && maximized != null) out.add(maximized);
         else if (node instanceof TerminalView view) out.add(view);
         else if (node instanceof SplitPane split) for (Node item : split.getItems()) collect(item, out);
@@ -185,9 +190,9 @@ final class PaneGroup extends StackPane {
 
     /** Puts a maximized pane back in its place among the others. Safe to call when none is. */
     void restore() {
-        if (maximized == null) return;
         TerminalView pane = maximized;
         Node holder = placeholder;
+        if (pane == null || holder == null) return;
         maximized = null;
         placeholder = null;
         getChildren().setAll(root);
@@ -233,6 +238,7 @@ final class PaneGroup extends StackPane {
      *     active one hands the keyboard to whatever took its space — the sibling that grew into it,
      *     as in Windows Terminal — rather than to some pane across the window.
      */
+    @Nullable
     TerminalView remove(TerminalView pane) {
         if (!contains(pane)) return active.get();
         restore();
@@ -259,13 +265,14 @@ final class PaneGroup extends StackPane {
         return next;
     }
 
-    private TerminalView firstPaneIn(Node node) {
+    private @Nullable TerminalView firstPaneIn(Node node) {
         List<TerminalView> found = new ArrayList<>();
         collect(node, found);
         return found.isEmpty() ? null : found.getFirst();
     }
 
     /** The pane beside {@code from} in a direction, or null when it is at that edge. */
+    @Nullable
     TerminalView neighbour(TerminalView from, Direction direction) {
         List<TerminalView> all = panes();
         if (!all.contains(from) || all.size() < 2) return null;
@@ -344,7 +351,7 @@ final class PaneGroup extends StackPane {
         for (TerminalView pane : panes()) pane.setPaneFocusShown(split && pane == current);
     }
 
-    private void setRoot(Node node) {
+    private void setRoot(@Nullable Node node) {
         root = node;
         if (node == null) getChildren().clear();
         else getChildren().setAll(node);
@@ -367,11 +374,11 @@ final class PaneGroup extends StackPane {
      * The split holding a node. Looked up from the root rather than through {@code getParent()},
      * which for an item of a SplitPane is the skin's private wrapper and not the SplitPane.
      */
-    private SplitPane parentOf(Node node) {
+    private @Nullable SplitPane parentOf(Node node) {
         return parentOf(root, node);
     }
 
-    private static SplitPane parentOf(Node from, Node node) {
+    private static @Nullable SplitPane parentOf(@Nullable Node from, Node node) {
         if (!(from instanceof SplitPane split)) return null;
         for (Node item : split.getItems()) {
             if (item == node) return split;
@@ -397,7 +404,7 @@ final class PaneGroup extends StackPane {
         return out.toString();
     }
 
-    private void describe(Node node, List<TerminalView> all, StringBuilder out) {
+    private void describe(@Nullable Node node, List<TerminalView> all, StringBuilder out) {
         if (node == placeholder && maximized != null) node = maximized;
         if (node instanceof TerminalView view) {
             out.append(all.indexOf(view)).append(view == active.get() ? "*" : "");
