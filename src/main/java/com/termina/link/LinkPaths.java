@@ -90,8 +90,10 @@ public final class LinkPaths {
         try {
             Path file = Paths.get(path);
             // A drive path on a platform without drives is relative, and would be looked for in
-            // Termina's own working directory.
-            return file.isAbsolute() ? file.normalize() : null;
+            // Termina's own working directory. Rooted rather than absolute: on Windows /tmp/x has a
+            // root and no drive, isAbsolute() is false for it, and it is still a local file — the
+            // root of the current drive. (UNC, the rooted form that is not local, is refused above.)
+            return file.getRoot() != null ? file.normalize() : null;
         } catch (RuntimeException notAPath) {
             return null;
         }
