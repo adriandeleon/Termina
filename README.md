@@ -279,8 +279,8 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
-A **command palette** on Alt+X — Emacs's M-x, and the chord Editora's palette answers to — lists every
-command in the window, found by typing part of its name: "nw" reaches New Window, "ct" Close Tab,
+A **command palette** on Ctrl+Shift+P (Cmd+Shift+P on macOS), as in Windows Terminal and VS Code,
+lists every command in the window, found by typing part of its name: "nw" reaches New Window, "ct" Close Tab,
 "tab close" finds Close Tab with the words in either order, and "file new" reaches New Tab through
 the menu it lives in. It is Editora's palette in shape and behaviour: the query row is led by a chip
 naming the chord that opened it, the characters that matched are emboldened so the ranking explains
@@ -396,7 +396,9 @@ the palette lists **Move Pane to Tab** for each other tab by name. A pane can al
 `Cmd+Option+Shift`+drag (`Ctrl+Alt+Shift`+drag elsewhere) picks it up, a drop on a tab joins that tab
 and a drop on the strip's empty part makes it a tab. Its shell keeps running throughout; only its
 place changes. **Reopen Closed Tab** brings a split tab back as it was — every pane, in its last
-directory, arranged the same, with the same one active.
+directory, arranged the same, with the same one active. It undoes the most recent close wherever it
+was: a pane closed with the Close chord comes back as a tab of its own beside the one it left, and a
+window closed with its tabs comes back as a window, each tab in its place.
 
 Two things about the layout cost time and do not announce themselves. A new `SplitPane` has no skin
 until the next CSS pass, and without one its items are not in the scene — a pane started there
@@ -565,8 +567,9 @@ A terminal on Windows is not one program. Command Prompt, Windows PowerShell, Po
 installed WSL distribution are separate shells with separate command lines, and a single "path to
 your shell" setting can only ever name one of them. So a **profile** — a name, a command, optionally
 a directory — is the unit a tab is opened as. The chevron beside the `+` drops the list, **File ▸ New
-Tab With** carries the same entries, the command palette lists them by name, and `Ctrl/Cmd+Shift+1`
-through `9` open the first nine.
+Tab With** carries the same entries, the command palette lists them by name, and `Ctrl+Shift+1`
+through `9` (`Cmd+Option+1` through `9` on macOS, where Cmd+Shift+3, 4 and 5 are the screenshot keys)
+open the first nine.
 
 What is on the list is **found, not configured**: someone who has just installed PowerShell 7 or a
 second WSL distribution should find it in the menu rather than have to describe it in a settings file
@@ -720,7 +723,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureTheme=editora-light # switch theme after the windows exist
   -Dtermina.captureChord=T             # fire an application chord at the scene
                                        # ...,plain for a bare key (F11) with no shortcut modifier
-                                       # ...,alt for Alt+key (X,false,alt is the palette's M-x)
+                                       # ...,alt for Alt+key (X,false,alt fires Alt+X)
   -Dtermina.capturePalette=reo         # open the command palette with that query, listing the rows
   -Dtermina.capturePaletteKeys=C-n,C-p # fire chords at the open palette by Emacs token, reporting
                                        # the highlighted row after each — the only check of the
@@ -729,6 +732,9 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureTypeAtFocus=hello   # type at whatever owns the keyboard, and report whether the
                                        # shell received it — the only input option that goes through
                                        # focus rather than around it
+  -Dtermina.captureChordAtFocus=C-S-a  # fire whole chords at whatever owns the keyboard, through
+                                       # the scene — with captureSearch, whether a chord the find
+                                       # bar has no use for leaks past it (captureSelectionAtEnd)
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
   -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open
   -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
@@ -758,6 +764,14 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureMiddleClick=200,100 # paste with the middle button (PRIMARY on Linux)
   -Dtermina.captureImportTheme=Dracula.terminal # import a scheme, select it, print its colours
   -Dtermina.captureCloseWindow=1       # close window N, counting the shells before and after
+  -Dtermina.captureReopenWindow=1      # close window N as the user would, then Reopen Closed Tab
+                                       # in the first, counting windows and tabs
+  -Dtermina.captureMoveTab=0,3         # move a tab as a drop would; the drag report then says
+                                       # whether every header still carries its gestures
+  -Dtermina.captureTabMenuEscape=true  # with captureTabMenu, report the menu and the keyboard's
+                                       # owner a moment later, then press Escape at it
+  -Dtermina.captureFailShellStarts=2   # make the next N shell starts fail, as an unstartable
+                                       # shell's would (with captureWindows=1: the window stays)
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
