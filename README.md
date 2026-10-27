@@ -47,6 +47,10 @@ Self-contained: bundled runtime, no JDK needed to run it. `clean` is not optiona
 built from `target/classes`, and an incremental compile can leave that inconsistent in ways javac
 will not correct on its own.
 
+The build trains an AOT cache by starting the packaged app (`scripts/aot-train.sh`), so a window
+appears for a few seconds. It runs against a configuration folder of its own, created and removed
+by the script, so it never runs settings sync or writes to your own settings.
+
 Four dependencies (`jediterm-core`, `pty4j`, `jna`, `jna-platform`) are **automatic modules**, and
 jlink refuses to link those. moditect injects real descriptors; an antrun step then overlays the
 patched jars over the plain ones so exactly one copy of each is on the module path.
@@ -861,7 +865,19 @@ host-specific and there is no cross-building.
 The Linux packages install a launcher entry carrying `StartupWMClass` and the `TerminalEmulator`
 category, so Termina appears in the application menu and desktops offer it where a terminal is
 wanted. That works because Termina accepts `-e command`, which is the interface everything expects
-of a system terminal.
+of a system terminal. They also put `termina` on `PATH` (`/usr/bin/termina`), install AppStream
+metainfo for GNOME Software and KDE Discover, and declare `X-TerminalArgExec=-e` for
+`xdg-terminal-exec`; the deb registers an `x-terminal-emulator` alternative, at a priority below
+GNOME Terminal's and Konsole's, so `update-alternatives --config x-terminal-emulator` offers it
+without it taking over. Details in `packaging/linux/NOTES.md`.
+
+The deb installs on Debian 12 and Ubuntu 22.04 as well as their successors: it declares the
+libraries JavaFX loads (GTK 3, GL, fontconfig and the rest), which the bundler cannot see, and no
+longer depends on ALSA, which Termina never used. The 0.12.0 debs required `libasound2t64` and
+installed only on Debian 13 and Ubuntu 24.04 onwards.
+
+Every installed copy carries `LICENSE` and `NOTICE` beside the application's jars, and the jar has
+them under `META-INF/`.
 
 The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the module's
 main class rather than from the application name. Without it a running window cannot be matched to
@@ -937,9 +953,24 @@ pom still carries `-SNAPSHOT` — artifacts labelled with a version they were no
 than no artifacts. A tag with a suffix (`v1.0.0-rc1`) publishes as a pre-release.
 
 The version reaches the bundle through two derived values, because jpackage will not accept one it
-cannot parse and macOS additionally refuses any whose first number is zero. `jpackage.publicVersion`
-is the pom version without `-SNAPSHOT`; `jpackage.appVersion` is that with a leading `0.` bumped to
-`1.` on macOS only, purely to get past the check. `scripts/fix-mac-bundle-version.sh` then puts the
-true version back into `Info.plist` and re-signs the bundle — jpackage ad-hoc-signs the app image and
-the plist is part of what that seals, so editing it without re-signing makes macOS refuse to launch
-the app as tampered with.
+cannot parse and macOS additionally refuses any whose first number is zero. `jpackage.numericVersion`
+is the pom version without any suffix — `-SNAPSHOT` or `-rc1` alike, since jpackage rejects both;
+the application and the installers' file names keep the full version. `jpackage.appVersion` is that
+with a leading `0.` bumped to `1.` on macOS only, purely to get past the check.
+`scripts/fix-mac-bundle-version.sh` then puts the true version back into `Info.plist` and re-signs
+the bundle — always, not only when the version changed: jpackage ad-hoc-signs the app image, and the
+plist, the notices and the AOT cache added after it are all inside what that seals, so any of them
+left unsigned makes macOS refuse to launch the app as damaged.
+
+After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
+source says it is one: the update check treats a snapshot as the release it leads up to, and never
+offers it the release it is already ahead of.
+
+The release builds run the tests (`verify`, not CI's `-DskipTests package`) — a tag is not gated on
+CI, and the `linux-arm64` and `macos-x64` runners build nowhere else — and then the same checks CI
+makes of its own artefacts: the smoke test (`scripts/smoke-test.sh`), the macOS signature, an AOT
+cache (`TERMINA_REQUIRE_AOT=1`) and the Linux package contents (`scripts/check-linux-packages.sh`).
+Any of them failing fails that target, and publishing needs every target. The publish job is the
+only one holding a write token; it attests build provenance for each installer
+(`gh attestation verify <file> --repo adriandeleon/Termina`), and the JReleaser action and the
+JReleaser it runs are pinned.
