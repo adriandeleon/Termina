@@ -939,6 +939,52 @@ public final class Settings {
         fireChange();
     }
 
+    /** Every profile id with any part of a style stored. */
+    public Set<String> profileStyleIds() {
+        Set<String> ids = new java.util.TreeSet<>();
+        for (String name : properties.stringPropertyNames()) {
+            if (!name.startsWith(PROFILE_STYLE_PREFIX)) continue;
+            int part = name.lastIndexOf('.');
+            if (part > PROFILE_STYLE_PREFIX.length()) ids.add(name.substring(PROFILE_STYLE_PREFIX.length(), part));
+        }
+        return ids;
+    }
+
+    /**
+     * Clears everything stored against a profile id that is no longer a profile — its style, the
+     * default if it named it, its hidden entry — with one save and one broadcast. The id may be given
+     * to a new profile, which would otherwise inherit all three.
+     */
+    public void forgetProfile(String profileId) {
+        if (profileId == null || profileId.isBlank()) return;
+        String id = profileId.trim();
+        boolean changed = false;
+        for (String name : properties.stringPropertyNames()) {
+            if (name.startsWith(PROFILE_STYLE_PREFIX + id + ".")
+                    && name.indexOf('.', PROFILE_STYLE_PREFIX.length() + id.length() + 1) < 0) {
+                changed |= properties.remove(name) != null;
+            }
+        }
+        if (id.equals(defaultProfileId().trim())) {
+            properties.remove(PROFILE_DEFAULT);
+            changed = true;
+        }
+        List<String> hidden = new ArrayList<>();
+        boolean wasHidden = false;
+        for (String entry : hiddenProfileIds().split(",")) {
+            String trimmed = entry.trim();
+            if (trimmed.equals(id)) wasHidden = true;
+            else if (!trimmed.isEmpty()) hidden.add(trimmed);
+        }
+        if (wasHidden) {
+            properties.setProperty(PROFILE_HIDDEN, String.join(",", hidden));
+            changed = true;
+        }
+        if (!changed) return;
+        save();
+        fireChange();
+    }
+
     private boolean setOrRemove(String key, String value) {
         String previous = properties.getProperty(key);
         if (value.isEmpty()) return properties.remove(key) != null;

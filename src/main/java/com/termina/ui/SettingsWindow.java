@@ -1760,9 +1760,8 @@ public final class SettingsWindow {
     private void removeSelectedProfile() {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
-        List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
-        user.removeIf(profile -> profile.id().equals(selected.id()));
-        profiles.setUserProfiles(user);
+        // Its style, the default and the hidden entry go with it: the next profile added may get its id.
+        profiles.removeUserProfile(selected.id());
         refreshProfileList();
     }
 

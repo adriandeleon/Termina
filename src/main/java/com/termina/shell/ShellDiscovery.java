@@ -3,7 +3,6 @@ package com.termina.shell;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -15,7 +14,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import com.termina.process.CommandOutput;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -34,7 +32,7 @@ public final class ShellDiscovery {
 
     private ShellDiscovery() {}
 
-    /** How long {@code wsl.exe --list} gets before it is abandoned. */
+    /** How long a probe ({@code reg.exe}, {@code wsl.exe}) gets before it is abandoned. */
     private static final long WSL_TIMEOUT_SECONDS = 5;
 
     /**
@@ -86,7 +84,12 @@ public final class ShellDiscovery {
                 System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
         Predicate<Path> executable = Files::isExecutable;
         if (windows) {
-            return onWindows(System::getenv, executable, ShellDiscovery::wslDistributions);
+            return onWindows(
+                    System::getenv,
+                    executable,
+                    () -> wslDistributions(ShellDiscovery::queryRegistry, ShellDiscovery::listWsl),
+                    // Windows' own name for it is localised ("Eingabeaufforderung"), so ours is too.
+                    com.termina.i18n.Messages.tr("profile.commandPrompt"));
         }
         return onUnix(System::getenv, executable, ShellDiscovery::readEtcShells, ShellDiscovery::realPath);
     }
@@ -110,6 +113,15 @@ public final class ShellDiscovery {
      */
     static List<Profile> onWindows(
             Function<String, String> env, Predicate<Path> isExecutable, Supplier<List<String>> wslDistributions) {
+        return onWindows(env, isExecutable, wslDistributions, "Command Prompt");
+    }
+
+    /** @param commandPromptName what to call {@code cmd.exe}, in the UI's language */
+    static List<Profile> onWindows(
+            Function<String, String> env,
+            Predicate<Path> isExecutable,
+            Supplier<List<String>> wslDistributions,
+            String commandPromptName) {
         List<Profile> found = new ArrayList<>();
         String systemRoot = orDefault(env.apply("SystemRoot"), "C:\\Windows");
         String programFiles = orDefault(env.apply("ProgramFiles"), "C:\\Program Files");
@@ -135,7 +147,7 @@ public final class ShellDiscovery {
         Path cmd = firstExisting(
                 isExecutable, pathOrNull(env.apply("COMSPEC")), Path.of(systemRoot, "System32", "cmd.exe"));
         if (cmd != null) {
-            found.add(Profile.of("cmd", "Command Prompt", List.of(cmd.toString()), Profile.Source.DISCOVERED));
+            found.add(Profile.of("cmd", commandPromptName, List.of(cmd.toString()), Profile.Source.DISCOVERED));
         }
 
         // --login -i, which is what Git for Windows' own shortcut passes: without the login half the
@@ -162,27 +174,111 @@ public final class ShellDiscovery {
         return List.copyOf(found);
     }
 
+    /** What a probe command printed and how it exited. */
+    record CommandResult(int exitCode, byte[] output) {}
+
+    /** Where WSL registers each distribution for the user, one subkey apiece. */
+    static final String LXSS_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss";
+
     /**
      * The installed WSL distributions, or nothing at all.
+     *
+     * <p><b>The registry first.</b> Every distribution is a subkey of {@link #LXSS_KEY} with its name
+     * in {@code DistributionName}, which is a list of names and nothing else. {@code wsl --list}
+     * answers the same question in prose: with no distributions it prints an explanation and how to
+     * install one, and each of those lines became a menu entry. It is asked only when the registry
+     * cannot be ({@code reg.exe} missing, or failing), and then only an exit code of zero is believed.
      *
      * <p>Every failure here is ordinary and none of them is worth reporting: WSL is not installed,
      * the feature is disabled, no distribution has been set up, the call hangs. All of them mean the
      * same thing to the menu — no WSL entries — and none of them should keep the rest of the list
      * from being built.
+     *
+     * @param registry {@code reg.exe query} of the key, or null when it could not be run
+     * @param wslList {@code wsl.exe --list --quiet}, or null when it could not be run
      */
-    private static List<String> wslDistributions() {
+    static List<String> wslDistributions(
+            Supplier<@Nullable CommandResult> registry, Supplier<@Nullable CommandResult> wslList) {
+        CommandResult fromRegistry = registry.get();
+        if (fromRegistry != null && fromRegistry.exitCode() == 0) {
+            return parseRegistryDistributions(fromRegistry.output());
+        }
+        CommandResult listed = wslList.get();
+        if (listed == null || listed.exitCode() != 0) return List.of();
+        return parseWslDistributions(listed.output());
+    }
+
+    private static @Nullable CommandResult queryRegistry() {
+        return run(new ProcessBuilder("reg.exe", "query", LXSS_KEY, "/s", "/v", "DistributionName"));
+    }
+
+    private static @Nullable CommandResult listWsl() {
+        return run(new ProcessBuilder("wsl.exe", "--list", "--quiet"));
+    }
+
+    /**
+     * Runs a probe to completion, or null when it cannot start or overruns.
+     *
+     * <p>Output through a file rather than a pipe, as {@link com.termina.process.CommandOutput} does and for its reason: a
+     * file cannot fill, so a chatty child cannot block before the deadline is enforced.
+     */
+    private static @Nullable CommandResult run(ProcessBuilder builder) {
+        Path output = null;
+        Process process = null;
         try {
-            // Non-zero exit codes are valid when no distributions are installed.
-            return CommandOutput.read(
-                            new ProcessBuilder("wsl.exe", "--list", "--quiet"), Duration.ofSeconds(WSL_TIMEOUT_SECONDS))
-                    .map(ShellDiscovery::parseWslDistributions)
-                    .orElse(List.of());
+            output = Files.createTempFile("termina-probe-", ".out");
+            process = builder.redirectOutput(output.toFile())
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            process.getOutputStream().close();
+            if (!process.waitFor(WSL_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) return null;
+            try (var in = Files.newInputStream(output)) {
+                return new CommandResult(process.exitValue(), in.readNBytes(1024 * 1024));
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return List.of();
+            return null;
         } catch (Exception e) {
-            return List.of();
+            return null;
+        } finally {
+            if (process != null && process.isAlive()) {
+                process.descendants().forEach(ProcessHandle::destroyForcibly);
+                process.destroyForcibly();
+            }
+            if (output != null) {
+                try {
+                    Files.deleteIfExists(output);
+                } catch (Exception ignored) {
+                    output.toFile().deleteOnExit();
+                }
+            }
         }
+    }
+
+    /**
+     * The names out of {@code reg.exe query <Lxss> /s /v DistributionName}: one
+     * {@code DistributionName    REG_SZ    Ubuntu} line per distribution, between key paths and a
+     * localised "End of search" line that are all ignored.
+     */
+    static List<String> parseRegistryDistributions(byte[] output) {
+        if (output == null || output.length == 0) return List.of();
+        List<String> distributions = new ArrayList<>();
+        for (String line : decode(output).split("\\R")) {
+            java.util.regex.Matcher m = REGISTRY_VALUE.matcher(line.replace("\u0000", ""));
+            if (!m.matches()) continue;
+            addDistribution(distributions, m.group(1));
+        }
+        return List.copyOf(distributions);
+    }
+
+    private static final java.util.regex.Pattern REGISTRY_VALUE =
+            java.util.regex.Pattern.compile("\\s+DistributionName\\s+REG_(?:EXPAND_)?SZ\\s+(.*?)\\s*");
+
+    private static void addDistribution(List<String> distributions, String raw) {
+        String name = raw.trim();
+        if (name.isEmpty()) return;
+        if (WSL_INTERNAL.contains(name.toLowerCase(Locale.ROOT))) return;
+        if (!distributions.contains(name)) distributions.add(name);
     }
 
     /**
