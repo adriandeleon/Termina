@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Makes a private repository for settings sync with the GitHub CLI, so connecting does not start with
  * a trip to the browser. Termina never sees a token: gh signs in as its own active account. Blocking;
@@ -155,7 +157,7 @@ public final class GitHubRepo {
         }
     }
 
-    private static void deleteQuietly(Path file) {
+    private static void deleteQuietly(@Nullable Path file) {
         if (file == null) return;
         try {
             Files.deleteIfExists(file);

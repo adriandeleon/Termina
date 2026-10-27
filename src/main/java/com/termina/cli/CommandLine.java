@@ -3,6 +3,8 @@ package com.termina.cli;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Termina's command line.
  *
@@ -15,7 +17,12 @@ import java.util.List;
  * is GNOME's spelling and {@code -d} the short form.
  */
 public record CommandLine(
-        boolean help, boolean version, String workingDirectory, List<String> command, String configDir, String error) {
+        boolean help,
+        boolean version,
+        String workingDirectory,
+        List<String> command,
+        String configDir,
+        @Nullable String error) {
 
     /** Parsed successfully and the application should start. */
     public boolean shouldRun() {

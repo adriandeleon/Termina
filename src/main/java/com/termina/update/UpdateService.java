@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 import javafx.application.Platform;
 
 import com.termina.AppInfo;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Asks GitHub whether there is a newer release.
@@ -28,7 +29,11 @@ public final class UpdateService {
      * What came back. {@code latest} is null unless there is something newer; {@code error} is
      * null unless the check failed, and then {@code detail} says how, for the log.
      */
-    public record Outcome(boolean available, ReleaseInfo latest, UpdateCheck.ErrorKind error, String detail) {
+    public record Outcome(
+            boolean available,
+            @Nullable ReleaseInfo latest,
+            UpdateCheck.@Nullable ErrorKind error,
+            @Nullable String detail) {
         public static Outcome none() {
             return new Outcome(false, null, null, null);
         }
@@ -59,7 +64,7 @@ public final class UpdateService {
      * One client for the life of the service. A client owns a connection pool and a selector
      * thread, and the first version built one per check and closed none of them.
      */
-    private volatile HttpClient client;
+    private volatile @Nullable HttpClient client;
 
     public UpdateService() {
         this(AppInfo.LATEST_RELEASE_API);
@@ -135,7 +140,7 @@ public final class UpdateService {
      * anything can look at its length — so a cap applied to the string only ever bounded memory
      * after the fact, and the real limit was the timeout.
      */
-    static String readCapped(InputStream in, int max) throws IOException {
+    static @Nullable String readCapped(InputStream in, int max) throws IOException {
         byte[] buffer = in.readNBytes(max + 1);
         if (buffer.length > max) return null;
         return new String(buffer, StandardCharsets.UTF_8);

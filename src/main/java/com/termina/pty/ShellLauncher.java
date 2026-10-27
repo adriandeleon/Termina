@@ -13,6 +13,7 @@ import java.util.function.Predicate;
 import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
 import com.termina.cli.Argv;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Chooses the shell to run and starts it attached to a pseudo-terminal.
@@ -109,11 +110,11 @@ public final class ShellLauncher {
         return System.getProperty("user.home");
     }
 
-    private static String findOnPath(String exe) {
+    private static @Nullable String findOnPath(String exe) {
         return findOnPath(exe, System::getenv, Files::isExecutable);
     }
 
-    private static String findOnPath(String exe, Function<String, String> env, Predicate<Path> isExecutable) {
+    private static @Nullable String findOnPath(String exe, Function<String, String> env, Predicate<Path> isExecutable) {
         String path = env.apply("PATH");
         if (path == null) return null;
         for (String dir : path.split(java.io.File.pathSeparator)) {

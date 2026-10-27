@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.termina.link.CommandPath;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Finds a program the operating system provides — {@code notify-send}, {@code gdbus}, {@code wl-paste},
@@ -24,7 +25,7 @@ final class SystemTools {
     private SystemTools() {}
 
     /** The program's absolute path, or null when it is not installed. */
-    static Path find(String program) {
+    static @Nullable Path find(String program) {
         List<Path> directories = new ArrayList<>(CommandPath.entries(System.getenv("PATH")));
         for (Path system : SYSTEM_DIRECTORIES) {
             if (!directories.contains(system)) directories.add(system);

@@ -7,6 +7,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The application icon.
  *
@@ -19,7 +21,7 @@ public final class Icons {
     /** Smallest first, which is the order every window manager expects. */
     private static final int[] SIZES = {16, 24, 32, 48, 64, 128, 256, 512};
 
-    private static List<Image> appIcons;
+    private static @Nullable List<Image> appIcons;
 
     private Icons() {}
 
@@ -34,7 +36,7 @@ public final class Icons {
         return appIcons;
     }
 
-    private static Image load(int size) {
+    private static @Nullable Image load(int size) {
         try (InputStream in = Icons.class.getResourceAsStream("/com/termina/icons/icon-" + size + ".png")) {
             // A missing icon is cosmetic; it must never stop a window from opening.
             return in == null ? null : new Image(in);
@@ -48,7 +50,7 @@ public final class Icons {
     }
 
     /** The logo at a given size, for the About window. Null when the resource is missing. */
-    public static ImageView logo(double size) {
+    public static @Nullable ImageView logo(double size) {
         Image image = load(256);
         if (image == null) return null;
         ImageView view = new ImageView(image);

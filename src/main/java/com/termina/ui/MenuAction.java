@@ -11,6 +11,8 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * One action, defined once and used twice: as a menu item and as a key binding.
  *
@@ -35,7 +37,12 @@ import javafx.scene.input.KeyCombination;
  *     another.
  */
 public record MenuAction(
-        String label, KeyCombination accelerator, Runnable action, String description, String keywords, String id) {
+        String label,
+        @Nullable KeyCombination accelerator,
+        Runnable action,
+        String description,
+        String keywords,
+        @Nullable String id) {
 
     public MenuAction {
         if (description == null) description = "";
@@ -129,7 +136,7 @@ public record MenuAction(
         return new KeyCodeCombination(key, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
     }
 
-    public static MenuAction of(String label, KeyCombination accelerator, Runnable action) {
+    public static MenuAction of(String label, @Nullable KeyCombination accelerator, Runnable action) {
         return new MenuAction(label, accelerator, action, "", "", null);
     }
 
@@ -148,8 +155,14 @@ public record MenuAction(
     }
 
     /** The same action on another chord: the one the user's key bindings give it. */
-    public MenuAction withAccelerator(KeyCombination accelerator) {
+    public MenuAction withAccelerator(@Nullable KeyCombination accelerator) {
         return new MenuAction(label, accelerator, action, description, keywords, id);
+    }
+
+    /** The id of an action that has one, as every registered binding does. */
+    String requireId() {
+        if (id == null) throw new IllegalStateException("a binding needs an id: " + label);
+        return id;
     }
 
     /** The same action, rebindable under {@code id}. */
@@ -173,7 +186,7 @@ public record MenuAction(
      * anything it cannot read. A chord that does not parse is treated like one that was never set
      * rather than like an error, because the alternative is a palette with no way in.
      */
-    public static KeyCombination parseChord(String text, KeyCombination fallback) {
+    public static @Nullable KeyCombination parseChord(@Nullable String text, @Nullable KeyCombination fallback) {
         if (text == null || text.isBlank()) return fallback;
         try {
             return KeyCombination.valueOf(text.trim());

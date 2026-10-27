@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.termina.link.CommandPath;
 import com.termina.process.CommandOutput;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Where to look for a program the user named by bare command.
@@ -28,7 +29,7 @@ final class LoginShellPath {
 
     private static final long TIMEOUT_SECONDS = 5;
 
-    private static volatile List<Path> cached;
+    private static volatile @Nullable List<Path> cached;
 
     private LoginShellPath() {}
 

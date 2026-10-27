@@ -47,6 +47,7 @@ import javafx.util.StringConverter;
 import com.termina.config.Settings;
 import com.termina.i18n.Messages;
 import com.termina.pty.ShellLauncher;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -143,11 +144,15 @@ public final class SettingsWindow {
      * @param sync the application's settings sync, or null where there is none (a test), which leaves
      *     the Sync page unable to connect
      */
+    // Every control field is assigned by build(), which makes every page — a loop over the
+    // categories and a switch to each page's builder, which NullAway cannot follow. Only the
+    // initialization check is off; reads of the fields are still checked.
+    @SuppressWarnings("NullAway.Init")
     SettingsWindow(
             Settings settings,
             com.termina.shell.ShellProfiles profiles,
             List<Keybindings.Command> keyCommands,
-            SettingsSync sync) {
+            @Nullable SettingsSync sync) {
         this.settings = settings;
         this.profiles = profiles;
         this.sync = sync;
@@ -163,7 +168,7 @@ public final class SettingsWindow {
     }
 
     private final com.termina.shell.ShellProfiles profiles;
-    private final SettingsSync sync;
+    private final @Nullable SettingsSync sync;
     private final List<Keybindings.Command> keyCommands;
     private final Map<String, KeyCombination> keyDefaults;
 
@@ -649,7 +654,7 @@ public final class SettingsWindow {
     }
 
     /** The catalogue key for a verdict worth showing, or null when the path is fine or empty. */
-    static String validationKey(ShellLauncher.PathStatus status) {
+    static @Nullable String validationKey(ShellLauncher.PathStatus status) {
         return switch (status) {
             case EMPTY, OK -> null;
             case NOT_FOUND -> "validation.notFound";
@@ -662,7 +667,7 @@ public final class SettingsWindow {
      * The number in what somebody typed into a number field — "13px", "13,5", " 14 " — or null.
      * The default spinner converter throws on all three, uncaught, on the FX thread.
      */
-    static Double lenientNumber(String text) {
+    static @Nullable Double lenientNumber(String text) {
         if (text == null) return null;
         java.util.regex.Matcher m =
                 java.util.regex.Pattern.compile("^\\s*([-+]?\\d+(?:[.,]\\d+)?)").matcher(text);
@@ -1009,7 +1014,7 @@ public final class SettingsWindow {
             }
 
             @Override
-            public Settings.CursorShape fromString(String display) {
+            public Settings.@Nullable CursorShape fromString(String display) {
                 return null;
             }
         });
@@ -1291,6 +1296,7 @@ public final class SettingsWindow {
             case NEEDS_MODIFIER -> showKeyStatus(row.status(), tr("settings.keys.needsModifier"), true);
             case OK -> {
                 KeyCombination chord = ShortcutCapture.combination(e);
+                if (chord == null) return; // decide() has ruled out the presses that name no chord
                 String id = row.command().id();
                 String holder = KeybindingEdits.conflict(effectiveKeys(), chord, id, Keybindings.MAC);
                 Object pending = field.getProperties().get(PENDING_TAKEOVER);
@@ -1319,12 +1325,13 @@ public final class SettingsWindow {
     private void resetKey(String id) {
         Map<String, String> stored = settings.keyBindings();
         String holder = KeybindingEdits.taken(keyDefaults, stored, id, Keybindings.MAC);
-        if (holder != null) {
+        KeyCombination home = keyDefaults.get(id);
+        // taken() names a holder only for a command that has a default chord to take back.
+        if (holder != null && home != null) {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.initOwner(stage);
             confirm.setTitle(tr("settings.keys.reset"));
-            confirm.setHeaderText(
-                    tr("settings.keys.resetTaken.title", keyDefaults.get(id).getDisplayText()));
+            confirm.setHeaderText(tr("settings.keys.resetTaken.title", home.getDisplayText()));
             confirm.setContentText(tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)));
             ButtonType take = new ButtonType(tr("settings.keys.reset"), ButtonBar.ButtonData.OK_DONE);
             ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
@@ -1370,7 +1377,7 @@ public final class SettingsWindow {
     }
 
     /** A refusal is red; a note about a chord that was taken is the warning colour. Hidden when null. */
-    private static void showKeyStatus(Label status, String message, boolean refusal) {
+    private static void showKeyStatus(Label status, @Nullable String message, boolean refusal) {
         status.setText(message == null ? "" : message);
         status.setStyle(refusal ? "-fx-text-fill: -color-danger-4;" : "-fx-text-fill: -color-warning-4;");
         status.setVisible(message != null);
@@ -1622,20 +1629,20 @@ public final class SettingsWindow {
     }
 
     /** The three style pickers, for a profile's style or none; the caller holds {@code loading}. */
-    private void showProfileStyle(com.termina.config.Settings.ProfileStyle style) {
+    private void showProfileStyle(com.termina.config.Settings.@Nullable ProfileStyle style) {
         String defaultLabel = tr("settings.profileStyle.default");
         profileTheme.getItems().setAll(defaultLabel);
         profileTheme.getItems().addAll(Themes.byDisplayName().keySet());
-        boolean present = style != null;
-        for (ComboBox<String> box : List.of(profileFont, profileFontSize, profileTheme)) box.setDisable(!present);
-        if (!present) {
+        for (ComboBox<String> box : List.of(profileFont, profileFontSize, profileTheme)) box.setDisable(style == null);
+        if (style == null) {
             profileFont.setValue(defaultLabel);
             profileFontSize.setValue(defaultLabel);
             profileTheme.setValue(defaultLabel);
             return;
         }
         profileFont.setValue(style.fontFamily().isEmpty() ? defaultLabel : style.fontFamily());
-        profileFontSize.setValue(style.fontSize() == null ? defaultLabel : formatSize(style.fontSize()));
+        Double size = style.fontSize();
+        profileFontSize.setValue(size == null ? defaultLabel : formatSize(size));
         ThemeEntry theme = style.themeId().isEmpty() ? null : Themes.byId(style.themeId());
         profileTheme.setValue(
                 theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
@@ -1747,7 +1754,7 @@ public final class SettingsWindow {
     }
 
     /** Rebuilds the list and the default picker, keeping the selection on {@code selectId}. */
-    private void refreshProfileList(String selectId) {
+    private void refreshProfileList(@Nullable String selectId) {
         loading = true;
         try {
             List<com.termina.shell.Profile> all = profiles.all();
@@ -1994,7 +2001,7 @@ public final class SettingsWindow {
         what.getChildren().add(notSynced);
     }
 
-    private void showSyncFieldError(String text) {
+    private void showSyncFieldError(@Nullable String text) {
         syncFieldError.setText(text == null ? "" : text);
         syncFieldError.setVisible(text != null);
         syncFieldError.setManaged(text != null);
@@ -2070,7 +2077,7 @@ public final class SettingsWindow {
     static final String DEFAULT_SYNC_REPOSITORY_NAME = "termina-sync";
 
     /** The catalogue key for what stops these fields connecting, or null when they can. */
-    static String syncFieldProblem(String url, String branch) {
+    static @Nullable String syncFieldProblem(String url, String branch) {
         if (!com.termina.sync.SyncEngine.isUsableUrl(url)) return "settings.sync.repository.invalid";
         if (com.termina.sync.SyncEngine.hasCredentials(url)) return "settings.sync.repository.credentials";
         if (!com.termina.sync.SyncEngine.isUsableBranch(branch)) return "settings.sync.branch.invalid";

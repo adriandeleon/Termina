@@ -23,6 +23,7 @@ import com.termina.theme.ColorScheme;
 import com.termina.theme.ThemeFile;
 import com.termina.theme.ThemeImport;
 import com.termina.theme.ThemeImportException;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Every theme there is to choose from: the four built in, then the ones imported from other
@@ -45,7 +46,7 @@ public final class Themes {
 
     private static final ThemeEntry FALLBACK = ThemeEntry.of(Theme.EDITORA_DARK);
 
-    private static volatile Path directory;
+    private static volatile @Nullable Path directory;
     private static volatile List<ThemeEntry> imported = List.of();
 
     private Themes() {}

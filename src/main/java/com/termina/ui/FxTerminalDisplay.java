@@ -15,6 +15,7 @@ import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
 import com.termina.AppInfo;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The emulator's view of the display: JediTerm calls into this whenever an escape sequence changes
@@ -36,7 +37,7 @@ public final class FxTerminalDisplay implements TerminalDisplay {
      * Null until a program requests a shape (DECSCUSR). Null is meaningful: it is what lets the
      * user's preference apply, while still yielding to a program that has an opinion.
      */
-    private volatile CursorShape cursorShape;
+    private volatile @Nullable CursorShape cursorShape;
 
     private volatile boolean alternateScreen;
     private volatile MouseMode mouseMode = MouseMode.MOUSE_REPORTING_NONE;
@@ -117,7 +118,7 @@ public final class FxTerminalDisplay implements TerminalDisplay {
      * shape rather than 0, and {@code reset} is covered.
      */
     @Override
-    public void setCursorShape(CursorShape shape) {
+    public void setCursorShape(@Nullable CursorShape shape) {
         cursorShape = shape;
         onRepaint.run();
     }
@@ -312,7 +313,7 @@ public final class FxTerminalDisplay implements TerminalDisplay {
     }
 
     /** The shape a program requested, or null if none has. */
-    public CursorShape getCursorShape() {
+    public @Nullable CursorShape getCursorShape() {
         return cursorShape;
     }
 

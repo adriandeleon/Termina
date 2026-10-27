@@ -9,6 +9,8 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A key press as a chord token — {@code C-n}, {@code M-x}, {@code C-S-/}, {@code pagedown} — the
  * vocabulary the palette's key tables are written in.
@@ -27,13 +29,13 @@ final class KeyChord {
     private KeyChord() {}
 
     /** The token for a key event, or null for a modifier pressed on its own. */
-    static String of(KeyEvent event) {
+    static @Nullable String of(KeyEvent event) {
         return token(
                 event.getCode(), event.isControlDown(), event.isAltDown(), event.isMetaDown(), event.isShiftDown());
     }
 
     /** The token for a key with these modifiers held, or null for a modifier or an unknown key. Pure. */
-    static String token(KeyCode code, boolean control, boolean alt, boolean meta, boolean shift) {
+    static @Nullable String token(KeyCode code, boolean control, boolean alt, boolean meta, boolean shift) {
         if (code == null || code == KeyCode.UNDEFINED || code.isModifierKey()) return null;
         StringBuilder sb = new StringBuilder();
         if (control) sb.append("C-");
@@ -98,7 +100,7 @@ final class KeyChord {
      * The {@link KeyCombination} a token names, or null for one this class did not produce. The
      * way a token becomes something JavaFX can display and match.
      */
-    static KeyCombination toCombination(String token) {
+    static @Nullable KeyCombination toCombination(String token) {
         if (token == null || token.isEmpty()) return null;
         java.util.List<KeyCombination.Modifier> modifiers = new java.util.ArrayList<>();
         String rest = token;

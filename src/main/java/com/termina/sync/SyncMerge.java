@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Three-way merge of one synced file: what this computer last synced ({@code base}), what it holds now
  * ({@code mine}) and what the repository holds ({@code theirs}). Pure.
@@ -31,7 +33,7 @@ public final class SyncMerge {
      */
     public record FileResult(
             String path,
-            String text,
+            @Nullable String text,
             Map<String, String> merged,
             List<String> received,
             List<String> sent,
@@ -40,11 +42,11 @@ public final class SyncMerge {
             int theirEntries) {}
 
     /** {@code raw} as the repository stores it, so the same bindings are the same bytes everywhere. */
-    public static String normalize(String path, String raw) {
+    public static @Nullable String normalize(String path, @Nullable String raw) {
         return raw == null ? null : KeybindingsFile.text(path, KeybindingsFile.entries(raw));
     }
 
-    public static FileResult merge(String path, String base, String mine, String theirs) {
+    public static FileResult merge(String path, @Nullable String base, @Nullable String mine, @Nullable String theirs) {
         Map<String, String> b = KeybindingsFile.entries(base);
         Map<String, String> m = KeybindingsFile.entries(mine);
         Map<String, String> t = KeybindingsFile.entries(theirs);

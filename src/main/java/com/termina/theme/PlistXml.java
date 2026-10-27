@@ -10,6 +10,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
@@ -91,7 +92,7 @@ final class PlistXml {
         return out;
     }
 
-    private static Element firstElement(Element parent) {
+    private static @Nullable Element firstElement(Element parent) {
         for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
             if (node instanceof Element element) return element;
         }

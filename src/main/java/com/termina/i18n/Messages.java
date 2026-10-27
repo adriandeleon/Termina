@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The UI string catalog.
  *
@@ -81,7 +83,7 @@ public final class Messages {
     }
 
     /** The localized string for {@code key} with {@link MessageFormat} arguments. */
-    public static String tr(String key, Object... args) {
+    public static String tr(String key, @Nullable Object... args) {
         String pattern = tr(key);
         if (args == null || args.length == 0) {
             return pattern;

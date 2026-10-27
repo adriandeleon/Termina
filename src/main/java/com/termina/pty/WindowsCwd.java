@@ -9,6 +9,8 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
+import org.jspecify.annotations.NullUnmarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Windows process's current directory, read out of its own memory — what Windows offers instead
@@ -48,7 +50,7 @@ final class WindowsCwd {
 
     /** Another process's memory, as a reader of it sees it: null where it cannot be read. */
     interface AddressSpace {
-        byte[] read(long address, int length);
+        byte @Nullable [] read(long address, int length);
     }
 
     /** The current directory, given where the process's PEB is and a way to read its memory. */
@@ -75,7 +77,7 @@ final class WindowsCwd {
         return path;
     }
 
-    private static Long pointer(AddressSpace memory, long address) {
+    private static @Nullable Long pointer(AddressSpace memory, long address) {
         byte[] bytes = memory.read(address, 8);
         return bytes == null
                 ? null
@@ -93,6 +95,7 @@ final class WindowsCwd {
     private static final int BASIC_INFORMATION_PEB = 8;
 
     /** Loaded lazily, as {@code ProcessCwd}'s libproc is, so nothing here runs off Windows. */
+    @NullUnmarked // a native binding follows the C API's nullness
     private interface Kernel32 extends Library {
         Kernel32 INSTANCE = Native.load("kernel32", Kernel32.class);
 
@@ -105,6 +108,7 @@ final class WindowsCwd {
         boolean CloseHandle(Pointer handle);
     }
 
+    @NullUnmarked // a native binding follows the C API's nullness
     private interface NtDll extends Library {
         NtDll INSTANCE = Native.load("ntdll", NtDll.class);
 
@@ -133,7 +137,7 @@ final class WindowsCwd {
         }
     }
 
-    private static byte[] readRemote(Pointer process, long address, int length) {
+    private static byte @Nullable [] readRemote(Pointer process, long address, int length) {
         try (com.sun.jna.Memory buffer = new com.sun.jna.Memory(length)) {
             if (!Kernel32.INSTANCE.ReadProcessMemory(process, new Pointer(address), buffer, length, null)) return null;
             return buffer.getByteArray(0, length);

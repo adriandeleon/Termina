@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Windows Terminal colour schemes: one scheme object, as the schemes gallery and
@@ -61,21 +62,21 @@ final class WindowsTerminalSchemes {
                 optional(scheme.get("selectionBackground")));
     }
 
-    private static int required(Map<?, ?> scheme, String key, String alias) throws ThemeImportException {
+    private static int required(Map<?, ?> scheme, String key, @Nullable String alias) throws ThemeImportException {
         Object value = scheme.containsKey(key) || alias == null ? scheme.get(key) : scheme.get(alias);
         Integer colour = optional(value);
         if (colour == null) throw new ThemeImportException("a scheme with no \"" + key + "\" colour");
         return colour;
     }
 
-    private static Integer optional(Object value) throws ThemeImportException {
+    private static @Nullable Integer optional(@Nullable Object value) throws ThemeImportException {
         if (value == null) return null;
         if (!(value instanceof String text)) throw new ThemeImportException("a colour that is not a string");
         return TextSchemes.hexColour(text);
     }
 
     /** The document as maps, lists and scalars. */
-    private static Object parse(byte[] file) throws ThemeImportException {
+    private static @Nullable Object parse(byte[] file) throws ThemeImportException {
         JsonFactory factory = JsonFactory.builder()
                 .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS)
                 .enable(JsonReadFeature.ALLOW_TRAILING_COMMA)
@@ -91,7 +92,7 @@ final class WindowsTerminalSchemes {
         }
     }
 
-    private static Object value(JsonParser parser, JsonToken token, int depth) throws Exception {
+    private static @Nullable Object value(JsonParser parser, JsonToken token, int depth) throws Exception {
         if (depth > 64) throw new ThemeImportException("JSON nested too deeply");
         switch (token) {
             case START_OBJECT -> {

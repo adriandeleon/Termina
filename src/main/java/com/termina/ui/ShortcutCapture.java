@@ -5,6 +5,8 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * What a key pressed into the settings window's chord-recording field becomes.
  *
@@ -36,12 +38,13 @@ final class ShortcutCapture {
     }
 
     /** The chord a press names, with exactly the modifiers held; null for a press that is not one. */
-    static KeyCombination combination(KeyEvent e) {
+    static @Nullable KeyCombination combination(KeyEvent e) {
         return combination(e.getCode(), e.isControlDown(), e.isAltDown(), e.isMetaDown(), e.isShiftDown());
     }
 
     /** Pure form of {@link #combination(KeyEvent)}. */
-    static KeyCombination combination(KeyCode code, boolean control, boolean alt, boolean meta, boolean shift) {
+    static @Nullable KeyCombination combination(
+            KeyCode code, boolean control, boolean alt, boolean meta, boolean shift) {
         if (decide(code, control, alt, meta) != Verdict.OK) return null;
         return Keybindings.of(code, control, alt, meta, shift);
     }

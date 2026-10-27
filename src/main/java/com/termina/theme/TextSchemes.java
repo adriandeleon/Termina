@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The three plain-text formats: Ghostty's ({@code palette = 0=#1d1f21}), kitty's ({@code color0
  * #1d1f21}) and Alacritty's TOML ({@code [colors.normal] black = "#1d1f21"}). iTerm2-Color-Schemes
@@ -27,7 +29,7 @@ final class TextSchemes {
     private TextSchemes() {}
 
     /** Which of the three a file is, from its text: an Alacritty table, a Ghostty palette line, a kitty colour line. */
-    static Format sniff(String text) {
+    static @Nullable Format sniff(String text) {
         boolean ghostty = false;
         boolean kitty = false;
         for (String raw : text.split("\\R")) {
@@ -50,7 +52,7 @@ final class TextSchemes {
     }
 
     private static ColorScheme ghostty(String text, String name) throws ThemeImportException {
-        Integer[] ansi = new Integer[16];
+        @Nullable Integer[] ansi = new Integer[16];
         Map<String, Integer> named = new HashMap<>();
         for (String raw : text.split("\\R")) {
             String line = raw.strip();
@@ -79,7 +81,7 @@ final class TextSchemes {
     }
 
     private static ColorScheme kitty(String text, String name) throws ThemeImportException {
-        Integer[] ansi = new Integer[16];
+        @Nullable Integer[] ansi = new Integer[16];
         Map<String, Integer> named = new HashMap<>();
         for (String raw : text.split("\\R")) {
             String line = raw.strip();
@@ -104,7 +106,7 @@ final class TextSchemes {
     }
 
     private static ColorScheme alacritty(String text, String name) throws ThemeImportException {
-        Integer[] ansi = new Integer[16];
+        @Nullable Integer[] ansi = new Integer[16];
         Map<String, Integer> values = new HashMap<>();
         String table = "";
         for (String raw : text.split("\\R")) {
@@ -135,7 +137,12 @@ final class TextSchemes {
     }
 
     private static ColorScheme scheme(
-            String name, Integer[] ansi, Integer background, Integer foreground, Integer cursor, Integer selection)
+            String name,
+            @Nullable Integer[] ansi,
+            @Nullable Integer background,
+            @Nullable Integer foreground,
+            @Nullable Integer cursor,
+            @Nullable Integer selection)
             throws ThemeImportException {
         int[] colours = new int[16];
         for (int i = 0; i < 16; i++) {
@@ -192,7 +199,7 @@ final class TextSchemes {
      * As {@link #hexColour(String)}, or null for a value that is not a colour when {@code lenient} —
      * a key in a configuration file that happens to hold something else.
      */
-    static Integer hexColour(String text, boolean lenient) throws ThemeImportException {
+    static @Nullable Integer hexColour(String text, boolean lenient) throws ThemeImportException {
         String hex = text.strip();
         if (hex.startsWith("#")) hex = hex.substring(1);
         else if (hex.startsWith("0x") || hex.startsWith("0X")) hex = hex.substring(2);

@@ -24,6 +24,7 @@ import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.ui.TerminalView;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Development-only screen capture, driven entirely by system properties so it costs nothing when
@@ -79,7 +80,7 @@ final class DevCapture {
         schedule(windows, firstWindow, null);
     }
 
-    static void schedule(WindowManager windows, TerminalWindow window, com.termina.config.Settings settings) {
+    static void schedule(WindowManager windows, TerminalWindow window, com.termina.config.@Nullable Settings settings) {
         String target = System.getProperty(CAPTURE_PROPERTY);
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
@@ -520,7 +521,7 @@ final class DevCapture {
      * rendered, a pseudo-terminal was allocated, a shell ran, and the emulator parsed what it wrote.
      * A screenshot proves only that a window appeared.
      */
-    private static void printScreenTextIfRequested(TerminalView terminal) {
+    private static void printScreenTextIfRequested(@Nullable TerminalView terminal) {
         if (System.getProperty("termina.captureScreenText") == null || terminal == null) return;
         System.out.println("[capture] screen<<<");
         System.out.println(screenText(terminal).stripTrailing());
@@ -731,7 +732,9 @@ final class DevCapture {
         window.reopenClosedTab();
         System.out.println("[capture] reopen: closed=" + closed + " tabs " + before + " -> "
                 + window.tabTitles().size() + " selected="
-                + window.selectedTerminal().getDisplay().getCwd());
+                + (window.selectedTerminal() == null
+                        ? "none"
+                        : window.selectedTerminal().getDisplay().getCwd()));
     }
 
     /** {@code -Dtermina.captureBellIn=N} rings the bell in tab N, to check the mark on its header. */
@@ -821,7 +824,8 @@ final class DevCapture {
         String[] points = spec.split(";");
         boolean alt = Boolean.getBoolean("termina.captureDragAlt");
         long holdMs = Long.getLong("termina.captureDragHoldMs", 0L);
-        double[] last = null;
+        // The split of a non-blank spec has at least one point, so this is always overwritten.
+        double[] last = {0, 0};
         for (int i = 0; i < points.length; i++) {
             String[] xy = points[i].split(",");
             double x = Double.parseDouble(xy[0].trim());
@@ -869,7 +873,7 @@ final class DevCapture {
      * The scene to photograph: the window's own, unless asked for the context menu, which lives in
      * a scene of its own.
      */
-    private static Scene sceneToCapture(WindowManager windows, TerminalWindow window, TerminalView terminal) {
+    private static Scene sceneToCapture(WindowManager windows, TerminalWindow window, @Nullable TerminalView terminal) {
         Scene fallback = window.stage().getScene();
         if (System.getProperty("termina.captureSettings") != null) {
             Scene settings =
@@ -924,7 +928,8 @@ final class DevCapture {
      * item does anything: every one of them delegates to a callback the owning window has to wire,
      * and an unwired one renders identically to a working one and fails silently on click.
      */
-    private static void fireMenuItemIfRequested(TerminalView terminal, com.termina.config.Settings settings) {
+    private static void fireMenuItemIfRequested(
+            @Nullable TerminalView terminal, com.termina.config.@Nullable Settings settings) {
         String label = System.getProperty("termina.captureMenuItem");
         if (label == null || label.isBlank() || terminal == null) return;
         String before = settingsDigest(settings);
@@ -934,7 +939,7 @@ final class DevCapture {
                 + " menuStillOpen=" + terminal.isContextMenuShowing());
     }
 
-    private static String settingsDigest(com.termina.config.Settings settings) {
+    private static String settingsDigest(com.termina.config.@Nullable Settings settings) {
         if (settings == null) return "?";
         return "fontSize=" + settings.fontSize() + " showMenuBar=" + settings.showMenuBar();
     }
@@ -1070,7 +1075,7 @@ final class DevCapture {
      * — which is exactly the bug that shipped. Firing at the focus owner is the only route that
      * exercises what a keyboard does.
      */
-    private static void typeAtFocusIfRequested(TerminalWindow window, TerminalView terminal) {
+    private static void typeAtFocusIfRequested(TerminalWindow window, @Nullable TerminalView terminal) {
         String text = System.getProperty("termina.captureTypeAtFocus");
         if (text == null || text.isEmpty() || terminal == null) return;
         Scene scene = window.stage().getScene();
@@ -1097,7 +1102,7 @@ final class DevCapture {
     }
 
     /** Whether text typed at the focus owner actually made it onto the emulated screen. */
-    private static void reportTypedEcho(TerminalView terminal) {
+    private static void reportTypedEcho(@Nullable TerminalView terminal) {
         String text = System.getProperty("termina.captureTypeAtFocus");
         if (text == null || text.isEmpty() || terminal == null) return;
         var buffer = terminal.getSession().getTextBuffer();

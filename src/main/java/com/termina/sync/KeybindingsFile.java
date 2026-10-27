@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The user's key bindings as the sync repository holds them: one {@code command=chord} line per
  * changed command, sorted, in the same {@code KeyCombination} notation as the {@code keys.*} block of
@@ -43,7 +45,7 @@ public final class KeybindingsFile {
      * The file for {@code bindings} (command id to chord), or null when there are none: no file means
      * "every command on its default", and an empty file would say the same thing in more bytes.
      */
-    public static String text(String path, Map<String, String> bindings) {
+    public static @Nullable String text(String path, @Nullable Map<String, String> bindings) {
         Map<String, String> sorted = new TreeMap<>();
         if (bindings != null) {
             bindings.forEach((id, chord) -> {
@@ -66,7 +68,7 @@ public final class KeybindingsFile {
      * that is a comment, blank, or not {@code id=chord} is passed over rather than failing the file,
      * because the repository is meant to be editable by hand.
      */
-    public static Map<String, String> entries(String text) {
+    public static Map<String, String> entries(@Nullable String text) {
         Map<String, String> out = new LinkedHashMap<>();
         if (text == null) return out;
         String body = !text.isEmpty() && text.charAt(0) == '﻿' ? text.substring(1) : text;

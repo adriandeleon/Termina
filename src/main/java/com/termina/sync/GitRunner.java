@@ -13,6 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Runs git in the sync clone, a repository Termina owns and nothing else reads. Blocking; the caller
  * picks the thread.
@@ -111,14 +113,14 @@ public final class GitRunner {
                     && (text.contains("(non-fast-forward)") || text.contains("(fetch first)"));
         }
 
-        static Result failed(String why) {
+        static Result failed(@Nullable String why) {
             return new Result(-1, "", why == null ? "" : why, false);
         }
     }
 
     /** Stops the command in flight. Any thread. */
     public static final class Cancellation {
-        private Process process;
+        private @Nullable Process process;
         private boolean cancelled;
 
         public synchronized void cancel() {
@@ -201,7 +203,7 @@ public final class GitRunner {
     }
 
     /** As {@link #network(String...)}, stopped (its process tree terminated) by {@code cancel}. */
-    public Result network(Cancellation cancel, String... args) {
+    public Result network(@Nullable Cancellation cancel, String... args) {
         return execute(dir, NETWORK, argv(interactive, args), cancel);
     }
 
@@ -251,11 +253,11 @@ public final class GitRunner {
         return Collections.unmodifiableMap(env);
     }
 
-    private static boolean notBlank(String value) {
+    private static boolean notBlank(@Nullable String value) {
         return value != null && !value.isBlank();
     }
 
-    private Result execute(Path workDir, Duration timeout, List<String> argv, Cancellation cancel) {
+    private Result execute(@Nullable Path workDir, Duration timeout, List<String> argv, @Nullable Cancellation cancel) {
         Path out = null;
         Path err = null;
         Process process = null;
@@ -308,7 +310,7 @@ public final class GitRunner {
         }
     }
 
-    private static void deleteQuietly(Path file) {
+    private static void deleteQuietly(@Nullable Path file) {
         if (file == null) return;
         try {
             Files.deleteIfExists(file);

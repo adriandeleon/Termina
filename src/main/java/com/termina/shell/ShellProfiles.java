@@ -12,6 +12,7 @@ import java.util.Set;
 import com.termina.cli.Argv;
 import com.termina.config.Settings;
 import com.termina.pty.ShellLauncher;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The profiles a window can open a tab as: the system shell, whatever is installed, and whatever
@@ -42,7 +43,7 @@ public final class ShellProfiles {
 
     private volatile boolean discoveryFinished;
 
-    private final List<java.util.function.Consumer<Profile>> pendingDefaults = new ArrayList<>();
+    private final List<java.util.function.Consumer<@Nullable Profile>> pendingDefaults = new ArrayList<>();
 
     private ProfileConsumer onDiscovered = profiles -> {};
 
@@ -83,7 +84,7 @@ public final class ShellProfiles {
                     dispatch.accept(() -> {
                         discovered = result;
                         discoveryFinished = true;
-                        List<java.util.function.Consumer<Profile>> waiting = List.copyOf(pendingDefaults);
+                        List<java.util.function.Consumer<@Nullable Profile>> waiting = List.copyOf(pendingDefaults);
                         pendingDefaults.clear();
                         for (var callback : waiting) callback.accept(defaultProfile());
                         onDiscovered.accept(all());
@@ -95,7 +96,7 @@ public final class ShellProfiles {
     }
 
     /** Called on the toolkit thread; waits only when the requested default still needs discovery. */
-    public void whenDefaultReady(java.util.function.Consumer<Profile> callback) {
+    public void whenDefaultReady(java.util.function.Consumer<@Nullable Profile> callback) {
         String id = settings.defaultProfileId();
         if (!discoveryFinished && !id.isBlank() && byId(id) == null) {
             pendingDefaults.add(callback);
@@ -147,7 +148,11 @@ public final class ShellProfiles {
      * both point at, and two profiles answering to one id makes which of them opens a question of
      * list order.
      */
-    static List<Profile> merge(Profile system, List<Profile> discovered, List<Profile> user, Set<String> hidden) {
+    static List<Profile> merge(
+            @Nullable Profile system,
+            @Nullable List<Profile> discovered,
+            @Nullable List<Profile> user,
+            Set<String> hidden) {
         Map<String, Profile> byId = new LinkedHashMap<>();
         // The system profile is never hidden: it is the one entry guaranteed to start something,
         // and a settings file that hid it would leave a window with no way to open a tab.
@@ -168,12 +173,12 @@ public final class ShellProfiles {
         return List.copyOf(byId.values());
     }
 
-    private static List<Profile> nullSafe(List<Profile> profiles) {
+    private static List<Profile> nullSafe(@Nullable List<Profile> profiles) {
         return profiles == null ? List.of() : profiles;
     }
 
-    /** The profile a plain New Tab opens. */
-    public Profile defaultProfile() {
+    /** The profile a plain New Tab opens, or null when no profile can start anything. */
+    public @Nullable Profile defaultProfile() {
         return resolveDefault(all(), settings.defaultProfileId());
     }
 
@@ -184,7 +189,7 @@ public final class ShellProfiles {
      * uninstalled, a WSL distribution that has been unregistered, or a profile deleted by hand. In
      * every one of those the right answer is to open a terminal anyway.
      */
-    static Profile resolveDefault(List<Profile> all, String defaultId) {
+    static @Nullable Profile resolveDefault(@Nullable List<Profile> all, @Nullable String defaultId) {
         if (all == null || all.isEmpty()) return null;
         if (defaultId != null && !defaultId.isBlank()) {
             for (Profile profile : all) {
@@ -194,7 +199,7 @@ public final class ShellProfiles {
         return all.get(0);
     }
 
-    public Profile byId(String id) {
+    public @Nullable Profile byId(String id) {
         for (Profile profile : all()) {
             if (profile.id().equals(id)) return profile;
         }

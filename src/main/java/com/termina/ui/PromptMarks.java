@@ -6,6 +6,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.function.Function;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The commands a shell has described with OSC 133: where each prompt began, where its output began
  * and ended, and how it exited.
@@ -34,7 +36,11 @@ final class PromptMarks {
      * One command. Everything but the prompt arrives later, and stays null when the shell never
      * says — a prompt that was abandoned with Ctrl+C has no output and no end.
      */
-    record Command(Pos prompt, Pos output, Pos end, Integer exitCode) {
+    record Command(
+            Pos prompt,
+            @Nullable Pos output,
+            @Nullable Pos end,
+            @Nullable Integer exitCode) {
 
         boolean finished() {
             return end != null;
@@ -66,7 +72,7 @@ final class PromptMarks {
     }
 
     /** The end of the command most recently started; a second report for it is ignored. */
-    synchronized void finished(Pos at, Integer exitCode) {
+    synchronized void finished(Pos at, @Nullable Integer exitCode) {
         Command last = commands.peekLast();
         if (last == null || last.finished()) return;
         replaceLast(new Command(last.prompt(), last.output(), at, exitCode));
@@ -99,7 +105,7 @@ final class PromptMarks {
      * dropped; a later part that does not map is forgotten, which leaves the command looking
      * unfinished rather than pointing at some other command's text.
      */
-    synchronized void remap(Function<Pos, Pos> move) {
+    synchronized void remap(Function<Pos, @Nullable Pos> move) {
         List<Command> moved = new ArrayList<>(commands.size());
         for (Command command : commands) {
             Pos prompt = move.apply(command.prompt());
@@ -117,7 +123,7 @@ final class PromptMarks {
      * null when there is none. Above, strictly — the one at the top of the view is where the last
      * jump landed, and stopping on it again would be a jump that does nothing.
      */
-    static Command previous(List<Command> commands, long top) {
+    static @Nullable Command previous(List<Command> commands, long top) {
         Command found = null;
         for (Command command : commands) {
             if (command.prompt().line() < top) found = command;
@@ -126,7 +132,7 @@ final class PromptMarks {
     }
 
     /** The nearest prompt below the top of the view, or null. */
-    static Command next(List<Command> commands, long top) {
+    static @Nullable Command next(List<Command> commands, long top) {
         for (Command command : commands) {
             if (command.prompt().line() > top) return command;
         }
@@ -134,7 +140,7 @@ final class PromptMarks {
     }
 
     /** The most recent command that has both started and finished its output, or null. */
-    static Command lastWithOutput(List<Command> commands) {
+    static @Nullable Command lastWithOutput(List<Command> commands) {
         for (int i = commands.size() - 1; i >= 0; i--) {
             Command command = commands.get(i);
             if (command.output() != null && command.finished()) return command;

@@ -6,6 +6,8 @@ import java.util.Map;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Turns JavaFX key events into the bytes a terminal expects.
  *
@@ -84,7 +86,7 @@ public final class KeyEncoding {
      * @param altIsMeta whether Alt/Option prefixes ESC (readline's M-b, M-f) instead of composing a
      *     character. On macOS this is the difference between {@code M-b} and typing {@code ∫}.
      */
-    public static byte[] encodePressed(KeyEvent e, CodeLookup lookup, boolean altIsMeta) {
+    public static byte @Nullable [] encodePressed(KeyEvent e, CodeLookup lookup, boolean altIsMeta) {
         KeyCode code = e.getCode();
 
         Integer vk = VK.get(code);
@@ -148,7 +150,7 @@ public final class KeyEncoding {
      * compose, and falls back to the key's character when that text is something the OS invented —
      * {@code ƒ} for Option+F, which is not what {@code M-f} means.
      */
-    static byte[] metaBase(KeyEvent e) {
+    static byte @Nullable [] metaBase(KeyEvent e) {
         char c = plainAscii(e.getText());
         if (c == 0) c = plainAscii(e.getCode().getChar());
         if (c == 0) return null;
@@ -189,7 +191,7 @@ public final class KeyEncoding {
      * Encodes a KEY_TYPED event — a real character the user produced. Returns {@code null} when the
      * event carries nothing to send.
      */
-    public static byte[] encodeTyped(KeyEvent e, boolean altIsMeta) {
+    public static byte @Nullable [] encodeTyped(KeyEvent e, boolean altIsMeta) {
         String text = e.getCharacter();
         if (text == null || text.isEmpty() || text.equals(KeyEvent.CHAR_UNDEFINED)) return null;
 
@@ -291,7 +293,7 @@ public final class KeyEncoding {
      * <p>Shift+Tab is {@code ESC [ Z} (CBT), which is what xterm sends and what readline and every
      * TUI expect for a backwards field move.
      */
-    static byte[] literalFallback(KeyCode code, KeyEvent e) {
+    static byte @Nullable [] literalFallback(KeyCode code, KeyEvent e) {
         return switch (code) {
             case TAB -> e.isShiftDown() ? new byte[] {ESC, '[', 'Z'} : new byte[] {0x09};
             case ESCAPE -> new byte[] {ESC};
@@ -304,7 +306,7 @@ public final class KeyEncoding {
     }
 
     /** The C0 control byte for Ctrl+<key>, or null if the key has no control form. */
-    static byte[] controlByte(KeyCode code) {
+    static byte @Nullable [] controlByte(KeyCode code) {
         if (code.isLetterKey()) {
             // Ctrl+A..Ctrl+Z -> 0x01..0x1a
             char letter = code.getChar().toUpperCase(java.util.Locale.ROOT).charAt(0);

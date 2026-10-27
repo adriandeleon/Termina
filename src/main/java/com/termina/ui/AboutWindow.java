@@ -18,6 +18,7 @@ import javafx.stage.Window;
 import com.termina.AppInfo;
 import com.termina.config.Settings;
 import com.termina.update.ReleaseInfo;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -29,7 +30,7 @@ public final class AboutWindow {
     private final Consumer<String> openLink;
     private final Settings settings;
 
-    private ReleaseInfo update;
+    private @Nullable ReleaseInfo update;
 
     public AboutWindow(Settings settings, Consumer<String> openLink) {
         this.settings = settings;
@@ -38,7 +39,7 @@ public final class AboutWindow {
     }
 
     /** @param update the newer release, or null when there is none */
-    public void setUpdate(ReleaseInfo update) {
+    public void setUpdate(@Nullable ReleaseInfo update) {
         this.update = update;
         refreshUpdateRow();
     }
@@ -131,6 +132,7 @@ public final class AboutWindow {
 
     private void refreshUpdateRow() {
         updateRow.getChildren().clear();
+        ReleaseInfo update = this.update;
         if (update == null) {
             Label upToDate = new Label(tr("about.upToDate"));
             upToDate.getStyleClass().add("about-uptodate");
@@ -157,7 +159,7 @@ public final class AboutWindow {
     }
 
     /** The last check as a local date and time in the UI's locale, or null when there was none. */
-    static String lastChecked(long epochMs) {
+    static @Nullable String lastChecked(long epochMs) {
         if (epochMs <= 0) return null;
         try {
             return java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM)

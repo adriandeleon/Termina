@@ -8,6 +8,8 @@ import java.util.Set;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The monospace faces installed on this machine.
  *
@@ -51,10 +53,10 @@ public final class MonospaceFonts {
         return List.copyOf(all);
     }
 
-    private static List<String> cached;
+    private static @Nullable List<String> cached;
 
     /** Installed family names, which {@link #resolve} needs and the full scan also starts from. */
-    private static Set<String> installed;
+    private static @Nullable Set<String> installed;
 
     /** Families already measured, so resolving the same stored preference per tab is free. */
     private static final java.util.Map<String, Boolean> MEASURED = new java.util.HashMap<>();

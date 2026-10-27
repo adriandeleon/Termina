@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import com.termina.process.RunningProgram;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Watches one process's working directory, and what it is running, and reports each when it
@@ -45,10 +46,10 @@ public final class CwdWatcher implements AutoCloseable {
     }
 
     private final ScheduledFuture<?> task;
-    private volatile String last;
-    private volatile String lastProgram;
+    private volatile @Nullable String last;
+    private volatile @Nullable String lastProgram;
 
-    private CwdWatcher(long pid, Consumer<String> onChange, Consumer<String> onProgramChange) {
+    private CwdWatcher(long pid, Consumer<String> onChange, @Nullable Consumer<String> onProgramChange) {
         task = Pool.INSTANCE.scheduleWithFixedDelay(
                 () -> poll(pid, onChange, onProgramChange), 0, INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
@@ -75,7 +76,7 @@ public final class CwdWatcher implements AutoCloseable {
         return new CwdWatcher(pid, onChange, onProgramChange);
     }
 
-    private void poll(long pid, Consumer<String> onChange, Consumer<String> onProgramChange) {
+    private void poll(long pid, Consumer<String> onChange, @Nullable Consumer<String> onProgramChange) {
         try {
             if (ProcessCwd.isSupported()) pollCwd(pid, onChange);
             if (onProgramChange != null) pollProgram(pid, onProgramChange);

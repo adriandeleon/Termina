@@ -49,6 +49,7 @@ import com.termina.sync.SyncAccount;
 import com.termina.sync.SyncEngine;
 import com.termina.sync.SyncReport;
 import com.termina.sync.SyncTarget;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -87,7 +88,10 @@ final class SettingsSync {
     }
 
     /** @param report the last finished run, or null; {@code at} is when it finished */
-    record State(Phase phase, SyncReport report, LocalTime at) {}
+    record State(
+            Phase phase,
+            @Nullable SyncReport report,
+            @Nullable LocalTime at) {}
 
     private final Settings settings;
     private final boolean mac;
@@ -102,7 +106,7 @@ final class SettingsSync {
     private final PauseTransition dirty = new PauseTransition(Duration.seconds(DIRTY_DELAY_SECONDS));
     private final PauseTransition startup = new PauseTransition(Duration.seconds(STARTUP_DELAY_SECONDS));
     private final List<Runnable> listeners = new ArrayList<>();
-    private Timeline timer;
+    private @Nullable Timeline timer;
     private int timerMinutes;
 
     private State state = new State(Phase.OFF, null, null);
@@ -113,9 +117,9 @@ final class SettingsSync {
 
     private boolean startupDone;
     /** The run under way, for {@link #cancel()}; null between runs. Written on the worker. */
-    private volatile SyncEngine runningEngine;
+    private volatile @Nullable SyncEngine runningEngine;
     /** Who asked for the run under way from a menu, and hears how it went; null when nobody is waiting. */
-    private Consumer<String> waiting;
+    private @Nullable Consumer<String> waiting;
     /** How {@link #waiting} names a command in a conflict. */
     private Function<String, String> waitingLabels = id -> id;
     /** Cancel was asked before the run's engine existed, while the sign-in account was being chosen. */
@@ -131,12 +135,12 @@ final class SettingsSync {
     private boolean gitHubAvailable;
 
     /** The key bindings as {@link #onSettingsChanged} last saw them. */
-    private String keybindingsSeen;
+    private @Nullable String keybindingsSeen;
 
     /** Held for the life of the process once this one is the syncing instance. */
-    private FileChannel lockChannel;
+    private @Nullable FileChannel lockChannel;
 
-    private FileLock lock;
+    private @Nullable FileLock lock;
     /** Another process holds the lock. Asked once: see the class comment. */
     private boolean secondary;
 
@@ -306,7 +310,7 @@ final class SettingsSync {
     }
 
     /** Why sync cannot run here, in words, or null when it can. */
-    private String unavailableText() {
+    private @Nullable String unavailableText() {
         String key = unavailableKey(settings.syncEnabled(), settings.syncRepository(), configured(), active());
         return key == null ? null : tr(key);
     }
@@ -315,7 +319,7 @@ final class SettingsSync {
      * The catalogue key for why sync cannot run, or null when it can. A URL with a secret in it, or one
      * that is unusable, can only have got into the file by hand: the page refuses to store either. Pure.
      */
-    static String unavailableKey(boolean enabled, String url, boolean configured, boolean active) {
+    static @Nullable String unavailableKey(boolean enabled, String url, boolean configured, boolean active) {
         if (enabled && SyncEngine.hasCredentials(url)) return "sync.state.credentials";
         if (enabled && !configured) return "sync.state.invalid";
         if (!configured) return "sync.state.notSetUp";
@@ -533,7 +537,7 @@ final class SettingsSync {
 
     // ---------------------------------------------------------------- this computer's side
 
-    private String renderKeybindings() {
+    private @Nullable String renderKeybindings() {
         return KeybindingsFile.text(KeybindingsFile.pathFor(mac), settings.keyBindings());
     }
 

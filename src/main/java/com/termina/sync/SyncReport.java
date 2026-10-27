@@ -2,6 +2,8 @@ package com.termina.sync;
 
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * What one sync did.
  *
@@ -49,7 +51,7 @@ public record SyncReport(
         return !received.isEmpty() || !sent.isEmpty();
     }
 
-    static SyncReport failure(Status status, String detail) {
+    static SyncReport failure(Status status, @Nullable String detail) {
         return new SyncReport(status, List.of(), List.of(), List.of(), detail == null ? "" : detail);
     }
 }

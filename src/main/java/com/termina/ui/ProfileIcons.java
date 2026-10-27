@@ -6,6 +6,7 @@ import javafx.scene.Node;
 import javafx.scene.shape.SVGPath;
 
 import com.termina.shell.Profile;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A mark per profile, so the dropdown reads as a list of shells rather than a list of words.
@@ -300,7 +301,7 @@ final class ProfileIcons {
         };
     }
 
-    private static String distroKey(String name) {
+    private static @Nullable String distroKey(String name) {
         if (name.contains("ubuntu")) return "ubuntu";
         if (name.contains("debian")) return "debian";
         if (name.contains("arch")) return "arch";

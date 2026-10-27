@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 
 import javafx.scene.text.Font;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * The face that draws private-use code points: the Nerd Font icons {@code eza}, {@code lsd} and
  * every powerline prompt put on screen.
@@ -138,12 +140,14 @@ final class IconFont {
         return family.replace(" ", "").toLowerCase(Locale.ROOT);
     }
 
-    private static Set<String> installed;
+    private static @Nullable Set<String> installed;
     private static final Map<String, Optional<String>> CHOSEN = new HashMap<>();
 
     /** {@link #chooseFamily} against this machine's fonts, once per terminal face. */
     static synchronized Optional<String> familyFor(String primary) {
-        if (installed == null) installed = Set.copyOf(Font.getFamilies());
-        return CHOSEN.computeIfAbsent(primary, p -> chooseFamily(p, installed));
+        Set<String> fonts = installed;
+        if (fonts == null) installed = fonts = Set.copyOf(Font.getFamilies());
+        Set<String> chooseFrom = fonts;
+        return CHOSEN.computeIfAbsent(primary, p -> chooseFamily(p, chooseFrom));
     }
 }
