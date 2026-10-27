@@ -1823,6 +1823,8 @@ public final class TerminalView extends Region {
     private Runnable onOpenSettings = () -> {};
     private Runnable onNewTab = () -> {};
     private Runnable onNewWindow = () -> {};
+    private Runnable onShowPalette = () -> {};
+    private Runnable onShowAbout = () -> {};
     private ZoomMenuRow.@Nullable Actions zoomActions;
     private @Nullable ZoomMenuRow zoomRow;
     private @Nullable BooleanSupplier menuBarShown;
@@ -1842,6 +1844,14 @@ public final class TerminalView extends Region {
 
     public void setOnNewWindow(Runnable onNewWindow) {
         this.onNewWindow = onNewWindow == null ? () -> {} : onNewWindow;
+    }
+
+    public void setOnShowPalette(Runnable onShowPalette) {
+        this.onShowPalette = onShowPalette == null ? () -> {} : onShowPalette;
+    }
+
+    public void setOnShowAbout(Runnable onShowAbout) {
+        this.onShowAbout = onShowAbout == null ? () -> {} : onShowAbout;
     }
 
     /** Zoom is the window's, not the view's: it writes through the settings, which every tab shares. */
@@ -2038,7 +2048,9 @@ public final class TerminalView extends Region {
         }
 
         items.add(new SeparatorMenuItem());
+        items.add(item(tr("menu.commandPalette"), MenuIcons.commandPalette(), () -> onShowPalette.run()));
         items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> onOpenSettings.run()));
+        items.add(item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> onShowAbout.run()));
 
         ContextMenu menu = new ContextMenu(items.toArray(MenuItem[]::new));
         menu.setAutoHide(true);

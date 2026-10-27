@@ -3,6 +3,13 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Added
+
+- **The right-click menu opens the command palette and the About window**, beside Settings, so
+  neither needs the menu bar or a chord to reach.
+
 ## 0.12.0 — 2026-10-25
 
 The sync repository can be created on GitHub from Settings, and the shortcut reference names what a
