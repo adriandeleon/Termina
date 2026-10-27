@@ -885,10 +885,11 @@ Measure from a clean target — `jacoco.exec` accumulates across runs, so a seco
 `clean` silently reports the union of both.
 
 Coverage floors are a regression net rather than a target — each sits well below what is actually
-measured, so they catch tests being deleted, not a few lines of drift. `com.termina.ui` is
-deliberately ungated: most of its 2,100 lines are the renderer, the window and the settings sheet,
-which a headless suite cannot reach, so a package number there says nothing about whether the tested
-parts are still tested. The way to raise it is to keep pulling decisions out into pure classes, not
+measured, so they catch tests being deleted, not a few lines of drift. `com.termina.sync`'s floor is
+set from what it measures without the five tests disabled on Windows (83%, against 92% on Unix).
+`com.termina.ui` is deliberately ungated: most of its 7,600 lines are the renderer, the window and
+the settings sheet, which a headless suite cannot reach, so a package number there says nothing about
+whether the tested parts are still tested. The way to raise it is to keep pulling decisions out into pure classes, not
 to lower the bar until it passes. `./mvnw clean -Pdist -DskipTests package` produces a native app image
 under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
 built on that platform, which is what the CI matrix is for.
