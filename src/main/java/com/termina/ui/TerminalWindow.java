@@ -877,6 +877,8 @@ public final class TerminalWindow {
         terminal.setPasteConfirmer(this::confirmPaste);
         terminal.setOnNewTab(this::openTab);
         terminal.setOnNewWindow(() -> windows.openWindow(this));
+        terminal.setOnShowPalette(this::showPalette);
+        terminal.setOnShowAbout(() -> windows.showAbout(stage));
         // The same three actions the View menu runs, not copies of them: zoom lives in the settings,
         // which every tab and window shares, so a view cannot do this for itself.
         terminal.setZoomActions(zoomActions());
