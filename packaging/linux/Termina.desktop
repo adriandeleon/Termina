@@ -2,6 +2,7 @@
 Name=APPLICATION_NAME
 GenericName=Terminal
 Comment=APPLICATION_DESCRIPTION
+TryExec=APPLICATION_LAUNCHER
 Exec=APPLICATION_LAUNCHER
 Icon=APPLICATION_ICON
 Terminal=false
@@ -9,3 +10,4 @@ Type=Application
 Categories=System;TerminalEmulator;
 Keywords=shell;prompt;command line;console;
 StartupWMClass=com.termina.App
+X-TerminalArgExec=-e

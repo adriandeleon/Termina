@@ -75,6 +75,97 @@ class ShellProfilesTest {
     }
 
     @Test
+    @DisplayName("$SHELL and /etc/shells spelling one binary two ways is still one shell")
+    void doesNotDuplicateTheSystemShellUnderAnotherSpelling() {
+        // Merged /usr: $SHELL says /usr/bin/zsh, /etc/shells says /bin/zsh. And nu: the system entry
+        // always adds -l, discovery does not for shells that do not take it.
+        Profile system = Profile.of("system", "Default Shell", List.of("/usr/bin/zsh", "-l"), Profile.Source.SYSTEM);
+        Profile sameShell = Profile.of("shell-zsh", "Zsh", List.of("/bin/zsh", "-l"), Profile.Source.DISCOVERED);
+        Profile other = Profile.of("shell-bash", "Bash", List.of("/bin/bash", "-l"), Profile.Source.DISCOVERED);
+        java.util.function.UnaryOperator<String> real = path -> path.replace("/usr/bin/", "/bin/");
+
+        List<Profile> merged = ShellProfiles.merge(system, List.of(sameShell, other), List.of(), Set.of(), real);
+        assertEquals(
+                List.of("system", "shell-bash"),
+                merged.stream().map(Profile::id).toList());
+
+        Profile systemNu = Profile.of("system", "Default Shell", List.of("/usr/bin/nu", "-l"), Profile.Source.SYSTEM);
+        Profile nu = Profile.of("shell-nu", "Nushell", List.of("/usr/bin/nu"), Profile.Source.DISCOVERED);
+        assertEquals(
+                List.of("system"),
+                ShellProfiles.merge(systemNu, List.of(nu), List.of(), Set.of()).stream()
+                        .map(Profile::id)
+                        .toList());
+    }
+
+    @Test
+    @DisplayName("the real-path lookup follows symlinks and leaves what it cannot resolve alone")
+    void realExecutableFollowsLinks(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        java.nio.file.Path target = java.nio.file.Files.createFile(dir.resolve("zsh"));
+        java.nio.file.Path link = java.nio.file.Files.createSymbolicLink(dir.resolve("zsh-link"), target);
+        assertEquals(target.toRealPath().toString(), ShellProfiles.realExecutable(link.toString()));
+        assertEquals("no-such-shell", ShellProfiles.realExecutable("no-such-shell"));
+    }
+
+    @Test
+    @DisplayName("a new profile's id is free of hidden profiles and of anything left stored")
+    void aNewIdAvoidsEverythingTaken() {
+        assertEquals("user-new-profile", ShellProfiles.newUserId("New Profile", Set.of()));
+        assertEquals("user-new-profile-2", ShellProfiles.newUserId("New Profile", Set.of("user-new-profile")));
+        assertEquals("user-profile", ShellProfiles.newUserId("!!!", Set.of()));
+    }
+
+    @Test
+    @DisplayName("deleting a profile takes its style, default and hidden entry with it")
+    void removingAProfileForgetsItsState(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
+        var settings = new com.termina.config.Settings(dir.resolve("settings.properties"));
+        var profiles = new ShellProfiles(settings, "Default Shell");
+        Profile created = profiles.newUserProfile("New Profile").withCommandLine("/bin/sh");
+        profiles.setUserProfiles(List.of(created));
+        settings.setDefaultProfileId(created.id());
+        settings.setProfileStyle(created.id(), new com.termina.config.Settings.ProfileStyle("", 18.0, "editora-light"));
+        profiles.setHidden(created.id(), true);
+        profiles.setHidden("shell-fish", true);
+
+        profiles.removeUserProfile(created.id());
+
+        assertEquals(List.of(), profiles.userProfiles());
+        assertEquals("", settings.defaultProfileId());
+        assertTrue(settings.profileStyle(created.id()).isEmpty());
+        assertEquals(Set.of("shell-fish"), profiles.hiddenIds());
+
+        // The next one gets the same id, and none of the old one's state.
+        Profile next = profiles.newUserProfile("New Profile");
+        assertEquals(created.id(), next.id());
+    }
+
+    @Test
+    @DisplayName("adding while a user profile is hidden gives the new one an id of its own")
+    void aNewProfileDoesNotTakeAHiddenOnesId(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
+        var settings = new com.termina.config.Settings(dir.resolve("settings.properties"));
+        var profiles = new ShellProfiles(settings, "Default Shell");
+        Profile first = profiles.newUserProfile("New Profile").withCommandLine("/bin/sh");
+        profiles.setUserProfiles(List.of(first));
+        profiles.setHidden(first.id(), true);
+
+        Profile second = profiles.newUserProfile("New Profile");
+        assertTrue(!second.id().equals(first.id()), second.id());
+    }
+
+    @Test
+    @DisplayName("an id something is still stored against is not reused")
+    void aNewProfileDoesNotInheritLeftovers(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
+        // A file written before deletion cleared up: the style and the default are still there.
+        var settings = new com.termina.config.Settings(dir.resolve("settings.properties"));
+        settings.setDefaultProfileId("user-new-profile");
+        settings.setProfileStyle(
+                "user-new-profile-2", new com.termina.config.Settings.ProfileStyle("", null, "editora-light"));
+        var profiles = new ShellProfiles(settings, "Default Shell");
+        assertEquals(
+                "user-new-profile-3", profiles.newUserProfile("New Profile").id());
+    }
+
+    @Test
     @DisplayName("the same shell started differently is still its own entry")
     void keepsAShellWithDifferentArguments() {
         Profile system = Profile.of("system", "Default Shell", List.of("/bin/zsh", "-l"), Profile.Source.SYSTEM);

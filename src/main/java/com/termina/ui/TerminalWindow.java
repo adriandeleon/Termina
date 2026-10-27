@@ -123,8 +123,9 @@ public final class TerminalWindow {
 
     /**
      * Set when a scene binding has just run on KEY_PRESSED, so the KEY_TYPED that follows it is
-     * dropped. The chord that opens the palette is the case that shows: on macOS Option+X also
+     * dropped. The palette on an Option chord is the case that shows: on macOS Option+X also
      * composes "≈", which would otherwise land in the query field the chord has just focused.
+     * Cleared when the window's focus changes, since the KEY_TYPED then goes elsewhere.
      */
     private boolean swallowNextTyped;
 
@@ -157,13 +158,28 @@ public final class TerminalWindow {
                     // would dispose the session being dragged — killing the shell and leaving an
                     // empty tab behind, for a gesture that is supposed to change nothing but order.
                     if (reordering) continue;
+                    // A tab going that the last deliberate close did not name: that close is no
+                    // longer what emptied the window, if it empties.
+                    if (!lastCloseTabs.contains(removed)) clearLastClose();
                     for (TerminalView pane : groupOf(removed).panes()) pane.close();
                 }
             }
             // Same reason: mid-reorder the list is briefly one short, and for a single-tab window
-            // briefly empty, which would close the window out from under the drag.
-            if (!reordering && tabs.getTabs().isEmpty() && stage.isShowing()) stage.close();
+            // briefly empty, which would close the window out from under the drag. And not when
+            // the last tab failed to start with nothing to fall back to: see keepEmptyWindow.
+            if (!reordering && !keepEmptyWindow && tabs.getTabs().isEmpty() && stage.isShowing()) stage.close();
             applyTabBarVisibility();
+            // A tab arriving ends the empty state a failed start left; the next empty closes again.
+            // On an addition only: a failed fallback is added, then removed, then its own failed
+            // tab goes, and the window must still be kept at the end of that.
+            change.reset();
+            while (change.next()) {
+                if (change.wasAdded() && !reordering) keepEmptyWindow = false;
+            }
+            emptyPlaceholder.setVisible(keepEmptyWindow && tabs.getTabs().isEmpty());
+            // The skin builds a header for every tab it is handed — a reordered tab's is new — and
+            // whatever was attached to the old one went with it. After this pulse, once it has.
+            if (!reordering) decorateHeadersLater();
         });
 
         // A pane dropped on the strip's empty part becomes a tab of its own. On the TabPane, so it
@@ -174,7 +190,7 @@ public final class TerminalWindow {
             e.consume();
         });
         tabs.addEventHandler(javafx.scene.input.DragEvent.DRAG_DROPPED, e -> {
-            TerminalView pane = draggedPane;
+            TerminalView pane = paneDraggedBy(e);
             if (pane == null || !paneOverEmptyStrip(e)) return;
             draggedPane = null;
             movePaneToNewTab(pane);
@@ -209,6 +225,8 @@ public final class TerminalWindow {
         chevron.getStyleClass().add("tab-strip-chevron");
         profileButton.setGraphic(chevron);
         profileButton.setOnAction(e -> showProfileMenu());
+        // Dismissed without a choice, nothing moves focus back from the button: ask the guard.
+        profileMenu.setOnHidden(e -> reclaimFocusIfUnclaimed());
         Tooltip profileTip = new Tooltip(tr("tooltip.profiles"));
         profileTip.setShowDelay(Duration.millis(400));
         profileButton.setTooltip(profileTip);
@@ -225,7 +243,11 @@ public final class TerminalWindow {
         // layout, which a pinned box never grows to.
         tabStripButtons.setMaxWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
         StackPane.setAlignment(tabStripButtons, Pos.TOP_RIGHT);
-        StackPane tabHost = new StackPane(tabs, tabStripButtons);
+        emptyPlaceholder.getStyleClass().add("empty-window-placeholder");
+        emptyPlaceholder.setWrapText(true);
+        emptyPlaceholder.setMouseTransparent(true);
+        emptyPlaceholder.setVisible(false);
+        StackPane tabHost = new StackPane(tabs, emptyPlaceholder, tabStripButtons);
 
         tabs.widthProperty().addListener((o, was, now) -> applyTabWidths());
         tabs.getTabs().addListener((ListChangeListener<Tab>) c -> applyTabWidths());
@@ -281,12 +303,26 @@ public final class TerminalWindow {
         // TerminalView's own filter turns Ctrl+<letter> into a control byte for the shell.
         // Accelerators fire only after an unconsumed bubble, which for those chords never happens.
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
+        // One route for one table. The menu items carry their chords so the menus can show them,
+        // and JavaFX would run every one of them as well — on any press that bubbled to the scene
+        // unconsumed, which is exactly what the filter lets through while the palette is open or a
+        // text field is entitled to the key. Ctrl+Shift+W typed into the palette closed the tab
+        // behind it. So the scene keeps no accelerators: the filter is the only thing that runs a
+        // binding, and the items' chords are labels.
+        keepAcceleratorsDisplayOnly(scene);
+        // And a bound chord that comes back up unclaimed stops here, so nothing past the scene —
+        // the screen menu bar's own key equivalents on macOS — gets a second go at it.
+        scene.addEventHandler(KeyEvent.KEY_PRESSED, this::onUnclaimedKeyPressed);
         scene.addEventFilter(KeyEvent.KEY_TYPED, e -> {
             if (swallowNextTyped) e.consume();
             swallowNextTyped = false;
         });
         // A chord that produces no KEY_TYPED at all must not leave the flag set for the next character.
         scene.addEventFilter(KeyEvent.KEY_RELEASED, e -> swallowNextTyped = false);
+        // Nor one whose action took the window's focus away — a close prompt or the paste dialog,
+        // answered with the mouse. The chord's KEY_TYPED went to the dialog, and the flag was left
+        // waiting for the next character the user typed here.
+        stage.focusedProperty().addListener((o, was, now) -> swallowNextTyped = false);
 
         stage.setScene(scene);
         // JavaFX's default full-screen exit key is Escape, handled before the scene sees the key,
@@ -306,8 +342,11 @@ public final class TerminalWindow {
         // the tab list, which is where disposal is. Closing the stage alone took nothing out of the
         // list, so a window closed with others still open left every one of its shells running,
         // with their pump threads, emulator threads and directory polls, until the app quit.
-        stage.addEventHandler(
-                javafx.stage.WindowEvent.WINDOW_HIDDEN, e -> tabs.getTabs().clear());
+        stage.addEventHandler(javafx.stage.WindowEvent.WINDOW_HIDING, e -> rememberClosedWindow());
+        stage.addEventHandler(javafx.stage.WindowEvent.WINDOW_HIDDEN, e -> {
+            tabs.getTabs().clear();
+            dispose();
+        });
         tabs.getSelectionModel().selectedItemProperty().addListener((o, old, tab) -> {
             bindTitleTo(tab);
             applyWindowTheme();
@@ -318,7 +357,12 @@ public final class TerminalWindow {
             // active one: they were all hidden together.
             if (tab != null) groupOf(tab).panes().forEach(TerminalView::wake);
             // Focus has to follow the tab or the newly shown terminal silently swallows typing.
-            if (tab != null) Platform.runLater(() -> terminalOf(tab).requestFocus());
+            if (tab != null) {
+                Platform.runLater(() -> {
+                    TerminalView shown = terminalOf(tab);
+                    if (shown != null) shown.requestFocus();
+                });
+            }
         });
         bindTitleTo(null);
         installFocusGuard(scene);
@@ -345,18 +389,36 @@ public final class TerminalWindow {
             TerminalView into = paneContaining(now);
             Tab selected = tabs.getSelectionModel().getSelectedItem();
             if (into != null && selected != null) groupOf(selected).setActive(into);
-            TerminalView terminal = activeTerminal();
-            boolean ownerIsTerminal = terminal != null && now == terminal;
-            if (!FocusGuard.shouldReclaim(terminal != null, ownerIsTerminal, overlayWantsKeys(terminal))) return;
-            // Deferred, because this runs inside the focus change that provoked it, and queued at
-            // most once: if the terminal cannot take focus, retrying on our own signal would spin.
-            if (reclaimPending) return;
-            reclaimPending = true;
-            Platform.runLater(() -> {
-                reclaimPending = false;
-                focusActiveTerminal();
-            });
+            reclaimFocusIfUnclaimed();
         });
+    }
+
+    /**
+     * Gives the terminal the keyboard back, on the next pulse, if nothing is entitled to it then.
+     *
+     * <p>Deferred, because it runs inside the focus change that provoked it, and queued at most
+     * once: if the terminal cannot take focus, retrying on our own signal would spin. Asked again
+     * when it runs, not only now: a right-click on a tab header takes focus on the press and opens
+     * its menu after, so the menu is often not yet showing when the press is seen — reclaiming then
+     * would be under a menu that is by the time it happens. And asked as a menu closes, which moves
+     * no focus and so would otherwise leave it on the tab strip the right-click put it on.
+     */
+    private void reclaimFocusIfUnclaimed() {
+        if (!wantsReclaim()) return;
+        if (reclaimPending) return;
+        reclaimPending = true;
+        Platform.runLater(() -> {
+            reclaimPending = false;
+            if (wantsReclaim()) focusActiveTerminal();
+        });
+    }
+
+    private boolean wantsReclaim() {
+        Scene scene = stage.getScene();
+        javafx.scene.Node owner = scene == null ? null : scene.getFocusOwner();
+        TerminalView terminal = activeTerminal();
+        boolean ownerIsTerminal = terminal != null && owner == terminal;
+        return FocusGuard.shouldReclaim(terminal != null, ownerIsTerminal, overlayWantsKeys(terminal));
     }
 
     /** The pane a node is in — the pane itself, or something inside it — or null. */
@@ -370,18 +432,35 @@ public final class TerminalWindow {
     /** Whether something on screen is entitled to the keyboard instead of the terminal. */
     private boolean overlayWantsKeys(@Nullable TerminalView terminal) {
         if (palette != null && palette.isShowing()) return true;
-        // A context menu is a popup that dismisses when focus moves, so reclaiming under it would
-        // make right-click unusable rather than merely rude. The profile dropdown is the same kind
-        // of popup and would be dismissed on the way to being shown.
-        if (terminal != null && terminal.isContextMenuShowing()) return true;
         // The find bar's field. Only while it has the keyboard: with the bar open and the terminal
         // clicked, the terminal is entitled to focus back like any other time.
         if (terminal != null && terminal.searchHasFocus()) return true;
-        if (profileMenu.isShowing()) return true;
+        if (terminal != null && terminal.isContextMenuShowing()) return true;
         for (Menu menu : menuBar.getMenus()) {
             if (menu.isShowing()) return true;
         }
-        return false;
+        // A context menu is a popup that dismisses when focus moves, so reclaiming under it would
+        // make right-click unusable rather than merely rude. Every one this window owns, rather than
+        // a list of them: the terminal's and the profile dropdown were on the list and the tab
+        // headers' were not, which is how a list of popups goes.
+        return FocusGuard.anyMenuShowing(ownedPopups());
+    }
+
+    /** The popups that belong to this window, as FocusGuard needs to see them. */
+    private List<FocusGuard.Popup> ownedPopups() {
+        List<FocusGuard.Popup> out = new ArrayList<>();
+        for (javafx.stage.Window open : javafx.stage.Window.getWindows()) {
+            if (!(open instanceof javafx.stage.PopupWindow popup)) continue;
+            out.add(new FocusGuard.Popup(popup instanceof ContextMenu, popup.isShowing(), rootOwnerOf(popup) == stage));
+        }
+        return out;
+    }
+
+    /** The window a popup ultimately hangs off: a submenu's owner is the menu it opened from. */
+    private static javafx.stage.@Nullable Window rootOwnerOf(javafx.stage.PopupWindow popup) {
+        javafx.stage.Window owner = popup.getOwnerWindow();
+        while (owner instanceof javafx.stage.PopupWindow parent) owner = parent.getOwnerWindow();
+        return owner;
     }
 
     /**
@@ -399,7 +478,12 @@ public final class TerminalWindow {
             stage.setTitle(com.termina.AppInfo.NAME);
             return;
         }
-        stage.titleProperty().bind(terminalOf(tab).getDisplay().windowTitleProperty());
+        TerminalView terminal = terminalOf(tab);
+        if (terminal == null) {
+            stage.setTitle(com.termina.AppInfo.NAME);
+            return;
+        }
+        stage.titleProperty().bind(terminal.getDisplay().windowTitleProperty());
     }
 
     /**
@@ -561,8 +645,8 @@ public final class TerminalWindow {
         // for the same reason the menu bar had to be: a hidden-but-managed node still paints.
         tabStripButtons.setVisible(show);
         tabStripButtons.setManaged(show);
-        // The strip appearing is what creates the close buttons, so this is where to catch them.
-        if (show) installCloseTooltips();
+        // The strip appearing is what creates the headers, so this is where to catch them.
+        if (show) decorateHeadersLater();
     }
 
     private static final String HIDE_TAB_BAR = "hide-tab-bar";
@@ -570,40 +654,68 @@ public final class TerminalWindow {
     /** Marks a close button whose tooltip is already on, so a retry cannot install a second. */
     private static final String CLOSE_TIP_INSTALLED = "termina.closeTooltip";
 
-    /** Pulses to wait for the skin to build the headers before giving up on them. */
-    private static final int CLOSE_TIP_ATTEMPTS = 20;
+    /** Attempts to wait for the skin to build the headers before giving up on them. */
+    private static final int DECORATE_ATTEMPTS = 20;
+
+    /** True while a decoration pass is queued, so a burst of list changes queues one. */
+    private boolean decoratePending;
 
     /**
-     * Puts a tooltip on each tab's close button.
+     * Re-decorates every tab header once the skin has caught up with the list.
      *
-     * <p>The button belongs to the TabPane's skin, not to us — there is no {@code Tab} API for it.
-     * The obvious route, {@code tab.getStyleableNode()}, returns <b>null</b> here, so the buttons
-     * are found by looking up the style class on the pane itself; they are indistinguishable for
-     * this purpose anyway, since every one of them says the same thing. They are {@code StackPane}s
-     * rather than controls, so the tooltip is installed on the node rather than set on it.
-     *
-     * <p>Retried because the skin does not build a header in the pulse the tab is added, and
-     * because a new tab brings a new button with it.
+     * <p>Everything this window attaches to a header — the reorder gesture, double-click rename, the
+     * pane drop, the close button's tooltip — is attached to a node the skin owns and rebuilds. A
+     * reordered tab is removed and added again, and the skin builds it a new header with none of
+     * it: a moved tab could no longer be dragged, renamed by double-click, or dropped onto. So the
+     * decoration is one step, run after every change to the list rather than from the one path
+     * that adds a tab. Deferred, because the skin hears of the change after this window does.
      */
-    private void installCloseTooltips() {
-        installCloseTooltips(0);
+    private void decorateHeadersLater() {
+        if (decoratePending) return;
+        decoratePending = true;
+        Platform.runLater(() -> {
+            decoratePending = false;
+            decorateHeaders(0);
+        });
     }
 
-    private void installCloseTooltips(int attempt) {
-        java.util.Set<javafx.scene.Node> buttons = tabs.lookupAll(".tab-close-button");
-        for (javafx.scene.Node close : buttons) {
-            if (close.getProperties().putIfAbsent(CLOSE_TIP_INSTALLED, Boolean.TRUE) != null) continue;
+    private void decorateHeaders(int attempt) {
+        int found = 0;
+        for (Tab tab : tabs.getTabs()) {
+            javafx.scene.Node header = headerOf(tab);
+            if (header == null) continue;
+            found++;
+            decorate(tab, header);
+        }
+        // A missing header means the skin is still building it — but only while the strip is
+        // shown. Hidden for a single tab, no header exists and none is coming, so retrying to the
+        // budget every time would be twenty passes spent on a header nobody can see.
+        boolean stripShown = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        if (stripShown && found < tabs.getTabs().size() && attempt < DECORATE_ATTEMPTS) {
+            Platform.runLater(() -> decorateHeaders(attempt + 1));
+        }
+    }
+
+    /**
+     * Decorates one header, once.
+     *
+     * <p>The close button belongs to the skin, not to us — there is no {@code Tab} API for it, and
+     * {@code tab.getStyleableNode()} returns null here — so it is looked up inside the header. It is
+     * a {@code StackPane} rather than a control, so the tooltip is installed on the node.
+     */
+    private void decorate(Tab tab, javafx.scene.Node header) {
+        // Keyed by the tab, not a flag: the gesture closes over the tab it acts on, and a header
+        // that came to stand for another tab must not keep acting on the old one.
+        if (header.getProperties().get(TAB_DRAG_INSTALLED) != tab) {
+            header.getProperties().put(TAB_DRAG_INSTALLED, tab);
+            installTabDrag(tab, header);
+        }
+        javafx.scene.Node close = header.lookup(".tab-close-button");
+        if (close != null && close.getProperties().putIfAbsent(CLOSE_TIP_INSTALLED, Boolean.TRUE) == null) {
             Tooltip tip = new Tooltip();
             tip.textProperty().bind(closeTabTipText);
             tip.setShowDelay(Duration.millis(400));
             Tooltip.install(close, tip);
-        }
-        // Fewer buttons than tabs means a header is still to be built — but only while the strip
-        // is shown. Hidden for a single tab, no header exists and none is coming, so retrying to
-        // the budget every time would be twenty pulses spent on a button nobody can hover.
-        boolean stripShown = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
-        if (stripShown && buttons.size() < tabs.getTabs().size() && attempt < CLOSE_TIP_ATTEMPTS) {
-            Platform.runLater(() -> installCloseTooltips(attempt + 1));
         }
     }
 
@@ -818,7 +930,12 @@ public final class TerminalWindow {
      * navigated away from — is not what anybody means by it.
      */
     public void openTab(com.termina.pty.LaunchOptions options) {
-        openTab(options, tabs.getTabs().size(), "");
+        openTab(options, "");
+    }
+
+    /** As {@link #openTab(com.termina.pty.LaunchOptions)}, named as a rename would name it ({@code -T}). */
+    public void openTab(com.termina.pty.LaunchOptions options, String userTitle) {
+        openTab(options, tabs.getTabs().size(), userTitle);
     }
 
     /**
@@ -833,19 +950,34 @@ public final class TerminalWindow {
         addTab(tab, new PaneGroup(terminal), index);
 
         try {
+            if (simulatedStartFailures > 0) {
+                simulatedStartFailures--;
+                throw new IOException("simulated by -Dtermina.captureFailShellStarts");
+            }
             terminal.start();
         } catch (IOException e) {
             // Report first and remove last. Removing first fired the list listener: an empty
             // window closed itself, the last window closing exited the toolkit, and the dialog then
             // opened on a dead owner — so a default profile whose command had gone away left nobody
             // a window to fix it from, and the only way back was editing the settings file.
-            boolean fallBack = shouldFallBackToDefaultShell(tabs.getTabs().size(), !options.hasCommand());
+            failingTabs.add(tab);
+            int remaining = tabs.getTabs().size() - failingTabs.size();
+            boolean fallBack = shouldFallBackToDefaultShell(remaining + 1, !options.hasCommand());
             reportShellFailure(options, e, fallBack);
             if (fallBack) {
                 openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
                         .withWorkingDirectory(options.workingDirectory()));
+            } else if (keepsWindowOpenEmpty(remaining, fallBack)) {
+                // Nothing left to fall back to: the default shell itself would not start. Closing
+                // the window took the dialog with it — owned by the window — and, for the last
+                // window, the application: it exited with nothing on screen to say why. The window
+                // stays, empty, saying so, with its menus and chords to reach Settings and New Tab.
+                keepEmptyWindow = true;
+                emptyPlaceholder.setText(tr("dialog.shellFailed") + "\n\n"
+                        + tr("dialog.shellFailedDetail", commandLineOf(options), String.valueOf(e.getMessage())));
             }
             tabs.getTabs().remove(tab);
+            failingTabs.remove(tab);
             return;
         }
         endPaneWithItsShell(tab, terminal);
@@ -880,18 +1012,15 @@ public final class TerminalWindow {
         tab.getProperties().put(TAB_MARKS, marks);
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
-        installCloseTooltips();
         // The close button is JavaFX's own and does not come through closeTab(); consuming the
         // request is the only way to stop it.
         tab.setOnCloseRequest(e -> {
             if (!confirmClose(List.of(tab))) e.consume();
-            else rememberClosed(tab);
+            else rememberClosedTabs(List.of(tab));
         });
+        // The header's gestures are attached by the list listener, once the skin has built it.
         tabs.getTabs().add(Math.max(0, Math.min(index, tabs.getTabs().size())), tab);
         tabs.getSelectionModel().select(tab);
-        // After the tab is in the list: the header this attaches to is built by the skin, and does
-        // not exist until the tab does.
-        installTabDrag(0);
     }
 
     /**
@@ -916,6 +1045,13 @@ public final class TerminalWindow {
      */
     private void wirePane(TerminalView terminal, Tab tab) {
         terminal.setOnPaneDragStarted(pane -> draggedPane = pane);
+        // However the drag ended — dropped, dropped nowhere, cancelled — it is over. A moved pane is
+        // wired again, so the handler goes on once per pane.
+        if (terminal.getProperties().putIfAbsent(PANE_DRAG_DONE_INSTALLED, Boolean.TRUE) == null) {
+            terminal.addEventHandler(javafx.scene.input.DragEvent.DRAG_DONE, e -> {
+                if (draggedPane == terminal) draggedPane = null;
+            });
+        }
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
         terminal.setPasteConfirmer(this::confirmPaste);
         terminal.setOnNewTab(this::openTab);
@@ -1010,6 +1146,7 @@ public final class TerminalWindow {
         if (tab == null) return;
         PaneGroup group = groupOf(tab);
         TerminalView from = group.active();
+        if (from == null) return;
         com.termina.pty.LaunchOptions options =
                 ClosedTabs.inDirectory(from.launchOptions(), from.getDisplay().getCwd());
         TerminalView added = createPane(options, tab);
@@ -1046,7 +1183,8 @@ public final class TerminalWindow {
             group.applyCss();
             group.layout();
         }
-        TerminalView next = group.neighbour(group.active(), direction);
+        TerminalView current = group.active();
+        TerminalView next = current == null ? null : group.neighbour(current, direction);
         if (next == null) return;
         group.setActive(next);
         next.requestFocus();
@@ -1063,7 +1201,12 @@ public final class TerminalWindow {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         if (tab == null) return;
         TerminalView pane = groupOf(tab).active();
-        if (!confirmCloseTerminals(List.of(pane), 1)) return;
+        if (pane == null || !confirmCloseTerminals(List.of(pane), 1)) return;
+        // Remembered like a tab, so Reopen brings it back — as a tab of its own, right after this
+        // one: the split it came from may not be there to go back into. See ClosedTabs.
+        closedTabs.remember(new ClosedTabs.Entry(
+                new PaneLayout.Tab(leafOf(pane), 0), tabs.getTabs().indexOf(tab) + 1, windows.nextCloseStamp()));
+        clearLastClose();
         removePane(tab, pane);
     }
 
@@ -1075,8 +1218,9 @@ public final class TerminalWindow {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         if (tab == null) return;
         PaneGroup group = groupOf(tab);
+        TerminalView current = group.active();
         if (group.isMaximized()) group.restore();
-        else if (!group.maximize(group.active())) return;
+        else if (current == null || !group.maximize(current)) return;
         group.applyCss();
         group.layout();
         TerminalView active = group.active();
@@ -1121,10 +1265,12 @@ public final class TerminalWindow {
     private void movePaneToTab(TerminalView pane, Tab target) {
         Tab from = tabOf(pane);
         if (from == null || from == target || !tabs.getTabs().contains(target)) return;
-        detachPane(from, pane);
         PaneGroup group = groupOf(target);
+        TerminalView beside = group.active();
+        if (beside == null) return;
+        detachPane(from, pane);
         wirePane(pane, target);
-        group.split(group.active(), javafx.geometry.Orientation.HORIZONTAL, pane);
+        group.split(beside, javafx.geometry.Orientation.HORIZONTAL, pane);
         endPaneWithItsShell(target, pane);
         tabs.getSelectionModel().select(target);
         group.setActive(pane);
@@ -1136,10 +1282,30 @@ public final class TerminalWindow {
     /** The pane being dragged, which the Dragboard cannot carry: a node is not serialisable. */
     private @Nullable TerminalView draggedPane;
 
+    /** Marks a pane whose drag-done handler is on, so wiring it again does not add a second. */
+    private static final String PANE_DRAG_DONE_INSTALLED = "termina.paneDragDone";
+
+    /**
+     * The pane this drag is carrying, or null when it carries none of this window's.
+     *
+     * <p>Checked against the gesture's own source as well as the field. A drag that was cancelled
+     * — dropped outside, or Escape — never reached a drop handler to clear the field, and the
+     * next pane drag into this window from another one found it still set and moved the stale
+     * pane instead of the one being dragged. The field is also cleared when the drag is done
+     * ({@link #wirePane}); this is the check that does not depend on that having run.
+     */
+    private @Nullable TerminalView paneDraggedBy(javafx.scene.input.DragEvent e) {
+        TerminalView pane = draggedPane;
+        if (pane == null || !e.getDragboard().hasContent(PaneDrag.FORMAT)) return null;
+        Object source = e.getGestureSource();
+        return source instanceof javafx.scene.Node node && paneContaining(node) == pane ? pane : null;
+    }
+
     /** Whether a drag over the strip carries a pane, and is over the strip's empty part. */
     private boolean paneOverEmptyStrip(javafx.scene.input.DragEvent e) {
-        if (draggedPane == null || !e.getDragboard().hasContent(PaneDrag.FORMAT)) return false;
-        Tab from = tabOf(draggedPane);
+        TerminalView pane = paneDraggedBy(e);
+        if (pane == null) return false;
+        Tab from = tabOf(pane);
         if (from == null || !groupOf(from).isSplit()) return false;
         javafx.scene.Node strip = tabs.lookup(".tab-header-area");
         if (strip == null || !strip.isVisible()) return false;
@@ -1190,6 +1356,7 @@ public final class TerminalWindow {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         if (tab == null) return;
         TerminalView pane = groupOf(tab).active();
+        if (pane == null) return;
         if (index < 0) movePaneToNewTab(pane);
         else if (index < tabs.getTabs().size())
             movePaneToTab(pane, tabs.getTabs().get(index));
@@ -1220,48 +1387,14 @@ public final class TerminalWindow {
     private @Nullable Tab draggedTab;
 
     /**
-     * Drag-to-reorder.
-     *
-     * <p>JavaFX has no tab reordering of its own, so this is the whole gesture: the label is the
-     * drag source, the drop side is decided by which half of the target it lands on, and an accent
-     * edge shows where it would go.
-     */
-    /**
-     * Installs the reorder gesture on a tab's whole header.
-     *
-     * <p><b>Not on the title label</b>, which is where this started and why the feature was
-     * effectively missing: measured on a three-tab window, each header was 286px wide and the label
-     * 13px. The gesture was there, and you had to catch two characters of text to find it — which
-     * from the outside is indistinguishable from a terminal that cannot reorder tabs at all.
-     *
-     * <p>The header is JavaFX's own node rather than one of ours, so it is looked up from the skin
-     * once the skin exists, on the retry the close-button tooltips already use.
-     */
-    private void installTabDrag(int attempt) {
-        int found = 0;
-        for (Tab tab : tabs.getTabs()) {
-            javafx.scene.Node header = headerOf(tab);
-            if (header == null) continue;
-            found++;
-            if (header.getProperties().putIfAbsent(TAB_DRAG_INSTALLED, Boolean.TRUE) != null) continue;
-            installTabDrag(tab, header);
-        }
-        // Same reasoning as the tooltips: a missing header means the skin is still building it, but
-        // only while the strip is shown. Hidden for a single tab there is no header and none coming.
-        boolean stripShown = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
-        if (stripShown && found < tabs.getTabs().size() && attempt < CLOSE_TIP_ATTEMPTS) {
-            Platform.runLater(() -> installTabDrag(attempt + 1));
-        }
-    }
-
-    /**
-     * The header node JavaFX built for a tab, found from our own title graphic upwards.
+     * The header node JavaFX built for a tab, found from our own title graphic upwards, or null
+     * while the skin has not built it.
      *
      * <p>Not by position in {@code lookupAll(".tab")}: that returns an unordered set, so pairing by
      * index would sometimes hand the gesture the wrong tab and reorder something the user was not
      * dragging — rarely enough to look random.
      */
-    private static javafx.scene.Node headerOf(Tab tab) {
+    private static javafx.scene.@Nullable Node headerOf(Tab tab) {
         javafx.scene.Node node = tab.getGraphic();
         while (node != null && !node.getStyleClass().contains("tab")) {
             node = node.getParent();
@@ -1269,6 +1402,21 @@ public final class TerminalWindow {
         return node;
     }
 
+    /**
+     * Drag-to-reorder, double-click rename and the pane drop, on a tab's whole header.
+     *
+     * <p>JavaFX has no tab reordering of its own, so this is the whole gesture: the header is the
+     * drag source, the drop side is decided by which half of the target it lands on, and an accent
+     * edge shows where it would go.
+     *
+     * <p><b>Not on the title label</b>, which is where this started and why the feature was
+     * effectively missing: measured on a three-tab window, each header was 286px wide and the label
+     * 13px. The gesture was there, and you had to catch two characters of text to find it — which
+     * from the outside is indistinguishable from a terminal that cannot reorder tabs at all.
+     *
+     * <p>The header is JavaFX's own node rather than one of ours, so it is looked up from the skin
+     * once the skin exists — by {@link #decorateHeaders}, after every change to the tab list.
+     */
     private void installTabDrag(Tab tab, javafx.scene.Node header) {
         // Double-click renames, which is what every tabbed application teaches the hand. On the
         // header rather than the label, for the reason the drag gesture moved there.
@@ -1292,8 +1440,9 @@ public final class TerminalWindow {
 
         header.setOnDragOver(e -> {
             // A pane dropped on a tab joins it; dropped on its own tab it is already there.
-            if (draggedPane != null && e.getDragboard().hasContent(PaneDrag.FORMAT)) {
-                if (!groupOf(tab).contains(draggedPane)) {
+            TerminalView pane = paneDraggedBy(e);
+            if (pane != null) {
+                if (!groupOf(tab).contains(pane)) {
                     e.acceptTransferModes(TransferMode.MOVE);
                     if (!header.getStyleClass().contains("tab-drop-into"))
                         header.getStyleClass().add("tab-drop-into");
@@ -1312,8 +1461,8 @@ public final class TerminalWindow {
 
         header.setOnDragDropped(e -> {
             clearDropMarks(header);
-            if (draggedPane != null && e.getDragboard().hasContent(PaneDrag.FORMAT)) {
-                TerminalView pane = draggedPane;
+            TerminalView pane = paneDraggedBy(e);
+            if (pane != null) {
                 draggedPane = null;
                 movePaneToTab(pane, tab);
                 e.setDropCompleted(true);
@@ -1428,6 +1577,9 @@ public final class TerminalWindow {
             moveLeft.setDisable(index <= 0);
             moveRight.setDisable(index < 0 || index >= count - 1);
         });
+        // The right-click that opened it focused the tab strip, and the guard left that alone while
+        // the menu was up. Closing a menu moves no focus, so the guard is asked again here.
+        menu.setOnHidden(e -> reclaimFocusIfUnclaimed());
         return menu;
     }
 
@@ -1460,16 +1612,16 @@ public final class TerminalWindow {
      */
     private void closeTab(Tab tab) {
         if (!confirmClose(List.of(tab))) return;
-        rememberClosed(tab);
+        rememberClosedTabs(List.of(tab));
         tabs.getTabs().remove(tab);
     }
 
     /** One question for the whole set: closing eight tabs should not ask eight times. */
     private void closeTabs(List<Tab> doomed) {
         if (doomed.isEmpty() || !confirmClose(doomed)) return;
-        // Remembered in strip order, so reopening brings the rightmost back first and each lands
-        // in a strip that already holds the ones to its left.
-        for (Tab tab : doomed) rememberClosed(tab);
+        // Remembered so that reopening brings them back leftmost first, each into a strip that
+        // already holds the ones to its left: see ClosedTabs.rememberAll.
+        rememberClosedTabs(doomed);
         for (Tab tab : doomed) tabs.getTabs().remove(tab);
     }
 
@@ -1554,13 +1706,15 @@ public final class TerminalWindow {
     /** Rings the bell in a tab by index, as a program would — for the capture hook. */
     public void ringBellInTabForCapture(int index) {
         if (index < 0 || index >= tabs.getTabs().size()) return;
-        terminalOf(tabs.getTabs().get(index)).getSession().send(new byte[] {7});
+        TerminalView terminal = terminalOf(tabs.getTabs().get(index));
+        if (terminal != null) terminal.getSession().send(new byte[] {7});
     }
 
     /** Runs a command in a tab by index, without selecting it — for the capture hook. */
     public void typeInTabForCapture(int index, String text) {
         if (index < 0 || index >= tabs.getTabs().size()) return;
-        terminalOf(tabs.getTabs().get(index)).getSession().sendString(text);
+        TerminalView terminal = terminalOf(tabs.getTabs().get(index));
+        if (terminal != null) terminal.getSession().sendString(text);
     }
 
     // ---------------------------------------------------------------- shortcut reference
@@ -1618,8 +1772,10 @@ public final class TerminalWindow {
                 listed.add(item.getAccelerator());
             }
         }
+        int profiles = windows.profiles().all().size();
         for (MenuAction binding : bindings) {
             KeyCombination chord = binding.accelerator();
+            if (!listsProfileChord(binding.id(), profiles)) continue;
             if (chord == null || !listed.add(chord)) continue;
             out.add(new ShortcutReference.Shortcut(
                     bindingGroups.getOrDefault(binding.id(), tr("menu.window")),
@@ -1647,6 +1803,20 @@ public final class TerminalWindow {
         return out;
     }
 
+    /**
+     * Whether the reference lists a binding, as far as profiles go: the profile chords only for
+     * profiles that exist. Nine "New Tab With Profile" rows on a machine with one profile is eight
+     * rows of chords that do nothing.
+     */
+    static boolean listsProfileChord(@Nullable String id, int profileCount) {
+        if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return true;
+        try {
+            return Integer.parseInt(id.substring(PROFILE_CHORD_ID.length())) <= profileCount;
+        } catch (NumberFormatException notANumberedChord) {
+            return true;
+        }
+    }
+
     private static String shifted(KeyCode code) {
         return new KeyCodeCombination(code, KeyCombination.SHIFT_DOWN).getDisplayText();
     }
@@ -1659,11 +1829,91 @@ public final class TerminalWindow {
      */
     private final ClosedTabs closedTabs = new ClosedTabs();
 
-    private void rememberClosed(Tab tab) {
+    /**
+     * Remembers tabs about to be closed on purpose, together, before any of them goes: their
+     * indices are read from the strip as it is now.
+     */
+    private void rememberClosedTabs(List<Tab> doomed) {
+        long stamp = windows.nextCloseStamp();
+        List<ClosedTabs.Entry> entries = new ArrayList<>();
+        for (Tab tab : doomed) {
+            ClosedTabs.Entry entry = entryOf(tab, stamp);
+            if (entry != null) entries.add(entry);
+        }
+        closedTabs.rememberAll(entries);
+        // Should these be the last tabs, the window closes with them, and what it closed with is
+        // what Reopen in another window has to bring back: see rememberClosedWindow.
+        lastClose = entries;
+        lastCloseTabs = List.copyOf(doomed);
+    }
+
+    /** A tab as Reopen will bring it back, or null for one with no panes left. */
+    private ClosedTabs.@Nullable Entry entryOf(Tab tab, long stamp) {
         PaneGroup group = groupOf(tab);
-        if (group.panes().isEmpty()) return;
-        closedTabs.remember(
-                new ClosedTabs.Entry(group.layout(this::leafOf), tabs.getTabs().indexOf(tab)));
+        if (group.panes().isEmpty()) return null;
+        return new ClosedTabs.Entry(group.layout(this::leafOf), tabs.getTabs().indexOf(tab), stamp);
+    }
+
+    /**
+     * The entries the last deliberate close remembered, while it is still the thing that would have
+     * emptied the window; cleared as soon as any other tab goes.
+     */
+    private List<ClosedTabs.Entry> lastClose = List.of();
+
+    private List<Tab> lastCloseTabs = List.of();
+
+    private void clearLastClose() {
+        lastClose = List.of();
+        lastCloseTabs = List.of();
+    }
+
+    /** True once the window is being torn down for the application quitting, not closed by the user. */
+    private boolean shuttingDown;
+
+    /**
+     * Hands the window's tabs to the window manager as it closes, so Reopen Closed Tab in another
+     * window can bring them back.
+     *
+     * <p>Only for a close the user asked for. Quitting is not a close to undo, and the windows a
+     * quit takes down are not "the most recently closed" of anything. The tabs are those still open
+     * — Close Window, the close button — or, for a window that closed because its last tab did,
+     * that tab: it was remembered in this window's own list, which goes with the window.
+     */
+    private void rememberClosedWindow() {
+        if (shuttingDown) return;
+        long stamp = windows.nextCloseStamp();
+        List<ClosedTabs.Entry> open = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) {
+            ClosedTabs.Entry entry = entryOf(tab, stamp);
+            if (entry != null) open.add(entry);
+        }
+        if (!open.isEmpty()) {
+            windows.rememberClosedWindow(
+                    new ClosedTabs.Window(open, tabs.getSelectionModel().getSelectedIndex(), stamp));
+        } else if (!lastClose.isEmpty()) {
+            List<ClosedTabs.Entry> order = ClosedTabs.reopenOrder(lastClose);
+            windows.rememberClosedWindow(new ClosedTabs.Window(order, order.size() - 1, stamp));
+        }
+    }
+
+    /** Opens a closed window's tabs here, leftmost first, and selects the one that was selected. */
+    void reopenTabs(ClosedTabs.Window closed) {
+        for (ClosedTabs.Entry entry : ClosedTabs.reopenOrder(closed.tabs())) reopen(entry);
+        if (closed.selected() >= 0 && closed.selected() < tabs.getTabs().size()) {
+            tabs.getSelectionModel().select(closed.selected());
+        }
+    }
+
+    /**
+     * Runs as the window goes, whichever way it went: every registration this window made on
+     * something that outlives it, undone. Each one left in place keeps the whole window reachable
+     * for the life of the application.
+     */
+    private final List<Runnable> onDispose = new ArrayList<>();
+
+    private void dispose() {
+        for (Runnable undo : List.copyOf(onDispose)) undo.run();
+        onDispose.clear();
     }
 
     /** A pane as Reopen Closed Tab will start it again: its shell, where it is now, its name. */
@@ -1678,7 +1928,17 @@ public final class TerminalWindow {
      * arranged as they were with the same one active, and the tab in its old place.
      */
     public void reopenClosedTab() {
+        long tabStamp = closedTabs.peek().map(ClosedTabs.Entry::stamp).orElse(-1L);
+        if (ClosedTabs.reopensWindow(tabStamp, windows.newestClosedWindowStamp())) {
+            windows.reopenClosedWindow(this);
+            return;
+        }
         closedTabs.pop().ifPresent(this::reopen);
+    }
+
+    /** Whether Reopen Closed Tab has anything to bring back: a tab, a pane, or a whole window. */
+    private boolean canReopen() {
+        return !closedTabs.isEmpty() || windows.newestClosedWindowStamp() >= 0;
     }
 
     private void reopen(ClosedTabs.Entry entry) {
@@ -1909,6 +2169,56 @@ public final class TerminalWindow {
         return menu.getScene();
     }
 
+    /**
+     * Whether tab {@code index}'s menu is up, and who has the keyboard — for the capture hook. With
+     * {@code escape}, presses Escape at the menu first, as a hand dismissing it would.
+     */
+    public String tabMenuStateForCapture(int index, boolean escape) {
+        if (index < 0 || index >= tabs.getTabs().size()) return "tabMenu=none";
+        ContextMenu menu = tabs.getTabs().get(index).getContextMenu();
+        if (menu == null) return "tabMenu=none";
+        // At the window's focus owner, where a keyboard's Escape arrives: the popup hears it through
+        // the redirect it installs on the window it hangs off.
+        Scene scene = stage.getScene();
+        javafx.scene.Node owner = scene == null ? null : scene.getFocusOwner();
+        if (escape && owner != null) {
+            javafx.event.Event.fireEvent(
+                    owner, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false));
+        }
+        return "tabMenu showing=" + menu.isShowing() + " " + focusReport();
+    }
+
+    /**
+     * Fires chords at whatever has the keyboard, by {@link KeyChord} token — for the capture hook.
+     * Through the whole scene, filters and handlers both, as a keyboard's would arrive: this is how
+     * a chord typed into the find bar is checked for leaking past it to the terminal behind.
+     */
+    public String fireChordsAtFocusForCapture(String tokens) {
+        Scene scene = stage.getScene();
+        StringBuilder out = new StringBuilder();
+        for (String token : tokens.split(",")) {
+            KeyCombination combination = KeyChord.toCombination(token.trim());
+            javafx.scene.Node target = scene == null ? null : scene.getFocusOwner();
+            if (!(combination instanceof KeyCodeCombination chord) || target == null) {
+                out.append(token.trim()).append("->? ");
+                continue;
+            }
+            boolean shift = chord.getShift() == KeyCombination.ModifierValue.DOWN;
+            boolean control = chord.getControl() == KeyCombination.ModifierValue.DOWN;
+            boolean alt = chord.getAlt() == KeyCombination.ModifierValue.DOWN;
+            boolean meta = chord.getMeta() == KeyCombination.ModifierValue.DOWN;
+            KeyEvent press = new KeyEvent(KeyEvent.KEY_PRESSED, "", "", chord.getCode(), shift, control, alt, meta);
+            javafx.event.Event.fireEvent(target, press);
+            javafx.event.Event.fireEvent(
+                    target, new KeyEvent(KeyEvent.KEY_RELEASED, "", "", chord.getCode(), shift, control, alt, meta));
+            out.append(token.trim())
+                    .append("->")
+                    .append(target.getClass().getSimpleName())
+                    .append(' ');
+        }
+        return out.toString().trim();
+    }
+
     /** Selects a tab by index. For the development capture hook. */
     public void selectTab(int index) {
         if (index >= 0 && index < tabs.getTabs().size())
@@ -1960,8 +2270,11 @@ public final class TerminalWindow {
         return "<custom>";
     }
 
-    /** A tab's active pane: what its title, Copy, Find and a new tab's directory all go by. */
-    private static TerminalView terminalOf(Tab tab) {
+    /**
+     * A tab's active pane: what its title, Copy, Find and a new tab's directory all go by. Null only
+     * for a tab on its way out whose last pane has already left (see {@link PaneGroup#active}).
+     */
+    private static @Nullable TerminalView terminalOf(Tab tab) {
         return groupOf(tab).active();
     }
 
@@ -2109,7 +2422,26 @@ public final class TerminalWindow {
         for (javafx.scene.Node n : headers) {
             out.append(Math.round(n.getBoundsInParent().getWidth())).append(' ');
         }
-        return out.append("] stripW=").append(Math.round(tabs.getWidth())).toString();
+        out.append("] stripW=").append(Math.round(tabs.getWidth()));
+        // Whether the selected tab is whole inside the part of the strip the headers may use, and
+        // what JavaFX's overflow control occupies — the two things a narrow window got wrong.
+        javafx.scene.Node area = tabs.lookup(".tab-header-area");
+        Tab selected = tabs.getSelectionModel().getSelectedItem();
+        javafx.scene.Node header = selected == null ? null : headerOf(selected);
+        if (area instanceof javafx.scene.layout.Region region && header != null) {
+            javafx.geometry.Bounds strip = region.localToScene(region.getLayoutBounds());
+            javafx.geometry.Bounds tab = header.localToScene(header.getLayoutBounds());
+            boolean whole =
+                    tab.getMinX() >= strip.getMinX() - 0.5 && tab.getMaxX() <= strip.getMaxX() - NEW_TAB_RESERVED + 0.5;
+            out.append(" selectedWhole=").append(whole);
+        }
+        javafx.scene.Node control = tabs.lookup(".control-buttons-tab");
+        out.append(" overflowControl=")
+                .append(
+                        control == null
+                                ? "absent"
+                                : Math.round(control.getLayoutBounds().getWidth()) + "px");
+        return out.toString();
     }
 
     private MenuBar menuBar;
@@ -2207,22 +2539,35 @@ public final class TerminalWindow {
         // launch. Measured: set to 700, saved as 728.
         Scene scene = stage.getScene();
         scene.widthProperty().addListener((o, was, now) -> {
-            if (!stage.isMaximized()) restoredWidth = now.doubleValue();
+            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredWidth = now.doubleValue();
         });
         scene.heightProperty().addListener((o, was, now) -> {
-            if (!stage.isMaximized()) restoredHeight = now.doubleValue();
+            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredHeight = now.doubleValue();
         });
         // The position as well, on the same terms: a maximized window reports the screen's corner.
         stage.xProperty().addListener((o, was, now) -> {
-            if (!stage.isMaximized()) restoredX = now.doubleValue();
+            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredX = now.doubleValue();
         });
         stage.yProperty().addListener((o, was, now) -> {
-            if (!stage.isMaximized()) restoredY = now.doubleValue();
+            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredY = now.doubleValue();
         });
         // Hiding, not hidden: WindowManager's own onHidden handler ends the app when the last
         // window goes, and the write has to have happened by then.
         stage.setOnHiding(e ->
                 settings.setWindowGeometry(restoredX, restoredY, restoredWidth, restoredHeight, stage.isMaximized()));
+    }
+
+    /**
+     * Whether the size and place the window has now are its own, to be remembered for next time.
+     *
+     * <p>Not while maximized, and not in full screen either: both report the screen's, and storing
+     * that made the next launch open a screen-sized window at the corner — full screen was the case
+     * missed, so closing a full-screen window did it. {@code Stage.setFullScreen} sets the property
+     * before the platform resizes the window, so the resize that follows is already excluded, and
+     * the one on the way out arrives after it is cleared, at the size being restored.
+     */
+    static boolean isRestoredGeometry(boolean maximized, boolean fullScreen) {
+        return !maximized && !fullScreen;
     }
 
     public void show() {
@@ -2242,6 +2587,7 @@ public final class TerminalWindow {
 
     /** Teardown. Ends everything without asking, because the answer is no longer available. */
     public void closeForShutdown() {
+        shuttingDown = true;
         stage.close();
     }
 
@@ -2295,6 +2641,8 @@ public final class TerminalWindow {
                 register(item("menu.closeWindow", MenuAction.closeWindowChord(), this::close)),
                 register(reopenAction),
                 null,
+                // Ctrl+, off macOS, Windows Terminal's: no shell binding can receive it, since Ctrl+,
+                // has no control byte in the legacy encoding and arrives as a plain comma.
                 register(item(
                         "menu.settings",
                         new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
@@ -2314,14 +2662,12 @@ public final class TerminalWindow {
         file.getItems().add(1, newTabAs);
         // Greyed when there is nothing to bring back — an item that does nothing when clicked is
         // worse than one that says it cannot.
+        // By id, not by label: a label is a translation, and the one for Close Tab changes under it.
         file.setOnShowing(e -> {
-            for (MenuItem item : file.getItems()) {
-                if (tr("menu.reopenClosedTab").equals(item.getText())) item.setDisable(closedTabs.isEmpty());
-                // Says what its chord will do: in a split tab that is the active pane, not the tab.
-                if (tr("menu.closeTab").equals(item.getText())
-                        || tr("menu.closePane").equals(item.getText())) {
-                    item.setText(activeTabIsSplit() ? tr("menu.closePane") : tr("menu.closeTab"));
-                }
+            for (MenuItem item : itemsFor(idOf("menu.reopenClosedTab"))) item.setDisable(!canReopen());
+            // Says what its chord will do: in a split tab that is the active pane, not the tab.
+            for (MenuItem item : itemsFor(idOf("menu.closeTab"))) {
+                item.setText(activeTabIsSplit() ? tr("menu.closePane") : tr("menu.closeTab"));
             }
         });
 
@@ -2335,7 +2681,7 @@ public final class TerminalWindow {
                     tr("menu.file"),
                     MenuAction.of(
                                     tr("menu.newTabProfileNumber", number),
-                                    MenuAction.shiftChord(digitKey(number)),
+                                    MenuAction.profileChord(digitKey(number)),
                                     () -> openProfileByNumber(chosen))
                             .withId(PROFILE_CHORD_ID + number));
         }
@@ -2378,13 +2724,8 @@ public final class TerminalWindow {
                 selectOutputAction);
         edit.setOnShowing(e -> {
             boolean marked = promptMarksAvailable();
-            for (MenuItem item : edit.getItems()) {
-                String text = item.getText();
-                if (tr("menu.previousPrompt").equals(text)
-                        || tr("menu.nextPrompt").equals(text)
-                        || tr("menu.selectLastOutput").equals(text)) {
-                    item.setDisable(!marked);
-                }
+            for (MenuAction action : List.of(previousPromptAction, nextPromptAction, selectOutputAction)) {
+                for (MenuItem item : itemsFor(action.id())) item.setDisable(!marked);
             }
         });
 
@@ -2498,7 +2839,8 @@ public final class TerminalWindow {
                 register(item("menu.maximizePane", MenuAction.shiftChord(KeyCode.ENTER), this::toggleMaximizePane)),
                 register(item("menu.movePaneToNewTab", () -> {
                     Tab tab = tabs.getSelectionModel().getSelectedItem();
-                    if (tab != null) movePaneToNewTab(groupOf(tab).active());
+                    TerminalView pane = tab == null ? null : groupOf(tab).active();
+                    if (pane != null) movePaneToNewTab(pane);
                 })));
 
         // Moving between panes: chords and palette entries, no menu items — four of them would be
@@ -2556,7 +2898,9 @@ public final class TerminalWindow {
         // The Help menu is where an available update shows up. Termina has no status bar, which is
         // where Editora puts its badge, and a banner over the terminal would cost a row of the
         // thing the user is actually looking at.
-        windows.addUpdateListener(this::refreshUpdateItem);
+        Runnable onUpdate = this::refreshUpdateItem;
+        windows.addUpdateListener(onUpdate);
+        onDispose.add(() -> windows.removeUpdateListener(onUpdate));
         refreshUpdateItem();
 
         // Last, once every command is in the table: a stored chord is placed against all of them.
@@ -2806,6 +3150,11 @@ public final class TerminalWindow {
         return action;
     }
 
+    /** The menu items showing command {@code id}, in every menu that has one. */
+    private List<MenuItem> itemsFor(@Nullable String id) {
+        return id == null ? List.of() : itemsById.getOrDefault(id, List.of());
+    }
+
     /** The menu item for {@code action}, remembered so its accelerator can follow the command. */
     private MenuItem menuItem(MenuAction action) {
         MenuItem item = action.toMenuItem();
@@ -2847,11 +3196,16 @@ public final class TerminalWindow {
                 && stage.getScene().getFocusOwner() instanceof javafx.scene.control.TextInputControl;
         for (MenuAction binding : bindings) {
             if (binding.matches(e)) {
-                // Not consumed, so the field gets it: Cmd+C in the find bar copies the query.
+                // Not consumed, so the field gets it: Cmd+C in the find bar copies the query. And if
+                // the field has no use for it, onUnclaimedKeyPressed stops it at the scene.
                 if (inTextField && yieldsToTextField(binding.id())) return;
-                binding.action().run();
-                swallowNextTyped = true;
                 e.consume();
+                // Before the action, not after it: an action that shows a modal returns once the
+                // modal is gone, and the KEY_TYPED this is for went to the modal meanwhile. Set
+                // afterwards, it waited for the next character typed here and ate that instead.
+                // The focus listener in the constructor clears it if the action took the focus.
+                swallowNextTyped = true;
+                binding.action().run();
                 return;
             }
         }
@@ -2863,6 +3217,44 @@ public final class TerminalWindow {
             zoom(1);
             e.consume();
         }
+    }
+
+    /**
+     * Stops a bound chord that came back up through the scene unconsumed.
+     *
+     * <p>The filter lets two kinds through on purpose: everything while the palette is open, which
+     * has its own keys, and the editing chords while a text field has the keyboard. Either may have
+     * no use for it — Ctrl+Shift+W in the palette's query, Ctrl+Shift+V in the find bar — and an
+     * unconsumed press is what JavaFX hands to menu accelerators and macOS to the screen menu bar's
+     * key equivalents. That ran the command behind the field's back: the tab closed under the
+     * palette, the clipboard went into the shell from the find bar. Here it ends instead.
+     */
+    private void onUnclaimedKeyPressed(KeyEvent e) {
+        if (e.isConsumed()) return;
+        for (MenuAction binding : bindings) {
+            if (binding.matches(e)) {
+                e.consume();
+                return;
+            }
+        }
+    }
+
+    /**
+     * Keeps a scene's accelerator table empty, so a menu item's chord is only ever a label.
+     *
+     * <p>JavaFX copies every menu item's accelerator into its scene — the menu bar's, each tab's
+     * context menu, the terminal's own — and runs it for any key press that reaches the scene
+     * unconsumed. This window already runs every binding from its scene filter, so that was a
+     * second route to the same commands, taken exactly when the filter had decided not to: while
+     * the palette or a text field was entitled to the key. Emptied as JavaFX fills it, because
+     * items are added, rebound and re-shown for the life of the window.
+     */
+    static void keepAcceleratorsDisplayOnly(Scene scene) {
+        javafx.collections.ObservableMap<KeyCombination, Runnable> accelerators = scene.getAccelerators();
+        accelerators.clear();
+        accelerators.addListener((javafx.collections.MapChangeListener<KeyCombination, Runnable>) change -> {
+            if (change.wasAdded()) accelerators.remove(change.getKey());
+        });
     }
 
     /**
@@ -3004,6 +3396,7 @@ public final class TerminalWindow {
         terminal.setCopyOnSelect(settings.copyOnSelect());
         terminal.setTypeAheadAllowed(settings.typeAhead());
         terminal.setScrollBarEnabled(settings.showScrollBar());
+        terminal.setTextPadding(settings.padding());
     }
 
     /**
@@ -3065,8 +3458,10 @@ public final class TerminalWindow {
         // A split tab's active pane can go to any other tab, by name, for the reason the tab rows
         // are by name.
         Tab current = tabs.getSelectionModel().getSelectedItem();
-        if (current != null && groupOf(current).isSplit()) {
-            TerminalView pane = groupOf(current).active();
+        TerminalView splitPane =
+                current != null && groupOf(current).isSplit() ? groupOf(current).active() : null;
+        if (splitPane != null) {
+            TerminalView pane = splitPane;
             for (int index = 0; index < open.size(); index++) {
                 Tab target = open.get(index);
                 if (target == current) continue;
@@ -3097,8 +3492,8 @@ public final class TerminalWindow {
         boolean marked = promptMarksAvailable();
         palette.show(
                 all,
-                action -> !(action.sameActionAs(reopenAction) && closedTabs.isEmpty())
-                        && !(needsPromptMarks(action) && !marked),
+                action ->
+                        !(action.sameActionAs(reopenAction) && !canReopen()) && !(needsPromptMarks(action) && !marked),
                 action -> {
                     if (action.sameActionAs(reopenAction)) return tr("palette.disabled.nothingToReopen");
                     if (needsPromptMarks(action)) return tr("palette.disabled.noPromptMarks");
@@ -3184,6 +3579,48 @@ public final class TerminalWindow {
     static boolean shouldFallBackToDefaultShell(int tabCount, boolean failedWasDefaultShell) {
         return tabCount <= 1 && !failedWasDefaultShell;
     }
+
+    /**
+     * Whether a window whose tab failed to start stays open with no tabs, rather than closing.
+     *
+     * <p>When nothing else is left in it and nothing is being opened in its place. An empty window
+     * otherwise closes itself, and the last one closing quits — which for a default shell that will
+     * not start was the application vanishing, its error dialog with it. Kept open, it shows what
+     * failed, and the menus and chords still reach Settings and New Tab.
+     *
+     * @param remainingTabs tabs that will be left once the failed one is gone
+     * @param fallingBack whether the default shell is being opened instead
+     */
+    static boolean keepsWindowOpenEmpty(int remainingTabs, boolean fallingBack) {
+        return remainingTabs <= 0 && !fallingBack;
+    }
+
+    /**
+     * Shell starts still to fail on purpose, in any window — for the capture hook. A start that
+     * fails outright is hard to arrange on demand: the shell setting is checked for an executable
+     * before it is used, and one that is executable but cannot run starts and exits instead.
+     */
+    private static int simulatedStartFailures;
+
+    /** Makes the next {@code count} tab starts fail as an unstartable shell would — for the capture hook. */
+    public static void failNextShellStartsForCapture(int count) {
+        simulatedStartFailures = Math.max(0, count);
+    }
+
+    /** Whether this window is open with no tabs, showing why — for the capture hook. */
+    public String emptyWindowReport() {
+        return "emptyWindow kept=" + keepEmptyWindow + " placeholder=" + emptyPlaceholder.isVisible() + " \""
+                + emptyPlaceholder.getText().replace("\n", " / ") + "\"";
+    }
+
+    /** Tabs whose shells failed to start and are on their way out, so they are not counted as left. */
+    private final java.util.Set<Tab> failingTabs = new java.util.HashSet<>();
+
+    /** Set when the last tab failed to start: the window stays, empty, instead of closing. */
+    private boolean keepEmptyWindow;
+
+    /** What an empty window kept open says: which shell would not start, and why. */
+    private final Label emptyPlaceholder = new Label();
 
     /** The command a launch would run, for the message: the profile's own, or the shell's. */
     private static String commandLineOf(com.termina.pty.LaunchOptions options) {

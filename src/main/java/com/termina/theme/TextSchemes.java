@@ -29,7 +29,8 @@ final class TextSchemes {
     private TextSchemes() {}
 
     /** Which of the three a file is, from its text: an Alacritty table, a Ghostty palette line, a kitty colour line. */
-    static @Nullable Format sniff(String text) {
+    static @Nullable Format sniff(String file) {
+        String text = withoutBom(file);
         boolean ghostty = false;
         boolean kitty = false;
         for (String raw : text.split("\\R")) {
@@ -43,7 +44,17 @@ final class TextSchemes {
         return null;
     }
 
-    static ColorScheme read(String text, Format format, String name) throws ThemeImportException {
+    /**
+     * The text without a leading byte-order mark. Notepad writes one, and it is not whitespace, so
+     * {@code strip} kept it and the first line — {@code palette = 0=…}, {@code [colors.primary]} —
+     * no longer read as itself.
+     */
+    static String withoutBom(String text) {
+        return text.startsWith("﻿") ? text.substring(1) : text;
+    }
+
+    static ColorScheme read(String file, Format format, String name) throws ThemeImportException {
+        String text = withoutBom(file);
         return switch (format) {
             case GHOSTTY -> ghostty(text, name);
             case KITTY -> kitty(text, name);
@@ -146,10 +157,13 @@ final class TextSchemes {
             throws ThemeImportException {
         int[] colours = new int[16];
         for (int i = 0; i < 16; i++) {
-            if (ansi[i] == null) throw new ThemeImportException("no colour " + i);
+            if (ansi[i] == null)
+                throw new ThemeImportException(ThemeImportException.Reason.MISSING_COLOUR, "color" + i);
             colours[i] = ansi[i];
         }
-        if (background == null || foreground == null) throw new ThemeImportException("no background or foreground");
+        if (background == null || foreground == null)
+            throw new ThemeImportException(
+                    ThemeImportException.Reason.MISSING_COLOUR, background == null ? "background" : "foreground");
         return new ColorScheme(name, background, foreground, colours, cursor, selection);
     }
 
@@ -191,7 +205,7 @@ final class TextSchemes {
     /** {@code #rrggbb}, {@code rrggbb} or {@code 0xrrggbb}. */
     static int hexColour(String text) throws ThemeImportException {
         Integer colour = hexColour(text, false);
-        if (colour == null) throw new ThemeImportException("\"" + text + "\" is not a colour");
+        if (colour == null) throw new ThemeImportException(ThemeImportException.Reason.NOT_A_COLOUR, text);
         return colour;
     }
 
@@ -208,6 +222,6 @@ final class TextSchemes {
         }
         if (hex.length() == 6 && hex.matches("[0-9a-fA-F]{6}")) return Integer.parseInt(hex, 16);
         if (lenient) return null;
-        throw new ThemeImportException("\"" + text + "\" is not a colour");
+        throw new ThemeImportException(ThemeImportException.Reason.NOT_A_COLOUR, text);
     }
 }

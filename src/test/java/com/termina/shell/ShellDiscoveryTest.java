@@ -81,6 +81,78 @@ class ShellDiscoveryTest {
         assertEquals(List.of(), ShellDiscovery.parseWslDistributions("\r\n\r\n".getBytes(StandardCharsets.UTF_16LE)));
     }
 
+    // ---------------------------------------------------------------- WSL from the registry
+
+    /** {@code reg.exe query HKCU\...\Lxss /s /v DistributionName}, as Windows prints it. */
+    private static final String REG_OUTPUT = "\r\n"
+            + "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss\\{0a1b2c3d-1111}\r\n"
+            + "    DistributionName    REG_SZ    Ubuntu-22.04\r\n"
+            + "\r\n"
+            + "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss\\{0a1b2c3d-2222}\r\n"
+            + "    DistributionName    REG_SZ    Arch Linux\r\n"
+            + "\r\n"
+            + "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss\\{0a1b2c3d-3333}\r\n"
+            + "    DistributionName    REG_SZ    docker-desktop\r\n"
+            + "\r\n"
+            + "End of search: 3 match(es) found.\r\n";
+
+    /** What {@code wsl --list --quiet} prints on a machine with WSL and no distribution. */
+    private static final byte[] WSL_NO_DISTRIBUTIONS =
+            ("Windows Subsystem for Linux has no installed distributions.\r\n"
+                            + "You can resolve this by installing a distribution with the instructions below:\r\n"
+                            + "\r\n"
+                            + "Use 'wsl.exe --list --online' to list available distributions\r\n")
+                    .getBytes(StandardCharsets.UTF_16LE);
+
+    @Test
+    @DisplayName("the registry's DistributionName values are the list, and nothing else in its output is")
+    void readsDistributionsFromTheRegistry() {
+        assertEquals(
+                List.of("Ubuntu-22.04", "Arch Linux"),
+                ShellDiscovery.parseRegistryDistributions(REG_OUTPUT.getBytes(StandardCharsets.UTF_8)));
+        assertEquals(List.of(), ShellDiscovery.parseRegistryDistributions(new byte[0]));
+        assertEquals(
+                List.of(),
+                ShellDiscovery.parseRegistryDistributions(
+                        "\r\nEnd of search: 0 match(es) found.\r\n".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    @DisplayName("the registry is asked first, and wsl.exe is not asked when it answers")
+    void prefersTheRegistry() {
+        var registry = new ShellDiscovery.CommandResult(0, REG_OUTPUT.getBytes(StandardCharsets.UTF_8));
+        List<String> found = ShellDiscovery.wslDistributions(() -> registry, () -> {
+            throw new AssertionError("wsl.exe must not run when the registry answered");
+        });
+        assertEquals(List.of("Ubuntu-22.04", "Arch Linux"), found);
+    }
+
+    @Test
+    @DisplayName("with no distributions, wsl.exe's explanation does not become menu entries")
+    void ignoresWslsExplanation() {
+        // No Lxss key: reg.exe exits 1. wsl.exe then exits non-zero with prose on stdout.
+        var noKey = new ShellDiscovery.CommandResult(1, new byte[0]);
+        var prose = new ShellDiscovery.CommandResult(-1, WSL_NO_DISTRIBUTIONS);
+        assertEquals(List.of(), ShellDiscovery.wslDistributions(() -> noKey, () -> prose));
+        assertEquals(List.of(), ShellDiscovery.wslDistributions(() -> null, () -> prose));
+        assertEquals(List.of(), ShellDiscovery.wslDistributions(() -> null, () -> null));
+    }
+
+    @Test
+    @DisplayName("without reg.exe, a successful wsl --list is still read")
+    void fallsBackToWslWhenTheRegistryCannotBeRead() {
+        var listed = new ShellDiscovery.CommandResult(0, "Ubuntu\r\n".getBytes(StandardCharsets.UTF_16LE));
+        assertEquals(List.of("Ubuntu"), ShellDiscovery.wslDistributions(() -> null, () -> listed));
+    }
+
+    @Test
+    @DisplayName("Command Prompt is called what the UI's language calls it")
+    void namesCommandPromptInTheUiLanguage() {
+        var env = env(Map.of("SystemRoot", "C:\\Windows", "COMSPEC", CMD.toString()));
+        List<Profile> found = ShellDiscovery.onWindows(env, present(CMD), List::of, "Eingabeaufforderung");
+        assertEquals("Eingabeaufforderung", byId(found, "cmd").name());
+    }
+
     // ---------------------------------------------------------------- Windows
 
     private static final Path CMD = Path.of("C:\\Windows", "System32", "cmd.exe");

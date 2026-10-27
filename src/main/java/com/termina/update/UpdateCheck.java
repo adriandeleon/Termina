@@ -196,7 +196,9 @@ public final class UpdateCheck {
     /** Classifies the exception a request died with. */
     public static ErrorKind classify(Throwable error) {
         for (Throwable t = error; t != null; t = t.getCause()) {
-            if (t instanceof java.net.http.HttpTimeoutException) return ErrorKind.TIMEOUT;
+            if (t instanceof java.net.http.HttpTimeoutException || t instanceof java.util.concurrent.TimeoutException) {
+                return ErrorKind.TIMEOUT;
+            }
             if (t instanceof java.net.UnknownHostException
                     || t instanceof java.net.ConnectException
                     || t instanceof java.net.NoRouteToHostException

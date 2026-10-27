@@ -30,13 +30,15 @@ public final class ThemeImport {
      *     carry one
      */
     public static List<ColorScheme> read(String fileName, byte[] content) throws ThemeImportException {
-        if (content.length > MAX_BYTES) throw new ThemeImportException("too large to be a colour scheme");
+        if (content.length > MAX_BYTES) throw new ThemeImportException(ThemeImportException.Reason.TOO_LARGE);
         String lower = fileName.toLowerCase(Locale.ROOT);
         String name = baseName(fileName);
         if (lower.endsWith(".itermcolors")) return List.of(ItermColors.read(content, name));
         if (lower.endsWith(".terminal")) return List.of(AppleTerminalProfile.read(content, name));
         if (lower.endsWith(".json")) return WindowsTerminalSchemes.read(content, name);
-        String text = new String(content, StandardCharsets.UTF_8);
+        // Without a byte-order mark: a file saved by a Windows editor starts with one, and it is not
+        // whitespace, so it hid the first character every check below looks at.
+        String text = TextSchemes.withoutBom(new String(content, StandardCharsets.UTF_8));
         String trimmed = text.stripLeading();
         // No helpful extension: a property list or JSON says so in its first character.
         if (trimmed.startsWith("<?xml") || trimmed.startsWith("<plist") || trimmed.startsWith("<!DOCTYPE")) {
@@ -48,8 +50,7 @@ public final class ThemeImport {
         if (trimmed.startsWith("{") || trimmed.startsWith("[{")) return WindowsTerminalSchemes.read(content, name);
         TextSchemes.Format format = lower.endsWith(".toml") ? TextSchemes.Format.ALACRITTY : TextSchemes.sniff(text);
         if (format == null) {
-            throw new ThemeImportException(
-                    "not a colour scheme this can read (iTerm2, Terminal, Windows Terminal, Ghostty, kitty or Alacritty)");
+            throw new ThemeImportException(ThemeImportException.Reason.UNKNOWN_FORMAT);
         }
         return List.of(TextSchemes.read(text, format, name));
     }

@@ -31,4 +31,30 @@ final class FocusGuard {
     static boolean shouldReclaim(boolean hasTerminal, boolean ownerIsTerminal, boolean overlayWantsKeys) {
         return hasTerminal && !ownerIsTerminal && !overlayWantsKeys;
     }
+
+    /**
+     * A popup window as the guard sees it.
+     *
+     * @param menu whether it is a menu — a context menu, a menu bar's dropdown, the profile list —
+     *     rather than a tooltip or another popup that never wants keys
+     * @param showing whether it is on screen
+     * @param ownedHere whether it hangs off this window, directly or through a parent menu
+     */
+    record Popup(boolean menu, boolean showing, boolean ownedHere) {}
+
+    /**
+     * Whether one of this window's menus is open.
+     *
+     * <p>Every menu the window owns, rather than a list of known ones: a tab header's context menu
+     * was missing from the list, and reclaiming focus under it is the "dismissed on the way to being
+     * shown" family. Tooltips are popups too and are left out on purpose: hovering a tab before
+     * clicking it is the ordinary way to arrive there, and a tooltip that held the guard off would
+     * leave focus on the tab strip — the bug the guard exists for.
+     */
+    static boolean anyMenuShowing(java.util.List<Popup> popups) {
+        for (Popup popup : popups) {
+            if (popup.menu() && popup.showing() && popup.ownedHere()) return true;
+        }
+        return false;
+    }
 }

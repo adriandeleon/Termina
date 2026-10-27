@@ -85,9 +85,27 @@ public final class OscInterceptor implements TerminalDataStream {
             return false;
         }
         String payload = readPayload();
-        if (payload != null) listener.osc(Integer.parseInt(digits.toString()), payload);
+        if (payload != null) deliver(Integer.parseInt(digits.toString()), payload);
         return true;
     }
+
+    /**
+     * Hands one command to the listener, and survives it failing.
+     *
+     * <p>The listener runs inside the emulator's {@code getChar}, and JediTerm does not catch what is
+     * thrown there: the read loop ends and the pane closes. A command is text any program — or any
+     * host at the far end of an {@code ssh} — can write, so a listener that trips over one must cost
+     * that command, never the session.
+     */
+    private void deliver(int code, String payload) {
+        try {
+            listener.osc(code, payload);
+        } catch (RuntimeException failed) {
+            LOG.log(System.Logger.Level.WARNING, "OSC " + code + " listener failed; the sequence is dropped", failed);
+        }
+    }
+
+    private static final System.Logger LOG = System.getLogger(OscInterceptor.class.getName());
 
     /** Reads to the terminator. Null when the payload overran the limit and was discarded. */
     private @Nullable String readPayload() throws IOException {

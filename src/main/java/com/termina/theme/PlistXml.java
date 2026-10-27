@@ -42,14 +42,15 @@ final class PlistXml {
             DocumentBuilder builder = factory.newDocumentBuilder();
             builder.setErrorHandler(null);
             Element root = builder.parse(new ByteArrayInputStream(xml)).getDocumentElement();
-            if (!root.getTagName().equals("plist")) throw new ThemeImportException("not a property list");
+            if (!root.getTagName().equals("plist"))
+                throw new ThemeImportException(ThemeImportException.Reason.NOT_FORMAT, "property list");
             Element first = firstElement(root);
-            if (first == null) throw new ThemeImportException("an empty property list");
+            if (first == null) throw new ThemeImportException(ThemeImportException.Reason.EMPTY);
             return value(first);
         } catch (ThemeImportException e) {
             throw e;
         } catch (Exception e) {
-            throw new ThemeImportException("not a property list: " + e.getMessage(), e);
+            throw new ThemeImportException(e, ThemeImportException.Reason.DAMAGED, "property list");
         }
     }
 
@@ -65,7 +66,7 @@ final class PlistXml {
             case "false" -> Boolean.FALSE;
             case "data" -> Base64.getMimeDecoder().decode(text);
             case "date" -> text;
-            default -> throw new ThemeImportException("unexpected <" + element.getTagName() + "> in the property list");
+            default -> throw new ThemeImportException(ThemeImportException.Reason.DAMAGED, "property list");
         };
     }
 

@@ -5,7 +5,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Which file a token names. Never whether it exists — that is the caller's question. */
 class LinkPathsTest {
@@ -81,5 +83,55 @@ class LinkPathsTest {
     void nonFileUrlsAreNotPaths() {
         assertNull(LinkPaths.fromFileUri("https://example.com/a"));
         assertNull(LinkPaths.fromFileUri(null));
+    }
+
+    @Test
+    void aShareIsRecognisedInEitherSeparator() {
+        assertTrue(LinkPaths.isUnc("\\\\host\\share\\x"));
+        assertTrue(LinkPaths.isUnc("//host/share/x"));
+        assertTrue(LinkPaths.isUnc("\\/host/share"));
+        assertTrue(LinkPaths.isUnc("/\\host\\share"));
+        assertTrue(LinkPaths.isUnc("\\\\?\\UNC\\host\\share"));
+        assertFalse(LinkPaths.isUnc("/tmp/x"));
+        assertFalse(LinkPaths.isUnc("\\tmp"));
+        assertFalse(LinkPaths.isUnc("C:\\x"));
+        assertFalse(LinkPaths.isUnc("/"));
+    }
+
+    @Test
+    void aShareTokenIsNeverAPath() {
+        // Refused before anything can ask whether it exists: on Windows that question is an SMB
+        // connection to the host, made by hovering over text any program could print.
+        assertNull(LinkPaths.resolve("\\\\evil\\share\\x.txt", CWD));
+        assertNull(LinkPaths.resolve("//evil/share/x.txt", CWD));
+        assertNull(LinkPaths.resolve("\\/evil/share", CWD));
+    }
+
+    @Test
+    void aFileUrlNamingAShareThroughAnEmptyHostIsRefused() {
+        // file:////host/share has no host part, which reads as local, and a path that is a share.
+        assertNull(LinkPaths.fileUriPath("file:////evil/share/x", host -> true));
+        assertNull(LinkPaths.fileUriPath("file:///%5C%5Cevil/share/x", host -> true));
+        assertNull(LinkPaths.fromFileUri("file:////evil/share/x"));
+    }
+
+    @Test
+    void aFileUrlOnAnotherHostIsRefusedWhateverItsPath() {
+        assertNull(LinkPaths.fileUriPath("file://evil/tmp/x", host -> false));
+        assertEquals("/tmp/x", LinkPaths.fileUriPath("file://devbox/tmp/x", "devbox"::equals));
+        assertEquals("/tmp/x", LinkPaths.fileUriPath("file://LOCALHOST/tmp/x", host -> false));
+        assertEquals("/tmp/x", LinkPaths.fileUriPath("file:///tmp/x", host -> false));
+    }
+
+    @Test
+    void aDrivePathLosesTheSlashNoPathParserWouldTake() {
+        assertEquals("C:/Users/me/a*b", LinkPaths.fileUriPath("file:///C:/Users/me/a%2Ab", host -> true));
+    }
+
+    @Test
+    void onlyFileUrlsAreFileUrls() {
+        assertTrue(LinkPaths.isFileUri("FILE:///tmp"));
+        assertFalse(LinkPaths.isFileUri("https://example.com"));
+        assertFalse(LinkPaths.isFileUri("/tmp/file:x"));
     }
 }

@@ -41,4 +41,24 @@ class FocusGuardTest {
         assertFalse(FocusGuard.shouldReclaim(false, false, false));
         assertFalse(FocusGuard.shouldReclaim(false, false, true));
     }
+
+    @Test
+    void anyMenuThisWindowOwnsKeepsTheKeyboardWhileItShows() {
+        // A tab header's menu was missing from the hand-kept list: every owned menu counts now.
+        assertTrue(FocusGuard.anyMenuShowing(java.util.List.of(new FocusGuard.Popup(true, true, true))));
+    }
+
+    @Test
+    void aTooltipDoesNotHoldTheGuardOff() {
+        // Hovering a tab and then clicking it is the ordinary way to put focus on the strip; a
+        // tooltip that kept the guard away would leave it there — the bug the guard exists for.
+        assertFalse(FocusGuard.anyMenuShowing(java.util.List.of(new FocusGuard.Popup(false, true, true))));
+    }
+
+    @Test
+    void aClosedMenuOrAnotherWindowsMenuIsNotAClaim() {
+        assertFalse(FocusGuard.anyMenuShowing(
+                java.util.List.of(new FocusGuard.Popup(true, false, true), new FocusGuard.Popup(true, true, false))));
+        assertFalse(FocusGuard.anyMenuShowing(java.util.List.of()));
+    }
 }

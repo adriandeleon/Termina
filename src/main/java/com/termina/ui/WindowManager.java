@@ -89,7 +89,23 @@ public final class WindowManager {
      *     every later tab and window uses the configured shell and the home directory
      */
     public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli) {
+        return openFirstWindow(primary, cli, "");
+    }
+
+    /** @param title names the first tab, as Rename Tab would ({@code -T}); "" leaves it automatic */
+    public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli, String title) {
+        firstTabTitle = title;
         return open(primary, cli);
+    }
+
+    /** The command line's {@code -T}, spent on the first tab that opens. */
+    private String firstTabTitle = "";
+
+    /** Returns the {@code -T} title once, then "" — it names the first tab only. */
+    private String takeFirstTabTitle() {
+        String title = firstTabTitle;
+        firstTabTitle = "";
+        return title;
     }
 
     /** A new window, cascaded from the most recently opened one. */
@@ -106,15 +122,22 @@ public final class WindowManager {
      * its own.
      */
     public TerminalWindow openWindow(@Nullable TerminalWindow from) {
-        return open(new Stage(), null, from);
+        return open(new Stage(), null, from, null);
     }
 
     private TerminalWindow open(Stage stage, com.termina.pty.@Nullable LaunchOptions cli) {
-        return open(stage, cli, null);
+        return open(stage, cli, null, null);
     }
 
+    /**
+     * @param fill puts the window's first tabs in, instead of the default profile's tab — what
+     *     reopening a closed window does; null for an ordinary new window
+     */
     private TerminalWindow open(
-            Stage stage, com.termina.pty.@Nullable LaunchOptions cli, @Nullable TerminalWindow from) {
+            Stage stage,
+            com.termina.pty.@Nullable LaunchOptions cli,
+            @Nullable TerminalWindow from,
+            java.util.function.@Nullable Consumer<TerminalWindow> fill) {
         TerminalWindow window = new TerminalWindow(this, settings, stage);
         windows.add(window);
 
@@ -140,8 +163,10 @@ public final class WindowManager {
         window.show();
         // A command line with something to run wins outright; otherwise the default profile decides
         // what a window opens as, which is the whole point of having chosen one.
-        if (cli != null && cli.hasCommand()) {
-            window.openTab(cli.withShell(settings.shell()));
+        if (fill != null) {
+            fill.accept(window);
+        } else if (cli != null && cli.hasCommand()) {
+            window.openTab(cli.withShell(settings.shell()), takeFirstTabTitle());
         } else {
             profiles.whenDefaultReady(profile -> {
                 // A window closed while discovery was running must not spawn a session afterward.
@@ -154,7 +179,7 @@ public final class WindowManager {
                 if (cli != null && !cli.workingDirectory().isBlank()) {
                     options = options.withWorkingDirectory(cli.workingDirectory());
                 }
-                window.openTab(options);
+                window.openTab(options, takeFirstTabTitle());
             });
         }
         return window;
@@ -281,6 +306,63 @@ public final class WindowManager {
     /** Notified when the advertised update changes — found, or dismissed — so a window can relabel its Help menu. */
     void addUpdateListener(Runnable listener) {
         updateListeners.add(listener);
+    }
+
+    /**
+     * The other half, which a window calls as it goes. Without it every closed window stayed
+     * reachable from here — stage, scene, palette, closed-tab history — for the life of the app,
+     * and an update notice relabelled the Help menu of windows nobody could see.
+     */
+    void removeUpdateListener(Runnable listener) {
+        updateListeners.remove(listener);
+    }
+
+    /** How many windows are listening for updates — for the capture hook, to see a closed one let go. */
+    public int updateListenerCount() {
+        return updateListeners.size();
+    }
+
+    // ---------------------------------------------------------------- closed windows
+
+    /** Windows closed on purpose, most recent first, so Reopen Closed Tab can bring one back. */
+    private final java.util.Deque<ClosedTabs.Window> closedWindows = new java.util.ArrayDeque<>();
+
+    /** A few: a window holds every one of its tabs' directories. */
+    static final int MAX_CLOSED_WINDOWS = 5;
+
+    /**
+     * The clock closed tabs and closed windows are stamped with. One for the application, so a tab
+     * closed in one window and a window closed later can be put in order — Reopen undoes the most
+     * recent, wherever it was.
+     */
+    private long closeClock;
+
+    long nextCloseStamp() {
+        return ++closeClock;
+    }
+
+    /** Remembers a window's tabs as it closes; nothing when it had none worth reopening. */
+    void rememberClosedWindow(ClosedTabs.Window window) {
+        if (window.tabs().isEmpty()) return;
+        closedWindows.push(window);
+        while (closedWindows.size() > MAX_CLOSED_WINDOWS) closedWindows.removeLast();
+    }
+
+    /** When the most recently closed window closed, or -1 when none can be reopened. */
+    long newestClosedWindowStamp() {
+        ClosedTabs.Window newest = closedWindows.peek();
+        return newest == null ? -1 : newest.stamp();
+    }
+
+    /**
+     * Opens the most recently closed window again, beside {@code from}: each tab where it was, the
+     * same one selected. Its tabs go into a window of their own rather than into {@code from} — they
+     * were a window, and closing it was the thing being undone.
+     */
+    void reopenClosedWindow(@Nullable TerminalWindow from) {
+        ClosedTabs.Window closed = closedWindows.poll();
+        if (closed == null) return;
+        open(new Stage(), null, from, window -> window.reopenTabs(closed));
     }
 
     /** Opens the release page and stops advertising the version, since the user has now seen it. */

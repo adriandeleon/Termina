@@ -52,7 +52,12 @@ final class PaneGroup extends StackPane {
         }
     }
 
-    private final ReadOnlyObjectWrapper<TerminalView> active = new ReadOnlyObjectWrapper<>();
+    /**
+     * The pane being worked in. Null only once the last pane has left — which happens only as the
+     * tab closes, between {@link #remove} emptying the group and the tab going — so it is nullable
+     * in the type, and every caller that can meet an emptied group says what it does then.
+     */
+    private final ReadOnlyObjectWrapper<@Nullable TerminalView> active = new ReadOnlyObjectWrapper<>();
 
     /** The tree's top: a terminal, or a split. */
     /** Null once the last pane has left, which happens only as the tab closes. */
@@ -136,16 +141,18 @@ final class PaneGroup extends StackPane {
         return new PaneLayout.Split(split.getOrientation(), split.getDividerPositions(), children);
     }
 
+    /** The pane being worked in, or null for a group whose last pane has left. */
+    @Nullable
     TerminalView active() {
         return active.get();
     }
 
-    ReadOnlyObjectProperty<TerminalView> activeProperty() {
+    ReadOnlyObjectProperty<@Nullable TerminalView> activeProperty() {
         return active.getReadOnlyProperty();
     }
 
     /** Makes {@code pane} the one being worked in. Ignored for a pane that is not in this group. */
-    void setActive(TerminalView pane) {
+    void setActive(@Nullable TerminalView pane) {
         if (pane != null && contains(pane) && active.get() != pane) {
             active.set(pane);
             showFocus();
@@ -259,7 +266,8 @@ final class PaneGroup extends StackPane {
             successor = parent.getItems().get(Math.max(0, index - 1));
             equalize(parent);
         }
-        TerminalView next = active.get() != pane && contains(active.get()) ? active.get() : firstPaneIn(successor);
+        TerminalView current = active.get();
+        TerminalView next = current != null && current != pane && contains(current) ? current : firstPaneIn(successor);
         active.set(next);
         showFocus();
         return next;

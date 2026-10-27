@@ -48,6 +48,37 @@ class MessagesTest {
     }
 
     @Test
+    void everyApostropheIsWrittenTheWayItsValueIsRead() {
+        // A value with a placeholder is a MessageFormat pattern and wants '' for an apostrophe; one
+        // without is plain text and shows '' as two. French showed "n''est" in four places because
+        // the rule used to depend on how a caller looked the key up rather than on the value.
+        java.util.List<String> wrong = new java.util.ArrayList<>();
+        for (String lang : Messages.available().keySet()) {
+            Messages.bundle(lang).forEach((key, value) -> {
+                if (Messages.isPattern(value)) {
+                    try {
+                        new MessageFormat(value);
+                    } catch (IllegalArgumentException e) {
+                        wrong.add(lang + " " + key + ": not a valid pattern");
+                    }
+                    // A lone quote starts a quoted run and eats what follows it.
+                    if (value.replace("''", "").contains("'")) wrong.add(lang + " " + key + ": lone ' in a pattern");
+                } else if (value.contains("''")) {
+                    wrong.add(lang + " " + key + ": '' in plain text");
+                }
+            });
+        }
+        assertEquals(java.util.List.of(), wrong);
+    }
+
+    @Test
+    void plainTextIsShownAsWrittenAndAPatternIsFormattedEitherWay() {
+        assertEquals("C'est {file}", Messages.render("C'est {file}", new Object[] {"x"}));
+        assertEquals("C'est x", Messages.render("C''est {0}", new Object[] {"x"}));
+        assertEquals("C'est {0}", Messages.render("C''est {0}", null));
+    }
+
+    @Test
     void aPlaceholderSurvivesEveryTranslation() throws Exception {
         // An apostrophe in a MessageFormat pattern quotes what follows, so a French or Italian
         // translation of a parameterised string eats its own {0} unless the quote is doubled. The

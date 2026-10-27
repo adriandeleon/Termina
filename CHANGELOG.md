@@ -5,10 +5,47 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+Everything from the [2026-10-27 review](docs/review-2026-10-27.md).
+
 ### Added
 
 - **The right-click menu opens the command palette and the About window**, beside Settings, so
   neither needs the menu bar or a chord to reach.
+- **Padding around the text.** Terminal → Display → Padding, 4 px by default, 0–32, applied live.
+- **Reopen Closed Tab brings back a closed pane and a closed window**, not only a tab. A pane comes
+  back as a tab of its own beside the one it left.
+- **`-T title` / `--title`** names the first tab, as Debian's `x-terminal-emulator` expects.
+- **Linux packages put `termina` on the path**, ship AppStream metainfo for the software centres,
+  and declare `X-TerminalArgExec` for `xdg-terminal-exec`; the `.deb` registers Termina as an
+  `x-terminal-emulator` alternative.
+
+### Changed
+
+- **The command palette opens with Ctrl+Shift+P** (Cmd+Shift+P on macOS). Alt+X was the shell's
+  — Emacs's and zsh's M-x. A chord you stored yourself still wins.
+- **On macOS, New Tab With Profile 1–9 is Cmd+Option+1–9.** Cmd+Shift+3, 4 and 5 are the system's
+  screenshot keys, so three of them never reached Termina.
+- **An unfocused pane or window draws a hollow cursor**, so the pane that takes your keys is the
+  one with the solid block. A bar or underline cursor is dimmed instead.
+- **`settings.properties` takes backslashes literally and is UTF-8**, so a Windows path can be typed
+  as it is. Files written by earlier versions read the same.
+- **Shells no longer inherit the launching terminal's identity** — `TMUX`, kitty's, WezTerm's,
+  iTerm2's and Windows Terminal's variables, `COLUMNS`/`LINES`, `TERMINFO` — and
+  `TERM_PROGRAM_VERSION` is Termina's own.
+- **Theme import runs in the background**, and names that would share a file get files of their own.
+- **Search keeps the newest 1,000 matches** rather than the oldest, reads the scrollback in chunks
+  from the bottom up, and waits for typing to pause.
+- **Source builds call themselves 0.13.0-SNAPSHOT.**
+
+### Security
+
+- **A `file:` link to another machine, or any UNC path, is never opened or looked up.** One was
+  handed to the system's URL opener (on Windows, an SMB fetch that sends the user's credentials
+  hash), and hovering over one made a network connection.
+- **A crafted `.terminal` theme can no longer hang or crash the app** — shared references in its
+  binary property list were expanded once per path, and a deep chain overflowed the stack.
+- **Release workflows run with read-only tokens except where they publish**, the JReleaser action
+  is pinned to a commit, and release artefacts carry build-provenance attestations.
 
 ### Fixed
 
@@ -23,6 +60,79 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **Full screen kept the title bar** when the menu bar is in the title bar: the title and the
   window buttons stayed at the top of the screen. Full screen now has no title bar; the menus, if
   shown, stay as an ordinary row.
+
+Installing:
+
+- **The `.deb` installs on Debian 12 and Ubuntu 22.04 again.** It depended on `libasound2t64`,
+  which exists only on Debian 13 and Ubuntu 24.04 — for sound Termina never plays.
+- **The Linux packages declare what JavaFX needs** (GTK 3, GL, fontconfig, FreeType and the rest),
+  so a minimal system installs them rather than failing at start.
+- **LICENSE and a complete NOTICE ship in every installed copy**; the `.deb`'s copyright file said
+  "License: Unknown".
+- **macOS bundles are re-signed after the AOT cache is added**, every build. From 1.0.0 the version
+  fix-up would have skipped it and shipped a broken signature.
+- **Pre-release tags (`v0.13.0-rc1`) build**, and releases run the tests and CI's artefact checks
+  before publishing. CI's own check that the packaged shell ran a command passed on the prompt alone.
+
+Starting and settings:
+
+- **A malformed `\u` in a hand-edited settings file stopped the app opening.** A file that cannot
+  be read now opens on defaults and is kept as `settings.properties.bad-<time>`.
+- **Two Termina processes no longer overwrite each other's settings.**
+- **Deleting a profile left its theme, default and hidden state to the next profile created**, and
+  adding one while a profile was hidden selected the hidden one.
+- **The system shell was listed twice** when `$SHELL` and `/etc/shells` spelled it differently.
+- **When the shell cannot start at all, the window stays open and says why**, instead of the app
+  quitting with the reason only in the log.
+- **Closing a full-screen window made the next launch open screen-sized.**
+- **On Windows with no WSL distributions**, `wsl.exe`'s explanation became menu entries.
+  Distributions are read from the registry first.
+
+The terminal:
+
+- **The cursor drifted a cell right for each emoji or Nerd Font Material icon on its line.**
+- **Text after a combining mark, a zero-width joiner or a variation selector (⚠️) shifted a cell
+  left.**
+- **A malformed OSC or keyboard-mode sequence could close the pane** — on Windows, an OSC 7 path
+  the system could not parse.
+- **Link hover looked at the filesystem while holding the terminal**, once per mouse move for a
+  declared link; a slow mount froze the window. Each target is now checked once, outside the lock,
+  and the underline moves with its text as output scrolls.
+- **Wheel scrolling or drag-selecting while output streamed could jump.**
+- **A mouse-reporting program was sent a release for a press it never saw.**
+
+Windows, tabs and keys:
+
+- **Chords typed into the command palette or the find bar reached the menus behind them** —
+  Ctrl+Shift+W in the palette closed the tab.
+- **Many tabs in a narrow window**: the first was clipped, the selected tab's name hidden, and the
+  overflow arrow sat on its close button. Tabs shrink further and the selected one stays whole.
+- **A reordered tab could no longer be dragged, renamed by double-click or dropped onto.**
+- **Close Other Tabs or Close Tabs to the Right, then Reopen, restored them out of order.**
+- **A tab's right-click menu could lose the keyboard**; closing it returns it to the terminal.
+- **The next character typed after a dialog answered with the mouse was dropped.**
+- **Closed windows stayed in memory until the app quit.**
+- **The shortcut reference listed nine profile shortcuts with one profile.**
+
+Sync and updates:
+
+- **A sync retried after another computer pushed first, or after a failed push, sent back the
+  older binding it had just received**, overwriting the newer one.
+- **Sync reported success without sending anything** when a global git ignore file or the
+  repository's `.gitignore` matched the bindings.
+- **A sync that hit an unexpected error stayed on "Syncing…" until restart.** A bindings file over
+  1 MiB in the repository is refused.
+- **A server that stopped partway through an answer left the update check hanging**, Check for
+  Updates included. The whole request now ends within 30 seconds.
+
+Translations:
+
+- **French and Italian showed doubled apostrophes** in five places, and theme import errors,
+  "(imported)", "Imported" and "Command Prompt" were English in every language.
+- **Settings named fixed chords** — "Ctrl/Cmd+T" for the default profile, "+Shift+1 through 9" for
+  profiles — where the real ones differ by platform and can be changed. They name the live ones.
+- **Importing a theme file with a byte-order mark failed.**
+- **The Settings search box looked empty**: its prompt disappeared while focused.
 
 ## 0.12.0 — 2026-10-25
 

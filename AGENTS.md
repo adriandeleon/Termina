@@ -84,7 +84,15 @@ Each of these cost real time, and none of them announces itself.
 - **Key bindings are a scene-level filter, not menu accelerators.** JavaFX fires accelerators only
   after an event bubbles unconsumed, and `TerminalView` consumes `Ctrl+<letter>` first. Filters run
   in the capturing phase, ahead of that. `MenuAction` holds the label, chord and action together so
-  the menu and the filter cannot disagree.
+  the menu and the filter cannot disagree. **And the accelerators are labels only**: JavaFX copies
+  every item's into the scene and runs it for any press that bubbles up unconsumed — which is what
+  the filter lets through on purpose while the palette is open or a text field has the key, so
+  Ctrl+Shift+W in the palette closed the tab behind it. `keepAcceleratorsDisplayOnly` keeps the
+  scene's table empty, and `onUnclaimedKeyPressed` consumes a bound chord that comes back up
+  unclaimed, so nothing past the scene (macOS's screen menu bar) gets a second go at it.
+- **Tab headers are the skin's, and rebuilt.** A reordered tab is removed and added, and gets a new
+  header with nothing of ours on it. Everything attached to a header — drag, double-click rename,
+  pane drop, close tooltip — goes on in `decorateHeaders`, after every change to the tab list.
 - **Nothing in the chrome may be focus-traversable.** The scene hands initial focus to the first
   focus-traversable node it finds, and a `TabPane` is one by default — so it raced the
   `requestFocus` in `openTab` and, on a cold first launch, won: the window came up looking ready
@@ -113,6 +121,12 @@ Each of these cost real time, and none of them announces itself.
 - **The deb and rpm bundlers throw your icon away.** See `packaging/linux/NOTES.md` — `--icon`
   reaches the app image only, and the 0.1.0 packages shipped jpackage's generic Java icon as a
   result. Verify a built package, not the tree.
+- **The deb's dependencies are the build host's package names for whatever is in the image.**
+  `libjsound` in `java.desktop` made the 0.12.0 debs depend on `libasound2t64`, which only Debian
+  13+/Ubuntu 24.04+ have; jlink now excludes it. JavaFX's own libraries are invisible to the scan
+  (extracted from jars at run time) and are declared by hand in `build-installers.sh`. The deb's
+  `postinst`/`prerm` and the rpm's spec are overrides of jpackage's templates — keep its tokens.
+  All in `packaging/linux/NOTES.md`; `scripts/check-linux-packages.sh` asserts it.
 - **Full-screen geometry cannot be diagnosed from inside the app on Wayland.** JavaFX has no
   Wayland backend, so it runs through XWayland, and under GNOME's fractional scaling (and its
   experimental `xwayland-native-scaling`) the compositor's idea of the surface and JavaFX's disagree.
@@ -198,9 +212,10 @@ Each of these cost real time, and none of them announces itself.
 - **`wsl.exe --list --quiet` writes UTF-16LE.** Even redirected. Read as UTF-8 every distribution
   name comes back with a NUL between each of its letters, and that survives all the way to a menu
   entry that starts nothing. `ShellDiscovery.decode` sniffs rather than assumes, because newer builds
-  have been reported writing UTF-8. The call is also not gated on the exit code — `wsl --list` exits
-  non-zero when there are no distributions, and parsing an empty answer already gives the right
-  result.
+  have been reported writing UTF-8. **And with no distributions it is not empty**: it exits non-zero
+  and prints an explanation, each line of which became a menu entry. So the registry is read first
+  (`reg.exe query HKCU\…\Lxss /s /v DistributionName`, one `DistributionName` per distribution), and
+  `wsl.exe` is asked only when `reg.exe` cannot answer — and then believed only on exit code 0.
 - **A `StackPane` resizes a child up to its *maximum*, and an `HBox` reports an unbounded one.** The
   new-tab `+` was aligned `TOP_RIGHT` and stayed there for as long as it was a lone `Button`, whose
   maximum is its preferred width. Putting it in a box with the profile chevron stretched the box the
@@ -244,6 +259,17 @@ Each of these cost real time, and none of them announces itself.
   drawing it produces a stray bar between every pair of CJK characters. Runs containing non-ASCII
   fall back to per-glyph drawing, because a wide glyph's natural advance would otherwise push the
   rest of the line off the grid.
+- **JediTerm's cursor x is a slot, not a column.** An astral character (an emoji, a Nerd Font
+  Material icon) is two slots and one column, so drawing `getCursorX()` as a column put the cursor a
+  cell right per icon on the line. `CursorDraw.cell` converts for drawing; the glyph under a block
+  cursor and an OSC 133 mark want the slot as it is. A zero-advance code point (a combining mark,
+  ZWJ, VS16) is the opposite: a cell in the buffer and no advance in one `fillText`, so
+  `CellWidth.isOneCellPerChar` sends those runs per glyph.
+- **Every pixel-to-cell sum goes through the padding.** `terminal.padding` insets the text inside
+  the pane; the grid sent to the PTY, the cell under the pointer (`textX`/`textY`), and every
+  overlay drawn on the text (translated in `render`) are measured from inside it. A new
+  `e.getX() / charWidth` that skips it is off by the padding — a few pixels, so it looks right
+  until it selects the wrong cell at an edge.
 - **JavaFX's fallback list is not a Nerd Font lookup.** No bundled face has private-use glyphs, so
   an icon goes to fontconfig's *sans* ordering and the first face that maps the code point wins.
   Arial (msttcorefonts) maps U+F016 and MathJax_WinIE6 maps U+E271 to glyphs of their own, both

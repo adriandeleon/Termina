@@ -48,6 +48,17 @@ class TabLayoutTest {
         assertTrue(slack < count + 1, () -> count + " tabs leave " + slack + "px unused before the button");
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {7, 8})
+    void aNarrowWindowStillFitsItsTabsWithoutOverflowing(int count) {
+        // The review's case: 520px and seven tabs overflowed at the old floor of 60, and JavaFX's
+        // overflow control landed on the selected tab. 62 is the strip's real reservation.
+        double strip = 520;
+        double reserved = 62;
+        double each = TabLayout.tabWidth(strip, count, reserved, CHROME);
+        assertTrue((each + CHROME) * count <= strip - reserved, () -> count + " tabs at " + each);
+    }
+
     @Test
     void tabsStopShrinkingAtALegibleWidth() {
         // Past the floor the strip overflows rather than rendering slivers with no readable title.

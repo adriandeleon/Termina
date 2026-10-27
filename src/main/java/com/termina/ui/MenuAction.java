@@ -49,12 +49,38 @@ public record MenuAction(
         if (keywords == null) keywords = "";
     }
 
-    /** The chord that opens the command palette unless the user has chosen another: Emacs's M-x. */
-    public static final KeyCombination DEFAULT_PALETTE_CHORD =
-            new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN);
+    /**
+     * The chord that opens the command palette unless the user has chosen another: Ctrl+Shift+P, and
+     * Cmd+Shift+P on macOS, as in Windows Terminal and VS Code.
+     *
+     * <p>It was Alt+X, Emacs's M-x, which is exactly the problem: that is {@code M-x} in {@code emacs
+     * -nw} and zsh's {@code execute-named-cmd}, and a scene filter that answers to it takes it from
+     * every program in the terminal. A user who stored Alt+X keeps it — {@code keys.commandPalette}
+     * still wins over the default.
+     */
+    public static final KeyCombination DEFAULT_PALETTE_CHORD = shiftChord(KeyCode.P);
 
     private static final boolean MAC =
             System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+
+    /**
+     * The chord for opening the profile numbered {@code digit} in a new tab.
+     *
+     * <p>{@code Ctrl+Shift+digit} off macOS. Not {@code Cmd+Shift+digit} on it: Cmd+Shift+3, 4 and 5
+     * are the system's screenshot keys, taken before an application sees them, so three of the nine
+     * were advertised and never fired. {@code Cmd+Option+digit} is free there — the tab chords are
+     * Cmd+digit, the pane moves Cmd+Option+arrow.
+     */
+    public static KeyCombination profileChord(KeyCode digit) {
+        return profileChord(digit, MAC);
+    }
+
+    /** Package-visible so both platform branches are testable. */
+    static KeyCombination profileChord(KeyCode digit, boolean mac) {
+        return mac
+                ? new KeyCodeCombination(digit, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
+                : new KeyCodeCombination(digit, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
+    }
 
     /**
      * The platform's chord for an application action on a letter key.
@@ -195,7 +221,11 @@ public record MenuAction(
         }
     }
 
-    /** Builds the menu item. The accelerator is shown for discoverability; the filter runs it. */
+    /**
+     * Builds the menu item. The accelerator is shown for discoverability; the filter runs it, and
+     * the window keeps JavaFX from running it a second time (see {@code
+     * TerminalWindow.keepAcceleratorsDisplayOnly}).
+     */
     public MenuItem toMenuItem() {
         MenuItem item = new MenuItem(label);
         if (accelerator != null) item.setAccelerator(accelerator);

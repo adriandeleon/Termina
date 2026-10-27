@@ -3,6 +3,7 @@ package com.termina.term;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,26 @@ class OscSequencesTest {
         assertEquals(Optional.of("/home/me/src"), directory("file://devbox/home/me/src", Set.of("/home/me/src")));
         assertEquals(Optional.of("/tmp"), directory("file:///tmp", Set.of("/tmp")));
         assertEquals(Optional.of("/tmp"), directory("file://localhost/tmp", Set.of("/tmp")));
+    }
+
+    @Test
+    void aShareOnAnotherMachineIsRefusedBeforeTheFilesystemIsAsked() {
+        // An empty host reads as local, and the path then names a share: asking whether it is a
+        // directory is a network connection to it. Refused before the predicate runs.
+        Predicate<String> asked = path -> {
+            throw new AssertionError("asked the filesystem about " + path);
+        };
+        assertEquals(Optional.empty(), OscSequences.localDirectory("file:////evil/share", host -> true, asked));
+        assertEquals(Optional.empty(), OscSequences.localDirectory("file:///%5C%5Cevil/share", host -> true, asked));
+    }
+
+    @Test
+    void aPathThePlatformCannotReadIsNoDirectoryRatherThanAFailure() {
+        // Path.of("C:/a*b") throws on Windows; from the emulator thread that closed the pane.
+        Predicate<String> throwing = path -> {
+            throw new java.nio.file.InvalidPathException(path, "illegal character");
+        };
+        assertEquals(Optional.empty(), OscSequences.localDirectory("file:///C:/a%2Ab", host -> true, throwing));
     }
 
     @Test

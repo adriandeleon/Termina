@@ -30,11 +30,15 @@ public final class SyncMerge {
      * @param sent entries the repository takes from this computer
      * @param conflicts entries changed differently on both sides; this computer's version was kept
      * @param merged the merged entries, which {@code text} renders
+     * @param settled the base for the next merge once {@code merged} is this computer's data but has not
+     *     reached the repository: the repository's entry wherever this computer now agrees with it, and
+     *     the old base for what this computer has still to send ({@code sent})
      */
     public record FileResult(
             String path,
             @Nullable String text,
             Map<String, String> merged,
+            Map<String, String> settled,
             List<String> received,
             List<String> sent,
             List<String> conflicts,
@@ -55,6 +59,7 @@ public final class SyncMerge {
         List<String> sent = new ArrayList<>();
         List<String> conflicts = new ArrayList<>();
         Map<String, String> merged = new LinkedHashMap<>();
+        Map<String, String> settled = new LinkedHashMap<>();
         TreeSet<String> names = new TreeSet<>(m.keySet());
         names.addAll(t.keySet());
         names.addAll(b.keySet());
@@ -63,22 +68,28 @@ public final class SyncMerge {
             String mv = m.get(name);
             String tv = t.get(name);
             String result;
+            String agreed;
             if (Objects.equals(mv, tv)) {
                 result = mv;
+                agreed = mv;
             } else if (Objects.equals(mv, bv)) {
                 result = tv; // only the repository changed it
+                agreed = tv;
                 received.add(name);
             } else {
                 result = mv; // this computer changed it; on a tie it also wins
+                agreed = bv; // not agreed until it is pushed
                 sent.add(name);
                 if (!Objects.equals(tv, bv)) conflicts.add(name);
             }
             if (result != null) merged.put(name, result);
+            if (agreed != null) settled.put(name, agreed);
         }
         return new FileResult(
                 path,
                 KeybindingsFile.text(path, merged),
                 merged,
+                settled,
                 List.copyOf(received),
                 List.copyOf(sent),
                 List.copyOf(conflicts),

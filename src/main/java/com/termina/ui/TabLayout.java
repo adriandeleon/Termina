@@ -10,8 +10,15 @@ package com.termina.ui;
  */
 final class TabLayout {
 
-    /** Below this a tab shows nothing useful, so tabs stop shrinking and the strip overflows. */
-    static final double MIN_TAB_WIDTH = 60;
+    /**
+     * Below this a tab shows nothing useful, so tabs stop shrinking and the strip overflows.
+     *
+     * <p>The width JavaFX is given includes the close button, so this leaves the title a couple of
+     * characters — enough to tell tabs apart by, and the hover says the rest. It was 60, and a
+     * 520px window overflowed at seven tabs into a strip that clipped the first one and hid the
+     * selected one's title; at 40 eight fit there, and nine before a 600px one overflows.
+     */
+    static final double MIN_TAB_WIDTH = 40;
 
     private TabLayout() {}
 

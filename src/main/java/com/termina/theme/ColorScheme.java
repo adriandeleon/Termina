@@ -24,7 +24,7 @@ public record ColorScheme(
         @Nullable Integer selection) {
 
     public ColorScheme {
-        if (name == null || name.isBlank()) name = "Imported";
+        if (name == null || name.isBlank()) name = com.termina.i18n.Messages.tr("theme.importedName");
         name = name.strip();
         if (ansi == null || ansi.length != 16) throw new IllegalArgumentException("a scheme has 16 ANSI colours");
         ansi = ansi.clone();

@@ -51,7 +51,7 @@ public final class ThemeFile {
         try {
             properties.load(new StringReader(text));
         } catch (IOException | IllegalArgumentException e) {
-            throw new ThemeImportException("not a theme file", e);
+            throw new ThemeImportException(e, ThemeImportException.Reason.NOT_FORMAT, "Termina");
         }
         int[] ansi = new int[16];
         for (int i = 0; i < 16; i++) ansi[i] = required(properties, "ansi." + i);
@@ -66,7 +66,7 @@ public final class ThemeFile {
 
     private static int required(Properties properties, String key) throws ThemeImportException {
         String value = properties.getProperty(key);
-        if (value == null) throw new ThemeImportException("no " + key);
+        if (value == null) throw new ThemeImportException(ThemeImportException.Reason.MISSING_COLOUR, key);
         return TextSchemes.hexColour(value);
     }
 

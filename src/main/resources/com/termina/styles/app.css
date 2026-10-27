@@ -23,27 +23,35 @@
 }
 
 /*
- * The strip's right end is kept clear for the two buttons that float over it. The tab arithmetic
- * already reserves the width (TabLayout), but once tabs floor at their minimum and the strip
- * overflows, JavaFX's own overflow control appeared under the buttons and the last tab's close
- * button under the +. With the room taken as padding, the overflow control lands beside them.
- * Must agree with TerminalWindow.NEW_TAB_RESERVED.
+ * The strip's right end, kept clear for the two buttons that float over it, and JavaFX's overflow
+ * control, which is what keeps it clear.
+ *
+ * The control is never drawn: visible, it sat on the selected tab's close button at 520px and
+ * seven tabs and split its underline. But TabPaneSkin measures the strip as its own width minus
+ * the control's and a 10px spacer — in deciding whether the tabs fit, where to clip them, and how
+ * far to scroll to keep the selected one whole — and ignores the header area's padding entirely.
+ * So the reservation is the control's width rather than padding: 52 here and the skin's 10 make
+ * TerminalWindow.NEW_TAB_RESERVED's 62, and must keep agreeing with it. As padding, the overflowing
+ * strip scrolled the selected tab in under the + rather than beside it.
+ *
+ * Tabs shrink to TabLayout.MIN_TAB_WIDTH before the strip overflows at all; past that the skin
+ * scrolls the selected tab into view, the wheel scrolls the strip, and the palette lists every tab
+ * by name.
  */
 .tab-pane > .tab-header-area {
-    -fx-padding: 0 62 0 0;
+    -fx-padding: 0;
 }
 
-/*
- * Once the strip overflows, JavaFX scrolls the headers region to keep the selected tab in view and
- * draws its overflow control over whatever is there. The theme gives that control no background,
- * so the tab underneath showed through it — and the same for our two buttons, which float over
- * the strip. Both get the header's own ground and its bottom hairline, so a scrolled tab ends
- * where the controls begin.
- */
 .tab-pane > .tab-header-area > .control-buttons-tab {
-    -fx-background-insets: 0 0 0 0, 0 0 2px 0;
-    -fx-background-color: -color-border-default, -color-bg-default;
-    -fx-padding: 0 4 0 4;
+    visibility: hidden;
+    -fx-min-width: 52;
+    -fx-pref-width: 52;
+    -fx-max-width: 52;
+    -fx-padding: 0;
+}
+
+.tab-pane > .tab-header-area > .control-buttons-tab > .container {
+    visibility: hidden;
 }
 
 /*
@@ -597,4 +605,10 @@
     -fx-padding: 0;
     -fx-background-color: transparent;
     -fx-shape: null;
+}
+
+/* What a window kept open with no tabs says: the shell that would not start, and why. */
+.empty-window-placeholder {
+    -fx-text-fill: -color-fg-muted;
+    -fx-padding: 24;
 }

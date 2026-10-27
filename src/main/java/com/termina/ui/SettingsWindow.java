@@ -273,6 +273,8 @@ public final class SettingsWindow {
         }
 
         search.setPromptText(tr("settings.search"));
+        // Focused on open, and the theme hides a focused field's prompt: settings.css keeps it.
+        search.getStyleClass().add("settings-search");
         search.textProperty().addListener((o, old, value) -> filter(value));
         // Enter in the search box is not a request to close the window, which is what the default
         // button would make of it if the event were left to bubble.
@@ -718,6 +720,7 @@ public final class SettingsWindow {
     private Spinner<Double> fontSize;
     private Spinner<Integer> scrollback;
     private ComboBox<Settings.CursorShape> cursorShape;
+    private Spinner<Integer> padding;
     private CheckBox altIsMeta;
     private CheckBox confirmPaste;
     private CheckBox copyOnSelect;
@@ -753,21 +756,46 @@ public final class SettingsWindow {
         importTheme(file.toPath());
     }
 
-    /** Imports a file and selects the first theme in it, saying what happened on the row. */
+    /**
+     * Imports a file and selects the first theme in it, saying what happened on the row.
+     *
+     * <p>Read and parsed off the FX thread: the file is a download, and a hostile one used to be able
+     * to hang the window (a property list that shares objects exponentially) or take it down (one
+     * nested deep enough to overflow the stack). Anything at all that goes wrong is shown on the row;
+     * the result is applied back on the FX thread.
+     */
     void importTheme(java.nio.file.Path file) {
-        try {
-            List<ThemeEntry> added = Themes.importFile(file);
-            themeImportResult.setText(tr(
-                    "settings.importTheme.done",
-                    String.join(
-                            ", ", added.stream().map(ThemeEntry::displayName).toList())));
-            themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-            if (!added.isEmpty()) settings.setThemeId(added.getFirst().id());
-        } catch (com.termina.theme.ThemeImportException e) {
-            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
-        } catch (java.io.IOException e) {
-            themeImportResult.setText(tr("settings.importTheme.failed", file.getFileName(), e.getMessage()));
-        }
+        Object name = file.getFileName() == null ? file : file.getFileName();
+        themeImportResult.setText(tr("settings.importTheme.working", name));
+        Thread worker = new Thread(
+                () -> {
+                    List<ThemeEntry> added;
+                    try {
+                        added = Themes.importFile(file);
+                    } catch (Throwable e) {
+                        String reason = e.getMessage() == null || e.getMessage().isBlank()
+                                ? e.getClass().getSimpleName()
+                                : e.getMessage();
+                        javafx.application.Platform.runLater(
+                                () -> themeImportResult.setText(tr("settings.importTheme.failed", name, reason)));
+                        return;
+                    }
+                    javafx.application.Platform.runLater(() -> {
+                        themeImportResult.setText(tr(
+                                "settings.importTheme.done",
+                                String.join(
+                                        ", ",
+                                        added.stream()
+                                                .map(ThemeEntry::displayName)
+                                                .toList())));
+                        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+                        if (!added.isEmpty())
+                            settings.setThemeId(added.getFirst().id());
+                    });
+                },
+                "termina-theme-import");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void removeChosenTheme() {
@@ -1030,6 +1058,23 @@ public final class SettingsWindow {
                 tr("settings.cursorShape.desc"),
                 cursorShape,
                 "cursor caret shape block underline bar");
+
+        padding = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                Settings.MIN_PADDING, Settings.MAX_PADDING, Settings.DEFAULT_PADDING, 1));
+        padding.setEditable(true);
+        padding.setPrefWidth(110);
+        makeLenient(padding, d -> (int) Math.round(d));
+        padding.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            settings.setPadding(value);
+        });
+        row(
+                Category.TERMINAL,
+                display,
+                tr("settings.padding"),
+                tr("settings.padding.desc"),
+                padding,
+                "padding margin inset gutter spacing border edge");
 
         bell = new CheckBox();
         bell.selectedProperty().addListener((o, old, value) -> {
@@ -1384,7 +1429,38 @@ public final class SettingsWindow {
         status.setManaged(message != null);
     }
 
+    /**
+     * The default profile's description, naming the chord New Tab is on now — not a fixed
+     * "Ctrl/Cmd+T", which is Ctrl+Shift+T off macOS and rebindable — or the command's name when it
+     * has none.
+     */
+    private String defaultProfileDescription() {
+        KeyCombination chord = effectiveKeys().get(NEW_TAB);
+        return tr("settings.defaultProfile.desc", chord == null ? labelOf(NEW_TAB) : chord.getDisplayText());
+    }
+
+    private static final String NEW_TAB = "newTab";
+
+    private @Nullable Label defaultProfileHint;
+
+    /**
+     * The note under the profile list, naming the chords the first and ninth profiles are on now —
+     * Cmd+Option on macOS, Ctrl+Shift elsewhere, and either may have been rebound.
+     */
+    private String profilesNote() {
+        return tr("settings.profiles.note", keyText(PROFILE_CHORD + 1), keyText(PROFILE_CHORD + 9));
+    }
+
+    /** {@code TerminalWindow.PROFILE_CHORD_ID}; the commands are that plus 1 to 9. */
+    private static final String PROFILE_CHORD = "newTabProfile";
+
+    private @Nullable Label profilesHint;
+
     private void reloadKeys() {
+        Label hint = defaultProfileHint;
+        if (hint != null) hint.setText(defaultProfileDescription());
+        Label note = profilesHint;
+        if (note != null) note.setText(profilesNote());
         Map<String, KeyCombination> effective = effectiveKeys();
         for (KeyRow row : keyRows.values()) {
             String id = row.command().id();
@@ -1436,13 +1512,15 @@ public final class SettingsWindow {
             profiles.setDefaultProfileId(value.id());
             refreshProfileList();
         });
-        row(
+        Node defaultRow = row(
                 Category.PROFILES,
                 defaults,
                 tr("settings.defaultProfile"),
-                tr("settings.defaultProfile.desc"),
+                defaultProfileDescription(),
                 defaultProfile,
                 "default profile shell new tab startup powershell cmd wsl bash zsh");
+        // Names New Tab's chord, which can be rebound while this window is open: reloadKeys refreshes it.
+        if (defaultRow.lookup(".settings-row-description") instanceof Label hint) defaultProfileHint = hint;
 
         VBox list = section(page, tr("settings.section.profiles"));
 
@@ -1550,7 +1628,8 @@ public final class SettingsWindow {
                 "profile shell command wsl powershell cmd bash zsh fish add remove",
                 list));
 
-        Label note = new Label(tr("settings.profiles.note", shortcutName()));
+        Label note = new Label(profilesNote());
+        profilesHint = note;
         note.getStyleClass().add("settings-row-description");
         note.setWrapText(true);
         list.getChildren().add(note);
@@ -1742,9 +1821,8 @@ public final class SettingsWindow {
     private void removeSelectedProfile() {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
-        List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
-        user.removeIf(profile -> profile.id().equals(selected.id()));
-        profiles.setUserProfiles(user);
+        // Its style, the default and the hidden entry go with it: the next profile added may get its id.
+        profiles.removeUserProfile(selected.id());
         refreshProfileList();
     }
 
@@ -2149,6 +2227,7 @@ public final class SettingsWindow {
             fontSize.getValueFactory().setValue(settings.fontSize());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
+            padding.getValueFactory().setValue(settings.padding());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
             copyOnSelect.setSelected(settings.copyOnSelect());

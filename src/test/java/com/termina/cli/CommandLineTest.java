@@ -34,6 +34,19 @@ class CommandLineTest {
     }
 
     @Test
+    void aTitleIsAcceptedInXtermsSpellingAndGnomes() {
+        assertEquals("", CommandLine.parse().title());
+        assertEquals("logs", CommandLine.parse("-T", "logs").title());
+        assertEquals("logs", CommandLine.parse("--title", "logs").title());
+        assertEquals("logs", CommandLine.parse("--title=logs").title());
+        assertNotNull(CommandLine.parse("-T").error());
+        // x-terminal-emulator callers pass -T before -e; the title must not swallow the command.
+        CommandLine cli = CommandLine.parse("-T", "top", "-e", "top", "-d", "1");
+        assertEquals("top", cli.title());
+        assertEquals(List.of("top", "-d", "1"), cli.command());
+    }
+
+    @Test
     void aWorkingDirectoryIsAcceptedInBothSpellings() {
         assertEquals("/tmp", CommandLine.parse("-d", "/tmp").workingDirectory());
         assertEquals("/tmp", CommandLine.parse("--working-directory", "/tmp").workingDirectory());

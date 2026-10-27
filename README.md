@@ -47,6 +47,10 @@ Self-contained: bundled runtime, no JDK needed to run it. `clean` is not optiona
 built from `target/classes`, and an incremental compile can leave that inconsistent in ways javac
 will not correct on its own.
 
+The build trains an AOT cache by starting the packaged app (`scripts/aot-train.sh`), so a window
+appears for a few seconds. It runs against a configuration folder of its own, created and removed
+by the script, so it never runs settings sync or writes to your own settings.
+
 Four dependencies (`jediterm-core`, `pty4j`, `jna`, `jna-platform`) are **automatic modules**, and
 jlink refuses to link those. moditect injects real descriptors; an antrun step then overlays the
 patched jars over the plain ones so exactly one copy of each is on the module path.
@@ -279,8 +283,8 @@ the alternate screen, where a full-screen program owns the viewport and there is
 reach, and it is coloured from the terminal palette rather than the window theme, since the two can
 differ.
 
-A **command palette** on Alt+X — Emacs's M-x, and the chord Editora's palette answers to — lists every
-command in the window, found by typing part of its name: "nw" reaches New Window, "ct" Close Tab,
+A **command palette** on Ctrl+Shift+P (Cmd+Shift+P on macOS), as in Windows Terminal and VS Code,
+lists every command in the window, found by typing part of its name: "nw" reaches New Window, "ct" Close Tab,
 "tab close" finds Close Tab with the words in either order, and "file new" reaches New Tab through
 the menu it lives in. It is Editora's palette in shape and behaviour: the query row is led by a chip
 naming the chord that opened it, the characters that matched are emboldened so the ranking explains
@@ -396,7 +400,9 @@ the palette lists **Move Pane to Tab** for each other tab by name. A pane can al
 `Cmd+Option+Shift`+drag (`Ctrl+Alt+Shift`+drag elsewhere) picks it up, a drop on a tab joins that tab
 and a drop on the strip's empty part makes it a tab. Its shell keeps running throughout; only its
 place changes. **Reopen Closed Tab** brings a split tab back as it was — every pane, in its last
-directory, arranged the same, with the same one active.
+directory, arranged the same, with the same one active. It undoes the most recent close wherever it
+was: a pane closed with the Close chord comes back as a tab of its own beside the one it left, and a
+window closed with its tabs comes back as a window, each tab in its place.
 
 Two things about the layout cost time and do not announce themselves. A new `SplitPane` has no skin
 until the next CSS pass, and without one its items are not in the scene — a pane started there
@@ -536,6 +542,14 @@ editor. Every getter falls back to a default, so one bad hand-edited line costs 
 rest, and values are clamped **on read as well as on write** (a hand-edited two-million-line
 scrollback would otherwise exhaust memory at the next launch).
 
+The file is UTF-8, and **a backslash is a backslash**: `terminal.shell=C:\Windows\System32\wsl.exe`
+means what it says, unlike Java's own properties syntax, which ate every backslash it did not know.
+`\\` is one backslash, `\uXXXX` a character, and `\=` `\:` `\#` `\!` `\ ` the character after them —
+which is everything the previous writer produced, so older files read unchanged. A file that cannot be
+read at all opens on defaults and is copied aside as `settings.properties.bad-<time>` first. More
+than one Termina may run on one config folder: each save writes only the keys that process changed,
+under a lock, on top of whatever the file holds by then.
+
 The window follows Editora's: a grouped sidebar, a search box that narrows both rows and
 categories, and **no OK or Cancel**. Every control writes its setting immediately and the terminal
 re-applies. That is the point rather than a shortcut — choosing a font or a theme is a judgement
@@ -565,8 +579,9 @@ A terminal on Windows is not one program. Command Prompt, Windows PowerShell, Po
 installed WSL distribution are separate shells with separate command lines, and a single "path to
 your shell" setting can only ever name one of them. So a **profile** — a name, a command, optionally
 a directory — is the unit a tab is opened as. The chevron beside the `+` drops the list, **File ▸ New
-Tab With** carries the same entries, the command palette lists them by name, and `Ctrl/Cmd+Shift+1`
-through `9` open the first nine.
+Tab With** carries the same entries, the command palette lists them by name, and `Ctrl+Shift+1`
+through `9` (`Cmd+Option+1` through `9` on macOS, where Cmd+Shift+3, 4 and 5 are the screenshot keys)
+open the first nine.
 
 What is on the list is **found, not configured**: someone who has just installed PowerShell 7 or a
 second WSL distribution should find it in the menu rather than have to describe it in a settings file
@@ -720,7 +735,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureTheme=editora-light # switch theme after the windows exist
   -Dtermina.captureChord=T             # fire an application chord at the scene
                                        # ...,plain for a bare key (F11) with no shortcut modifier
-                                       # ...,alt for Alt+key (X,false,alt is the palette's M-x)
+                                       # ...,alt for Alt+key (X,false,alt fires Alt+X)
   -Dtermina.capturePalette=reo         # open the command palette with that query, listing the rows
   -Dtermina.capturePaletteKeys=C-n,C-p # fire chords at the open palette by Emacs token, reporting
                                        # the highlighted row after each — the only check of the
@@ -729,6 +744,9 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureTypeAtFocus=hello   # type at whatever owns the keyboard, and report whether the
                                        # shell received it — the only input option that goes through
                                        # focus rather than around it
+  -Dtermina.captureChordAtFocus=C-S-a  # fire whole chords at whatever owns the keyboard, through
+                                       # the scene — with captureSearch, whether a chord the find
+                                       # bar has no use for leaks past it (captureSelectionAtEnd)
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
   -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open
   -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
@@ -758,6 +776,14 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureMiddleClick=200,100 # paste with the middle button (PRIMARY on Linux)
   -Dtermina.captureImportTheme=Dracula.terminal # import a scheme, select it, print its colours
   -Dtermina.captureCloseWindow=1       # close window N, counting the shells before and after
+  -Dtermina.captureReopenWindow=1      # close window N as the user would, then Reopen Closed Tab
+                                       # in the first, counting windows and tabs
+  -Dtermina.captureMoveTab=0,3         # move a tab as a drop would; the drag report then says
+                                       # whether every header still carries its gestures
+  -Dtermina.captureTabMenuEscape=true  # with captureTabMenu, report the menu and the keyboard's
+                                       # owner a moment later, then press Escape at it
+  -Dtermina.captureFailShellStarts=2   # make the next N shell starts fail, as an unstartable
+                                       # shell's would (with captureWindows=1: the window stays)
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
@@ -814,6 +840,7 @@ termina [options] [-e command [args...]]
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
   -d, --working-directory=DIR    Start the shell in DIR
+  -T, --title=TITLE              Name the first tab TITLE
   -e, --command CMD [args...]    Run CMD instead of the shell; must come last
       --config-dir=DIR           Read and write settings in DIR
 ```
@@ -861,7 +888,19 @@ host-specific and there is no cross-building.
 The Linux packages install a launcher entry carrying `StartupWMClass` and the `TerminalEmulator`
 category, so Termina appears in the application menu and desktops offer it where a terminal is
 wanted. That works because Termina accepts `-e command`, which is the interface everything expects
-of a system terminal.
+of a system terminal. They also put `termina` on `PATH` (`/usr/bin/termina`), install AppStream
+metainfo for GNOME Software and KDE Discover, and declare `X-TerminalArgExec=-e` for
+`xdg-terminal-exec`; the deb registers an `x-terminal-emulator` alternative, at a priority below
+GNOME Terminal's and Konsole's, so `update-alternatives --config x-terminal-emulator` offers it
+without it taking over. Details in `packaging/linux/NOTES.md`.
+
+The deb installs on Debian 12 and Ubuntu 22.04 as well as their successors: it declares the
+libraries JavaFX loads (GTK 3, GL, fontconfig and the rest), which the bundler cannot see, and no
+longer depends on ALSA, which Termina never used. The 0.12.0 debs required `libasound2t64` and
+installed only on Debian 13 and Ubuntu 24.04 onwards.
+
+Every installed copy carries `LICENSE` and `NOTICE` beside the application's jars, and the jar has
+them under `META-INF/`.
 
 The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the module's
 main class rather than from the application name. Without it a running window cannot be matched to
@@ -937,9 +976,24 @@ pom still carries `-SNAPSHOT` — artifacts labelled with a version they were no
 than no artifacts. A tag with a suffix (`v1.0.0-rc1`) publishes as a pre-release.
 
 The version reaches the bundle through two derived values, because jpackage will not accept one it
-cannot parse and macOS additionally refuses any whose first number is zero. `jpackage.publicVersion`
-is the pom version without `-SNAPSHOT`; `jpackage.appVersion` is that with a leading `0.` bumped to
-`1.` on macOS only, purely to get past the check. `scripts/fix-mac-bundle-version.sh` then puts the
-true version back into `Info.plist` and re-signs the bundle — jpackage ad-hoc-signs the app image and
-the plist is part of what that seals, so editing it without re-signing makes macOS refuse to launch
-the app as tampered with.
+cannot parse and macOS additionally refuses any whose first number is zero. `jpackage.numericVersion`
+is the pom version without any suffix — `-SNAPSHOT` or `-rc1` alike, since jpackage rejects both;
+the application and the installers' file names keep the full version. `jpackage.appVersion` is that
+with a leading `0.` bumped to `1.` on macOS only, purely to get past the check.
+`scripts/fix-mac-bundle-version.sh` then puts the true version back into `Info.plist` and re-signs
+the bundle — always, not only when the version changed: jpackage ad-hoc-signs the app image, and the
+plist, the notices and the AOT cache added after it are all inside what that seals, so any of them
+left unsigned makes macOS refuse to launch the app as damaged.
+
+After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
+source says it is one: the update check treats a snapshot as the release it leads up to, and never
+offers it the release it is already ahead of.
+
+The release builds run the tests (`verify`, not CI's `-DskipTests package`) — a tag is not gated on
+CI, and the `linux-arm64` and `macos-x64` runners build nowhere else — and then the same checks CI
+makes of its own artefacts: the smoke test (`scripts/smoke-test.sh`), the macOS signature, an AOT
+cache (`TERMINA_REQUIRE_AOT=1`) and the Linux package contents (`scripts/check-linux-packages.sh`).
+Any of them failing fails that target, and publishing needs every target. The publish job is the
+only one holding a write token; it attests build provenance for each installer
+(`gh attestation verify <file> --repo adriandeleon/Termina`), and the JReleaser action and the
+JReleaser it runs are pinned.

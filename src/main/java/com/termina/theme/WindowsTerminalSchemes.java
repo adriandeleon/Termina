@@ -32,7 +32,7 @@ final class WindowsTerminalSchemes {
             for (Object scheme : schemes) {
                 if (scheme instanceof Map<?, ?> s) out.add(scheme(s, fallbackName));
             }
-            if (out.isEmpty()) throw new ThemeImportException("a settings file with no colour schemes in it");
+            if (out.isEmpty()) throw new ThemeImportException(ThemeImportException.Reason.NO_SCHEMES);
             return out;
         }
         if (root instanceof Map<?, ?> scheme) return List.of(scheme(scheme, fallbackName));
@@ -42,7 +42,7 @@ final class WindowsTerminalSchemes {
             }
             if (!out.isEmpty()) return out;
         }
-        throw new ThemeImportException("not a Windows Terminal colour scheme");
+        throw new ThemeImportException(ThemeImportException.Reason.NOT_FORMAT, "Windows Terminal");
     }
 
     private static ColorScheme scheme(Map<?, ?> scheme, String fallbackName) throws ThemeImportException {
@@ -65,13 +65,13 @@ final class WindowsTerminalSchemes {
     private static int required(Map<?, ?> scheme, String key, @Nullable String alias) throws ThemeImportException {
         Object value = scheme.containsKey(key) || alias == null ? scheme.get(key) : scheme.get(alias);
         Integer colour = optional(value);
-        if (colour == null) throw new ThemeImportException("a scheme with no \"" + key + "\" colour");
+        if (colour == null) throw new ThemeImportException(ThemeImportException.Reason.MISSING_COLOUR, key);
         return colour;
     }
 
     private static @Nullable Integer optional(@Nullable Object value) throws ThemeImportException {
         if (value == null) return null;
-        if (!(value instanceof String text)) throw new ThemeImportException("a colour that is not a string");
+        if (!(value instanceof String text)) throw new ThemeImportException(ThemeImportException.Reason.BAD_COLOUR);
         return TextSchemes.hexColour(text);
     }
 
@@ -83,17 +83,17 @@ final class WindowsTerminalSchemes {
                 .build();
         try (JsonParser parser = factory.createParser(file)) {
             JsonToken first = parser.nextToken();
-            if (first == null) throw new ThemeImportException("an empty file");
+            if (first == null) throw new ThemeImportException(ThemeImportException.Reason.EMPTY);
             return value(parser, first, 0);
         } catch (ThemeImportException e) {
             throw e;
         } catch (Exception e) {
-            throw new ThemeImportException("not JSON: " + e.getMessage(), e);
+            throw new ThemeImportException(e, ThemeImportException.Reason.DAMAGED, "JSON");
         }
     }
 
     private static @Nullable Object value(JsonParser parser, JsonToken token, int depth) throws Exception {
-        if (depth > 64) throw new ThemeImportException("JSON nested too deeply");
+        if (depth > 64) throw new ThemeImportException(ThemeImportException.Reason.DAMAGED, "JSON");
         switch (token) {
             case START_OBJECT -> {
                 Map<String, Object> out = new LinkedHashMap<>();

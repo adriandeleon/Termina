@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.adriandeleon.Termina</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Termina</name>
+  <summary>A keyboard-driven terminal emulator</summary>
+  <developer id="io.github.adriandeleon">
+    <name>Adrian De Leon</name>
+  </developer>
+
+  <description>
+    <p>
+      Termina runs your shell on a real pseudo-terminal and renders it with xterm-compatible
+      emulation. It is the same application on Linux, macOS and Windows.
+    </p>
+    <ul>
+      <li>Tabs, split panes and multiple windows</li>
+      <li>A command palette, and key bindings that can be changed and synced between machines</li>
+      <li>Scrollback with search, clickable links and file paths, and shell integration</li>
+      <li>Mouse support for full-screen programs such as vim, less and htop</li>
+      <li>Built-in and imported colour themes, and a choice of bundled fonts</li>
+    </ul>
+  </description>
+
+  <!-- The id jpackage installs the menu entry under: <package name>-<launcher name>. -->
+  <launchable type="desktop-id">termina-Termina.desktop</launchable>
+
+  <categories>
+    <category>System</category>
+    <category>TerminalEmulator</category>
+  </categories>
+  <keywords>
+    <keyword>terminal</keyword>
+    <keyword>shell</keyword>
+    <keyword>console</keyword>
+    <keyword>command line</keyword>
+  </keywords>
+
+  <provides>
+    <binary>termina</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/adriandeleon/Termina</url>
+  <url type="bugtracker">https://github.com/adriandeleon/Termina/issues</url>
+  <url type="vcs-browser">https://github.com/adriandeleon/Termina</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>A shell with two tabs, a git-aware prompt and a directory listing</caption>
+      <image>https://raw.githubusercontent.com/adriandeleon/Termina/master/docs/screenshot.png</image>
+    </screenshot>
+  </screenshots>
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.12.0" date="2026-10-25">
+      <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.12.0</url>
+    </release>
+  </releases>
+</component>
