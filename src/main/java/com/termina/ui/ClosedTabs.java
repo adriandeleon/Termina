@@ -1,7 +1,10 @@
 package com.termina.ui;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 
 import com.termina.pty.LaunchOptions;
@@ -15,9 +18,14 @@ import com.termina.pty.LaunchOptions;
  * scrollback cannot be reopened — the process is gone — and pretending otherwise would be worse
  * than saying so. Browsers draw the same line, which is where the expectation comes from.
  *
+ * <p>A pane closed on its own by the Close chord is remembered here too, as a tab of one pane right
+ * after the tab it was in: putting it back into its old split would need the split to still be the
+ * same one, and a tab of its own is where it can always go.
+ *
  * <p>Bounded, because this holds a working directory per entry for the life of the window and a
- * window can close a great many tabs; and pure apart from the deque, so the two rules in it — where
- * a tab goes back, and which directory it reopens in — are tested rather than assumed.
+ * window can close a great many tabs; and pure apart from the deque, so the rules in it — where a
+ * tab goes back, in which order a batch comes back, and which directory it reopens in — are tested
+ * rather than assumed.
  */
 final class ClosedTabs {
 
@@ -27,12 +35,18 @@ final class ClosedTabs {
     /**
      * @param layout its panes, each already carrying the directory it was in when it closed
      * @param index where it sat in the strip when it closed
+     * @param stamp when it closed, on a clock shared by every window, so Reopen can tell whether a
+     *     tab closed here or a whole window closed elsewhere is the more recent; 0 when nothing asks
      */
-    record Entry(PaneLayout.Tab layout, int index) {
+    record Entry(PaneLayout.Tab layout, int index, long stamp) {
+
+        Entry(PaneLayout.Tab layout, int index) {
+            this(layout, index, 0);
+        }
 
         /** A tab of one pane. */
         Entry(LaunchOptions options, String userTitle, int index) {
-            this(new PaneLayout.Tab(new PaneLayout.Leaf(options, userTitle), 0), index);
+            this(new PaneLayout.Tab(new PaneLayout.Leaf(options, userTitle), 0), index, 0);
         }
 
         /** How to start the active pane again — the profile's command or the shell, and its directory. */
@@ -46,6 +60,19 @@ final class ClosedTabs {
         }
     }
 
+    /**
+     * A whole window's tabs, closed together.
+     *
+     * @param tabs each tab, in strip order, with its place in that strip
+     * @param selected which of them was selected
+     * @param stamp when the window closed, on the clock {@link Entry#stamp} uses
+     */
+    record Window(List<Entry> tabs, int selected, long stamp) {
+        Window {
+            tabs = List.copyOf(tabs);
+        }
+    }
+
     private final Deque<Entry> entries = new ArrayDeque<>();
 
     void remember(Entry entry) {
@@ -53,9 +80,35 @@ final class ClosedTabs {
         while (entries.size() > MAX) entries.removeLast();
     }
 
+    /**
+     * Remembers tabs closed together — Close Other Tabs, Close Tabs to the Right — so that reopening
+     * them one at a time puts each back where it was.
+     *
+     * <p>Each index was read before any of them went, so each is right only in a strip that already
+     * holds every one of them to its left. Reopening leftmost first gives exactly that, which means
+     * pushing rightmost first. Pushed in strip order, {@code [A,B,C,D]} closing all but A came back
+     * {@code [A,B,D,C]}: D first, clamped to the end of a strip of one, then C at its old index —
+     * before D.
+     */
+    void rememberAll(List<Entry> closedTogether) {
+        for (Entry entry : reopenOrder(closedTogether).reversed()) remember(entry);
+    }
+
+    /** The order tabs closed together come back in: leftmost first. Pure. */
+    static List<Entry> reopenOrder(List<Entry> closedTogether) {
+        List<Entry> order = new ArrayList<>(closedTogether);
+        order.sort(Comparator.comparingInt(Entry::index));
+        return order;
+    }
+
     /** The most recently closed tab, removed from the list. */
     Optional<Entry> pop() {
         return Optional.ofNullable(entries.poll());
+    }
+
+    /** The most recently closed tab, left in the list. */
+    Optional<Entry> peek() {
+        return Optional.ofNullable(entries.peek());
     }
 
     boolean isEmpty() {
@@ -64,6 +117,18 @@ final class ClosedTabs {
 
     int size() {
         return entries.size();
+    }
+
+    /**
+     * Whether Reopen should bring back a closed window rather than this window's last closed tab:
+     * when there is one, and it closed more recently than the tab did — undo goes back in time, and
+     * which window the keys are pressed in does not change what happened last.
+     *
+     * @param tabStamp when this window's most recent closed tab closed, or -1 for none
+     * @param windowStamp when the most recently closed window closed, or -1 for none
+     */
+    static boolean reopensWindow(long tabStamp, long windowStamp) {
+        return windowStamp >= 0 && windowStamp > tabStamp;
     }
 
     /**
