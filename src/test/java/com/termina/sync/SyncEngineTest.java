@@ -139,6 +139,68 @@ class SyncEngineTest {
         assertEquals("formatVersion=" + SyncEngine.FORMAT_VERSION + "\n", remoteFile(SyncEngine.FORMAT_FILE));
     }
 
+    private static String binding(String file, String id) {
+        return file == null ? null : KeybindingsFile.entries(file).get(id);
+    }
+
+    @Test
+    void aRepositoryThatIgnoresTheBindingsStillGetsThem() throws IOException {
+        // A .gitignore in the repository: "add --all" staged nothing, and the run still said OK.
+        Path setup = dir.resolve("setup");
+        GitRunner here = new GitRunner(List.of("git"), dir, false, "");
+        assertTrue(here.network("clone", "--quiet", remote, setup.toString()).ok());
+        Files.writeString(setup.resolve(".gitignore"), "keybindings/\n*.properties\n");
+        GitRunner inSetup = new GitRunner(List.of("git"), setup, false, "");
+        assertTrue(inSetup.run("add", ".gitignore").ok());
+        assertTrue(inSetup.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "ignore")
+                .ok());
+        assertTrue(
+                inSetup.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
+
+        Computer a = new Computer("a", false);
+        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        SyncReport r = a.sync();
+        assertEquals(SyncReport.Status.OK, r.status(), r.detail());
+        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+        assertEquals("formatVersion=" + SyncEngine.FORMAT_VERSION + "\n", remoteFile(SyncEngine.FORMAT_FILE));
+
+        Computer b = new Computer("b", false);
+        assertEquals(SyncReport.Status.OK, b.sync().status());
+        assertEquals(Map.of("newTab", "Ctrl+Shift+Y"), b.bindings);
+    }
+
+    @Test
+    void aGlobalExcludesFileDoesNotKeepTheBindingsOut() throws IOException {
+        Path excludes = dir.resolve("global-ignore");
+        Files.writeString(excludes, "keybindings/\n");
+        Computer a = new Computer("a", false);
+        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        GitRunner runner =
+                new GitRunner(List.of("git"), a.clone, false, "").with(List.of("-c", "core.excludesFile=" + excludes));
+        SyncReport r = new SyncEngine(runner, remote, "main", a, "a").run(false);
+        assertEquals(SyncReport.Status.OK, r.status(), r.detail());
+        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+    }
+
+    @Test
+    void anOversizedFileInTheRepositoryIsRefusedNotRead() throws IOException {
+        Computer a = new Computer("a", false);
+        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        assertEquals(SyncReport.Status.OK, a.sync().status());
+        Files.writeString(a.clone.resolve(KeybindingsFile.OTHER_PATH), "x".repeat((int) SyncEngine.MAX_FILE_BYTES + 1));
+        GitRunner inA = new GitRunner(List.of("git"), a.clone, false, "");
+        assertTrue(inA.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "big")
+                .ok());
+        assertTrue(inA.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
+
+        Computer b = new Computer("b", false);
+        b.bindings.put("copy", "Ctrl+Alt+C");
+        SyncReport r = b.sync();
+        assertEquals(SyncReport.Status.FAILED, r.status());
+        assertTrue(r.detail().contains(KeybindingsFile.OTHER_PATH), r.detail());
+        assertEquals(0, b.writes);
+    }
+
     @Test
     void aMacAndALinuxMachineNeverTouchEachOthersBindings() {
         Computer mac = new Computer("mac", true);
