@@ -1,0 +1,66 @@
+#!/bin/sh
+# postinst script for APPLICATION_PACKAGE
+#
+# jpackage's own template (JDK 25, template.postinst) with Termina's system integration added. The
+# APPLICATION_*, DESKTOP_* and LAUNCHER_AS_SERVICE_* tokens are jpackage's and are substituted
+# exactly as in the stock script. See packaging/linux/NOTES.md.
+#
+# see: dh_installdeb(1)
+
+set -e
+
+# summary of how this script can be called:
+#        * <postinst> `configure' <most-recently-configured-version>
+#        * <old-postinst> `abort-upgrade' <new version>
+#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
+#          <new-version>
+#        * <postinst> `abort-remove'
+#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
+#          <failed-install-package> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see https://www.debian.org/doc/debian-policy/ or
+# the debian-policy package
+
+package_type=deb
+LAUNCHER_AS_SERVICE_SCRIPTS
+
+termina_launcher=/opt/termina/bin/Termina
+termina_metainfo=io.github.adriandeleon.Termina.metainfo.xml
+
+termina_integrate ()
+{
+    # `termina` on PATH. A link rather than a copy: the launcher finds its runtime from its own
+    # resolved path. Left alone if something that is not a link already has the name.
+    if [ ! -e /usr/bin/termina ] || [ -L /usr/bin/termina ]; then
+        ln -sfn "$termina_launcher" /usr/bin/termina
+    fi
+
+    # Offered as the system terminal. Priority 20, xterm's, below GNOME Terminal and Konsole (40):
+    # installing Termina adds it to the choice without taking the default from a terminal the user
+    # already has. `update-alternatives --config x-terminal-emulator` picks it.
+    update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator \
+        "$termina_launcher" 20
+
+    # Listed in GNOME Software and KDE Discover once installed.
+    mkdir -p /usr/share/metainfo
+    cp /opt/termina/lib/"$termina_metainfo" /usr/share/metainfo/"$termina_metainfo"
+    chmod 644 /usr/share/metainfo/"$termina_metainfo"
+}
+
+case "$1" in
+    configure)
+DESKTOP_COMMANDS_INSTALL
+LAUNCHER_AS_SERVICE_COMMANDS_INSTALL
+        termina_integrate
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0

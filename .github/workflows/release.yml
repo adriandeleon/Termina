@@ -11,8 +11,11 @@ on:
   # For a dry run: builds and uploads artifacts, creates no release.
   workflow_dispatch:
 
+# Read-only by default. The build jobs run Maven against a repository outside Central and execute
+# what it resolves; none of them needs to write anything, so none of them holds a token that can.
+# Only the publish job below asks for more.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -76,20 +79,51 @@ jobs:
           set -euo pipefail
           case "${{ runner.os }}" in
             Linux)
-              # dpkg-deb is present; rpmbuild is not, and jpackage fails the rpm without it.
+              # dpkg-deb is present; rpmbuild is not, and jpackage fails the rpm without it. xvfb
+              # gives AOT training and the smoke test a display; desktop-file-utils, cpio and
+              # appstream are for the package checks.
               sudo apt-get update -qq
-              sudo apt-get install -y -qq fakeroot rpm binutils
+              sudo apt-get install -y -qq fakeroot rpm binutils xvfb desktop-file-utils cpio appstream
               ;;
             Windows)
-              # jpackage builds an MSI through WiX and cannot make one without it.
-              choco install wixtoolset --no-progress -y
+              # jpackage builds an MSI through WiX and cannot make one without it. Pinned: the path
+              # below names 3.14, and an unpinned install is whatever the package became today.
+              choco install wixtoolset --version 3.14.1.20250415 --no-progress -y
               echo "C:\\Program Files (x86)\\WiX Toolset v3.14\\bin" >> "$GITHUB_PATH"
               ;;
           esac
 
-      - name: Package
-        run: ./mvnw -B --no-transfer-progress clean -Pdist -DskipTests -Dskip.installers=false package
+      # With the tests, unlike CI's package job: a tag is not gated on CI having passed, and two of
+      # these runners (linux-arm64, macos-x64) run nowhere else, so this is the only place their
+      # build is ever tested. `verify` is the phase CI's test job runs, after `package`.
+      - name: Build, test and package
+        run: ./mvnw -B --no-transfer-progress clean -Pdist -Dskip.installers=false verify
         shell: bash
+        env:
+          # A release without its AOT cache starts a quarter slower and says nothing; fail instead.
+          TERMINA_REQUIRE_AOT: '1'
+
+      # Every check CI makes of its artefacts, made of the ones being published. A failure here
+      # fails this target's job, and the publish job needs all of them.
+      - name: Smoke-test the packaged app
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ runner.os }}" in
+            macOS)   launcher="target/dist/Termina.app/Contents/MacOS/Termina" ;;
+            Windows) launcher="target/dist/Termina/Termina.exe" ;;
+            *)       launcher="target/dist/Termina/bin/Termina" ;;
+          esac
+          bash scripts/smoke-test.sh "$launcher" "$RUNNER_TEMP/smoke"
+
+      - name: Check the macOS signature
+        if: runner.os == 'macOS'
+        run: codesign --verify --deep --verbose=2 target/dist/Termina.app
+
+      - name: Check the Linux packages
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/check-linux-packages.sh target/installers branding/termina.png
 
       # jpackage names its output after the version it was given, which on macOS is the bumped
       # placeholder (1.1.0 for a 0.1.0 release) and everywhere else carries no target. Renaming to
@@ -128,6 +162,12 @@ jobs:
     needs: build
     # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
     if: github.ref_type == 'tag'
+    # The only job that writes: contents for the release itself, and id-token plus attestations
+    # for the build provenance below.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v5
         with:
@@ -149,6 +189,13 @@ jobs:
       - name: List what will be released
         run: ls -la artifacts
 
+      # A signed statement, kept by GitHub, that each installer was built by this workflow from this
+      # commit. `gh attestation verify <file> --repo adriandeleon/Termina` checks a download.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'artifacts/*'
+
       # Decided here rather than by editing config: with no token the package managers are excluded
       # outright, and the moment PACKAGES_TOKEN exists they are included again with no change to
       # anything. Excluding is not the same as letting them fail — a skipped packager says so in one
@@ -168,9 +215,13 @@ jobs:
             echo "::notice::No PACKAGES_TOKEN — publishing the GitHub release only. No Homebrew cask, no winget pull request."
           fi
 
+      # Pinned to a commit, not the movable v2 branch: this step is handed a token that can write
+      # to this repository, the Homebrew tap and the winget fork. The JReleaser it downloads is
+      # pinned too — the action's default is whatever was released last. Bump both deliberately.
       - name: Publish release
-        uses: jreleaser/release-action@v2
+        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # 2.5.0
         with:
+          version: 1.26.0
           arguments: ${{ steps.packagers.outputs.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.build.outputs.version }}

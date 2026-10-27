@@ -113,6 +113,12 @@ Each of these cost real time, and none of them announces itself.
 - **The deb and rpm bundlers throw your icon away.** See `packaging/linux/NOTES.md` — `--icon`
   reaches the app image only, and the 0.1.0 packages shipped jpackage's generic Java icon as a
   result. Verify a built package, not the tree.
+- **The deb's dependencies are the build host's package names for whatever is in the image.**
+  `libjsound` in `java.desktop` made the 0.12.0 debs depend on `libasound2t64`, which only Debian
+  13+/Ubuntu 24.04+ have; jlink now excludes it. JavaFX's own libraries are invisible to the scan
+  (extracted from jars at run time) and are declared by hand in `build-installers.sh`. The deb's
+  `postinst`/`prerm` and the rpm's spec are overrides of jpackage's templates — keep its tokens.
+  All in `packaging/linux/NOTES.md`; `scripts/check-linux-packages.sh` asserts it.
 - **Full-screen geometry cannot be diagnosed from inside the app on Wayland.** JavaFX has no
   Wayland backend, so it runs through XWayland, and under GNOME's fractional scaling (and its
   experimental `xwayland-native-scaling`) the compositor's idea of the surface and JavaFX's disagree.

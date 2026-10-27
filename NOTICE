@@ -14,7 +14,55 @@ Licensed under EPL-1.0. Used as an unmodified dependency, including its bundled
 native libraries (libpty, winpty, ConPTY helpers).
 
 Java Native Access (JNA) — https://github.com/java-native-access/jna
-Licensed under LGPL-2.1-or-later / Apache-2.0 (dual). Unmodified dependency.
+Licensed under LGPL-2.1-or-later / Apache-2.0 (dual). Unmodified dependency,
+including jna-platform and JNA's bundled native libraries.
+
+OpenJFX (JavaFX) — https://openjdk.org/projects/openjfx/
+Copyright Oracle and/or its affiliates.
+Licensed under the GNU General Public License, version 2, with the Classpath
+Exception (GPL-2.0-only WITH Classpath-exception-2.0). The javafx.base,
+javafx.graphics and javafx.controls modules are linked unmodified into the
+packaged runtime, including their native libraries. JavaFX itself contains
+third-party components (among them the Independent JPEG Group's libjpeg and
+Mesa 3-D headers) whose notices are published with OpenJFX:
+https://github.com/openjdk/jfx/tree/master/modules/javafx.graphics/src/main/legal
+
+OpenJDK — https://openjdk.org
+Copyright Oracle and/or its affiliates, and other contributors.
+The packaged application carries a Java runtime linked with jlink from an
+OpenJDK build (Eclipse Temurin in the released packages). Licensed under the GNU
+General Public License, version 2, with the Classpath Exception
+(GPL-2.0-only WITH Classpath-exception-2.0). The runtime's own notices, for
+OpenJDK and the third-party code it contains, are in its legal/ directory
+(lib/runtime/legal on Linux, Contents/runtime/Contents/Home/legal on macOS,
+runtime\legal on Windows).
+
+Kotlin standard library — https://github.com/JetBrains/kotlin
+Copyright JetBrains s.r.o. and Kotlin Programming Language contributors.
+Licensed under Apache-2.0. Unmodified dependency of JediTerm and pty4j.
+
+JetBrains Java Annotations — https://github.com/JetBrains/java-annotations
+Copyright JetBrains s.r.o.
+Licensed under Apache-2.0. Unmodified dependency of JediTerm.
+
+Jackson core — https://github.com/FasterXML/jackson-core
+Copyright 2007-, Tatu Saloranta (tatu.saloranta@iki.fi).
+Licensed under Apache-2.0. Unmodified dependency. Its NOTICE file reads, in
+part: jackson-core bundles a shaded copy of FastDoubleParser
+(https://github.com/wrandelshofer/FastDoubleParser), Copyright © 2023 Werner
+Randelshofer, Switzerland, MIT License; and a copy of the Schubfach number
+writing code (https://github.com/c4f7fcce9cb06515/Schubfach), Copyright
+2018-2020 Raffaello Giulietti, MIT License. The licence texts are in the
+jackson-core jar's META-INF directory.
+
+SLF4J — https://www.slf4j.org
+Copyright (c) 2004-2023 QOS.ch.
+Licensed under the MIT License. slf4j-api and slf4j-simple, unmodified.
+
+The Apache License 2.0 is at https://www.apache.org/licenses/LICENSE-2.0, the
+GNU GPL version 2 with the Classpath Exception at
+https://openjdk.org/legal/gplv2+ce.html, and the EPL-1.0 at
+https://www.eclipse.org/legal/epl-v10.html.
 
 --------------------------------------------------------------------------------
 Vendored source
@@ -55,6 +103,34 @@ unmodified, each under the SIL Open Font License 1.1 (OFL-1.1):
 The full SIL Open Font License 1.1 text is available at
 https://openfontlicense.org. The OFL permits bundling and redistribution within
 this application.
+
+Symbols Nerd Font Mono — https://github.com/ryanoasis/nerd-fonts (release v3.5.1)
+Copyright (c) 2016, Ryan McIntyre.
+src/main/resources/com/termina/fonts/symbols-nerd-font/, redistributed
+unmodified. The icon fallback for private-use code points; it is kept out of the
+font picker. Per the Nerd Fonts licence, the font files and glyph fonts are under
+the SIL Open Font License 1.1 and the project's source code, the font patcher
+included, under the MIT License; the MIT text shipped beside the font
+(LICENSE, Copyright (c) 2014 Ryan L McIntyre) is that one. Every glyph set in it
+remains under its own licence, as listed by the README shipped beside the font:
+
+    Codicons               — github.com/microsoft/vscode-codicons     CC BY 4.0
+    Devicons               — github.com/devicons/devicon              MIT
+    extraglyphs            — github.com/source-foundry/Hack           MIT
+    Font Awesome           — github.com/FortAwesome/Font-Awesome      CC BY 4.0
+    Font Awesome Extension — github.com/AndreLZGava/font-awesome-extension MIT
+    Font Logos             — github.com/lukas-w/font-logos            unlicensed (as listed upstream)
+    Material Design Icons  — github.com/Templarian/MaterialDesign-Font Apache-2.0
+    Octicons               — github.com/primer/octicons               MIT
+    Seti UI and original   — github.com/jesseweed/seti-ui             MIT
+    Pomicons               — github.com/gabrielelana/pomicons         OFL-1.1 (Reserved Font Name)
+    Powerline Extra        — github.com/ryanoasis/powerline-extra-symbols MIT
+    Powerline Symbols      — github.com/powerline/powerline           MIT
+    Power Symbols IEC      — github.com/jloughry/Unicode              MIT
+    Weather Icons          — github.com/erikflowers/weather-icons     OFL-1.1
+
+The CC BY 4.0 sets ask for attribution, which this list is: Codicons
+© Microsoft Corporation, Font Awesome Free © Fonticons, Inc.
 
 The shell and distribution marks in the profile menu
 (src/main/java/com/termina/ui/ProfileIcons.java) are single-path glyphs taken
