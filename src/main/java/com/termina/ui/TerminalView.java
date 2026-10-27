@@ -520,6 +520,9 @@ public final class TerminalView extends Region {
             searchOutdated = false;
             runSearch(true, false);
         });
+        searchTyping.setOnFinished(e -> {
+            if (searchOpen) flushPendingQuery();
+        });
         display.setOnAlternateScreenChanged(() -> {
             // Scrollback belongs to the primary buffer; entering or leaving the alternate screen
             // must snap back to the live view or a full-screen program renders at an offset. The
@@ -3186,8 +3189,30 @@ public final class TerminalView extends Region {
     /** Output arrived, or the rows were rebuilt, since the results were computed. */
     private volatile boolean searchOutdated;
 
-    /** The pause between output arriving under an open search and the search running again. */
-    private final PauseTransition searchRefresh = new PauseTransition(Duration.millis(250));
+    /**
+     * The pause between output arriving under an open search and the search running again. At
+     * least this long, and longer for a scan that takes a while: see {@link #runSearch}.
+     */
+    private static final double SEARCH_REFRESH_MS = 250;
+
+    private final PauseTransition searchRefresh = new PauseTransition(Duration.millis(SEARCH_REFRESH_MS));
+
+    /**
+     * How long typing has to pause before the query is searched for. Every keystroke used to scan
+     * the scrollback; a word typed at speed is one search, run once the typing stops.
+     */
+    private final PauseTransition searchTyping = new PauseTransition(Duration.millis(120));
+
+    /** The query changed and has not been searched for yet. */
+    private boolean searchQueryPending;
+
+    /** Runs a search the typing pause is still holding back, so a step acts on the query as typed. */
+    private void flushPendingQuery() {
+        if (!searchQueryPending) return;
+        searchQueryPending = false;
+        searchTyping.stop();
+        runSearch(false, true);
+    }
 
     /**
      * Opens the find bar, or puts the caret back in it.
@@ -3200,7 +3225,8 @@ public final class TerminalView extends Region {
             searchBar = new SearchBar(new SearchBar.Listener() {
                 @Override
                 public void queryChanged(String query, boolean regex) {
-                    runSearch(false, true);
+                    searchQueryPending = true;
+                    searchTyping.playFromStart();
                 }
 
                 @Override
@@ -3237,6 +3263,8 @@ public final class TerminalView extends Region {
         searchOpen = false;
         searchOutdated = false;
         searchRefresh.stop();
+        searchTyping.stop();
+        searchQueryPending = false;
         search = SearchState.NONE;
         if (searchBar != null) searchBar.setVisible(false);
         markDirty();
@@ -3269,10 +3297,14 @@ public final class TerminalView extends Region {
     }
 
     /**
-     * Searches the whole buffer for the bar's query.
+     * Searches the buffer for the bar's query, newest first, keeping the newest matches.
      *
-     * <p>The rows are copied out under the lock and matched outside it, so the emulator is held up
-     * for a copy of the text rather than for a regular expression over the scrollback.
+     * <p>The rows are copied out under the lock a chunk at a time and matched outside it, so the
+     * emulator is held up for a copy of two thousand rows rather than of the whole scrollback, or for
+     * a regular expression over it. The scan stops once it has the matches it keeps (see {@link
+     * ScrollbackSearch#find(int, int, ScrollbackSearch.Rows, java.util.regex.Pattern, int)}), and
+     * the pause before a refresh grows with how long this one took, so a large buffer under a
+     * streaming build is rescanned less often rather than holding the FX thread all the time.
      *
      * @param keepPlace stay on the match the user had stepped to, if it is still there — what a
      *     refresh after new output wants; a new query starts over from the bottom of the view
@@ -3280,11 +3312,11 @@ public final class TerminalView extends Region {
      */
     private void runSearch(boolean keepPlace, boolean reveal) {
         if (searchBar == null || buffer == null) return;
+        long started = System.nanoTime();
         java.util.regex.Pattern pattern = ScrollbackSearch.compile(searchBar.query(), searchBar.isRegex());
         boolean valid = pattern != null || searchBar.query().isEmpty();
-        List<String> texts = new ArrayList<>();
-        List<Boolean> wrapped = new ArrayList<>();
         int firstLine;
+        int endLine;
         long scrolledAt;
         int epoch;
         int[] keep = null;
@@ -3295,29 +3327,59 @@ public final class TerminalView extends Region {
                 ScrollbackSearch.Match was = previous.matches().get(previous.current());
                 keep = new int[] {was.firstLine() - (int) (linesScrolled - previous.scrolledAt()), was.fromSlot()};
             }
-            int history = buffer.getHistoryLinesCount();
-            int height = buffer.getHeight();
-            firstLine = -history;
-            for (int line = -history; line < height; line++) {
-                var row = buffer.getLine(line);
-                texts.add(row == null ? "" : row.getText());
-                wrapped.add(row != null && row.isWrapped());
-            }
+            firstLine = -buffer.getHistoryLinesCount();
+            endLine = buffer.getHeight();
             scrolledAt = linesScrolled;
             epoch = layoutEpoch;
         } finally {
             buffer.unlock();
         }
-        List<ScrollbackSearch.Match> matches = ScrollbackSearch.find(texts, wrapped, firstLine, pattern);
+        List<ScrollbackSearch.Match> matches = ScrollbackSearch.find(
+                firstLine,
+                endLine,
+                (from, to) -> searchRows(from, to, scrolledAt, epoch),
+                pattern,
+                ScrollbackSearch.CHUNK_ROWS);
         int current = keep == null ? -1 : ScrollbackSearch.indexAt(matches, keep[0], keep[1]);
         if (current < 0) current = ScrollbackSearch.initial(matches, scrollOrigin + rows - 1);
         search = new SearchState(matches, current, scrolledAt, epoch);
         searchBar.showCount(current, matches.size(), valid);
         if (reveal) revealMatch();
         markDirty();
+        double tookMs = (System.nanoTime() - started) / 1e6;
+        if (searchRefresh.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+            searchRefresh.setDuration(Duration.millis(Math.max(SEARCH_REFRESH_MS, 4 * tookMs)));
+        }
+    }
+
+    /**
+     * Rows {@code [from, to)} as they were numbered when the search began, copied under the lock.
+     * The text has moved up by however much output arrived since; a reflow or a cleared history
+     * means the numbering is gone, and the search stops with what it has.
+     */
+    private ScrollbackSearch.@Nullable Chunk searchRows(int from, int to, long scrolledAt, int epoch) {
+        TerminalTextBuffer locked = buffer();
+        locked.lock();
+        try {
+            if (layoutEpoch != epoch) return null;
+            int moved = (int) (linesScrolled - scrolledAt);
+            int top = Math.max(from - moved, -locked.getHistoryLinesCount());
+            int bottom = Math.min(to - moved, locked.getHeight());
+            List<String> texts = new ArrayList<>(Math.max(0, bottom - top));
+            List<Boolean> wrapped = new ArrayList<>(Math.max(0, bottom - top));
+            for (int line = top; line < bottom; line++) {
+                var row = locked.getLine(line);
+                texts.add(row == null ? "" : row.getText());
+                wrapped.add(row != null && row.isWrapped());
+            }
+            return new ScrollbackSearch.Chunk(texts, wrapped);
+        } finally {
+            locked.unlock();
+        }
     }
 
     private void stepSearch(boolean older) {
+        flushPendingQuery();
         if (searchOutdated || search.epoch() != layoutEpoch) {
             searchOutdated = false;
             runSearch(true, false);
@@ -3419,6 +3481,7 @@ public final class TerminalView extends Region {
             getScene().getRoot().layout();
         }
         java.util.Objects.requireNonNull(searchBar, "showSearch makes the bar").setQuery(query, regex);
+        flushPendingQuery();
         for (int i = 0; i < steps; i++) stepSearch(true);
         SearchState state = search;
         return "count=<" + searchBar.countText() + "> matches="
