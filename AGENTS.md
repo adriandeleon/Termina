@@ -233,6 +233,10 @@ Each of these cost real time, and none of them announces itself.
   (`108x36` on the right under GNOME) and a screenshot of the X window is the only picture of them.
   And an unsupported platform downgrades `EXTENDED` to `DECORATED` silently, which would leave our
   header under a native title bar — hence the `Platform.isSupported(EXTENDED_WINDOW)` leg.
+  **Full screen keeps both** unless told: the `HeaderBar` stays in the scene, and taking it out
+  leaves the button overlay drawn over the terminal, because the overlay belongs to the stage. It
+  goes with `HeaderBar.setSystemButtonHeight(stage, 0)` (`placeHeaderBar`). `systemInsets` reads
+  `0x0` in full screen whether the buttons are drawn or not, so only an X screenshot shows them.
 - **`scripts/dev-run.sh` refreshes `target/deps` from empty.** `copy-dependencies` adds and never
   removes, so a version bump left both JavaFX jars there, both declaring the same module, and the
   old one won: the code compiled against 27 and ran against 26, failing on the first 27-only API.

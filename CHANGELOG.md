@@ -10,6 +10,12 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 - **The right-click menu opens the command palette and the About window**, beside Settings, so
   neither needs the menu bar or a chord to reach.
 
+### Fixed
+
+- **Full screen kept the title bar** when the menu bar is in the title bar: the title and the
+  window buttons stayed at the top of the screen. Full screen now has no title bar; the menus, if
+  shown, stay as an ordinary row.
+
 ## 0.12.0 — 2026-10-25
 
 The sync repository can be created on GitHub from Settings, and the shortcut reference names what a
