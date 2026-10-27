@@ -1384,7 +1384,23 @@ public final class SettingsWindow {
         status.setManaged(message != null);
     }
 
+    /**
+     * The default profile's description, naming the chord New Tab is on now — not a fixed
+     * "Ctrl/Cmd+T", which is Ctrl+Shift+T off macOS and rebindable — or the command's name when it
+     * has none.
+     */
+    private String defaultProfileDescription() {
+        KeyCombination chord = effectiveKeys().get(NEW_TAB);
+        return tr("settings.defaultProfile.desc", chord == null ? labelOf(NEW_TAB) : chord.getDisplayText());
+    }
+
+    private static final String NEW_TAB = "newTab";
+
+    private @Nullable Label defaultProfileHint;
+
     private void reloadKeys() {
+        Label hint = defaultProfileHint;
+        if (hint != null) hint.setText(defaultProfileDescription());
         Map<String, KeyCombination> effective = effectiveKeys();
         for (KeyRow row : keyRows.values()) {
             String id = row.command().id();
@@ -1436,13 +1452,15 @@ public final class SettingsWindow {
             profiles.setDefaultProfileId(value.id());
             refreshProfileList();
         });
-        row(
+        Node defaultRow = row(
                 Category.PROFILES,
                 defaults,
                 tr("settings.defaultProfile"),
-                tr("settings.defaultProfile.desc"),
+                defaultProfileDescription(),
                 defaultProfile,
                 "default profile shell new tab startup powershell cmd wsl bash zsh");
+        // Names New Tab's chord, which can be rebound while this window is open: reloadKeys refreshes it.
+        if (defaultRow.lookup(".settings-row-description") instanceof Label hint) defaultProfileHint = hint;
 
         VBox list = section(page, tr("settings.section.profiles"));
 
