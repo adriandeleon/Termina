@@ -3,6 +3,7 @@ package com.termina.link;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.function.Predicate;
 
 import org.jspecify.annotations.Nullable;
 
@@ -28,6 +29,8 @@ public final class LinkPaths {
         if (token == null || token.isBlank()) return null;
         try {
             String expanded = expandHome(token);
+            // Before anything can stat it: see isUnc.
+            if (isUnc(token) || isUnc(expanded)) return null;
             Path path = Paths.get(expanded);
             if (path.isAbsolute()) return path.normalize();
             if (cwd == null) return null;
@@ -51,23 +54,82 @@ public final class LinkPaths {
     }
 
     /**
-     * The file a {@code file:} URL names, or null when it is not one or names another host.
+     * Whether a token names a share on another machine — {@code \\host\share}, {@code
+     * //host/share}, or any mix of the two separators, which Windows reads alike. The device
+     * namespaces {@code \\?\} and {@code \\.\} start the same way and are refused with them.
+     *
+     * <p>Refused outright, on every platform and before any existence check. Asking Windows whether
+     * {@code \\host\share\x} exists is an SMB connection to {@code host}, which hands it the
+     * user's NTLM hash; a hover would make it for any text a program printed. On Unix the same
+     * spelling is a local path with a doubled slash, and losing that as a link costs nothing.
+     */
+    public static boolean isUnc(String token) {
+        return token != null && token.length() >= 2 && isSeparator(token.charAt(0)) && isSeparator(token.charAt(1));
+    }
+
+    private static boolean isSeparator(char c) {
+        return c == '/' || c == '\\';
+    }
+
+    /** Whether a link target is a {@code file:} URL — one that must be opened as a file or not at all. */
+    public static boolean isFileUri(String target) {
+        return target != null && target.regionMatches(true, 0, "file:", 0, 5);
+    }
+
+    /**
+     * The file a {@code file:} URL names, or null when it is not one, names another host, or names
+     * a share.
      *
      * <p>Kept apart from {@link #resolve} because a URL is percent-encoded and a path is not:
      * {@code file:///tmp/a%20b} is one file whose name has a space in it, and treating those bytes
      * as a path would look for a file called {@code a%20b}.
      */
     public static @Nullable Path fromFileUri(String target) {
-        if (target == null || !target.regionMatches(true, 0, "file:", 0, 5)) return null;
+        String path = fileUriPath(target, LocalHost::isLocal);
+        if (path == null) return null;
+        try {
+            Path file = Paths.get(path);
+            // A drive path on a platform without drives is relative, and would be looked for in
+            // Termina's own working directory.
+            return file.isAbsolute() ? file.normalize() : null;
+        } catch (RuntimeException notAPath) {
+            return null;
+        }
+    }
+
+    /**
+     * The path part of a {@code file:} URL, decoded, or null when it is not one of ours.
+     *
+     * <p>Null for another host: {@code file://host/share} is someone else's filesystem — unless the
+     * host is this machine, which is how {@code ls --hyperlink} and every OSC 7 spell a local file.
+     * Null for a UNC path too, which is how another host gets in with an empty host part:
+     * {@code file:////host/share}. A Windows drive path arrives as {@code /C:/Users/…} and loses the
+     * leading slash, which no platform's path parser would take.
+     *
+     * @param isLocalHost whether a host name is this machine; a parameter so a test needs no network
+     */
+    static @Nullable String fileUriPath(String target, Predicate<String> isLocalHost) {
+        if (!isFileUri(target)) return null;
         try {
             URI uri = new URI(target);
             String host = uri.getHost();
-            // file://host/share is someone else's filesystem. Not ours to open — unless the host is
-            // this machine, which is how ls --hyperlink and every OSC 7 spell a local file.
-            if (!LocalHost.isLocal(host)) return null;
-            if (uri.getPath() == null) return null;
-            return Paths.get(uri.getPath()).normalize();
-        } catch (Exception e) {
+            // An authority URI cannot parse into a host — file://user@[bad]/ — is not a local one.
+            if (host == null
+                    && uri.getRawAuthority() != null
+                    && !uri.getRawAuthority().isEmpty()) return null;
+            boolean local =
+                    host == null || host.isEmpty() || host.equalsIgnoreCase("localhost") || isLocalHost.test(host);
+            if (!local) return null;
+            String path = uri.getPath();
+            if (path == null || path.isEmpty()) return null;
+            if (path.length() >= 3
+                    && path.charAt(0) == '/'
+                    && path.charAt(2) == ':'
+                    && Character.isLetter(path.charAt(1))) {
+                path = path.substring(1);
+            }
+            return isUnc(path) ? null : path;
+        } catch (Exception malformed) {
             return null;
         }
     }

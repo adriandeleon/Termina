@@ -1472,13 +1472,40 @@ public final class TerminalView extends Region {
      * The link under the pointer, with everything the click and the underline need.
      *
      * <p>{@code file} is null for a URL and non-null for a path that was found on disk — a path
-     * that was not is never a hover at all, so nothing here can be opened that does not exist.
+     * that was not is never a hover at all, so nothing here can be opened that does not exist. A
+     * {@code file:} URL is a path in this sense: one that does not name an existing file on this
+     * machine is no link, and is never handed to the desktop as a URL.
      *
      * @param spans the run split across the rows it occupies, since a wrapped URL is one link drawn
      *     on two lines
+     * @param scrolledAt {@link #linesScrolled} when the spans were measured, so the underline rides
+     *     with its text as output scrolls rather than staying on the screen row
+     * @param epoch {@link #layoutEpoch} then; after a reflow the spans name nothing
      */
     private record Hover(
-            LinkMatch match, java.nio.file.@Nullable Path file, java.util.List<LinkSpan> spans, boolean declared) {}
+            LinkMatch match,
+            java.nio.file.@Nullable Path file,
+            java.util.List<LinkSpan> spans,
+            boolean declared,
+            long scrolledAt,
+            int epoch) {}
+
+    /**
+     * What the buffer says is under the pointer, before the filesystem has been asked anything —
+     * copied out under the lock, so the stat that decides it can run after the lock is released.
+     *
+     * @param file the path the link would open, not yet known to exist; null for a web URL
+     * @param needsFile whether the link is nothing unless {@code file} exists: a path, or any
+     *     {@code file:} URL
+     */
+    private record LinkCandidate(
+            LinkMatch match,
+            java.nio.file.@Nullable Path file,
+            boolean needsFile,
+            java.util.List<LinkSpan> spans,
+            boolean declared,
+            long scrolledAt,
+            int epoch) {}
 
     /** One row's worth of an underline: a line index and the slots it covers. */
     private record LinkSpan(int line, int fromSlot, int toSlot) {}
@@ -1515,6 +1542,9 @@ public final class TerminalView extends Region {
      */
     private void updateHover(double x, double y, boolean modifierDown) {
         Hover previous = hover;
+        // The remembered answer lasts for one hover gesture: a file created since is found on the
+        // next press of the modifier.
+        if (!modifierDown) statPath = null;
         hover = modifierDown ? linkAt(x, y) : null;
         setCursor(hover == null ? javafx.scene.Cursor.DEFAULT : javafx.scene.Cursor.HAND);
         if (!sameHover(previous, hover)) {
@@ -1562,43 +1592,105 @@ public final class TerminalView extends Region {
         return a.spans().equals(b.spans()) && a.match().equals(b.match());
     }
 
-    /** The link at a point in the view, or null. Reads the buffer, so it takes the lock. */
+    /**
+     * The link at a point in the view, or null.
+     *
+     * <p>Two halves. Under the buffer lock, only what the buffer says: the text, the declared link,
+     * the path it would name. The filesystem is asked after the lock is released — a hung network
+     * mount under the pointer would otherwise freeze the emulator along with the UI — and its answer
+     * is remembered for the target, since moving along one link asks the same question for every
+     * pixel of travel.
+     */
     private @Nullable Hover linkAt(double x, double y) {
+        LinkCandidate candidate = linkCandidateAt(x, y);
+        if (candidate == null) return null;
+        java.nio.file.Path file = candidate.file();
+        if (file != null && !existsRemembered(file)) file = null;
+        if (candidate.needsFile() && file == null) return null;
+        return new Hover(
+                candidate.match(),
+                file,
+                candidate.spans(),
+                candidate.declared(),
+                candidate.scrolledAt(),
+                candidate.epoch());
+    }
+
+    /** The path {@link #existsRemembered} last asked about, and the answer. FX thread only. */
+    private java.nio.file.@Nullable Path statPath;
+
+    private boolean statExists;
+
+    /** {@code Files.exists}, asked once per target for as long as the hover lasts. */
+    private boolean existsRemembered(java.nio.file.Path file) {
+        if (!file.equals(statPath)) {
+            statExists = java.nio.file.Files.exists(file);
+            statPath = file;
+        }
+        return statExists;
+    }
+
+    /** The buffer half of {@link #linkAt}: everything but the filesystem's answer. Takes the lock. */
+    private @Nullable LinkCandidate linkCandidateAt(double x, double y) {
         if (buffer == null || linkActions == null) return null;
         if (x < 0 || y < 0 || x >= getWidth() || y >= getHeight()) return null;
 
         int row = (int) Math.floor(y / lineHeight);
         if (row < 0 || row >= rows) return null;
-        int line = scrollOrigin + row;
         int column = (int) Math.floor(x / charWidth);
         if (column < 0 || column >= columns) return null;
+        // Read once, here: the directory is the shell's and changes on its own.
+        java.nio.file.Path cwd = shellDirectory();
 
         buffer.lock();
         try {
+            int line = scrollOrigin + row;
             LogicalLine logical = logicalLineAt(line);
             if (logical == null) return null;
             int slot = ColumnMap.slotAt(lineTextAt(line), column);
             // A link the program declared outranks anything read off the text: it is the
             // program's own statement of where this goes, and its text need not look like a link.
-            Hover declared = declaredLinkAt(logical, line, slot);
+            LinkCandidate declared = declaredLinkAt(logical, line, slot);
             if (declared != null) return declared;
             int index = logical.offsetOf(line) + slot;
             LinkMatch match = LinkScanner.at(logical.text(), index);
             if (match == null) return null;
-
-            // Moving along a link with the modifier held asks the same question of the filesystem
-            // for every pixel of travel. The answer cannot change within one hover, so it is asked
-            // once per link rather than once per event.
-            Hover previous = hover;
-            java.nio.file.Path file =
-                    previous != null && previous.match().equals(match) ? previous.file() : fileFor(match);
-            if (match.kind() == LinkMatch.Kind.PATH && file == null) return null;
-            return new Hover(match, file, logical.spansOf(match.start(), match.end()), false);
+            // This is the whole safety story for paths: a candidate is any word under the pointer,
+            // and what makes it a link is that it resolves — against this tab's shell directory —
+            // to something that is actually there. A pattern cannot tell a filename from a word;
+            // the filesystem can, once the lock is released.
+            String target = match.target();
+            boolean path = match.kind() == LinkMatch.Kind.PATH;
+            boolean fileUrl = !path && com.termina.link.LinkPaths.isFileUri(target);
+            java.nio.file.Path file = path
+                    ? com.termina.link.LinkPaths.resolve(target, cwd)
+                    : fileUrl ? com.termina.link.LinkPaths.fromFileUri(target) : null;
+            boolean needsFile = path || fileUrl;
+            if (needsFile && file == null) return null;
+            return new LinkCandidate(
+                    match,
+                    file,
+                    needsFile,
+                    logical.spansOf(match.start(), match.end()),
+                    false,
+                    linesScrolled,
+                    layoutEpoch);
         } catch (RuntimeException e) {
             // The rows moved under us between the event and the read. There is no link here now.
             return null;
         } finally {
             buffer.unlock();
+        }
+    }
+
+    /** The shell's directory as a path, or null when it is unknown or not one this platform reads. */
+    private java.nio.file.@Nullable Path shellDirectory() {
+        String cwd = display.getCwd();
+        if (cwd == null || cwd.isBlank()) return null;
+        try {
+            return java.nio.file.Path.of(cwd);
+        } catch (RuntimeException unreadable) {
+            return null;
         }
     }
 
@@ -1617,9 +1709,9 @@ public final class TerminalView extends Region {
     /**
      * The OSC 8 link under a cell, as a hover: every cell on the logical line carrying the same
      * link is underlined, so a declared link wrapped onto a second row lights up as one. Caller
-     * holds the lock.
+     * holds the lock, which is why nothing here asks the filesystem.
      */
-    private @Nullable Hover declaredLinkAt(LogicalLine logical, int line, int slot) {
+    private @Nullable LinkCandidate declaredLinkAt(LogicalLine logical, int line, int slot) {
         ExplicitLink link = explicitLinkAt(slot, line);
         if (link == null) return null;
         List<LinkSpan> spans = new ArrayList<>();
@@ -1647,38 +1739,28 @@ public final class TerminalView extends Region {
         if (spans.isEmpty()) return null;
         String uri = link.uri();
         LinkMatch match = new LinkMatch(LinkMatch.Kind.URL, text.toString(), start, end, uri, 0, 0);
-        java.nio.file.Path file = com.termina.link.LinkPaths.fromFileUri(uri);
-        if (file != null && !java.nio.file.Files.exists(file)) file = null;
-        return new Hover(match, file, spans, true);
+        // Held to the same rule as a file: URL read off the text — a file on this machine that
+        // exists, or nothing. Another host's, or a share's, is never a link at all.
+        boolean fileUrl = com.termina.link.LinkPaths.isFileUri(uri);
+        java.nio.file.Path file = fileUrl ? com.termina.link.LinkPaths.fromFileUri(uri) : null;
+        if (fileUrl && file == null) return null;
+        return new LinkCandidate(match, file, fileUrl, spans, true, linesScrolled, layoutEpoch);
     }
 
     /**
-     * The file a match names, or null when it names none.
+     * Opens the hovered link.
      *
-     * <p>This is the whole safety story for paths: a candidate is any word under the pointer, and
-     * what makes it a link is that it resolves — against <em>this tab's</em> shell directory — to
-     * something that is actually there. A pattern cannot tell a filename from a word; the
-     * filesystem can.
+     * <p>A {@code file:} URL goes as a file or not at all. Handed to the desktop as a URL it is
+     * ShellExecute on Windows, which fetches {@code file://host/share/x} over SMB and may run it.
+     * The hover already refuses one that names no local file; this is the second lock on that door.
      */
-    private java.nio.file.@Nullable Path fileFor(LinkMatch match) {
-        String target = match.target();
-        if (match.kind() == LinkMatch.Kind.URL) {
-            java.nio.file.Path fromUri = com.termina.link.LinkPaths.fromFileUri(target);
-            return fromUri != null && java.nio.file.Files.exists(fromUri) ? fromUri : null;
-        }
-        String cwd = display.getCwd();
-        java.nio.file.Path resolved = com.termina.link.LinkPaths.resolve(
-                target, cwd == null || cwd.isBlank() ? null : java.nio.file.Path.of(cwd));
-        return resolved != null && java.nio.file.Files.exists(resolved) ? resolved : null;
-    }
-
-    /** Opens the hovered link. */
     private void openLink(@Nullable Hover target) {
         if (target == null || linkActions == null) return;
         if (target.file() != null) {
             linkActions.openFile(
                     target.file(), target.match().line(), target.match().column());
-        } else if (target.match().isUrl()) {
+        } else if (target.match().isUrl()
+                && !com.termina.link.LinkPaths.isFileUri(target.match().target())) {
             linkActions.openUrl(target.match().target());
         }
     }
@@ -1788,13 +1870,17 @@ public final class TerminalView extends Region {
     /** Underlines the hovered link, in the text's own colour. */
     private void drawLinkUnderline(GraphicsContext g) {
         Hover target = hover;
-        if (target == null) return;
+        if (target == null || target.epoch() != layoutEpoch) return;
         g.setStroke(palette.foreground());
         g.setLineWidth(1);
+        // With its text, not on the screen row it was measured on: output arriving under a hover
+        // moves the link up, and an underline left behind would mark whatever scrolled into place.
+        int moved = (int) (linesScrolled - target.scrolledAt());
         for (LinkSpan span : target.spans()) {
-            int row = span.line() - scrollOrigin;
+            int line = span.line() - moved;
+            int row = line - scrollOrigin;
             if (row < 0 || row >= rows) continue;
-            String text = lineTextAt(span.line());
+            String text = lineTextAt(line);
             double from = ColumnMap.columnAt(text, span.fromSlot()) * charWidth;
             double to = ColumnMap.columnAt(text, span.toSlot()) * charWidth;
             // Half a pixel down the grid line, or a 1px stroke straddles it and paints two grey rows
