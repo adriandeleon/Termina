@@ -11,8 +11,11 @@ on:
   # For a dry run: builds and uploads artifacts, creates no release.
   workflow_dispatch:
 
+# Read-only by default. The build jobs run Maven against a repository outside Central and execute
+# what it resolves; none of them needs to write anything, so none of them holds a token that can.
+# Only the publish job below asks for more.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -159,6 +162,12 @@ jobs:
     needs: build
     # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
     if: github.ref_type == 'tag'
+    # The only job that writes: contents for the release itself, and id-token plus attestations
+    # for the build provenance below.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v5
         with:
@@ -180,6 +189,13 @@ jobs:
       - name: List what will be released
         run: ls -la artifacts
 
+      # A signed statement, kept by GitHub, that each installer was built by this workflow from this
+      # commit. `gh attestation verify <file> --repo adriandeleon/Termina` checks a download.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'artifacts/*'
+
       # Decided here rather than by editing config: with no token the package managers are excluded
       # outright, and the moment PACKAGES_TOKEN exists they are included again with no change to
       # anything. Excluding is not the same as letting them fail — a skipped packager says so in one
@@ -199,9 +215,13 @@ jobs:
             echo "::notice::No PACKAGES_TOKEN — publishing the GitHub release only. No Homebrew cask, no winget pull request."
           fi
 
+      # Pinned to a commit, not the movable v2 branch: this step is handed a token that can write
+      # to this repository, the Homebrew tap and the winget fork. The JReleaser it downloads is
+      # pinned too — the action's default is whatever was released last. Bump both deliberately.
       - name: Publish release
-        uses: jreleaser/release-action@v2
+        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # 2.5.0
         with:
+          version: 1.26.0
           arguments: ${{ steps.packagers.outputs.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.build.outputs.version }}

@@ -12,6 +12,10 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Read-only: nothing here publishes, and the build runs Maven against a repository outside Central.
+permissions:
+  contents: read
+
 concurrency:
   # A newer push supersedes an older one on the same branch; nothing is learned from finishing a run
   # against code that has already been replaced.
