@@ -84,8 +84,22 @@ class CommandPaletteTest {
     // ---- the chord that opens it ----
 
     @Test
-    void theDefaultIsEmacsMx() {
-        assertEquals(new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN), MenuAction.DEFAULT_PALETTE_CHORD);
+    void theDefaultIsTheApplicationsShiftP() {
+        assertEquals(
+                new KeyCodeCombination(KeyCode.P, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+                MenuAction.DEFAULT_PALETTE_CHORD);
+    }
+
+    @Test
+    void aUserWhoStoredAltXKeepsIt() {
+        // The old default, now only a choice: a stored keys.commandPalette still wins.
+        assertEquals(
+                new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN),
+                Keybindings.resolve(
+                                java.util.Map.of("commandPalette", MenuAction.DEFAULT_PALETTE_CHORD),
+                                java.util.Map.of("commandPalette", "Alt+X"),
+                                false)
+                        .get("commandPalette"));
     }
 
     @Test

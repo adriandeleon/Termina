@@ -141,12 +141,15 @@ final class DevCapture {
                 fireNativeChordIfRequested(window);
                 stealFocusIfRequested(window);
                 typeAtFocusIfRequested(window, active);
+                chordsAtFocusIfRequested(window);
                 fireMenuItemIfRequested(active, settings);
                 selectTabIfRequested(window);
                 closeTabsIfRequested(window);
                 renameTabIfRequested(window);
                 duplicateTabIfRequested(window);
                 reopenTabIfRequested(window);
+                moveTabIfRequested(window);
+                reopenWindowIfRequested(windows);
                 bellInTabIfRequested(window);
                 typeInTabIfRequested(window);
                 if (settings != null) importThemeIfRequested(settings);
@@ -193,9 +196,12 @@ final class DevCapture {
 
     /**
      * {@code -Dtermina.captureTabs=N} opens N extra tabs; {@code -Dtermina.captureWindows=N} opens N
-     * extra windows.
+     * extra windows. {@code -Dtermina.captureFailShellStarts=N} makes the next N shell starts among
+     * them fail, as a shell that cannot be started would: with one extra window and N=2, its tab
+     * fails and so does the default shell it falls back to.
      */
     private static void openExtraTabsAndWindows(WindowManager windows, TerminalWindow window) {
+        TerminalWindow.failNextShellStartsForCapture(Integer.getInteger("termina.captureFailShellStarts", 0));
         for (int i = 0; i < Integer.getInteger("termina.captureTabs", 0); i++) window.openTab();
         for (int i = 0; i < Integer.getInteger("termina.captureWindows", 0); i++) windows.openWindow();
     }
@@ -385,6 +391,7 @@ final class DevCapture {
     private static void report(WindowManager windows) {
         System.out.println("[capture] windows=" + windows.windows().size()
                 + " terminals=" + windows.allTerminals().size()
+                + " updateListeners=" + windows.updateListenerCount()
                 + " descendants=" + descendants()
                 + " maxStallMs=" + Math.round(maxStallMs));
         for (TerminalWindow w : windows.windows()) {
@@ -396,6 +403,7 @@ final class DevCapture {
             System.out.println("[capture] " + w.tabMarkReport());
             System.out.println("[capture] " + w.tabDragReport());
             System.out.println("[capture] " + w.paneReport());
+            System.out.println("[capture] " + w.emptyWindowReport());
             reportTypedEcho(w.activeTerminal());
         }
         reportDialogs();
@@ -570,7 +578,7 @@ final class DevCapture {
         // application chord — F11 is a bare key — and firing Ctrl+F11 at it matches nothing, which
         // reads exactly like the binding not working.
         boolean plain = parts.length > 2 && "plain".equalsIgnoreCase(parts[2].trim());
-        // "alt" fires Alt+key on every platform: the palette's M-x is Alt+X on a Mac too.
+        // "alt" fires Alt+key on every platform, Option+key on a Mac.
         boolean alt = parts.length > 2 && "alt".equalsIgnoreCase(parts[2].trim());
         boolean mac = System.getProperty("os.name", "")
                 .toLowerCase(java.util.Locale.ROOT)
@@ -735,6 +743,71 @@ final class DevCapture {
                 + (window.selectedTerminal() == null
                         ? "none"
                         : window.selectedTerminal().getDisplay().getCwd()));
+    }
+
+    /**
+     * {@code -Dtermina.captureChordAtFocus=C-S-a,C-S-z} fires whole chords — press and release — at
+     * whatever has the keyboard, through the scene's filters and handlers as a keyboard's would go.
+     * With {@code captureSearch} that is the find bar's field: the check that a chord the field has
+     * no use for stops there rather than reaching the terminal behind it.
+     */
+    private static void chordsAtFocusIfRequested(TerminalWindow window) {
+        String tokens = System.getProperty("termina.captureChordAtFocus");
+        if (tokens == null || tokens.isBlank()) return;
+        int before = window.tabTitles().size();
+        System.out.println("[capture] chords at focus " + window.fireChordsAtFocusForCapture(tokens) + " tabs " + before
+                + " -> " + window.tabTitles().size());
+    }
+
+    /**
+     * {@code -Dtermina.captureMoveTab=from,to} moves a tab as a drop would, so the drag report can
+     * show whether the moved tab's new header still carries the gestures.
+     */
+    private static void moveTabIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.captureMoveTab");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        window.moveTab(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()));
+        System.out.println("[capture] moved tab " + spec + " -> " + window.tabTitles());
+    }
+
+    /**
+     * {@code -Dtermina.captureReopenWindow=N} closes window N as the user would — its close prompt
+     * answered by {@code captureCloseAnswer} — then presses Reopen Closed Tab in the first window,
+     * and counts windows and tabs on the way.
+     */
+    private static void reopenWindowIfRequested(WindowManager windows) {
+        Integer index = Integer.getInteger("termina.captureReopenWindow");
+        if (index == null || index < 1 || index >= windows.windows().size()) return;
+        TerminalWindow closing = windows.windows().get(index);
+        String answer = System.getProperty("termina.captureCloseAnswer");
+        if (answer != null && !answer.isBlank())
+            closing.setCloseAnswerForCapture("close".equalsIgnoreCase(answer.trim()));
+        String before = windows.windows().size() + " windows, closing one of tabs " + closing.tabTitles();
+        closing.close();
+        String closed = windows.windows().size() + " windows, updateListeners=" + windows.updateListenerCount();
+        windows.windows().getFirst().reopenClosedTab();
+        TerminalWindow reopened = windows.windows().getLast();
+        System.out.println("[capture] reopen window: " + before + " | after close " + closed + " | after reopen "
+                + windows.windows().size() + " windows, last has tabs " + reopened.tabTitles());
+    }
+
+    /**
+     * With {@code captureTabMenu}, reports a little after the menu opened whether it survived the
+     * focus guard and who has the keyboard; {@code -Dtermina.captureTabMenuEscape=true} then presses
+     * Escape at it, and the end-of-run focus report says whether the terminal got the keyboard back.
+     */
+    private static void tabMenuStateLater(TerminalWindow window, int index) {
+        // A few pulses on, so a reclaim the guard queued has had its chance to run; and early
+        // enough that the end-of-run focus report comes after whatever Escape set off.
+        PauseTransition later = new PauseTransition(Duration.millis(60));
+        later.setOnFinished(e -> {
+            System.out.println("[capture] tab menu after settling " + window.tabMenuStateForCapture(index, false));
+            if (Boolean.getBoolean("termina.captureTabMenuEscape")) {
+                System.out.println("[capture] tab menu on escape " + window.tabMenuStateForCapture(index, true));
+            }
+        });
+        later.play();
     }
 
     /** {@code -Dtermina.captureBellIn=N} rings the bell in tab N, to check the mark on its header. */
@@ -902,6 +975,7 @@ final class DevCapture {
         if (tabMenu != null && !tabMenu.isBlank()) {
             Scene menu = window.showTabMenuForCapture(Integer.parseInt(tabMenu.trim()), 200, 120);
             System.out.println("[capture] tab menu shown=" + (menu != null));
+            tabMenuStateLater(window, Integer.parseInt(tabMenu.trim()));
             if (menu != null) return menu;
         }
         String menuSpec = System.getProperty("termina.captureMenu");

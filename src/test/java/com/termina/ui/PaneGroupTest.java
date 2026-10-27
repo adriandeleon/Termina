@@ -123,6 +123,8 @@ class PaneGroupTest {
             PaneGroup group = new PaneGroup(a);
             assertNull(group.remove(a));
             assertTrue(group.panes().isEmpty());
+            // Said in the type now: an emptied group has no active pane, until its tab goes.
+            assertNull(group.active());
             return null;
         });
     }

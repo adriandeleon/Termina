@@ -38,6 +38,59 @@ class ClosedTabsTest {
                 "/" + (ClosedTabs.MAX + 4), closed.pop().orElseThrow().options().workingDirectory());
     }
 
+    /** Reopens everything in {@code closed} one Reopen at a time into {@code strip}, as the window does. */
+    private static List<String> reopenAll(ClosedTabs closed, List<String> strip) {
+        List<String> tabs = new java.util.ArrayList<>(strip);
+        for (var entry = closed.pop(); entry.isPresent(); entry = closed.pop()) {
+            tabs.add(
+                    ClosedTabs.reopenIndex(entry.get().index(), tabs.size()),
+                    entry.get().options().workingDirectory());
+        }
+        return tabs;
+    }
+
+    @Test
+    void closeOthersThenReopenComesBackInOrder() {
+        // [A,B,C,D], Close Other Tabs on A: pushed in strip order this came back [A,B,D,C].
+        ClosedTabs closed = new ClosedTabs();
+        closed.rememberAll(List.of(entry("B", 1), entry("C", 2), entry("D", 3)));
+        assertEquals(List.of("A", "B", "C", "D"), reopenAll(closed, List.of("A")));
+    }
+
+    @Test
+    void closeOthersAroundAMiddleTabComesBackInOrder() {
+        ClosedTabs closed = new ClosedTabs();
+        closed.rememberAll(List.of(entry("A", 0), entry("B", 1), entry("D", 3)));
+        assertEquals(List.of("A", "B", "C", "D"), reopenAll(closed, List.of("C")));
+    }
+
+    @Test
+    void closeToTheRightThenReopenComesBackInOrder() {
+        ClosedTabs closed = new ClosedTabs();
+        // In whatever order the caller had them: the order is ClosedTabs' to decide.
+        closed.rememberAll(List.of(entry("D", 3), entry("C", 2)));
+        assertEquals(List.of("A", "B", "C", "D"), reopenAll(closed, List.of("A", "B")));
+    }
+
+    @Test
+    void theNewestCloseIsWhatReopenUndoes() {
+        // A window closed after this window's last tab closed comes back first, and not before.
+        assertTrue(ClosedTabs.reopensWindow(3, 7));
+        assertFalse(ClosedTabs.reopensWindow(7, 3));
+        assertTrue(ClosedTabs.reopensWindow(-1, 1));
+        assertFalse(ClosedTabs.reopensWindow(4, -1));
+        assertFalse(ClosedTabs.reopensWindow(-1, -1));
+    }
+
+    @Test
+    void peekLeavesTheEntry() {
+        ClosedTabs closed = new ClosedTabs();
+        assertTrue(closed.peek().isEmpty());
+        closed.remember(entry("/a", 0));
+        assertEquals("/a", closed.peek().orElseThrow().options().workingDirectory());
+        assertEquals(1, closed.size());
+    }
+
     @Test
     void aTabGoesBackWhereItWasUnlessTheStripHasShrunk() {
         // Undoing a close puts the tab back in its place, like a browser does.

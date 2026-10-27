@@ -84,7 +84,15 @@ Each of these cost real time, and none of them announces itself.
 - **Key bindings are a scene-level filter, not menu accelerators.** JavaFX fires accelerators only
   after an event bubbles unconsumed, and `TerminalView` consumes `Ctrl+<letter>` first. Filters run
   in the capturing phase, ahead of that. `MenuAction` holds the label, chord and action together so
-  the menu and the filter cannot disagree.
+  the menu and the filter cannot disagree. **And the accelerators are labels only**: JavaFX copies
+  every item's into the scene and runs it for any press that bubbles up unconsumed — which is what
+  the filter lets through on purpose while the palette is open or a text field has the key, so
+  Ctrl+Shift+W in the palette closed the tab behind it. `keepAcceleratorsDisplayOnly` keeps the
+  scene's table empty, and `onUnclaimedKeyPressed` consumes a bound chord that comes back up
+  unclaimed, so nothing past the scene (macOS's screen menu bar) gets a second go at it.
+- **Tab headers are the skin's, and rebuilt.** A reordered tab is removed and added, and gets a new
+  header with nothing of ours on it. Everything attached to a header — drag, double-click rename,
+  pane drop, close tooltip — goes on in `decorateHeaders`, after every change to the tab list.
 - **Nothing in the chrome may be focus-traversable.** The scene hands initial focus to the first
   focus-traversable node it finds, and a `TabPane` is one by default — so it raced the
   `requestFocus` in `openTab` and, on a cold first launch, won: the window came up looking ready
