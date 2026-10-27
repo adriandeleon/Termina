@@ -3004,6 +3004,7 @@ public final class TerminalWindow {
         terminal.setCopyOnSelect(settings.copyOnSelect());
         terminal.setTypeAheadAllowed(settings.typeAhead());
         terminal.setScrollBarEnabled(settings.showScrollBar());
+        terminal.setTextPadding(settings.padding());
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.termina.ui;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +32,30 @@ final class ScrollbackSearch {
 
     /** Past this many the count says "1000+" rather than the search scanning on into a flood. */
     static final int MAX_MATCHES = 1000;
+
+    /** Rows copied per hold of the buffer lock: a scan never holds the emulator up for a whole buffer. */
+    static final int CHUNK_ROWS = 2000;
+
+    /**
+     * Rows of the buffer as the search reads them, a chunk at a time from the bottom up.
+     *
+     * <p>The numbering is fixed at the first read; a reader whose rows have moved since (output
+     * scrolled them up) translates. History rows do not change once written, only move and age out,
+     * so a chunk read later is the same text the first read would have seen.
+     */
+    interface Rows {
+        /**
+         * Rows {@code [from, to)}. Fewer comes back when the top of that range has aged out of the
+         * history — the rows returned are then the bottom ones, ending at {@code to}, and there is
+         * nothing above them. Null when the rows cannot be read in this numbering any more (they
+         * were rebuilt by a reflow, or the history was cleared): the search stops with what it has.
+         */
+        @Nullable
+        Chunk read(int from, int to);
+    }
+
+    /** Consecutive rows: each one's text, and whether it continues onto the next. */
+    record Chunk(List<String> texts, List<Boolean> wrapped) {}
 
     private ScrollbackSearch() {}
 
@@ -91,28 +117,89 @@ final class ScrollbackSearch {
     }
 
     /**
-     * Every match of {@code pattern}, top to bottom.
+     * The newest {@link #MAX_MATCHES} matches of {@code pattern}, top to bottom, over rows held in
+     * memory. See {@link #find(int, int, Rows, Pattern, int)}.
      *
      * @param rows the text of each row, consecutively, starting at {@code firstLine}
      * @param wrapped whether each row continues onto the next — a soft wrap, not a newline
      * @param firstLine the buffer line of {@code rows[0]}, negative for history
      */
     static List<Match> find(List<String> rows, List<Boolean> wrapped, int firstLine, @Nullable Pattern pattern) {
-        List<Match> out = new ArrayList<>();
-        if (pattern == null) return out;
-        int row = 0;
-        while (row < rows.size() && out.size() < MAX_MATCHES) {
-            int start = row;
-            while (row < rows.size() - 1 && wrapped.get(row)) row++;
-            searchLogicalLine(rows, start, row, firstLine, pattern, out);
-            row++;
-        }
-        return out;
+        return find(
+                firstLine,
+                firstLine + rows.size(),
+                (from, to) -> new Chunk(
+                        rows.subList(from - firstLine, to - firstLine),
+                        wrapped.subList(from - firstLine, to - firstLine)),
+                pattern,
+                CHUNK_ROWS);
     }
 
-    /** Rows {@code from} to {@code to}, inclusive, as one line of text with a map back to cells. */
-    private static void searchLogicalLine(
-            List<String> rows, int from, int to, int firstLine, Pattern pattern, List<Match> out) {
+    /**
+     * The newest {@link #MAX_MATCHES} matches of {@code pattern} in lines {@code [firstLine,
+     * endLine)}, returned top to bottom.
+     *
+     * <p>Scanned from the bottom up, a chunk of rows at a time, and stopped once the cap is reached.
+     * The newest matches are the ones kept because they are the ones on screen: a search that kept
+     * the oldest thousand of a long build log highlighted nothing in view and started far up in the
+     * history. And bottom-up is what lets the scan stop early — on a query that matches everywhere,
+     * the thousand newest are in the last few screens, and the hundred thousand rows above them are
+     * never copied.
+     *
+     * <p>A logical line can cross a chunk's top edge, and it is not searched until all of it has
+     * been read: the rows above the topmost line known to start in the chunk are carried up and
+     * joined to the next one.
+     *
+     * @param chunkRows rows per read; a parameter so a test can make lines cross chunk edges
+     */
+    static List<Match> find(int firstLine, int endLine, Rows source, @Nullable Pattern pattern, int chunkRows) {
+        if (pattern == null) return new ArrayList<>();
+        // Bottom up, one list per logical line; each list in its own top-to-bottom order.
+        List<List<Match>> newestFirst = new ArrayList<>();
+        int count = 0;
+        List<String> carriedTexts = List.of();
+        List<Boolean> carriedWrapped = List.of();
+        int end = endLine;
+        while (count < MAX_MATCHES && end > firstLine) {
+            int from = Math.max(firstLine, end - Math.max(1, chunkRows));
+            Chunk chunk = source.read(from, end);
+            if (chunk == null) break;
+            int read = chunk.texts().size();
+            int top = end - read;
+            // Nothing above: the first line, or history that has aged out above what came back.
+            boolean atTop = top <= firstLine || read < end - from;
+            List<String> texts = new ArrayList<>(read + carriedTexts.size());
+            texts.addAll(chunk.texts());
+            texts.addAll(carriedTexts);
+            List<Boolean> wrapped = new ArrayList<>(read + carriedWrapped.size());
+            wrapped.addAll(chunk.wrapped());
+            wrapped.addAll(carriedWrapped);
+            int lineEnd = texts.size() - 1;
+            for (int i = lineEnd; i >= 0 && count < MAX_MATCHES; i--) {
+                boolean starts = i == 0 ? atTop : !wrapped.get(i - 1);
+                if (!starts) continue;
+                List<Match> found = searchLogicalLine(texts, i, lineEnd, top, pattern);
+                newestFirst.add(found);
+                count += found.size();
+                lineEnd = i - 1;
+            }
+            if (atTop || count >= MAX_MATCHES || read == 0) break;
+            carriedTexts = new ArrayList<>(texts.subList(0, lineEnd + 1));
+            carriedWrapped = new ArrayList<>(wrapped.subList(0, lineEnd + 1));
+            end = top;
+        }
+        List<Match> out = new ArrayList<>(Math.min(count, MAX_MATCHES));
+        for (int i = newestFirst.size() - 1; i >= 0; i--) out.addAll(newestFirst.get(i));
+        // The topmost line read can take the count past the cap; its oldest matches are the ones to go.
+        return out.size() > MAX_MATCHES ? new ArrayList<>(out.subList(out.size() - MAX_MATCHES, out.size())) : out;
+    }
+
+    /**
+     * Rows {@code from} to {@code to}, inclusive, as one line of text with a map back to cells: its
+     * matches, top to bottom — the newest {@link #MAX_MATCHES} of them, should one line hold more.
+     */
+    private static List<Match> searchLogicalLine(List<String> rows, int from, int to, int firstLine, Pattern pattern) {
+        Deque<Match> out = new ArrayDeque<>();
         StringBuilder text = new StringBuilder();
         // Per character of the joined text: its row, and the slot it starts at and how many it
         // covers — two for a wide character, whose placeholder cell is left out of the text.
@@ -136,10 +223,11 @@ final class ScrollbackSearch {
                 at = m.end() + 1;
                 continue;
             }
-            out.add(new Match(spansOf(cells, m.start(), m.end())));
-            if (out.size() >= MAX_MATCHES) return;
+            out.addLast(new Match(spansOf(cells, m.start(), m.end())));
+            if (out.size() > MAX_MATCHES) out.removeFirst();
             at = m.end();
         }
+        return new ArrayList<>(out);
     }
 
     private static List<Span> spansOf(List<int[]> cells, int start, int end) {

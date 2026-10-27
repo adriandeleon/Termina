@@ -718,6 +718,7 @@ public final class SettingsWindow {
     private Spinner<Double> fontSize;
     private Spinner<Integer> scrollback;
     private ComboBox<Settings.CursorShape> cursorShape;
+    private Spinner<Integer> padding;
     private CheckBox altIsMeta;
     private CheckBox confirmPaste;
     private CheckBox copyOnSelect;
@@ -1030,6 +1031,23 @@ public final class SettingsWindow {
                 tr("settings.cursorShape.desc"),
                 cursorShape,
                 "cursor caret shape block underline bar");
+
+        padding = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                Settings.MIN_PADDING, Settings.MAX_PADDING, Settings.DEFAULT_PADDING, 1));
+        padding.setEditable(true);
+        padding.setPrefWidth(110);
+        makeLenient(padding, d -> (int) Math.round(d));
+        padding.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            settings.setPadding(value);
+        });
+        row(
+                Category.TERMINAL,
+                display,
+                tr("settings.padding"),
+                tr("settings.padding.desc"),
+                padding,
+                "padding margin inset gutter spacing border edge");
 
         bell = new CheckBox();
         bell.selectedProperty().addListener((o, old, value) -> {
@@ -2149,6 +2167,7 @@ public final class SettingsWindow {
             fontSize.getValueFactory().setValue(settings.fontSize());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
+            padding.getValueFactory().setValue(settings.padding());
             altIsMeta.setSelected(settings.altIsMeta());
             confirmPaste.setSelected(settings.confirmPaste());
             copyOnSelect.setSelected(settings.copyOnSelect());

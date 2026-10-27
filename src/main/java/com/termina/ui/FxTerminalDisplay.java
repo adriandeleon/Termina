@@ -27,7 +27,10 @@ import org.jspecify.annotations.Nullable;
  */
 public final class FxTerminalDisplay implements TerminalDisplay {
 
-    /** Cursor column, 0-based. */
+    /**
+     * Cursor x, 0-based, as JediTerm keeps it: a <b>slot</b> in the line's {@code char[]}, not a
+     * column. An astral character to its left is two slots and one column; see {@link CursorDraw}.
+     */
     private volatile int cursorX;
     /** Cursor row as JediTerm reports it: <b>1-based</b>, relative to the top of the screen. */
     private volatile int cursorY = 1;

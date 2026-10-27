@@ -169,6 +169,12 @@ public final class OscSequences {
      * has to be a directory that exists, which also weeds out a remote shell whose host name
      * happens to match. A Windows path arrives as {@code /C:/Users/...} and loses the leading slash.
      *
+     * <p>A path that starts with two slashes is refused before the filesystem is asked: {@code
+     * file:////host/share} has an empty host, which reads as local, and a path that on Windows names
+     * a share on another machine — asking whether it is a directory is an SMB connection to wherever
+     * the sequence said. The filesystem's answer is asked for only after that, and a predicate that
+     * throws (a name this platform cannot spell, {@code C:/a*b}) is a no.
+     *
      * @param isLocalHost whether a host name names this machine; empty and {@code localhost} are
      *     checked here
      * @param isDirectory the filesystem's answer, a parameter so a test does not need one
@@ -192,7 +198,21 @@ public final class OscSequences {
                 && Character.isLetter(path.charAt(1))) {
             path = path.substring(1);
         }
-        return isDirectory.test(path) ? Optional.of(path) : Optional.empty();
+        if (isUnc(path)) return Optional.empty();
+        try {
+            return isDirectory.test(path) ? Optional.of(path) : Optional.empty();
+        } catch (RuntimeException unreadable) {
+            return Optional.empty();
+        }
+    }
+
+    /** Whether a path starts with two separators of either kind — a UNC name on Windows. */
+    static boolean isUnc(String path) {
+        return path.length() >= 2 && isSeparator(path.charAt(0)) && isSeparator(path.charAt(1));
+    }
+
+    private static boolean isSeparator(char c) {
+        return c == '/' || c == '\\';
     }
 
     /**

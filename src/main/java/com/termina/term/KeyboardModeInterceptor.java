@@ -56,7 +56,7 @@ public final class KeyboardModeInterceptor implements TerminalDataStream {
             if (c != ESC) return c;
             char next = in.getChar();
             if (next == 'c') {
-                listener.reset();
+                deliver(() -> listener.reset());
                 in.pushChar(next);
                 return c;
             }
@@ -85,7 +85,8 @@ public final class KeyboardModeInterceptor implements TerminalDataStream {
                 read.append(c);
             }
             if (c == 'u') {
-                listener.keyboardMode(marker, read.substring(1, read.length() - 1));
+                String params = read.substring(1, read.length() - 1);
+                deliver(() -> listener.keyboardMode(marker, params));
                 return true;
             }
         }
@@ -93,6 +94,20 @@ public final class KeyboardModeInterceptor implements TerminalDataStream {
         in.pushChar('[');
         return false;
     }
+
+    /**
+     * Runs a listener call, and survives it failing: it runs inside the emulator's {@code getChar},
+     * where anything thrown ends the read loop and closes the pane. See {@link OscInterceptor}.
+     */
+    private static void deliver(Runnable call) {
+        try {
+            call.run();
+        } catch (RuntimeException failed) {
+            LOG.log(System.Logger.Level.WARNING, "keyboard mode listener failed; the sequence is dropped", failed);
+        }
+    }
+
+    private static final System.Logger LOG = System.getLogger(KeyboardModeInterceptor.class.getName());
 
     @Override
     public void pushChar(char c) throws IOException {
