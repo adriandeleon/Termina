@@ -120,14 +120,17 @@ public final class Themes {
         Files.createDirectories(dir);
         Set<String> builtInNames = new HashSet<>();
         for (Theme theme : Theme.values()) builtInNames.add(theme.displayName().toLowerCase(Locale.ROOT));
+        Map<String, @Nullable String> stored = storedNames(dir);
         List<String> ids = new ArrayList<>();
         for (ColorScheme scheme : schemes) {
             String name = scheme.name();
             // A scheme called "Editora Dark" is somebody's copy; the picker must still tell them apart.
-            if (builtInNames.contains(name.toLowerCase(Locale.ROOT))) name = name + " (imported)";
+            if (builtInNames.contains(name.toLowerCase(Locale.ROOT)))
+                name = com.termina.i18n.Messages.tr("theme.importedSuffix", name);
             ColorScheme named = new ColorScheme(
                     name, scheme.background(), scheme.foreground(), scheme.ansi(), scheme.cursor(), scheme.selection());
-            String slug = slug(name);
+            String slug = fileStem(name, stored);
+            stored.put(slug, name);
             Path target = dir.resolve(slug + ".properties");
             Path temp = dir.resolve(slug + ".properties.tmp");
             Files.writeString(temp, ThemeFile.write(named), StandardCharsets.UTF_8);
@@ -136,12 +139,52 @@ public final class Themes {
             } catch (IOException atomicUnsupported) {
                 Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
             }
-            ids.add(USER_PREFIX + slug);
+            // Once: two schemes of one exact name in one file are one theme, the second replacing the first.
+            String id = USER_PREFIX + slug;
+            if (!ids.contains(id)) ids.add(id);
         }
         reload();
         List<ThemeEntry> out = new ArrayList<>();
         for (String id : ids) out.add(byId(id));
         return out;
+    }
+
+    /** Each theme file's stem and the name stored in it — null for a file that does not read. */
+    private static Map<String, @Nullable String> storedNames(Path dir) throws IOException {
+        Map<String, @Nullable String> names = new java.util.HashMap<>();
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.properties")) {
+            for (Path existing : files) {
+                String stem = idOf(existing).substring(USER_PREFIX.length());
+                try {
+                    names.put(
+                            stem,
+                            ThemeFile.read(Files.readString(existing, StandardCharsets.UTF_8))
+                                    .name());
+                } catch (IOException | ThemeImportException | RuntimeException unreadable) {
+                    names.put(stem, null);
+                }
+            }
+        }
+        return names;
+    }
+
+    /**
+     * The file a scheme called {@code name} is stored in: its {@link #slug}, unless a different theme
+     * is already there, then {@code -2}, {@code -3}… A file holding a theme of exactly this name is
+     * the one to replace — importing the same scheme again updates it.
+     *
+     * <p>Two names used to share a file whenever they slugged alike — "Gruvbox (Dark)" and "Gruvbox
+     * Dark", or any two names with no Latin letters — and the second silently replaced the first.
+     *
+     * @param stored stem to the name stored there, null where the file does not read (and so is
+     *     somebody's, and not to be overwritten)
+     */
+    static String fileStem(String name, Map<String, @Nullable String> stored) {
+        String base = slug(name);
+        for (int suffix = 1; ; suffix++) {
+            String stem = suffix == 1 ? base : base + "-" + suffix;
+            if (!stored.containsKey(stem) || name.equals(stored.get(stem))) return stem;
+        }
     }
 
     /** Deletes an imported theme. A built-in one cannot be, and is left alone. */
@@ -192,12 +235,22 @@ public final class Themes {
         return USER_PREFIX + name.substring(0, name.length() - ".properties".length());
     }
 
-    /** A file name for a scheme's name: lower case, letters and digits, hyphens between words. */
+    /**
+     * A file name for a scheme's name: lower case, {@code [a-z0-9-]} only, hyphens between words.
+     *
+     * <p>A name with no Latin letters or digits at all ("夜", "Ночь") has nothing to keep, so it is
+     * named for a hash of itself instead — the same name always gives the same file, so re-importing
+     * still replaces, and different names almost never meet (when they do, {@link #fileStem} tells
+     * them apart).
+     */
     static String slug(String name) {
         String ascii = Normalizer.normalize(name, Normalizer.Form.NFKD).replaceAll("\\p{M}", "");
         String slug =
                 ascii.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
         if (slug.length() > 64) slug = slug.substring(0, 64).replaceAll("-+$", "");
-        return slug.isEmpty() ? "theme" : slug;
+        if (!slug.isEmpty()) return slug;
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(name.getBytes(StandardCharsets.UTF_8));
+        return String.format("theme-%08x", crc.getValue());
     }
 }

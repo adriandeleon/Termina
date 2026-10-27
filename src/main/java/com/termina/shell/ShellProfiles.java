@@ -60,7 +60,9 @@ public final class ShellProfiles {
      */
     public ShellProfiles(Settings settings, String systemName) {
         this.settings = settings;
-        this.systemName = systemName == null || systemName.isBlank() ? "Default Shell" : systemName;
+        this.systemName = systemName == null || systemName.isBlank()
+                ? com.termina.i18n.Messages.tr("profile.systemShell")
+                : systemName;
     }
 
     /** Runs discovery once, off the toolkit thread, and reports back through {@code onDone}. */
@@ -113,7 +115,21 @@ public final class ShellProfiles {
 
     /** Every profile on offer, in menu order. */
     public List<Profile> all() {
-        return merge(systemProfile(), discovered, userProfiles(), hiddenIds());
+        return merge(systemProfile(), discovered, userProfiles(), hiddenIds(), ShellProfiles::realExecutable);
+    }
+
+    /** Resolved once per spelling: {@link #all} runs whenever a menu is built. */
+    private static final Map<String, String> REAL_EXECUTABLES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The file an executable path finally names, or the path as written when that cannot be answered. */
+    static String realExecutable(String executable) {
+        return REAL_EXECUTABLES.computeIfAbsent(executable, path -> {
+            try {
+                return java.nio.file.Path.of(path).toRealPath().toString();
+            } catch (Exception e) {
+                return path;
+            }
+        });
     }
 
     /**
@@ -124,7 +140,7 @@ public final class ShellProfiles {
      * screen that can hide it.
      */
     public List<Profile> allIncludingHidden() {
-        return merge(systemProfile(), discovered, userProfiles(), Set.of());
+        return merge(systemProfile(), discovered, userProfiles(), Set.of(), ShellProfiles::realExecutable);
     }
 
     /**
@@ -153,17 +169,42 @@ public final class ShellProfiles {
             @Nullable List<Profile> discovered,
             @Nullable List<Profile> user,
             Set<String> hidden) {
+        return merge(system, discovered, user, hidden, executable -> executable);
+    }
+
+    /**
+     * @param realExecutable an executable as the file it finally names, symlinks followed — so that
+     *     {@code $SHELL=/usr/bin/zsh} and {@code /etc/shells}' {@code /bin/zsh} on a merged-/usr system
+     *     are recognised as one shell. Injected because the test machine's {@code /bin} is not the one
+     *     being described.
+     */
+    static List<Profile> merge(
+            @Nullable Profile system,
+            @Nullable List<Profile> discovered,
+            @Nullable List<Profile> user,
+            Set<String> hidden,
+            java.util.function.UnaryOperator<String> realExecutable) {
         Map<String, Profile> byId = new LinkedHashMap<>();
         // The system profile is never hidden: it is the one entry guaranteed to start something,
         // and a settings file that hid it would leave a window with no way to open a tab.
         if (system != null && system.isRunnable()) byId.put(system.id(), system);
+        String systemExecutable = system != null && system.isRunnable()
+                ? realExecutable.apply(system.command().get(0))
+                : null;
         for (Profile profile : nullSafe(discovered)) {
             if (!profile.isRunnable() || hidden.contains(profile.id())) continue;
             // Discovery finds the user's own shell too, so on a machine whose $SHELL is zsh the
-            // menu would carry "Default Shell" and "Zsh" running the identical command. One of them
-            // is noise, and it is the discovered one: the system entry is what the default falls
-            // back to and what the shell setting on the Terminal page controls.
-            if (system != null && system.command().equals(profile.command())) continue;
+            // menu would carry "Default Shell" and "Zsh" running the same shell. One of them is
+            // noise, and it is the discovered one: the system entry is what the default falls back
+            // to and what the shell setting on the Terminal page controls. Compared by the file the
+            // executable is, not by the command as written: the two sources spell the path
+            // differently (/usr/bin/zsh against /bin/zsh), and the system entry always adds -l where
+            // discovery adds it only for the shells that take it.
+            if (systemExecutable != null
+                    && systemExecutable.equals(
+                            realExecutable.apply(profile.command().get(0)))) {
+                continue;
+            }
             byId.putIfAbsent(profile.id(), profile);
         }
         for (Profile profile : nullSafe(user)) {
@@ -282,13 +323,46 @@ public final class ShellProfiles {
         settings.replaceProfileBlock(block);
     }
 
-    /** A new, empty user profile with an id nothing else is using. */
+    /**
+     * A new, empty user profile with an id nothing else is using — or has used and left anything
+     * behind under.
+     *
+     * <p>Against every profile, hidden ones included: taken from the menu's list, the id of a hidden
+     * user profile looked free, the new profile got it, and the settings window then selected the
+     * hidden one for editing. And against every id something is still stored for — a default, a
+     * hidden entry, a style — so a profile deleted before {@link #removeUserProfile} cleared up after
+     * itself cannot hand its theme and its default to the next one.
+     */
     public Profile newUserProfile(String name) {
         Set<String> taken = new LinkedHashSet<>();
-        for (Profile profile : all()) taken.add(profile.id());
-        String base = ShellDiscovery.slug(name);
+        for (Profile profile : allIncludingHidden()) taken.add(profile.id());
+        for (Profile profile : userProfiles()) taken.add(profile.id());
+        taken.addAll(hiddenIds());
+        taken.addAll(settings.profileStyleIds());
+        if (!settings.defaultProfileId().isBlank()) taken.add(settings.defaultProfileId());
+        return new Profile(newUserId(name, taken), name, List.of(), "", Profile.Source.USER);
+    }
+
+    /** The id a new profile called {@code name} gets: {@code user-<slug>}, made free of {@code taken}. */
+    static String newUserId(String name, Collection<String> taken) {
+        String base = ShellDiscovery.slug(name == null ? "" : name);
         if (base.isEmpty()) base = "profile";
-        return new Profile(freeId("user-" + base, taken), name, List.of(), "", Profile.Source.USER);
+        return freeId("user-" + base, taken);
+    }
+
+    /**
+     * Deletes a user profile and everything stored against its id: its style, the default if it was
+     * the default, and its hidden entry.
+     *
+     * <p>Ids are reused — a second "New Profile" is {@code user-new-profile} again — so anything left
+     * behind is inherited by the next profile that gets the id: delete one that was the default and
+     * themed, click Add, and the new one was silently the default and themed.
+     */
+    public void removeUserProfile(String id) {
+        List<Profile> user = new ArrayList<>(userProfiles());
+        user.removeIf(profile -> profile.id().equals(id));
+        setUserProfiles(user);
+        settings.forgetProfile(id);
     }
 
     /** {@code id}, or {@code id-2}, {@code id-3}… until one is free. */

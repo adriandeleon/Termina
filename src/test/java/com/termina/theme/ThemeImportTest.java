@@ -146,6 +146,91 @@ class ThemeImportTest {
         assertThrows(ThemeImportException.class, () -> BinaryPlist.parse(junk));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"Dracula", "Dracula.conf", "Dracula.toml", "Dracula.json", "Dracula.itermcolors"})
+    void aByteOrderMarkDoesNotHideTheFormat(String file) throws Exception {
+        // Ghostty and Alacritty files saved by a Windows editor start with U+FEFF; it is not
+        // whitespace, so the format sniffing saw it instead of the first line.
+        byte[] plain = fixture(file);
+        byte[] marked = new byte[plain.length + 3];
+        marked[0] = (byte) 0xEF;
+        marked[1] = (byte) 0xBB;
+        marked[2] = (byte) 0xBF;
+        System.arraycopy(plain, 0, marked, 3, plain.length);
+        List<ColorScheme> schemes = ThemeImport.read(file, marked);
+        assertArrayEquals(DRACULA, schemes.getFirst().ansi());
+    }
+
+    @Test
+    void reasonsAreInTheUiLanguage() {
+        ThemeImportException refused = assertThrows(ThemeImportException.class, () -> TextSchemes.hexColour("red"));
+        assertEquals(ThemeImportException.Reason.NOT_A_COLOUR, refused.reason());
+        assertEquals(com.termina.i18n.Messages.tr("theme.error.notAColour", "red"), refused.getMessage());
+        assertFalse(refused.getMessage().startsWith("theme.error."), refused.getMessage());
+    }
+
+    /**
+     * A {@code bplist00} of the given objects, each already encoded, with the top object first.
+     * Four-byte offsets and references, so a long chain fits.
+     */
+    private static byte[] bplist(List<byte[]> objects) {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.writeBytes("bplist00".getBytes(StandardCharsets.US_ASCII));
+        int[] offsets = new int[objects.size()];
+        for (int i = 0; i < objects.size(); i++) {
+            offsets[i] = out.size();
+            out.writeBytes(objects.get(i));
+        }
+        int table = out.size();
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(offsets.length * 4 + 32);
+        for (int offset : offsets) buffer.putInt(offset);
+        buffer.put(new byte[6]).put((byte) 4).put((byte) 4);
+        buffer.putLong(objects.size()).putLong(0).putLong(table);
+        out.writeBytes(buffer.array());
+        return out.toByteArray();
+    }
+
+    /** An array of references (marker 0xA0 | count), four bytes each. */
+    private static byte[] array(int... refs) {
+        java.nio.ByteBuffer b = java.nio.ByteBuffer.allocate(1 + refs.length * 4);
+        b.put((byte) (0xA0 | refs.length));
+        for (int ref : refs) b.putInt(ref);
+        return b.array();
+    }
+
+    private static final byte[] ZERO = {0x10, 0x00};
+
+    @Test
+    void sharedReferencesAreReadOnceNotOncePerPath() {
+        // Object i is [i+1, i+1]: read afresh per reference that is 2^40 visits. Remembered, 41.
+        List<byte[]> objects = new java.util.ArrayList<>();
+        int depth = 40;
+        for (int i = 0; i < depth; i++) objects.add(array(i + 1, i + 1));
+        objects.add(ZERO);
+        byte[] file = bplist(objects);
+        Object top = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(2), () -> BinaryPlist.parse(file));
+        org.junit.jupiter.api.Assertions.assertTrue(top instanceof List<?>);
+    }
+
+    @Test
+    void aDeepChainIsRefusedRatherThanOverflowingTheStack() {
+        // 200,000 one-element arrays, each holding the next: 1.8 MB, under the import's size cap.
+        int length = 200_000;
+        List<byte[]> objects = new java.util.ArrayList<>(length + 1);
+        for (int i = 0; i < length; i++) objects.add(array(i + 1));
+        objects.add(ZERO);
+        byte[] file = bplist(objects);
+        ThemeImportException refused = assertThrows(ThemeImportException.class, () -> BinaryPlist.parse(file));
+        assertEquals(ThemeImportException.Reason.DAMAGED, refused.reason());
+    }
+
+    @Test
+    void aCycleIsStillRefused() {
+        byte[] file = bplist(List.of(array(1), array(0)));
+        assertThrows(ThemeImportException.class, () -> BinaryPlist.parse(file));
+    }
+
     private static void assertTrue(boolean condition) {
         org.junit.jupiter.api.Assertions.assertTrue(condition);
     }

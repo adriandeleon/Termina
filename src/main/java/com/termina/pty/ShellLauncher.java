@@ -205,15 +205,74 @@ public final class ShellLauncher {
 
     /** Environment for the child: the parent's, plus the terminal identity it needs. */
     public static Map<String, String> environment() {
-        Map<String, String> env = new HashMap<>(System.getenv());
+        return environment(System.getenv(), isWindows(), com.termina.AppInfo.VERSION);
+    }
+
+    /**
+     * The child's environment from the one we were started with.
+     *
+     * <p>Started from another terminal, we inherit that terminal's identity, and the shell would
+     * believe it: launched from tmux, a {@code tmux} inside refuses to nest ("sessions should be
+     * nested with care"); launched from kitty, image tools see {@code KITTY_WINDOW_ID} and speak
+     * kitty's graphics protocol at us; {@code COLUMNS}/{@code LINES} pin the size to the parent's
+     * window; {@code TERMINFO} points at the parent's own terminfo directory. So every variable that
+     * says which terminal, multiplexer or window this is — {@link #TERMINAL_IDENTITY}, and the
+     * {@code KONSOLE_DBUS_*} family — is dropped, and ours set in their place.
+     */
+    static Map<String, String> environment(Map<String, String> inherited, boolean windows, String version) {
+        Map<String, String> env = new HashMap<>(inherited);
+        env.keySet().removeIf(ShellLauncher::isTerminalIdentity);
         env.put("TERM", TERM);
         // Signals to shells and prompt frameworks that a full-featured terminal is present.
         env.put("COLORTERM", "truecolor");
         env.put("TERM_PROGRAM", "Termina");
-        if (!isWindows()) ensureUtf8Locale(env);
+        env.put("TERM_PROGRAM_VERSION", version);
+        if (!windows) ensureUtf8Locale(env);
         // Inherited from our own launch; meaningless to the child and confusing if it re-execs.
         env.remove("_");
         return env;
+    }
+
+    /** Variables that belong to the terminal (or multiplexer, or window) we were started from. */
+    static final java.util.Set<String> TERMINAL_IDENTITY = java.util.Set.of(
+            "TMUX",
+            "TMUX_PANE",
+            "STY",
+            "WINDOWID",
+            "TERM_SESSION_ID",
+            "KITTY_WINDOW_ID",
+            "KITTY_PID",
+            "KITTY_PUBLIC_KEY",
+            "KITTY_INSTALLATION_DIR",
+            "KITTY_LISTEN_ON",
+            "WEZTERM_PANE",
+            "WEZTERM_EXECUTABLE",
+            "WEZTERM_EXECUTABLE_DIR",
+            "WEZTERM_UNIX_SOCKET",
+            "WEZTERM_CONFIG_DIR",
+            "WEZTERM_CONFIG_FILE",
+            "ITERM_SESSION_ID",
+            "ITERM_PROFILE",
+            "LC_TERMINAL",
+            "LC_TERMINAL_VERSION",
+            "WT_SESSION",
+            "WT_PROFILE_ID",
+            "VTE_VERSION",
+            "TERMINFO",
+            "COLUMNS",
+            "LINES",
+            "GHOSTTY_RESOURCES_DIR",
+            "GHOSTTY_BIN_DIR",
+            "ALACRITTY_SOCKET",
+            "ALACRITTY_LOG",
+            "ALACRITTY_WINDOW_ID",
+            "KONSOLE_VERSION",
+            "GNOME_TERMINAL_SCREEN",
+            "GNOME_TERMINAL_SERVICE",
+            "TERM_PROGRAM_VERSION");
+
+    static boolean isTerminalIdentity(String name) {
+        return TERMINAL_IDENTITY.contains(name) || name.startsWith("KONSOLE_DBUS_");
     }
 
     /**

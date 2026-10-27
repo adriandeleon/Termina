@@ -30,10 +30,23 @@ final class BinaryPlist {
     private final long[] offsets;
     /** Objects being read, to refuse a reference cycle rather than recurse forever. */
     private final boolean[] reading;
+    /** Objects already read, by index, and whether each has been — null is a value. */
+    private final @Nullable Object[] parsed;
+
+    private final boolean[] done;
+    private int depth;
+    private int visits;
+
+    /** Deeper than any archive Terminal writes by an order of magnitude; shallower than the stack. */
+    static final int MAX_DEPTH = 64;
+    /** Objects read in one file, whatever the shape. */
+    static final int MAX_VISITS = 100_000;
+
+    private static final String FORMAT = "binary property list";
 
     private BinaryPlist(byte[] data) throws ThemeImportException {
         if (data.length < 8 + 32 || !new String(data, 0, 8, StandardCharsets.US_ASCII).equals("bplist00")) {
-            throw new ThemeImportException("not a binary property list");
+            throw new ThemeImportException(ThemeImportException.Reason.NOT_FORMAT, FORMAT);
         }
         bytes = ByteBuffer.wrap(data);
         int trailer = data.length - 32;
@@ -49,11 +62,13 @@ final class BinaryPlist {
                 || count > 1_000_000
                 || tableAt < 8
                 || tableAt + count * offsetSize > trailer) {
-            throw new ThemeImportException("a damaged binary property list");
+            throw damaged();
         }
         offsets = new long[(int) count];
         for (int i = 0; i < count; i++) offsets[i] = sized((int) (tableAt + (long) i * offsetSize), offsetSize);
         reading = new boolean[(int) count];
+        parsed = new Object[(int) count];
+        done = new boolean[(int) count];
     }
 
     /** The top object, or null when it is the property list's null. */
@@ -62,21 +77,42 @@ final class BinaryPlist {
         long top = plist.bytes.getLong(data.length - 32 + 16);
         try {
             return plist.object(top);
-        } catch (IndexOutOfBoundsException | java.nio.BufferUnderflowException e) {
-            throw new ThemeImportException("a damaged binary property list", e);
+        } catch (RuntimeException e) { // bounds, underflow, a negative length: all a damaged file
+            throw new ThemeImportException(e, ThemeImportException.Reason.DAMAGED, FORMAT);
         }
     }
 
+    /**
+     * Object {@code ref}, read once and remembered.
+     *
+     * <p>Remembered because the format shares: two containers may hold the same object, and a file
+     * whose object <i>i</i> is {@code [i+1, i+1]} doubles the work per level when each reference is
+     * read afresh — 24 levels in 212 bytes took over a second, and a few hundred bytes would have run
+     * for hours on the FX thread. Bounded in depth because a chain of 200,000 one-element arrays fits
+     * well under the size cap and overflowed the stack, and in references followed as a last guard.
+     * A colour archive is a few levels deep and a few dozen objects wide.
+     */
     private @Nullable Object object(long ref) throws ThemeImportException {
-        if (ref < 0 || ref >= offsets.length) throw new ThemeImportException("a damaged binary property list");
+        if (ref < 0 || ref >= offsets.length) throw damaged();
         int index = (int) ref;
-        if (reading[index]) throw new ThemeImportException("a binary property list that refers to itself");
+        if (done[index]) return parsed[index];
+        if (reading[index]) throw damaged();
+        if (depth >= MAX_DEPTH || ++visits > MAX_VISITS) throw damaged();
         reading[index] = true;
+        depth++;
         try {
-            return read(checked(offsets[index]));
+            Object value = read(checked(offsets[index]));
+            parsed[index] = value;
+            done[index] = true;
+            return value;
         } finally {
+            depth--;
             reading[index] = false;
         }
+    }
+
+    private static ThemeImportException damaged() {
+        return new ThemeImportException(ThemeImportException.Reason.DAMAGED, FORMAT);
     }
 
     private @Nullable Object read(int at) throws ThemeImportException {
@@ -93,7 +129,7 @@ final class BinaryPlist {
             }
             case 0x1 -> {
                 int size = 1 << low;
-                if (size > 8) throw new ThemeImportException("an integer too large to read");
+                if (size > 8) throw damaged();
                 return sized(at + 1, size);
             }
             case 0x2 -> {
@@ -139,7 +175,7 @@ final class BinaryPlist {
                 }
                 return out;
             }
-            default -> throw new ThemeImportException("an unsupported value in a binary property list");
+            default -> throw damaged();
         }
     }
 
@@ -147,10 +183,10 @@ final class BinaryPlist {
     private int[] length(int at, int low) throws ThemeImportException {
         if (low != 0xF) return new int[] {low, at + 1};
         int marker = bytes.get(at + 1) & 0xff;
-        if (marker >> 4 != 0x1) throw new ThemeImportException("a damaged binary property list");
+        if (marker >> 4 != 0x1) throw damaged();
         int size = 1 << (marker & 0x0f);
         long length = sized(at + 2, size);
-        if (length < 0 || length > bytes.capacity()) throw new ThemeImportException("a damaged binary property list");
+        if (length < 0 || length > bytes.capacity()) throw damaged();
         return new int[] {(int) length, at + 2 + size};
     }
 
@@ -161,7 +197,7 @@ final class BinaryPlist {
     }
 
     private int checked(long at) throws ThemeImportException {
-        if (at < 0 || at >= bytes.capacity()) throw new ThemeImportException("a damaged binary property list");
+        if (at < 0 || at >= bytes.capacity()) throw damaged();
         return (int) at;
     }
 }

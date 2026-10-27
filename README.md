@@ -540,6 +540,14 @@ editor. Every getter falls back to a default, so one bad hand-edited line costs 
 rest, and values are clamped **on read as well as on write** (a hand-edited two-million-line
 scrollback would otherwise exhaust memory at the next launch).
 
+The file is UTF-8, and **a backslash is a backslash**: `terminal.shell=C:\Windows\System32\wsl.exe`
+means what it says, unlike Java's own properties syntax, which ate every backslash it did not know.
+`\\` is one backslash, `\uXXXX` a character, and `\=` `\:` `\#` `\!` `\ ` the character after them —
+which is everything the previous writer produced, so older files read unchanged. A file that cannot be
+read at all opens on defaults and is copied aside as `settings.properties.bad-<time>` first. More
+than one Termina may run on one config folder: each save writes only the keys that process changed,
+under a lock, on top of whatever the file holds by then.
+
 The window follows Editora's: a grouped sidebar, a search box that narrows both rows and
 categories, and **no OK or Cancel**. Every control writes its setting immediately and the terminal
 re-applies. That is the point rather than a shortcut — choosing a font or a theme is a judgement

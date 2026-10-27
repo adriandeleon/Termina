@@ -39,10 +39,10 @@ final class AppleTerminalProfile {
 
     static ColorScheme read(byte[] file, String fallbackName) throws ThemeImportException {
         if (!(PlistXml.parse(file) instanceof Map<?, ?> profile)) {
-            throw new ThemeImportException("not a Terminal profile");
+            throw new ThemeImportException(ThemeImportException.Reason.NOT_FORMAT, "Terminal");
         }
         if (!profile.containsKey("BackgroundColor") && !profile.containsKey("TextColor")) {
-            throw new ThemeImportException("a Terminal profile with no colours in it");
+            throw new ThemeImportException(ThemeImportException.Reason.NO_SCHEMES);
         }
         int[] ansi = TERMINAL_DEFAULTS.clone();
         for (int i = 0; i < 16; i++) {
@@ -64,7 +64,7 @@ final class AppleTerminalProfile {
     /** One archived colour, or null when the key is absent. */
     static @Nullable Integer colour(@Nullable Object data) throws ThemeImportException {
         if (data == null) return null;
-        if (!(data instanceof byte[] archive)) throw new ThemeImportException("a colour that is not archived data");
+        if (!(data instanceof byte[] archive)) throw new ThemeImportException(ThemeImportException.Reason.BAD_COLOUR);
         if (!(BinaryPlist.parse(archive) instanceof Map<?, ?> top)
                 || !(top.get("$objects") instanceof List<?> objects)
                 || !(top.get("$top") instanceof Map<?, ?> roots)
@@ -72,7 +72,7 @@ final class AppleTerminalProfile {
                 || root.index() < 0
                 || root.index() >= objects.size()
                 || !(objects.get(root.index()) instanceof Map<?, ?> color)) {
-            throw new ThemeImportException("a colour that is not an archived NSColor");
+            throw new ThemeImportException(ThemeImportException.Reason.BAD_COLOUR);
         }
         if (color.get("NSRGB") instanceof byte[] rgb) {
             double[] c = components(rgb, 3);
@@ -86,7 +86,7 @@ final class AppleTerminalProfile {
             double[] c = components(components, 3);
             return ColorScheme.rgb(c[0], c[1], c[2]);
         }
-        throw new ThemeImportException("an archived colour with no components this can read");
+        throw new ThemeImportException(ThemeImportException.Reason.BAD_COLOUR);
     }
 
     /** The leading numbers of an ASCII component list, which ends in a NUL. */
@@ -94,12 +94,12 @@ final class AppleTerminalProfile {
         String text =
                 new String(ascii, StandardCharsets.US_ASCII).replace('\0', ' ').strip();
         String[] parts = text.split("\\s+");
-        if (parts.length < wanted) throw new ThemeImportException("an archived colour with too few components");
+        if (parts.length < wanted) throw new ThemeImportException(ThemeImportException.Reason.BAD_COLOUR);
         double[] out = new double[wanted];
         try {
             for (int i = 0; i < wanted; i++) out[i] = Double.parseDouble(parts[i]);
         } catch (NumberFormatException e) {
-            throw new ThemeImportException("an archived colour whose components are not numbers", e);
+            throw new ThemeImportException(e, ThemeImportException.Reason.BAD_COLOUR);
         }
         return out;
     }

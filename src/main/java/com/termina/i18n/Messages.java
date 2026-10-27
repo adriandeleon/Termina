@@ -41,8 +41,14 @@ public final class Messages {
         LANGUAGES.put("de", "Deutsch");
     }
 
-    private static Map<String, String> base = Map.of();
-    private static Map<String, String> active = Map.of();
+    /**
+     * English until {@link #init} says otherwise, rather than empty: what the app shows is always
+     * initialised first, but a message made by a non-UI class — a theme import's reason, read in a
+     * test or a tool — should still read as words, not as its key.
+     */
+    private static Map<String, String> base = load("en");
+
+    private static Map<String, String> active = base;
     private static String currentLang = "en";
 
     private Messages() {}
@@ -75,6 +81,15 @@ public final class Messages {
 
     /** The localized string for {@code key} (active → English → the key itself). */
     public static String tr(String key) {
+        return render(raw(key), null);
+    }
+
+    /** The localized string for {@code key} with {@link MessageFormat} arguments. */
+    public static String tr(String key, @Nullable Object... args) {
+        return render(raw(key), args);
+    }
+
+    private static String raw(String key) {
         String v = active.get(key);
         if (v == null) {
             v = base.get(key);
@@ -82,17 +97,35 @@ public final class Messages {
         return v != null ? v : key;
     }
 
-    /** The localized string for {@code key} with {@link MessageFormat} arguments. */
-    public static String tr(String key, @Nullable Object... args) {
-        String pattern = tr(key);
-        if (args == null || args.length == 0) {
-            return pattern;
-        }
+    /** An argument placeholder: {@code {0}}, {@code {1,number}}… — what makes a value a pattern. */
+    private static final java.util.regex.Pattern PLACEHOLDER = java.util.regex.Pattern.compile("\\{\\s*\\d");
+
+    /**
+     * Whether a catalogue value is a {@link MessageFormat} pattern: it has an argument placeholder.
+     *
+     * <p>Decided by the value, never by the call. It used to be the call — {@code tr(key)} returned the
+     * text as written, {@code tr(key, args)} ran it through MessageFormat — so the same apostrophe had
+     * to be written {@code ''} in one value and {@code '} in the next depending on how some caller
+     * happened to look it up, and French showed {@code n''est} in four places. Now a value with a
+     * placeholder is always a pattern (apostrophes doubled, as MessageFormat wants), and one without
+     * is always plain text (apostrophes single). {@code MessagesTest} holds every bundle to that.
+     */
+    public static boolean isPattern(String value) {
+        return PLACEHOLDER.matcher(value).find();
+    }
+
+    static String render(String value, @Nullable Object @Nullable [] args) {
+        if (!isPattern(value)) return value;
         try {
-            return MessageFormat.format(pattern, args);
+            return new MessageFormat(value).format(args == null ? new Object[0] : args);
         } catch (RuntimeException e) {
-            return pattern; // a malformed pattern shouldn't crash the UI
+            return value; // a malformed pattern shouldn't crash the UI
         }
+    }
+
+    /** Every key in a bundle and its raw value, for the test that holds each bundle to {@link #isPattern}. */
+    static Map<String, String> bundle(String lang) {
+        return load(lang);
     }
 
     /** The active language code (e.g. {@code "es"}). */

@@ -81,6 +81,50 @@ class ShellLauncherTest {
     }
 
     @Test
+    void theParentTerminalsIdentityIsNotInherited() {
+        // Started from tmux, a tmux inside refused to nest; from kitty, image tools spoke kitty's
+        // graphics protocol at us; COLUMNS/LINES pinned the parent's size.
+        Map<String, String> inherited = new java.util.HashMap<>();
+        for (String name : ShellLauncher.TERMINAL_IDENTITY) inherited.put(name, "parent");
+        inherited.put("KONSOLE_DBUS_SESSION", "/Sessions/1");
+        inherited.put("KONSOLE_DBUS_WINDOW", "/Windows/1");
+        inherited.put("PATH", "/usr/bin");
+        inherited.put("HOME", "/home/me");
+        inherited.put("TERMINFO_DIRS", "/usr/share/terminfo");
+        inherited.put("TERM", "xterm-kitty");
+        inherited.put("TERM_PROGRAM", "tmux");
+        inherited.put("LANG", "de_DE.UTF-8");
+        inherited.put("_", "/usr/bin/termina");
+
+        Map<String, String> env = ShellLauncher.environment(inherited, false, "1.2.3");
+
+        assertEquals(
+                Map.of(
+                        "PATH", "/usr/bin",
+                        "HOME", "/home/me",
+                        "TERMINFO_DIRS", "/usr/share/terminfo",
+                        "TERM", "xterm-256color",
+                        "COLORTERM", "truecolor",
+                        "TERM_PROGRAM", "Termina",
+                        "TERM_PROGRAM_VERSION", "1.2.3",
+                        "LANG", "de_DE.UTF-8"),
+                env);
+        assertTrue(ShellLauncher.TERMINAL_IDENTITY.containsAll(java.util.List.of(
+                "TMUX",
+                "STY",
+                "KITTY_WINDOW_ID",
+                "WEZTERM_PANE",
+                "ITERM_SESSION_ID",
+                "LC_TERMINAL",
+                "WT_SESSION",
+                "VTE_VERSION",
+                "TERMINFO",
+                "COLUMNS",
+                "LINES")));
+        assertEquals("parent", inherited.get("TMUX"), "the caller's map is left alone");
+    }
+
+    @Test
     void aChildWithNoLocaleGetsOneThatAlwaysExists() {
         // en_US.UTF-8 has to have been generated; on a minimal image it has not been, and bash
         // printed a setlocale warning at every prompt. C.UTF-8 ships with glibc.

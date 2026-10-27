@@ -204,9 +204,10 @@ Each of these cost real time, and none of them announces itself.
 - **`wsl.exe --list --quiet` writes UTF-16LE.** Even redirected. Read as UTF-8 every distribution
   name comes back with a NUL between each of its letters, and that survives all the way to a menu
   entry that starts nothing. `ShellDiscovery.decode` sniffs rather than assumes, because newer builds
-  have been reported writing UTF-8. The call is also not gated on the exit code — `wsl --list` exits
-  non-zero when there are no distributions, and parsing an empty answer already gives the right
-  result.
+  have been reported writing UTF-8. **And with no distributions it is not empty**: it exits non-zero
+  and prints an explanation, each line of which became a menu entry. So the registry is read first
+  (`reg.exe query HKCU\…\Lxss /s /v DistributionName`, one `DistributionName` per distribution), and
+  `wsl.exe` is asked only when `reg.exe` cannot answer — and then believed only on exit code 0.
 - **A `StackPane` resizes a child up to its *maximum*, and an `HBox` reports an unbounded one.** The
   new-tab `+` was aligned `TOP_RIGHT` and stayed there for as long as it was a lone `Button`, whose
   maximum is its preferred width. Putting it in a box with the profile chevron stretched the box the
