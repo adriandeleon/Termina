@@ -192,6 +192,19 @@
                 <filtering>false</filtering>
                 <excludes><exclude>com/termina/build-info.properties</exclude></excludes>
             </resource>
+            <!-- The licence and the third-party notices travel inside the jar, where About's "See
+                 NOTICE" can be followed by anyone holding only the jar. META-INF is not a package,
+                 so JPMS leaves it readable. The files stay at the root for GitHub's licence
+                 detection; -Pdist also copies them into the app image (scripts/add-notices.sh). -->
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>META-INF</targetPath>
+                <filtering>false</filtering>
+                <includes>
+                    <include>LICENSE</include>
+                    <include>NOTICE</include>
+                </includes>
+            </resource>
         </resources>
         <plugins>
             <plugin>
@@ -783,6 +796,24 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.4</version>
                 <executions>
+                    <execution>
+                        <!--
+                          First after jpackage, and before training and the macOS re-sign, so the
+                          signature covers the notices as well as the cache.
+                        -->
+                        <id>add-notices</id>
+                        <phase>package</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>${project.basedir}/scripts/add-notices.sh</argument>
+                                <argument>${project.build.directory}/dist/${jpackage.imageName}</argument>
+                                <argument>${project.basedir}/LICENSE</argument>
+                                <argument>${project.basedir}/NOTICE</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <!--
                           Between jpackage and the macOS fix-up: it adds a file to the image, and on
