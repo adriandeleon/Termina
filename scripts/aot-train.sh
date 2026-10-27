@@ -56,6 +56,21 @@ opts=(-XX:AOTCacheOutput="$cache"
       --enable-native-access=javafx.graphics,com.sun.jna
       -m com.termina/com.termina.App)
 
+# A configuration of its own, made here and removed on the way out. The trainer is the real
+# application: pointed at the developer's own folder it started their shell, could start a settings
+# sync, and wrote an update-check timestamp into their settings — every `-Pdist` on a dev machine.
+# Always a fresh one, even when the caller exported a TERMINA_CONFIG_DIR: what the cache records
+# should be a first launch, not whatever that folder happens to hold.
+config="$(mktemp -d "${TMPDIR:-/tmp}/termina-aot.XXXXXX")"
+trap 'rm -rf "$config"' EXIT
+# MinGW hands a Windows java a POSIX path as is; cygpath gives it the drive-letter form.
+if command -v cygpath >/dev/null 2>&1; then
+    TERMINA_CONFIG_DIR="$(cygpath -w "$config")"
+else
+    TERMINA_CONFIG_DIR="$config"
+fi
+export TERMINA_CONFIG_DIR
+
 echo "[aot] training -> $cache"
 if [ "$(uname -s)" = "Linux" ] && [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null 2>&1; then
     xvfb-run -a "$java" "${opts[@]}" >/dev/null 2>&1
