@@ -273,6 +273,8 @@ public final class SettingsWindow {
         }
 
         search.setPromptText(tr("settings.search"));
+        // Focused on open, and the theme hides a focused field's prompt: settings.css keeps it.
+        search.getStyleClass().add("settings-search");
         search.textProperty().addListener((o, old, value) -> filter(value));
         // Enter in the search box is not a request to close the window, which is what the default
         // button would make of it if the event were left to bubble.
