@@ -67,4 +67,28 @@ class CellWidthTest {
         assertFalse(CellWidth.isOneCellPerChar("a\u0000b"));
         assertFalse(CellWidth.isOneCellPerChar("a\u001bb"));
     }
+
+    @Test
+    void aCharacterDrawnWithNoAdvanceIsNotBatched() {
+        // Each has a cell in the buffer and none in one fillText, so everything after it in the run
+        // was drawn a column to the left.
+        assertFalse(CellWidth.isOneCellPerChar("éx")); // combining acute, no NFC form used
+        assertFalse(CellWidth.isOneCellPerChar("q̇x")); // combining dot above (Mn)
+        assertFalse(CellWidth.isOneCellPerChar("a⃝b")); // enclosing circle (Me)
+        assertFalse(CellWidth.isOneCellPerChar("⚠️ ok")); // ⚠️: VS16
+        assertFalse(CellWidth.isOneCellPerChar("a‍b")); // zero-width joiner
+        assertFalse(CellWidth.isOneCellPerChar("a​b")); // zero-width space
+        assertFalse(CellWidth.isOneCellPerChar("a⁠b")); // word joiner
+        assertFalse(CellWidth.isOneCellPerChar("a­b")); // soft hyphen (Cf)
+        assertFalse(CellWidth.isOneCellPerChar("a︀b")); // variation selector 1
+    }
+
+    @Test
+    void theZeroAdvanceTestLeavesOrdinaryTextAlone() {
+        assertTrue(CellWidth.isOneCellPerChar("é ñ ü ─│┼ ⚠ ★"));
+        assertFalse(CellWidth.isZeroAdvance('a'));
+        assertFalse(CellWidth.isZeroAdvance('─'));
+        assertTrue(CellWidth.isZeroAdvance('́'));
+        assertTrue(CellWidth.isZeroAdvance('⁯'));
+    }
 }

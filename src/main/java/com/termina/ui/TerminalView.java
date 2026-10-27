@@ -413,9 +413,13 @@ public final class TerminalView extends Region {
 
     private javafx.stage.@Nullable Window watchedWindow;
 
+    /** Repaints when the window gains or loses focus, which the cursor shows. */
+    private final javafx.beans.InvalidationListener repaintOnWindowFocus = o -> markDirty();
+
     private void watchWindowOf(javafx.scene.Scene scene) {
         if (watchedWindow != null) {
             watchedWindow.showingProperty().removeListener(wakeOnWindowChange);
+            watchedWindow.focusedProperty().removeListener(repaintOnWindowFocus);
             if (watchedWindow instanceof javafx.stage.Stage stage) {
                 stage.iconifiedProperty().removeListener(wakeOnWindowChange);
             }
@@ -423,6 +427,7 @@ public final class TerminalView extends Region {
         watchedWindow = scene == null ? null : scene.getWindow();
         if (watchedWindow != null) {
             watchedWindow.showingProperty().addListener(wakeOnWindowChange);
+            watchedWindow.focusedProperty().addListener(repaintOnWindowFocus);
             if (watchedWindow instanceof javafx.stage.Stage stage) {
                 stage.iconifiedProperty().addListener(wakeOnWindowChange);
             }
@@ -469,6 +474,8 @@ public final class TerminalView extends Region {
         // press of one from being reported as a repeat, and no release from being owed for it.
         focusedProperty().addListener((o, was, now) -> {
             if (!now) kittyInput.reset();
+            // The cursor goes hollow and back: see CursorDraw.
+            markDirty();
         });
         addEventFilter(ScrollEvent.SCROLL, this::onScroll);
         setOnContextMenuRequested(this::onContextMenuRequested);
@@ -1136,37 +1143,52 @@ public final class TerminalView extends Region {
         // out of view rather than dragging it along.
         int cursorRow = display.getCursorY() - 1;
         int row = cursorRow - scrollOrigin;
-        // After a line is written to exactly its full width the cursor is *at* the width, pending
-        // the wrap that the next character will cause. xterm draws it on the last column; bailing
-        // on it made the cursor vanish on every exactly-full line.
-        int column = Math.min(display.getCursorX(), columns - 1);
-        // Where the predictor expects the cursor once the far end catches up.
+        if (row < 0 || row >= rows) return;
+        // The x is a slot, not a column: see CursorDraw. Where the predictor expects the cursor once
+        // the far end catches up, it is a slot in the predicted line, which is the one drawn.
+        String text = lineTextAt(cursorRow);
+        int slot = display.getCursorX();
         com.termina.term.TypeAheadModel.Prediction prediction = predictionToDraw();
         if (prediction != null && prediction.row() == cursorRow && prediction.cursor() >= 0) {
-            column = Math.min(prediction.cursor(), columns - 1);
+            text = prediction.line().getText();
+            slot = prediction.cursor();
         }
-        if (row < 0 || row >= rows || column < 0) return;
+        CursorDraw.Cell cell = CursorDraw.cell(text, slot, columns);
 
-        double x = column * charWidth;
+        double x = cell.column() * charWidth;
         double y = row * lineHeight;
         // An imported scheme may name its cursor colour; the built-ins draw it in the foreground.
-        g.setFill(palette.cursor() != null ? palette.cursor() : palette.foreground());
+        Color colour = palette.cursor() != null ? palette.cursor() : palette.foreground();
+        Color dimmed = colour.deriveColor(0, 1, 1, CursorDraw.UNFOCUSED_ALPHA);
 
-        switch (effectiveCursorShape()) {
-            case UNDERLINE -> g.fillRect(x, y + lineHeight - 2, charWidth, 2);
-            case BAR -> g.fillRect(x, y, 2, lineHeight);
-            default -> {
+        CursorDraw.Look look = CursorDraw.look(effectiveCursorShape(), cursorFocused());
+        switch (look) {
+            case UNDERLINE, DIM_UNDERLINE -> {
+                g.setFill(look == CursorDraw.Look.UNDERLINE ? colour : dimmed);
+                g.fillRect(x, y + lineHeight - 2, charWidth, 2);
+            }
+            case BAR, DIM_BAR -> {
+                g.setFill(look == CursorDraw.Look.BAR ? colour : dimmed);
+                g.fillRect(x, y, 2, lineHeight);
+            }
+            case HOLLOW_BLOCK -> {
+                // Half a pixel in, or the one-pixel stroke straddles the cell edge and smears.
+                g.setStroke(colour);
+                g.setLineWidth(1);
+                g.strokeRect(x + 0.5, y + 0.5, charWidth - 1, lineHeight - 1);
+            }
+            case BLOCK -> {
+                g.setFill(colour);
                 g.fillRect(x, y, charWidth, lineHeight);
                 // Re-draw the glyph underneath in the cell's background colour, so a block cursor
                 // does not hide the character it is sitting on. By slot, not column — the two
                 // differ past any astral character on the line — and in the cell's own font, or a
                 // bold cursor character came back regular for the duration.
-                String text = lineTextAt(cursorRow);
-                int slot = ColumnMap.slotAt(text, column);
-                if (slot >= text.length()) return;
-                int codePoint = text.codePointAt(slot);
+                int at = cell.slot();
+                if (at >= text.length()) return;
+                int codePoint = text.codePointAt(at);
                 if (codePoint == 0 || codePoint == ' ' || codePoint == CharUtils.DWC) return;
-                TextStyle style = buffer().getStyleAt(slot, cursorRow);
+                TextStyle style = buffer().getStyleAt(at, cursorRow);
                 g.setFill(style == null ? palette.background() : backgroundOf(style));
                 Font face = style == null ? font : fontFor(style);
                 g.setFont(face);
@@ -1174,6 +1196,18 @@ public final class TerminalView extends Region {
                 drawCodePoint(g, codePoint, x, y + ascent, face, style == null ? iconFont : iconFontFor(style));
             }
         }
+    }
+
+    /**
+     * Whether the keys go here: this pane has the keyboard and its window is the active one. Not the
+     * pane outline's rule, which a single pane never shows — an unfocused window's one pane must
+     * still say so.
+     */
+    private boolean cursorFocused() {
+        if (!isFocused()) return false;
+        javafx.scene.Scene scene = getScene();
+        javafx.stage.Window window = scene == null ? null : scene.getWindow();
+        return window != null && window.isFocused();
     }
 
     /**
@@ -2774,7 +2808,9 @@ public final class TerminalView extends Region {
             // the display's copy is told of moves, and this is the thread doing the moving.
             var terminal = getSession().getTerminal();
             int row = terminal.getCursorY() - 1;
-            int slot = ColumnMap.slotAt(lineTextAt(row), terminal.getCursorX() - 1);
+            // Already a slot, which is what a mark records: converting it as though it were a
+            // column moved the mark one further right per astral character before the cursor.
+            int slot = terminal.getCursorX() - 1;
             at = new PromptMarks.Pos(row + linesScrolled, slot);
             marks.dropAbove(linesScrolled - buffer.getHistoryLinesCount());
         } finally {
