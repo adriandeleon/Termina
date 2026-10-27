@@ -1443,9 +1443,24 @@ public final class SettingsWindow {
 
     private @Nullable Label defaultProfileHint;
 
+    /**
+     * The note under the profile list, naming the chords the first and ninth profiles are on now —
+     * Cmd+Option on macOS, Ctrl+Shift elsewhere, and either may have been rebound.
+     */
+    private String profilesNote() {
+        return tr("settings.profiles.note", keyText(PROFILE_CHORD + 1), keyText(PROFILE_CHORD + 9));
+    }
+
+    /** {@code TerminalWindow.PROFILE_CHORD_ID}; the commands are that plus 1 to 9. */
+    private static final String PROFILE_CHORD = "newTabProfile";
+
+    private @Nullable Label profilesHint;
+
     private void reloadKeys() {
         Label hint = defaultProfileHint;
         if (hint != null) hint.setText(defaultProfileDescription());
+        Label note = profilesHint;
+        if (note != null) note.setText(profilesNote());
         Map<String, KeyCombination> effective = effectiveKeys();
         for (KeyRow row : keyRows.values()) {
             String id = row.command().id();
@@ -1613,7 +1628,8 @@ public final class SettingsWindow {
                 "profile shell command wsl powershell cmd bash zsh fish add remove",
                 list));
 
-        Label note = new Label(tr("settings.profiles.note", shortcutName()));
+        Label note = new Label(profilesNote());
+        profilesHint = note;
         note.getStyleClass().add("settings-row-description");
         note.setWrapText(true);
         list.getChildren().add(note);
