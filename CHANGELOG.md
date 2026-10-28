@@ -3,9 +3,12 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.13.0 — 2026-10-27
 
-Everything from the [2026-10-27 review](docs/review-2026-10-27.md).
+Everything from the [2026-10-27 review](docs/review-2026-10-27.md): padding, a hollow cursor in
+unfocused panes, `-T` for the first tab's title, Reopen for panes and windows, and Linux packages
+that install on Debian 12 and Ubuntu 22.04 again. New user-visible behaviour, so the minor number
+moves.
 
 ### Added
 
@@ -35,7 +38,6 @@ Everything from the [2026-10-27 review](docs/review-2026-10-27.md).
 - **Theme import runs in the background**, and names that would share a file get files of their own.
 - **Search keeps the newest 1,000 matches** rather than the oldest, reads the scrollback in chunks
   from the bottom up, and waits for typing to pause.
-- **Source builds call themselves 0.13.0-SNAPSHOT.**
 
 ### Security
 
