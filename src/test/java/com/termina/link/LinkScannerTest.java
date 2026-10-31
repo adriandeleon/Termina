@@ -186,7 +186,8 @@ class LinkScannerTest {
     void boldAroundAMarkdownLinkIsNotPartOfIt() {
         assertEquals(
                 "https://editora-project.dev",
-                at("**[editora-project.dev](https://editora-project.dev)** —", "https").target());
+                at("**[editora-project.dev](https://editora-project.dev)** —", "https")
+                        .target());
     }
 
     @Test
@@ -209,12 +210,16 @@ class LinkScannerTest {
 
     @Test
     void anIpv6HostKeepsItsBrackets() {
-        assertEquals("http://[::1]:8080/x", at("open http://[::1]:8080/x now", "http").target());
+        assertEquals(
+                "http://[::1]:8080/x",
+                at("open http://[::1]:8080/x now", "http").target());
     }
 
     @Test
     void aUrlStopsAtAQuote() {
-        assertEquals("https://example.com/a", at("href=\"https://example.com/a\">", "https").target());
+        assertEquals(
+                "https://example.com/a",
+                at("href=\"https://example.com/a\">", "https").target());
     }
 
     @Test
