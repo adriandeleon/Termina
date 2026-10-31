@@ -1,9 +1,12 @@
 package com.termina.ui;
 
+import javafx.scene.input.KeyCode;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The Emacs editing table for the query field, and the caret math behind it. */
@@ -67,5 +70,12 @@ class TextInputKeysTest {
         assertTrue(TextInputKeys.swallowTyped(false, true, false, true));
         // Elsewhere Ctrl+Alt is AltGr — a character typed with Control down can be real text.
         assertFalse(TextInputKeys.swallowTyped(false, false, false, true));
+    }
+
+    @Test
+    void aModifierOnItsOwnIsNoEditAndNoException() {
+        assertNull(KeyChord.token(KeyCode.CONTROL, true, false, false, false));
+        assertNull(TextInputKeys.actionFor(null));
+        assertNull(TextInputKeys.actionFor(KeyChord.token(KeyCode.SHIFT, false, false, false, true)));
     }
 }
