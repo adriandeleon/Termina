@@ -16,3 +16,6 @@ Thumbs.db
 # JReleaser working output, and the staging directory the release workflow downloads into.
 out/
 artifacts/
+
+# The Cloudflare CLI (`cf`) caches the account here when run from the project.
+.cloudflare/
