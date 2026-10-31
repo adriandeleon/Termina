@@ -12,6 +12,12 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   Gatekeeper warning and no trip to System Settings → Privacy & Security, and the Homebrew cask no
   longer carries that caveat. The Windows and Linux packages are still unsigned.
 
+### Fixed
+
+- **Ctrl+click opens the URLs in Markdown links** (Cmd+click on macOS). A URL was recognised only
+  at the start of a word, so `[docs](https://…)` read as a file path that did not exist and the
+  click did nothing. A badge's `[![CI](…/badge.svg)](…/ci.yml)` is now two links.
+
 ## 0.13.0 — 2026-10-27
 
 Everything from the [2026-10-27 review](docs/review-2026-10-27.md): padding, a hollow cursor in

@@ -14,7 +14,8 @@ import org.jspecify.annotations.Nullable;
  * not to be links. Examining only the token under the pointer costs one stat, no matter how much
  * text is on screen.
  *
- * <p>URLs are recognised by their scheme, from a fixed allowlist. Everything that is not a URL is
+ * <p>URLs are recognised by their scheme, from a fixed allowlist, wherever in a word the scheme
+ * starts — Markdown puts {@code [text](} right against it. Everything that is not a URL is
  * offered as a <em>candidate</em> path with no shape test at all, because the shape tests one might
  * write — must contain a slash, must have an extension — throw away the two most useful cases,
  * clicking a bare filename out of {@code ls} output and a directory name out of a path. Existence
@@ -56,6 +57,9 @@ public final class LinkScanner {
         while (start > 0 && !Character.isWhitespace(text.charAt(start - 1))) start--;
         while (end < text.length() && !Character.isWhitespace(text.charAt(end))) end++;
 
+        LinkMatch url = urlWithin(text, start, end, index);
+        if (url != null) return url;
+
         while (start < end && OPENERS.indexOf(text.charAt(start)) >= 0) start++;
         end = trimTrailing(text, start, end);
         // The pointer was on the punctuation either side, not on the link.
@@ -63,11 +67,62 @@ public final class LinkScanner {
         if (start >= end) return null;
 
         String token = text.substring(start, end);
-        String scheme = schemeOf(token);
-        if (scheme != null) {
-            return new LinkMatch(LinkMatch.Kind.URL, token, start, end, token, 0, 0);
-        }
+        // A token holding a URL the pointer is not on is the text around that URL — Markdown's
+        // "[docs](" before one, say — and a path made of it would name nothing.
+        if (schemeOf(token) != null || containsUrl(text, start, end)) return null;
         return path(token, start, end);
+    }
+
+    /**
+     * The URL under {@code index} that starts anywhere inside the whitespace-delimited run, or null.
+     *
+     * <p>Markdown is why a URL cannot be required to start the run: {@code [docs](https://…)} and
+     * {@code [![CI](https://…/badge.svg)](https://…/ci.yml)} have no whitespace before the scheme,
+     * and the second holds two URLs. A scheme starts a URL wherever it sits, unless a letter comes
+     * right before it ({@code xhttps://} is not {@code https://}), and the URL ends at the first
+     * bracket it did not open — the {@code )} closing Markdown's target — or at a character no URL
+     * contains unescaped.
+     */
+    private static @Nullable LinkMatch urlWithin(String text, int from, int to, int index) {
+        for (int s = from; s <= index; s++) {
+            if (!startsUrl(text, s, from, to)) continue;
+            int end = trimTrailing(text, s, urlEnd(text, s, to));
+            if (index < s) return null;
+            if (index < end) {
+                String url = text.substring(s, end);
+                return new LinkMatch(LinkMatch.Kind.URL, url, s, end, url, 0, 0);
+            }
+            // Past this one: a scheme inside it (a redirect's ?to=https://…) is part of it.
+            s = Math.max(s, end - 1);
+        }
+        return null;
+    }
+
+    private static boolean containsUrl(String text, int from, int to) {
+        for (int s = from; s < to; s++) {
+            if (startsUrl(text, s, from, to)) return true;
+        }
+        return false;
+    }
+
+    private static boolean startsUrl(String text, int s, int from, int to) {
+        if (!Character.isLetter(text.charAt(s))) return false;
+        if (s > from && Character.isLetter(text.charAt(s - 1))) return false;
+        return schemeOf(text.substring(s, to)) != null;
+    }
+
+    /** Characters that end a URL outright: none of them appears in one unescaped. */
+    private static final String URL_STOPS = "\"`<";
+
+    /** Where the URL starting at {@code start} stops, before trailing punctuation is trimmed. */
+    private static int urlEnd(String text, int start, int to) {
+        for (int i = start; i < to; i++) {
+            char c = text.charAt(i);
+            if (URL_STOPS.indexOf(c) >= 0) return i;
+            char opener = openerFor(c);
+            if (opener != 0 && !balanced(text, start, i + 1, opener, c)) return i;
+        }
+        return to;
     }
 
     /**
