@@ -94,13 +94,6 @@ distributions:
         # resolved at clone time is one more thing to be surprised by later.
         branch: main
         branchPush: main
-      # Stated up front rather than left to be discovered at the Gatekeeper dialog. The app is
-      # ad-hoc signed, not signed with a Developer ID and not notarised, so a downloaded copy is
-      # refused on first launch until it is allowed explicitly. Verified with spctl: "rejected".
-      extraProperties:
-        cask.caveats: |
-          Termina is not signed with an Apple Developer ID yet, so macOS refuses to open it the
-          first time. Allow it once under System Settings > Privacy & Security > Open Anyway.
 
   # NATIVE_PACKAGE now that the artifact is an MSI rather than a zip. The pairing matters and fails
   # quietly when it is wrong: winget writes no manifest at all and the build still succeeds, so the

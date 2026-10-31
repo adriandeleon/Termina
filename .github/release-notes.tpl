@@ -3,8 +3,8 @@
 **macOS** — `brew install --cask adriandeleon/tap/termina`, or download the DMG below
 (`macos-arm64` for Apple Silicon, `macos-x64` for Intel), open it, and drag Termina to Applications.
 
-Termina is not yet signed with an Apple Developer ID, so macOS will refuse to open it the first
-time. Allow it once under System Settings → Privacy & Security → Open Anyway.
+The app is signed with a Developer ID and notarized by Apple, so it opens on first launch like any
+other app.
 
 **Windows** — `winget install AdrianDeLeon.Termina`, or download and run the `windows-x64` MSI
 below. The build is unsigned, so SmartScreen may warn on first run.

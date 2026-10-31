@@ -46,6 +46,16 @@ build() {
 case "$(uname -s)" in
     Darwin)
         build dmg --mac-package-name Termina
+        # The disk image gets its own Developer ID signature when the app has one (see
+        # sign-mac-app.sh), so Gatekeeper can check it before mounting; release.yml then notarizes it.
+        if [ -n "${TERMINA_MAC_SIGN_IDENTITY:-}" ]; then
+            sign=(codesign --force --timestamp)
+            [ -n "${TERMINA_MAC_KEYCHAIN:-}" ] && sign+=(--keychain "$TERMINA_MAC_KEYCHAIN")
+            for dmg in "$dest"/*.dmg; do
+                "${sign[@]}" --sign "$TERMINA_MAC_SIGN_IDENTITY" "$dmg"
+                codesign --verify --verbose=2 "$dmg"
+            done
+        fi
         ;;
     Linux)
         # The resource directory overrides two things jpackage would otherwise generate.

@@ -3,6 +3,15 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Changed
+
+- **The macOS app is signed and notarized.** Both dmgs (Apple Silicon and Intel) are now signed with
+  a Developer ID certificate and notarized by Apple, so Termina opens on first launch with no
+  Gatekeeper warning and no trip to System Settings → Privacy & Security, and the Homebrew cask no
+  longer carries that caveat. The Windows and Linux packages are still unsigned.
+
 ## 0.13.0 — 2026-10-27
 
 Everything from the [2026-10-27 review](docs/review-2026-10-27.md): padding, a hollow cursor in

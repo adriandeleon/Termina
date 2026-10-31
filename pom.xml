@@ -870,6 +870,24 @@
                     </execution>
                     <execution>
                         <!--
+                          Developer ID signing, after every change to the bundle (notices, AOT cache,
+                          Info.plist) and before the installers wrap it. A no-op unless the release
+                          workflow set TERMINA_MAC_SIGN_IDENTITY; see the script.
+                        -->
+                        <id>sign-mac-app</id>
+                        <phase>package</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>${project.basedir}/scripts/sign-mac-app.sh</argument>
+                                <argument>${project.build.directory}/dist/Termina.app</argument>
+                            </arguments>
+                            <skip>${skip.mac.version.fix}</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <!--
                           Last, so it wraps a finished image: the AOT cache is already trained into
                           it and, on macOS, the version corrected and the bundle re-signed. Opt-in
                           via -Dtermina.installers=true, because building four installers takes
