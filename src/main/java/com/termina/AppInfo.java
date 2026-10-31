@@ -21,8 +21,8 @@ public final class AppInfo {
     public static final String LICENSE = "MIT License";
 
     public static final String GITHUB_REPO = "adriandeleon/Termina";
-    public static final String HOMEPAGE = "https://github.com/" + GITHUB_REPO;
-    public static final String RELEASES_PAGE = HOMEPAGE + "/releases";
+    public static final String HOMEPAGE = "https://termina-project.dev";
+    public static final String RELEASES_PAGE = "https://github.com/" + GITHUB_REPO + "/releases";
     public static final String LATEST_RELEASE_API = "https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest";
 
     private AppInfo() {}

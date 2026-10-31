@@ -16,8 +16,8 @@ project:
     JediTerm and real pseudo-terminals by pty4j. Tabs, multiple windows, a command palette,
     configurable themes and fonts, and six interface languages.
   links:
-    homepage: https://github.com/adriandeleon/Termina
-    documentation: https://github.com/adriandeleon/Termina#readme
+    homepage: https://termina-project.dev
+    documentation: https://termina-project.dev/docs/
     bugTracker: https://github.com/adriandeleon/Termina/issues
   authors:
     - Adrian De Leon
@@ -121,7 +121,7 @@ distributions:
         identifier: AdrianDeLeon.Termina
         name: Termina
         version: '{{projectVersion}}'
-        url: https://github.com/adriandeleon/Termina
+        url: https://termina-project.dev
       publisher:
         name: Adrian De Leon
         url: https://github.com/adriandeleon

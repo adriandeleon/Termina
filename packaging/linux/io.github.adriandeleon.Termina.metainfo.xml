@@ -42,7 +42,7 @@
     <binary>termina</binary>
   </provides>
 
-  <url type="homepage">https://github.com/adriandeleon/Termina</url>
+  <url type="homepage">https://termina-project.dev</url>
   <url type="bugtracker">https://github.com/adriandeleon/Termina/issues</url>
   <url type="vcs-browser">https://github.com/adriandeleon/Termina</url>
 
