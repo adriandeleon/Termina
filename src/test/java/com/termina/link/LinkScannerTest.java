@@ -161,6 +161,68 @@ class LinkScannerTest {
     }
 
     @Test
+    void aMarkdownLinkTargetIsAUrl() {
+        String line = "[user docs](https://editora-project.dev/docs/), [more](https://example.com/x)";
+        LinkMatch match = at(line, "editora");
+        assertNotNull(match);
+        assertEquals(LinkMatch.Kind.URL, match.kind());
+        assertEquals("https://editora-project.dev/docs/", match.target());
+        assertEquals("https://example.com/x", at(line, "example").target());
+    }
+
+    @Test
+    void aMarkdownBadgeHoldsTwoUrlsAndEachIsItsOwn() {
+        String line = "[![CI](https://github.com/o/r/actions/workflows/ci.yml/badge.svg)]"
+                + "(https://github.com/o/r/actions/workflows/ci.yml)";
+        assertEquals(
+                "https://github.com/o/r/actions/workflows/ci.yml/badge.svg",
+                at(line, "badge").target());
+        assertEquals(
+                "https://github.com/o/r/actions/workflows/ci.yml",
+                LinkScanner.at(line, line.length() - 3).target());
+    }
+
+    @Test
+    void boldAroundAMarkdownLinkIsNotPartOfIt() {
+        assertEquals(
+                "https://editora-project.dev",
+                at("**[editora-project.dev](https://editora-project.dev)** —", "https")
+                        .target());
+    }
+
+    @Test
+    void theTextAroundAUrlInOneWordIsNoLink() {
+        // "[user docs](" would otherwise be offered as a path; it names nothing, and underlining it
+        // as though it might would mislead.
+        String line = "[user docs](https://editora-project.dev/docs/)";
+        assertNull(at(line, "docs]"));
+        assertNull(LinkScanner.at(line, line.length() - 1));
+    }
+
+    @Test
+    void aSchemeInsideAWordDoesNotStartAUrl() {
+        assertNotUrl(at("xhttps://example.com", "xhttps"));
+        // A URL carried in another's query is part of the outer one.
+        assertEquals(
+                "https://a.example/?to=https://b.example/",
+                at("https://a.example/?to=https://b.example/", "b.example").target());
+    }
+
+    @Test
+    void anIpv6HostKeepsItsBrackets() {
+        assertEquals(
+                "http://[::1]:8080/x",
+                at("open http://[::1]:8080/x now", "http").target());
+    }
+
+    @Test
+    void aUrlStopsAtAQuote() {
+        assertEquals(
+                "https://example.com/a",
+                at("href=\"https://example.com/a\">", "https").target());
+    }
+
+    @Test
     void anAngleBracketedUrlLosesTheBrackets() {
         assertEquals(
                 "https://example.com/a", at("<https://example.com/a>", "https").target());
