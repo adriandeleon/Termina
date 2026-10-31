@@ -863,11 +863,6 @@ or reopening in a directory you have since navigated away from, is not what anyb
 
 ## Known issues
 
-**The macOS build is not signed with an Apple Developer ID, and is not notarised.** macOS will
-refuse to open it the first time — verified with `spctl`, which reports `rejected`. Allow it once
-under System Settings → Privacy & Security → Open Anyway. This is not something a configuration
-change fixes; it needs a paid Developer ID and a notarisation step.
-
 **The Windows build is unsigned**, so SmartScreen will warn on first run. "More info" → "Run anyway".
 
 **Intel Macs get no Homebrew cask.** A cask accepts exactly one artifact, so the tap serves Apple
@@ -957,10 +952,7 @@ To publish to Homebrew and winget:
    repository alone and cannot write to the tap or the fork. A fine-grained token will not do:
    opening a pull request against `microsoft/winget-pkgs` is not something it can express.
 
-Neither is turnkey after that. **The macOS app is ad-hoc signed, not signed with a Developer ID and
-not notarised**, so a downloaded copy is refused by Gatekeeper on first launch — verified with
-`spctl`, which reports `rejected`. The cask says so in its caveats, and the fix is an Apple Developer
-ID, not a configuration change. **winget submissions are reviewed by Microsoft**, and the first one
+Neither is turnkey after that. **winget submissions are reviewed by Microsoft**, and the first one
 for a new publisher is a human process rather than an automatic merge. **The official homebrew-cask
 repository has notability requirements** a new project does not meet, which is why this uses a
 personal tap.
@@ -989,6 +981,36 @@ with a leading `0.` bumped to `1.` on macOS only, purely to get past the check.
 the bundle — always, not only when the version changed: jpackage ad-hoc-signs the app image, and the
 plist, the notices and the AOT cache added after it are all inside what that seals, so any of them
 left unsigned makes macOS refuse to launch the app as damaged.
+
+### macOS signing
+
+Both macOS legs sign the app and dmg with the **Developer ID Application** certificate of team
+`8JKSF797L8` (Adrian De Leon Saldivar), have Apple notarize the dmg and staple the ticket to it, so
+Gatekeeper opens a downloaded Termina with no warning. The same certificate and API key sign Editora
+and Torrenta.
+
+- **Import signing certificate (macOS)** puts the `.p12` into a throw-away keychain and exports
+  `TERMINA_MAC_SIGN_IDENTITY` / `TERMINA_MAC_KEYCHAIN`. On a tag, missing secrets fail the leg; a
+  dry run without them builds ad-hoc signed and warns.
+- `scripts/sign-mac-app.sh`, run by the `dist` profile after `fix-mac-bundle-version.sh` and before
+  `build-installers.sh`, first sets `<signed>true</signed>` in `Contents/app/.jpackage.xml`
+  (jpackage's dmg wrap otherwise re-signs its copy ad hoc, discarding ours), then signs every
+  Mach-O file, the runtime bundle, and the app with the hardened runtime and
+  `packaging/macos/Termina.entitlements` (JIT, plus library validation off for the natives JNA and
+  pty4j unpack). `build-installers.sh` then signs the dmg. Without the identity (any local or CI
+  build) nothing changes.
+- The **smoke test** runs that signed app, so a real shell on a real pty is proven to work under the
+  hardened runtime before anything is uploaded.
+- **Notarize the dmg (macOS)** checks the app inside the dmg still verifies, runs
+  `notarytool submit --wait` with the App Store Connect API key, prints Apple's log, staples, and
+  checks the dmg and its app with `spctl` the way Gatekeeper will.
+
+Repository secrets, the same values as Editora's and Torrenta's: `MACOS_CERT_P12` (base64 of a
+`.p12` with the certificate, its key and Apple's Developer ID G2 intermediate, exported with
+`openssl pkcs12 -export -legacy`), `MACOS_CERT_PASSWORD`, `APPLE_API_KEY_P8` (base64 of the team
+API key, Developer role), `APPLE_API_KEY_ID` (10 characters) and `APPLE_API_ISSUER` (a UUID). The
+certificate expires **2027-11-30** and the Apple Developer Program membership **2027-10-31**: renew
+the membership, make a new certificate, and replace the first two secrets in all three repositories.
 
 After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
 source says it is one: the update check treats a snapshot as the release it leads up to, and never

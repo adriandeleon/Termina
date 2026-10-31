@@ -12,11 +12,6 @@ cask "{{brewCaskName}}" do
 
   app "Termina.app"
 
-  caveats <<~EOS
-    Termina is not signed with an Apple Developer ID yet, so macOS will refuse to open it the
-    first time. Allow it once under System Settings > Privacy & Security > Open Anyway.
-  EOS
-
   zap trash: [
     "~/.termina",
   ]
