@@ -20,6 +20,11 @@
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
 renders the emulated screen to a canvas.
 
+🌐 **[termina-project.dev](https://termina-project.dev)** — [features](https://termina-project.dev/features/),
+[user docs](https://termina-project.dev/docs/), [keybindings](https://termina-project.dev/keybindings/),
+[news](https://termina-project.dev/news/) and the [blog](https://termina-project.dev/blog/).
+The site's source is [adriandeleon/termina-website](https://github.com/adriandeleon/termina-website).
+
 Status: **early**. A working terminal — tabs, split panes, multiple windows, a menu bar, colour and
 styling, scrollback with search, selection and copy, clickable URLs and file paths, shell
 integration, mouse-aware full-screen programs (vim, less, htop), themes and font settings — with a
