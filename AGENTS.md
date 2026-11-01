@@ -127,12 +127,15 @@ Each of these cost real time, and none of them announces itself.
   (extracted from jars at run time) and are declared by hand in `build-installers.sh`. The deb's
   `postinst`/`prerm` and the rpm's spec are overrides of jpackage's templates — keep its tokens.
   All in `packaging/linux/NOTES.md`; `scripts/check-linux-packages.sh` asserts it.
-- **GNOME Software matches a listing to a package by who owns the metainfo file.** The 0.13.0 deb's
-  `postinst` copied it into `/usr/share/metainfo`, so it belonged to no package, and Software showed
-  the bare package — "termina", a generic icon, Unknown License, no description — while
-  `appstreamcli get` read the listing perfectly. The deb is now rebuilt after jpackage with the
-  metainfo and the icon as its own files (`build-installers.sh`, `own_in_deb`). Anything else that
-  must be found by its owner goes in the same way, not through a maintainer script.
+- **GNOME Software has two pages for a package, and only one reads the listing.** Double-clicking
+  a downloaded `.deb` opens an installation window built from the package's control fields alone:
+  "termina", a generic icon, Unknown License, the summary as the description, and whatever
+  `Homepage` says. No metainfo, icon or licence reaches it, from the package or from the system, so
+  no packaging change can fill it in; `--about-url` is the one field that shows. The listing —
+  name, icon, MIT, release notes — is on the installed app's page, under Installed. Every screenshot
+  of the bare page was the installation window, which cost a wrong fix before it was understood.
+  `/usr/libexec/gnome-software-cmd filename-to-app <deb> --show-results` prints what that window
+  gets, and `gnome-software-cmd installed --show-results` what the installed page gets.
 - **Full-screen geometry cannot be diagnosed from inside the app on Wayland.** JavaFX has no
   Wayland backend, so it runs through XWayland, and under GNOME's fractional scaling (and its
   experimental `xwayland-native-scaling`) the compositor's idea of the surface and JavaFX's disagree.

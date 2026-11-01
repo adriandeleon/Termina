@@ -66,6 +66,9 @@ echo "=== $deb"
 dpkg-deb --info "$deb" > "$work/deb-info.txt"
 dpkg-deb --field "$deb" Depends > "$work/deb-depends.txt"
 dpkg-deb --contents "$deb" > "$work/deb-contents.txt"
+# The only field of the listing GNOME Software's window for a downloaded .deb can show.
+[ "$(dpkg-deb --field "$deb" Homepage)" = "https://termina-project.dev" ] ||
+    fail "the deb has no Homepage, so Software's Project Website goes nowhere"
 echo "Depends: $(cat "$work/deb-depends.txt")"
 
 has "$work/deb-contents.txt" "termina.aot" || fail "the deb has no AOT cache — startup would be a quarter slower"
@@ -122,6 +125,7 @@ rpm=$(ls "$dir"/*.rpm)
 echo "=== $rpm"
 rpm -qpl "$rpm" > "$work/rpm-contents.txt"
 rpm -qpR "$rpm" > "$work/rpm-requires.txt"
+[ "$(rpm -qp --queryformat '%{URL}' "$rpm")" = "https://termina-project.dev" ] || fail "the rpm has no URL"
 rpm -qp --scripts "$rpm" > "$work/rpm-scripts.txt"
 echo "--- Requires ---"; cat "$work/rpm-requires.txt"
 

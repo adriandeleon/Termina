@@ -70,13 +70,22 @@ get them there:
   `launchable` names `termina-Termina.desktop`, the id jpackage's `xdg-desktop-menu install` gives
   the menu entry (package name, dash, launcher).
 
-**The metainfo has to be a file the package owns**, not one a maintainer script puts there. Software
-ties a listing to its package by asking the package manager which package owns the metainfo file
-(and by `<pkgname>`, which the metainfo now also carries, because a distribution's catalogue would
-add it and a downloaded package has none). The 0.13.0 deb copied it in from `postinst`, so dpkg
-said no package owned it and Software showed the package bare instead: "termina" in lower case, a
-generic icon, "Unknown License", and the summary standing in for the description. Nothing anywhere
-reports this; `appstreamcli get io.github.adriandeleon.Termina` reads the file perfectly well.
+**Software's window for a downloaded `.deb` never shows the listing.** Double-clicking the file opens
+a page GNOME Software builds from what PackageKit reads out of the package: the name ("termina" in
+lower case), the one-line summary, used as the description too, the size, and the `Homepage`
+field. It reads no metainfo, icon or licence from the package or the system, so it shows a generic
+icon and "Unknown License" for any downloaded deb, ours or anyone's; `Homepage` (`--about-url`) is
+the only part a package can improve. The listing is on the installed app's page (Installed →
+Termina): name, icon, MIT, homepage and release notes, from the metainfo in `/usr/share/metainfo`
+and its `<pkgname>`, which ties it to the package. Check either page from a shell:
+
+```bash
+/usr/libexec/gnome-software-cmd filename-to-app "$PWD/termina_<v>_amd64.deb" --show-results
+/usr/libexec/gnome-software-cmd installed --show-results --refine-flags=license,url,icon
+```
+
+The metainfo and icon are files the package owns rather than ones a maintainer script copies in, so
+dpkg and rpm remove them with the package and report who installed them.
 
 For the rpm, the spec installs both as files of the package. The deb has no such hook — jpackage's
 deb bundler packages `/opt/termina` and nothing else — so `build-installers.sh` unpacks the finished

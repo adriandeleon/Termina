@@ -3,6 +3,18 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
+## Unreleased
+
+### Fixed
+
+- **GNOME Software's Project Website button works before installing.** The window opened by
+  double-clicking a downloaded `.deb` reads only the package's own fields, and the packages
+  declared no homepage. They now name termina-project.dev (the deb's `Homepage`, the rpm's `URL`,
+  the MSI's About link). That window still shows a generic icon and Unknown License for any
+  downloaded package; the listing, with the icon, licence and release notes, is on Termina's page
+  under Installed.
+- **0.14.0 has release notes in Software.** Its page said "No details for this release".
+
 ## 0.14.0 — 2026-10-31
 
 Signed and notarized macOS dmgs, signed Linux downloads, an AppImage and a tarball, a proper GNOME
