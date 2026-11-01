@@ -1043,21 +1043,32 @@ CI runs both scripts on every push with a key made for the job. On a tag the rea
 and must be the committed `packaging/linux/signing-key.asc`; a manual dry run without it signs with
 a throw-away key and warns.
 
-Repository secrets: `LINUX_GPG_KEY`, the armoured secret key, and `LINUX_GPG_PASSPHRASE`, its
-passphrase (leave unset for a key without one). RSA rather than Ed25519, which older rpm and
-debsig-verify cannot check. Made once:
+One key signs the Linux releases of every project — Termina, Editora and Torrenta — as one
+Developer ID certificate signs their macOS builds: users trust one key for all of them, and there is
+one key to back up and renew. The cost is that a leaked key taints all three at once, and all three
+move to a new one together. Its user id names the person, not a project, for that reason.
+
+Repository secrets, the same values in each repository: `LINUX_GPG_KEY`, the armoured secret key,
+and `LINUX_GPG_PASSPHRASE`, its passphrase (leave unset for a key without one). Each repository also
+commits the public half as `packaging/linux/signing-key.asc`, which its release checks the secret
+against. RSA rather than Ed25519, which older rpm and debsig-verify cannot check. Made once, in the
+everyday keyring so it is there to sign with and to renew:
 
 ```bash
-export GNUPGHOME="$(mktemp -d)"
-gpg --quick-gen-key 'Termina releases <adrian.deleon@gmail.com>' rsa4096 sign 5y
-gpg --armor --export 'Termina releases' > packaging/linux/signing-key.asc
-gpg --armor --export-secret-keys 'Termina releases' | gh secret set LINUX_GPG_KEY
-gh secret set LINUX_GPG_PASSPHRASE
+gpg --quick-gen-key 'Adrian De Leon (release signing) <adrian.deleon@gmail.com>' rsa4096 sign 5y
+fpr=$(gpg --with-colons --list-secret-keys 'release signing' | awk -F: '$1 == "fpr" { print $10; exit }')
+gpg --armor --export "$fpr" > packaging/linux/signing-key.asc
+for repo in Termina Editora torrenta; do
+  gpg --armor --export-secret-keys "$fpr" | gh secret set LINUX_GPG_KEY --repo "adriandeleon/$repo"
+  gh secret set LINUX_GPG_PASSPHRASE --repo "adriandeleon/$repo"
+done
 ```
 
-Keep a copy of the secret key somewhere other than the secret: GitHub will not give it back, and a
-new key means every user re-importing. Commit `signing-key.asc`. Renew before the expiry with
-`gpg --quick-set-expire`, then re-export both halves.
+Keep an offline copy of the secret key (`gpg --armor --export-secret-keys "$fpr"`) and of the
+revocation certificate gpg wrote to `~/.gnupg/openpgp-revocs.d/`: GitHub will not give a secret
+back, and a lost key means every user re-importing a new one. Copy the same `signing-key.asc` into
+the other repositories. Renew before the expiry with `gpg --quick-set-expire "$fpr" 5y`, then
+re-export both halves to every repository.
 
 After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
 source says it is one: the update check treats a snapshot as the release it leads up to, and never
