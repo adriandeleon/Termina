@@ -1,0 +1,6 @@
+#!/bin/sh
+# The AppImage's entry point. The runtime mounts the image and runs this; the jpackage launcher it
+# starts finds its Java runtime from its own resolved path, so it is run where it lies rather than
+# linked. See packaging/linux/NOTES.md.
+here="$(dirname "$(readlink -f "$0")")"
+exec "$here/usr/lib/termina/bin/Termina" "$@"

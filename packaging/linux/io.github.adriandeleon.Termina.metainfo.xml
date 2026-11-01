@@ -26,6 +26,10 @@
 
   <!-- The id jpackage installs the menu entry under: <package name>-<launcher name>. -->
   <launchable type="desktop-id">termina-Termina.desktop</launchable>
+  <!-- Ties this listing to the deb and rpm of that name. A distribution's catalogue would add it;
+       a package installed from a download has no catalogue, so it is written here. -->
+  <pkgname>termina</pkgname>
+  <icon type="stock">io.github.adriandeleon.Termina</icon>
 
   <categories>
     <category>System</category>
@@ -62,9 +66,22 @@
 
   <releases>
     <release version="0.13.0" date="2026-10-27">
+      <description>
+        <p>
+          Padding around the text, a hollow cursor in unfocused panes, Reopen for closed panes and
+          windows, and a title for the first tab with -T. The packages install on Debian 12 and
+          Ubuntu 22.04 again, put termina on the path and register it as a terminal emulator.
+        </p>
+      </description>
       <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.13.0</url>
     </release>
     <release version="0.12.0" date="2026-10-25">
+      <description>
+        <p>
+          The settings sync repository can be created on GitHub from Settings, and the shortcut
+          reference names what a middle-click pastes on Linux.
+        </p>
+      </description>
       <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.12.0</url>
     </release>
   </releases>

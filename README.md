@@ -831,8 +831,9 @@ an app icon has to work hardest at.
   made-up address space; the system calls have not run), the PowerShell toast, the `osascript`
   notification and Option+drag blocks. PRIMARY and `notify-send` have not been tried on a machine
   that has `wl-clipboard`, `xclip` or `libnotify-bin`; the `gdbus` route has.
-- **Signing.** The installers are built (see [Installing](#installing)) but nothing is signed or
-  notarised — see [Known issues](#known-issues).
+- **Signing on Windows.** The macOS dmgs are signed and notarized and the Linux downloads are
+  OpenPGP-signed (see [Installing](#installing)); the MSI is not signed — see
+  [Known issues](#known-issues).
 - **Windows has not been run by a human.** CI builds and packages it on every commit, and pty4j
   carries the ConPTY natives, but nobody has opened a window there. macOS and Linux are run; the
   installers on all three have not been installed by anyone yet.
@@ -884,12 +885,27 @@ host-specific and there is no cross-building.
 | Windows | `windows-x64.msi` | run it |
 | Debian, Ubuntu | `linux-x64.deb`, `linux-arm64.deb` | `sudo dpkg -i` or `sudo apt install ./…` |
 | Fedora, RHEL, openSUSE | `linux-x64.rpm`, `linux-arm64.rpm` | `sudo rpm -i` or `sudo dnf install ./…` |
+| Any Linux | `linux-x64.AppImage`, `linux-arm64.AppImage` | `chmod +x`, run it (needs FUSE) |
+| Any Linux, no root | `linux-x64.tar.gz`, `linux-arm64.tar.gz` | unpack, run `termina-<version>/bin/Termina` |
+
+Every Linux download has an OpenPGP signature beside it, `<file>.asc`, by the key attached to the
+release as `termina-signing-key.asc` and committed as `packaging/linux/signing-key.asc`:
+
+```bash
+gpg --import termina-signing-key.asc
+gpg --verify Termina-<version>-linux-x64.deb.asc Termina-<version>-linux-x64.deb
+```
+
+The rpm and deb are also signed inside: `sudo rpm --import termina-signing-key.asc` and `rpm -K`
+(and `dnf`) check the rpm; `debsig-verify` checks the deb's origin signature, given a policy for the
+key. apt and dpkg check nothing about a downloaded `.deb`, so for one the `.asc` is the check.
 
 The Linux packages install a launcher entry carrying `StartupWMClass` and the `TerminalEmulator`
 category, so Termina appears in the application menu and desktops offer it where a terminal is
 wanted. That works because Termina accepts `-e command`, which is the interface everything expects
 of a system terminal. They also put `termina` on `PATH` (`/usr/bin/termina`), install AppStream
-metainfo for GNOME Software and KDE Discover, and declare `X-TerminalArgExec=-e` for
+metainfo for GNOME Software and KDE Discover — with the description, licence, release notes and an
+icon in the theme, so Software lists Termina rather than a bare `termina` package — and declare `X-TerminalArgExec=-e` for
 `xdg-terminal-exec`; the deb registers an `x-terminal-emulator` alternative, at a priority below
 GNOME Terminal's and Konsole's, so `update-alternatives --config x-terminal-emulator` offers it
 without it taking over. Details in `packaging/linux/NOTES.md`.
@@ -1012,6 +1028,49 @@ API key, Developer role), `APPLE_API_KEY_ID` (10 characters) and `APPLE_API_ISSU
 certificate expires **2027-11-30** and the Apple Developer Program membership **2027-10-31**: renew
 the membership, make a new certificate, and replace the first two secrets in all three repositories.
 
+### Linux signing
+
+The `sign-linux` job in `release.yml` signs both architectures' Linux downloads once the builds are
+done, in a job of its own so the key is never on a runner that builds (those run whatever Maven
+resolves). `scripts/sign-linux-packages.sh` signs the rpm with `rpmsign` and the deb with an origin
+signature in debsigs' format (an `_gpgorigin` member; debsigs itself skips `.xz` members), then
+writes an armoured `<file>.asc` beside all four formats — the only signature the AppImage and the
+tarball carry, since appimagetool can embed one only while it builds.
+`scripts/check-linux-signatures.sh` then checks every signature against the public key alone, with
+`gpgv`, `rpmkeys` and `debsig-verify`. The job replaces the build artifacts with the signed files,
+so the publish job attests and attaches only those, with `termina-signing-key.asc` beside them.
+
+CI runs both scripts on every push with a key made for the job. On a tag the real key is required
+and must be the committed `packaging/linux/signing-key.asc`; a manual dry run without it signs with
+a throw-away key and warns.
+
+One key signs the Linux releases of every project — Termina, Editora and Torrenta — as one
+Developer ID certificate signs their macOS builds: users trust one key for all of them, and there is
+one key to back up and renew. The cost is that a leaked key taints all three at once, and all three
+move to a new one together. Its user id names the person, not a project, for that reason.
+
+Repository secrets, the same values in each repository: `LINUX_GPG_KEY`, the armoured secret key,
+and `LINUX_GPG_PASSPHRASE`, its passphrase (leave unset for a key without one). Each repository also
+commits the public half as `packaging/linux/signing-key.asc`, which its release checks the secret
+against. RSA rather than Ed25519, which older rpm and debsig-verify cannot check. Made once, in the
+everyday keyring so it is there to sign with and to renew:
+
+```bash
+gpg --quick-gen-key 'Adrian De Leon (release signing) <adrian.deleon@gmail.com>' rsa4096 sign 5y
+fpr=$(gpg --with-colons --list-secret-keys 'release signing' | awk -F: '$1 == "fpr" { print $10; exit }')
+gpg --armor --export "$fpr" > packaging/linux/signing-key.asc
+for repo in Termina Editora torrenta; do
+  gpg --armor --export-secret-keys "$fpr" | gh secret set LINUX_GPG_KEY --repo "adriandeleon/$repo"
+  gh secret set LINUX_GPG_PASSPHRASE --repo "adriandeleon/$repo"
+done
+```
+
+Keep an offline copy of the secret key (`gpg --armor --export-secret-keys "$fpr"`) and of the
+revocation certificate gpg wrote to `~/.gnupg/openpgp-revocs.d/`: GitHub will not give a secret
+back, and a lost key means every user re-importing a new one. Copy the same `signing-key.asc` into
+the other repositories. Renew before the expiry with `gpg --quick-set-expire "$fpr" 5y`, then
+re-export both halves to every repository.
+
 After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
 source says it is one: the update check treats a snapshot as the release it leads up to, and never
 offers it the release it is already ahead of.
@@ -1019,7 +1078,8 @@ offers it the release it is already ahead of.
 The release builds run the tests (`verify`, not CI's `-DskipTests package`) — a tag is not gated on
 CI, and the `linux-arm64` and `macos-x64` runners build nowhere else — and then the same checks CI
 makes of its own artefacts: the smoke test (`scripts/smoke-test.sh`), the macOS signature, an AOT
-cache (`TERMINA_REQUIRE_AOT=1`) and the Linux package contents (`scripts/check-linux-packages.sh`).
+cache (`TERMINA_REQUIRE_AOT=1`), the Linux package contents (`scripts/check-linux-packages.sh`) and a
+smoke test of the AppImage.
 Any of them failing fails that target, and publishing needs every target. The publish job is the
 only one holding a write token; it attests build provenance for each installer
 (`gh attestation verify <file> --repo adriandeleon/Termina`), and the JReleaser action and the
