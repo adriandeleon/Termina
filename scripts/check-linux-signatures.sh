@@ -3,6 +3,7 @@
 # every download has a detached signature by that key, the rpm's embedded signature passes `rpm -K`,
 # and the deb carries an origin signature over its own contents. Nothing here trusts the keyring
 # that did the signing — a check run there would pass on a signature by any key it holds.
+# Shared with Editora and Torrenta; a fix here belongs in all three.
 #
 # Needs gpgv, rpm, rpmkeys and ar; debsig-verify if installed.
 #

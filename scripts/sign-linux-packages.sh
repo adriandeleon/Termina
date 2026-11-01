@@ -2,6 +2,7 @@
 # Signs the Linux downloads in each directory with the release's OpenPGP key, in place, and writes a
 # detached signature beside every one. Run by the release on the finished packages, and by CI with a
 # throw-away key so a broken signing step is found on a push rather than on release day.
+# Shared with Editora and Torrenta, which sign with the same key; a fix here belongs in all three.
 #
 # Two kinds of signature, because each format's own tools check a different thing:
 #   .rpm       embedded (rpmsign): `rpm -K`, and dnf or zypper once the key is imported.
