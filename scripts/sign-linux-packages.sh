@@ -83,6 +83,8 @@ sign_deb() {
 shopt -s nullglob
 signed=0
 for dir in "$@"; do
+    # Absolute: the deb is unpacked from inside a directory of its own.
+    dir="$(cd "$dir" && pwd)"
     for rpm in "$dir"/*.rpm; do
         # rpm before 4.19 names the key _gpg_name, from 4.19 _openpgp_sign_id; both are given.
         rpmsign --addsign --define "_gpg_path $GNUPGHOME" --define "_gpg_name $fpr" \

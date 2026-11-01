@@ -52,6 +52,8 @@ fi
 shopt -s nullglob
 checked=0
 for dir in "$@"; do
+    # Absolute: the deb is unpacked from inside a directory of its own.
+    dir="$(cd "$dir" && pwd)"
     for file in "$dir"/*.deb "$dir"/*.rpm "$dir"/*.AppImage "$dir"/*.tar.gz; do
         name=$(basename "$file")
         [ -f "$file.asc" ] || fail "$name has no detached signature"
