@@ -25,6 +25,10 @@ description="A keyboard-driven terminal emulator"
 common=(--app-image "$image" --name Termina --app-version "$version" --dest "$dest"
         --vendor "Adrian De Leon"
         --description "$description"
+        # The deb's Homepage, the rpm's URL and the MSI's About link. GNOME Software's window for a
+        # downloaded .deb reads nothing but the package's own fields — no listing, licence or icon —
+        # and without this its Project Website button went nowhere.
+        --about-url "https://termina-project.dev"
         --copyright "Copyright 2026 Adrian De Leon")
 [ -n "$icon" ] && [ -f "$icon" ] && common+=(--icon "$icon")
 

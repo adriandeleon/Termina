@@ -75,6 +75,16 @@
       </description>
       <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.14.0</url>
     </release>
+    <release version="0.14.0" date="2026-10-31">
+      <description>
+        <p>
+          The macOS app is signed and notarized, every Linux download is signed, and Linux gains an
+          AppImage and a tarball. The packages list properly in GNOME Software, and Ctrl+click opens
+          the URLs in Markdown links.
+        </p>
+      </description>
+      <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.14.0</url>
+    </release>
     <release version="0.13.0" date="2026-10-27">
       <description>
         <p>
