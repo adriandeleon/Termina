@@ -67,8 +67,8 @@ class LinuxSigningTest {
             assertTrue(check.contains("\"$dir\"/*." + format), "check-linux-signatures.sh does not check ." + format);
         }
         assertTrue(
-                sign.indexOf("rpmsign") < sign.indexOf("--detach-sign")
-                        && sign.indexOf("debsigs") < sign.indexOf("--detach-sign"),
+                sign.indexOf("rpmsign --addsign") < sign.indexOf("--armor --detach-sign")
+                        && sign.indexOf("sign_deb \"$deb\"") < sign.indexOf("--armor --detach-sign"),
                 "the embedded signatures change the files, so the detached ones come after");
     }
 }

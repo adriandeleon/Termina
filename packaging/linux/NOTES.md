@@ -166,7 +166,7 @@ failed`; `APPIMAGE_EXTRACT_AND_RUN=1` runs it from an extracted copy, which is h
 | Format | Embedded | Checked by | Detached `.asc` |
 | --- | --- | --- | --- |
 | rpm | `rpmsign` header signature | `rpm -K`, dnf, zypper | yes |
-| deb | `debsigs` origin signature (`_gpgorigin`) | `debsig-verify` | yes |
+| deb | origin signature, debsigs' format (`_gpgorigin`) | `debsig-verify` | yes |
 | AppImage | none | — | yes |
 | tar.gz | none | — | yes |
 

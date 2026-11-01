@@ -1032,9 +1032,10 @@ the membership, make a new certificate, and replace the first two secrets in all
 
 The `sign-linux` job in `release.yml` signs both architectures' Linux downloads once the builds are
 done, in a job of its own so the key is never on a runner that builds (those run whatever Maven
-resolves). `scripts/sign-linux-packages.sh` signs the rpm with `rpmsign` and the deb with `debsigs`
-(an `_gpgorigin` member), then writes an armoured `<file>.asc` beside all four formats — the only
-signature the AppImage and the tarball carry, since appimagetool can embed one only while it builds.
+resolves). `scripts/sign-linux-packages.sh` signs the rpm with `rpmsign` and the deb with an origin
+signature in debsigs' format (an `_gpgorigin` member; debsigs itself skips `.xz` members), then
+writes an armoured `<file>.asc` beside all four formats — the only signature the AppImage and the
+tarball carry, since appimagetool can embed one only while it builds.
 `scripts/check-linux-signatures.sh` then checks every signature against the public key alone, with
 `gpgv`, `rpmkeys` and `debsig-verify`. The job replaces the build artifacts with the signed files,
 so the publish job attests and attaches only those, with `termina-signing-key.asc` beside them.

@@ -82,11 +82,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         # fakeroot and rpm for the bundlers; xvfb so AOT training (during the build) and the smoke
         # test have a display; desktop-file-utils, cpio and appstream for the package checks;
-        # debsigs and debsig-verify for signing the deb and checking it. rpm carries rpmsign.
+        # debsig-verify for checking the deb's signature. rpm carries rpmsign.
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq fakeroot rpm binutils xvfb desktop-file-utils cpio appstream \
-            debsigs debsig-verify
+            debsig-verify
 
       - name: Package
         shell: bash
@@ -153,7 +153,7 @@ jobs:
         run: bash scripts/smoke-test.sh "$(ls target/installers/*.AppImage)" "$RUNNER_TEMP/smoke-appimage"
 
       # The release's signing step, run with a key made for this job and thrown away with it, so a
-      # change that breaks rpmsign, debsigs or the checks is found here and not on release day.
+      # change that breaks rpmsign, the deb signature or the checks is found here and not on release day.
       - name: Sign the Linux packages with a throw-away key
         if: matrix.os == 'ubuntu-latest'
         shell: bash

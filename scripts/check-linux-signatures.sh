@@ -4,7 +4,7 @@
 # and the deb carries an origin signature over its own contents. Nothing here trusts the keyring
 # that did the signing — a check run there would pass on a signature by any key it holds.
 #
-# Needs gpgv, rpmkeys and ar; debsig-verify if installed.
+# Needs gpgv, rpm, rpmkeys and ar; debsig-verify if installed.
 #
 # Usage: check-linux-signatures.sh <public-key> <dir>...
 set -euo pipefail
@@ -27,7 +27,7 @@ echo "Checking against $fpr"
 
 # rpm keeps its keys in its own database; this one holds only ours.
 mkdir -p "$work/rpmdb"
-rpmkeys --define "_dbpath $work/rpmdb" --initdb
+rpm --define "_dbpath $work/rpmdb" --initdb
 rpmkeys --define "_dbpath $work/rpmdb" --import "$key"
 
 # debsig-verify reads a policy naming the key, under the key's id, from directories it is pointed at.
@@ -72,7 +72,7 @@ for dir in "$@"; do
         name=$(basename "$deb")
         ar t "$deb" > "$work/members.txt"
         grep -qx _gpgorigin "$work/members.txt" || fail "$name has no embedded origin signature"
-        # debsigs signs the three members dpkg reads, concatenated in archive order.
+        # The origin signature covers the three members dpkg reads, concatenated in archive order.
         rm -rf "$work/deb" && mkdir "$work/deb"
         (cd "$work/deb" && ar x "$deb")
         members=()
