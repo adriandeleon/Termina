@@ -127,6 +127,12 @@ Each of these cost real time, and none of them announces itself.
   (extracted from jars at run time) and are declared by hand in `build-installers.sh`. The deb's
   `postinst`/`prerm` and the rpm's spec are overrides of jpackage's templates — keep its tokens.
   All in `packaging/linux/NOTES.md`; `scripts/check-linux-packages.sh` asserts it.
+- **GNOME Software matches a listing to a package by who owns the metainfo file.** The 0.13.0 deb's
+  `postinst` copied it into `/usr/share/metainfo`, so it belonged to no package, and Software showed
+  the bare package — "termina", a generic icon, Unknown License, no description — while
+  `appstreamcli get` read the listing perfectly. The deb is now rebuilt after jpackage with the
+  metainfo and the icon as its own files (`build-installers.sh`, `own_in_deb`). Anything else that
+  must be found by its owner goes in the same way, not through a maintainer script.
 - **Full-screen geometry cannot be diagnosed from inside the app on Wayland.** JavaFX has no
   Wayland backend, so it runs through XWayland, and under GNOME's fractional scaling (and its
   experimental `xwayland-native-scaling`) the compositor's idea of the surface and JavaFX's disagree.
@@ -425,8 +431,8 @@ plugin) in the main compile. The setup is Editora's, so the rules below are the 
 
 ## Not done
 
-Windows and Linux are **unrun** — including `-Pdist`. Installers are not built and nothing is
-signed. Key bindings have no multi-key sequences; no images or ligatures. See `CHANGELOG.md` for the
+Windows and Linux are **unrun** — including `-Pdist`. The Windows MSI is unsigned; the macOS dmgs
+are notarized and the Linux downloads OpenPGP-signed. Key bindings have no multi-key sequences; no images or ligatures. See `CHANGELOG.md` for the
 current list.
 
 **Windows' directory read (`pty.WindowsCwd`) has never run on Windows**, nor has the PowerShell

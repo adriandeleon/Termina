@@ -5,15 +5,29 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+### Added
+
+- **Linux AppImage and tarball.** Each release carries a `.AppImage` and a `.tar.gz` for x64 and
+  arm64 beside the deb and rpm, for distributions with neither package manager and for users
+  without root.
+- **The Linux downloads are signed.** Every one has an OpenPGP signature beside it (`.asc`), by the
+  key attached to the release and committed as `packaging/linux/signing-key.asc`; the rpm and the
+  deb are signed inside as well, for `rpm -K`, `dnf` and `debsig-verify`.
+
 ### Changed
 
 - **The macOS app is signed and notarized.** Both dmgs (Apple Silicon and Intel) are now signed with
   a Developer ID certificate and notarized by Apple, so Termina opens on first launch with no
   Gatekeeper warning and no trip to System Settings → Privacy & Security, and the Homebrew cask no
-  longer carries that caveat. The Windows and Linux packages are still unsigned.
+  longer carries that caveat. The Windows MSI is still unsigned.
 
 ### Fixed
 
+- **GNOME Software showed the deb as a bare package**: "termina", a generic icon, Unknown License
+  and the one-line summary twice. Software ties a listing to its package by asking which package
+  owns the metainfo file, and the deb's was copied in by its install script, so it belonged to none.
+  The deb now owns its metainfo and an icon in the theme, the metainfo names its package, and the
+  releases in it carry notes, so Software shows the description, the MIT licence and the icon.
 - **Ctrl+click opens the URLs in Markdown links** (Cmd+click on macOS). A URL was recognised only
   at the start of a word, so `[docs](https://…)` read as a file path that did not exist and the
   click did nothing. A badge's `[![CI](…/badge.svg)](…/ci.yml)` is now two links.

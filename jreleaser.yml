@@ -136,11 +136,25 @@ distributions:
         branchPush: 'termina-{{projectVersion}}'
 
 # Attached to the release, but not fed to any packager: Intel macOS has no cask of its own (a cask
-# takes one zip) and Linux has no packager configured yet.
+# takes one zip) and Linux has no packager configured yet. Each Linux download has its detached
+# signature beside it (release.yml, sign-linux), and the key that made them is attached too.
 files:
   artifacts:
     - path: 'artifacts/Termina-{{projectVersion}}-macos-x64.dmg'
     - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.deb'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.deb.asc'
     - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.rpm'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.rpm.asc'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.AppImage'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.AppImage.asc'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.tar.gz'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-x64.tar.gz.asc'
     - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.deb'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.deb.asc'
     - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.rpm'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.rpm.asc'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.AppImage'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.AppImage.asc'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.tar.gz'
+    - path: 'artifacts/Termina-{{projectVersion}}-linux-arm64.tar.gz.asc'
+    - path: 'artifacts/termina-signing-key.asc'

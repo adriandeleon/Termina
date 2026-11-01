@@ -266,6 +266,15 @@ jobs:
         shell: bash
         run: bash scripts/check-linux-packages.sh target/installers branding/termina.png
 
+      # Through AppRun and the AppImage runtime, which the image's own smoke test never reaches.
+      # Extracted rather than mounted: the runner has no FUSE.
+      - name: Smoke-test the AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: bash scripts/smoke-test.sh "$(ls target/installers/*.AppImage)" "$RUNNER_TEMP/smoke-appimage"
+
       # jpackage names its output after the version it was given, which on macOS is the bumped
       # placeholder (1.1.0 for a 0.1.0 release) and everywhere else carries no target. Renaming to
       # one scheme is what makes four platforms' downloads legible on a single release page.
@@ -279,7 +288,10 @@ jobs:
           shopt -s nullglob
           produced=0
           for file in *; do
-            ext="${file##*.}"
+            case "$file" in
+              *.tar.gz) ext=tar.gz ;;
+              *)        ext="${file##*.}" ;;
+            esac
             mv -v "$file" "Termina-$version-${{ matrix.target }}.$ext"
             produced=$((produced + 1))
           done
@@ -303,10 +315,93 @@ jobs:
         shell: bash
         run: security delete-keychain "$RUNNER_TEMP/termina-signing.keychain-db" || true
 
+  # Signs the Linux downloads (scripts/sign-linux-packages.sh): rpm and deb embedded, and a detached
+  # .asc beside every file. In a job of its own so the key is never on a runner that builds — those
+  # run whatever Maven resolves — and once for both architectures, since a signature does not care
+  # which one it covers. It replaces the build job's artifacts with the signed files, so the publish
+  # job and its provenance attestation see only those. The secrets: README, "Linux signing".
+  #
+  # On a tag the key is required, and must be the committed packaging/linux/signing-key.asc. A manual
+  # dry run without it signs with a key made for the run, so the step is still exercised, and says so.
+  sign-linux:
+    name: Sign Linux packages
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Signing tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rpm debsigs debsig-verify
+
+      # One directory per artifact: linux/Termina-linux-x64, linux/Termina-linux-arm64.
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Termina-linux-*
+          path: linux
+
+      - name: Sign
+        shell: bash
+        env:
+          LINUX_GPG_KEY: ${{ secrets.LINUX_GPG_KEY }}
+          LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -n "$LINUX_GPG_KEY" ]; then
+            export TERMINA_GPG_KEY="$LINUX_GPG_KEY" TERMINA_GPG_PASSPHRASE="$LINUX_GPG_PASSPHRASE"
+            if [ "$GITHUB_REF_TYPE" = "tag" ] || [ -f packaging/linux/signing-key.asc ]; then
+              export TERMINA_GPG_EXPECTED_KEY=packaging/linux/signing-key.asc
+            fi
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "::error title=Linux signing key missing::LINUX_GPG_KEY is not set; refusing to release unsigned Linux packages"
+            exit 1
+          else
+            echo "::warning title=Linux packages signed with a throw-away key::no LINUX_GPG_KEY, so this dry run signs with a key made for it"
+            export GNUPGHOME="$RUNNER_TEMP/throwaway-gnupg"
+            mkdir -m 700 "$GNUPGHOME"
+            gpg --batch --pinentry-mode loopback --passphrase '' --quick-gen-key 'Termina dry run <dry-run@termina.invalid>' rsa4096 sign 1d
+            TERMINA_GPG_KEY="$(gpg --batch --armor --export-secret-keys)"
+            export TERMINA_GPG_KEY
+            unset GNUPGHOME
+          fi
+          mkdir -p key
+          bash scripts/sign-linux-packages.sh key/termina-signing-key.asc linux/*/
+          bash scripts/check-linux-signatures.sh key/termina-signing-key.asc linux/*/
+          ls -la linux/*/
+          fpr=$(gpg --with-colons --import-options show-only --import key/termina-signing-key.asc | awk -F: '$1 == "fpr" { print $10; exit }')
+          echo "- ✅ Linux: signed with \`$fpr\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed (linux-x64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Termina-linux-x64
+          path: linux/Termina-linux-x64/*
+          overwrite: true
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload signed (linux-arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Termina-linux-arm64
+          path: linux/Termina-linux-arm64/*
+          overwrite: true
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload the public key
+        uses: actions/upload-artifact@v4
+        with:
+          name: Termina-signing-key
+          path: key/termina-signing-key.asc
+          retention-days: 14
+          if-no-files-found: error
+
   release:
     name: Publish
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, sign-linux]
     # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
     if: github.ref_type == 'tag'
     # The only job that writes: contents for the release itself, and id-token plus attestations

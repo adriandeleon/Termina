@@ -26,7 +26,6 @@ DESKTOP_SCRIPTS
 LAUNCHER_AS_SERVICE_SCRIPTS
 
 termina_launcher=/opt/termina/bin/Termina
-termina_metainfo=io.github.adriandeleon.Termina.metainfo.xml
 
 # Only on the way out, not on an upgrade: the new postinst puts the same things back, and dropping
 # the alternative in between would lose a user's choice of Termina as the default terminal.
@@ -36,7 +35,6 @@ termina_disintegrate ()
     if [ -L /usr/bin/termina ] && [ "$(readlink /usr/bin/termina)" = "$termina_launcher" ]; then
         rm -f /usr/bin/termina
     fi
-    rm -f /usr/share/metainfo/"$termina_metainfo"
 }
 
 case "$1" in

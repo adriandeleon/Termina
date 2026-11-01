@@ -1,7 +1,8 @@
 # jpackage's own spec template (JDK 25, template.spec) with Termina's system integration added to
-# install: `termina` on PATH and the AppStream listing, as files the package owns. Everything else,
-# and every token, is jpackage's and is substituted exactly as in the stock spec. Comments here must
-# not contain a percent sign: rpm expands macros inside comments. See packaging/linux/NOTES.md.
+# install: `termina` on PATH, the AppStream listing and the icon it and the menu entry name, as files
+# the package owns. Everything else, and every token, is jpackage's and is substituted exactly as in
+# the stock spec. Comments here must not contain a percent sign: rpm expands macros inside comments.
+# See packaging/linux/NOTES.md.
 Summary: APPLICATION_SUMMARY
 Name: APPLICATION_PACKAGE
 Version: APPLICATION_VERSION
@@ -63,6 +64,7 @@ fi
 install -d -m 755 %{buildroot}/usr/bin
 ln -sfn APPLICATION_DIRECTORY/bin/Termina %{buildroot}/usr/bin/termina
 install -D -m 644 %{_sourcedir}APPLICATION_DIRECTORY/lib/io.github.adriandeleon.Termina.metainfo.xml %{buildroot}/usr/share/metainfo/io.github.adriandeleon.Termina.metainfo.xml
+install -D -m 644 %{_sourcedir}APPLICATION_DIRECTORY/lib/Termina.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/io.github.adriandeleon.Termina.png
 %if "xAPPLICATION_LICENSE_FILE" != "x"
   %define license_install_file %{_defaultlicensedir}/%{name}-%{version}/%{basename:APPLICATION_LICENSE_FILE}
   install -d -m 755 "%{buildroot}%{dirname:%{license_install_file}}"

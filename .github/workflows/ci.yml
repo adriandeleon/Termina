@@ -81,10 +81,12 @@ jobs:
       - name: Installer prerequisites
         if: matrix.os == 'ubuntu-latest'
         # fakeroot and rpm for the bundlers; xvfb so AOT training (during the build) and the smoke
-        # test have a display; desktop-file-utils, cpio and appstream for the package checks.
+        # test have a display; desktop-file-utils, cpio and appstream for the package checks;
+        # debsigs and debsig-verify for signing the deb and checking it. rpm carries rpmsign.
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq fakeroot rpm binutils xvfb desktop-file-utils cpio appstream
+          sudo apt-get install -y -qq fakeroot rpm binutils xvfb desktop-file-utils cpio appstream \
+            debsigs debsig-verify
 
       - name: Package
         shell: bash
@@ -134,9 +136,34 @@ jobs:
 
       # Each of these once failed silently — a desktop entry jpackage replaced, a stock Java icon, a
       # dependency that exists only on the newest distributions — so they are asserted against the
-      # real .deb and .rpm rather than the source files. Uses what the Package step built.
-      # Rebuilding here fails outright: jpackage refuses to write over an existing image.
+      # real .deb, .rpm, AppImage and tarball rather than the source files. Uses what the Package
+      # step built. Rebuilding here fails outright: jpackage refuses to write over an existing image.
       - name: Check the Linux packages
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: bash scripts/check-linux-packages.sh target/installers branding/termina.png
+
+      # The AppImage starts the image from a mount of its own, through AppRun, which the smoke test
+      # of the image above never goes near. Extracted rather than mounted: the runner has no FUSE.
+      - name: Smoke-test the AppImage
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: bash scripts/smoke-test.sh "$(ls target/installers/*.AppImage)" "$RUNNER_TEMP/smoke-appimage"
+
+      # The release's signing step, run with a key made for this job and thrown away with it, so a
+      # change that breaks rpmsign, debsigs or the checks is found here and not on release day.
+      - name: Sign the Linux packages with a throw-away key
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/throwaway-gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          gpg --batch --pinentry-mode loopback --passphrase '' --quick-gen-key 'Termina CI <ci@termina.invalid>' rsa4096 sign 1d
+          TERMINA_GPG_KEY="$(gpg --batch --armor --export-secret-keys)"
+          export TERMINA_GPG_KEY
+          unset GNUPGHOME
+          bash scripts/sign-linux-packages.sh "$RUNNER_TEMP/ci-key.asc" target/installers
+          bash scripts/check-linux-signatures.sh "$RUNNER_TEMP/ci-key.asc" target/installers

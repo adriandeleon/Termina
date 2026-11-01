@@ -25,7 +25,6 @@ package_type=deb
 LAUNCHER_AS_SERVICE_SCRIPTS
 
 termina_launcher=/opt/termina/bin/Termina
-termina_metainfo=io.github.adriandeleon.Termina.metainfo.xml
 
 termina_integrate ()
 {
@@ -40,11 +39,6 @@ termina_integrate ()
     # already has. `update-alternatives --config x-terminal-emulator` picks it.
     update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator \
         "$termina_launcher" 20
-
-    # Listed in GNOME Software and KDE Discover once installed.
-    mkdir -p /usr/share/metainfo
-    cp /opt/termina/lib/"$termina_metainfo" /usr/share/metainfo/"$termina_metainfo"
-    chmod 644 /usr/share/metainfo/"$termina_metainfo"
 }
 
 case "$1" in
