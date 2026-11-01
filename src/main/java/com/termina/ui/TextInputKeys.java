@@ -7,6 +7,8 @@ import java.util.function.Consumer;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.input.KeyEvent;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Emacs caret movement and basic editing in a plain {@link TextInputControl} — the palette's query
  * field.
@@ -61,6 +63,15 @@ final class TextInputKeys {
         install(control, MAC);
     }
 
+    /**
+     * The edit for a chord token, or null. A modifier pressed on its own (Ctrl, Shift) has no token,
+     * and {@code Map.ofEntries} throws on a null key rather than answering null: without this check
+     * every bare Ctrl press in the field logged a NullPointerException.
+     */
+    static @Nullable Consumer<TextInputControl> actionFor(@Nullable String chord) {
+        return chord == null ? null : EMACS.get(chord);
+    }
+
     /** Package-visible so both platform branches are testable; {@link #MAC} is read once at load. */
     static void install(TextInputControl control, boolean mac) {
         boolean[] consumed = {false};
@@ -72,7 +83,7 @@ final class TextInputKeys {
                 consumed[0] = true;
                 return;
             }
-            Consumer<TextInputControl> action = EMACS.get(KeyChord.of(e));
+            Consumer<TextInputControl> action = actionFor(KeyChord.of(e));
             if (action != null) {
                 action.accept(control);
                 e.consume();
