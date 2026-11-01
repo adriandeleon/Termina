@@ -3,7 +3,11 @@
 Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
 1.0.0 the minor number moves for anything user-visible.
 
-## Unreleased
+## 0.14.0 — 2026-10-31
+
+Signed and notarized macOS dmgs, signed Linux downloads, an AppImage and a tarball, a proper GNOME
+Software listing, and Ctrl+click on the URLs in Markdown links. New downloads and new behaviour, so
+the minor number moves.
 
 ### Added
 
