@@ -79,6 +79,10 @@ build_tarball() {
     echo "[installers] tar.gz OK"
 }
 
+sha256_of() {
+    sha256sum "$1" | cut -d' ' -f1
+}
+
 # appimagetool and the runtime it prepends, pinned by version and hash: each is a binary run on, or
 # shipped inside, every AppImage. Kept in the user's cache, checked on every use.
 appimage_tool() {
@@ -86,9 +90,13 @@ appimage_tool() {
     cache="${XDG_CACHE_HOME:-$HOME/.cache}/termina-build"
     file="$cache/$sum-$name"
     mkdir -p "$cache"
-    if ! echo "$sum  $file" | sha256sum --check --status 2>/dev/null; then
-        curl --fail --silent --show-error --location --output "$file.part" "$url"
-        echo "$sum  $file.part" | sha256sum --check --quiet ||
+    # Everything this prints to stdout is the path, so the hash is compared here rather than with
+    # `sha256sum --check --status`: the uutils sha256sum on Ubuntu 26.04 prints "FAILED open or
+    # read" to stdout for a missing file despite --status, and the first build on a fresh cache ran
+    # that line as the tool.
+    if [ ! -f "$file" ] || [ "$(sha256_of "$file")" != "$sum" ]; then
+        curl --fail --silent --show-error --location --output "$file.part" "$url" >&2
+        [ "$(sha256_of "$file.part")" = "$sum" ] ||
             { echo "::error::[installers] $name from $url does not match its pinned hash" >&2; return 1; }
         mv "$file.part" "$file"
     fi

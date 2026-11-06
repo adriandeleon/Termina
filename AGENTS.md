@@ -261,6 +261,11 @@ Each of these cost real time, and none of them announces itself.
   leaves the button overlay drawn over the terminal, because the overlay belongs to the stage. It
   goes with `HeaderBar.setSystemButtonHeight(stage, 0)` (`placeHeaderBar`). `systemInsets` reads
   `0x0` in full screen whether the buttons are drawn or not, so only an X screenshot shows them.
+  **The buttons' light or dark style is the scene's `Preferences.colorScheme`**, which defaults to
+  the desktop's, so every window's scene is set from the theme (`ThemeEntry.colorScheme`; terminal
+  windows per active pane, the rest through a `Window.getWindows()` listener in `WindowManager`).
+  Only the *active* window shows the difference: inactive glyphs are `#777` in both styles. The
+  same preference is the native frame's dark variant on Windows and macOS; GTK ignores it.
 - **`scripts/dev-run.sh` refreshes `target/deps` from empty.** `copy-dependencies` adds and never
   removes, so a version bump left both JavaFX jars there, both declaring the same module, and the
   old one won: the code compiled against 27 and ran against 26, failing on the first 27-only API.

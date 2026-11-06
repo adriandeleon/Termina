@@ -66,6 +66,32 @@ public final class WindowManager {
         profiles.discoverInBackground(found -> {});
         settings.addOnChange(this::applySettingsEverywhere);
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
+        // A window joins this list as it is shown, before its first frame: the one place that
+        // catches every window — settings, About, a confirmation dialog — however it was made.
+        Window.getWindows().addListener((javafx.collections.ListChangeListener<Window>) change -> {
+            javafx.application.ColorScheme scheme =
+                    Themes.byId(settings.themeId()).colorScheme();
+            while (change.next()) {
+                for (Window added : change.getAddedSubList()) applyColorScheme(added, scheme);
+            }
+        });
+    }
+
+    /**
+     * Tells a window's scene whether the theme is light or dark. JavaFX draws the buttons of an
+     * extended title bar and picks the native frame's variant from the scene's colour scheme, and
+     * that defaults to the desktop's — so a dark theme on a light desktop had dark grey buttons on a
+     * dark header, and on Windows and macOS a light dialog would get a dark frame. A terminal window
+     * sets its own, from the pane in use (its profile may name another theme); a popup has no frame.
+     */
+    private void applyColorScheme(Window window, javafx.application.ColorScheme scheme) {
+        if (window instanceof javafx.stage.PopupWindow) return;
+        javafx.scene.Scene scene = window.getScene();
+        if (scene == null) return;
+        for (TerminalWindow terminal : windows) {
+            if (terminal.stage() == window) return;
+        }
+        scene.getPreferences().setColorScheme(scheme);
     }
 
     private boolean anyWindowFocused() {
@@ -199,6 +225,7 @@ public final class WindowManager {
         // The user-agent stylesheet is application-wide, so this restyles every window at once —
         // including the settings window that is probably the one being used to change it.
         Application.setUserAgentStylesheet(theme.stylesheet());
+        for (Window open : List.copyOf(Window.getWindows())) applyColorScheme(open, theme.colorScheme());
         for (TerminalWindow window : List.copyOf(windows)) window.applySettings();
     }
 

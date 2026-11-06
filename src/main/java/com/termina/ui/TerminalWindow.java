@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javafx.application.ColorScheme;
 import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
@@ -295,6 +294,8 @@ public final class TerminalWindow {
                 }));
         ThemeEntry theme = Themes.byId(settings.themeId());
         scene.setFill(theme.palette().background());
+        // Before the first frame, so the title bar is never drawn in the desktop's scheme first.
+        scene.getPreferences().setColorScheme(theme.colorScheme());
         var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
         if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
         Fonts.installUiFont(scene);
@@ -3356,12 +3357,14 @@ public final class TerminalWindow {
     private void applyWindowTheme() {
         TerminalView active = activeTerminal();
         ThemeEntry theme = active == null ? Themes.byId(settings.themeId()) : themeOf(active);
-        if (stage.getScene() != null) stage.getScene().setFill(theme.palette().background());
-        // The window buttons are drawn by JavaFX where the platform does not provide them, and
-        // they follow the scene's colour scheme unless told otherwise. The scene's is the OS's,
-        // not ours — a dark theme on a light desktop would get dark glyphs on a dark header.
-        if (headerBar != null)
-            HeaderBar.setSystemColorScheme(stage, theme.isDark() ? ColorScheme.DARK : ColorScheme.LIGHT);
+        Scene scene = stage.getScene();
+        if (scene != null) {
+            scene.setFill(theme.palette().background());
+            // The window buttons JavaFX draws in a header bar, and the native frame's variant
+            // otherwise, follow this. Unset it is the desktop's, not the theme's. Per window rather
+            // than WindowManager's app-wide one, because it follows the pane being worked in.
+            scene.getPreferences().setColorScheme(theme.colorScheme());
+        }
         for (Tab tab : tabs.getTabs()) {
             TabMarkState marks = marksOf(tab);
             TerminalView pane = terminalOf(tab);

@@ -48,6 +48,17 @@ public final class ThemeEntry {
         return palette;
     }
 
+    /**
+     * What a window drawn in this theme tells JavaFX it is, through its scene's preferences. JavaFX
+     * styles what it draws itself from that — the window buttons of an extended title bar, and on
+     * Windows and macOS the native frame's light or dark variant — and left alone it is the
+     * desktop's setting, not ours: a dark theme on a light desktop got dark grey buttons on a dark
+     * header.
+     */
+    public javafx.application.ColorScheme colorScheme() {
+        return dark ? javafx.application.ColorScheme.DARK : javafx.application.ColorScheme.LIGHT;
+    }
+
     /** Whether it ships with Termina, rather than having been imported — and so cannot be removed. */
     public boolean isBuiltIn() {
         return file == null;
