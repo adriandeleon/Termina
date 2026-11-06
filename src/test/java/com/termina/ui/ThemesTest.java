@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import javafx.application.ColorScheme;
 import javafx.scene.paint.Color;
 
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +46,17 @@ class ThemesTest {
         assertEquals(Color.web("#282a36"), Themes.byId("user-dracula").palette().background());
         assertTrue(Themes.byId("user-dracula").isDark());
         assertNotNull(Themes.byId("user-dracula").palette().selection());
+    }
+
+    @Test
+    void windowsAreToldTheThemesSchemeNotTheDesktops() throws Exception {
+        assertEquals(ColorScheme.DARK, ThemeEntry.of(Theme.EDITORA_DARK).colorScheme());
+        assertEquals(ColorScheme.LIGHT, ThemeEntry.of(Theme.EDITORA_LIGHT).colorScheme());
+        assertEquals(ColorScheme.LIGHT, ThemeEntry.of(Theme.CLEAR_LIGHT).colorScheme());
+        // An imported scheme has no declared side: it is decided from the background it draws.
+        Themes.useDirectory(config.resolve("themes"));
+        Themes.importFile(fixture("Dracula.itermcolors"));
+        assertEquals(ColorScheme.DARK, Themes.byId("user-dracula").colorScheme());
     }
 
     @Test

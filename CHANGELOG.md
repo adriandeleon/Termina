@@ -14,6 +14,11 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   downloaded package; the listing, with the icon, licence and release notes, is on Termina's page
   under Installed.
 - **0.14.0 has release notes in Software.** Its page said "No details for this release".
+- **Every window tells the system whether the theme is light or dark.** Only a terminal window
+  with the menu bar in its title bar was told, and only its buttons; the rest — an ordinary
+  terminal window, Settings, About, Keyboard Shortcuts, confirmation dialogs — reported the
+  desktop's setting, which is what JavaFX picks a native frame's dark variant from on Windows and
+  macOS. On Linux the native frame follows the desktop whatever the app says.
 
 ## 0.14.0 — 2026-10-31
 
