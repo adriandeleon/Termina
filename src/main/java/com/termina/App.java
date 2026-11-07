@@ -34,7 +34,8 @@ public final class App extends Application {
             System.exit(0);
         }
         if (cli.version()) {
-            System.out.println(AppInfo.NAME + " " + AppInfo.VERSION);
+            // The first line stays "Termina <version>", which is what anything parsing it reads.
+            AppInfo.details().forEach(System.out::println);
             System.exit(0);
         }
 

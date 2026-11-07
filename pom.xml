@@ -19,6 +19,12 @@
              filtered into a resource directly. -->
         <maven.build.timestamp.format>yyyy-MM-dd HH:mm 'UTC'</maven.build.timestamp.format>
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
+        <!-- The edition of the Pauta guidelines (https://pauta-project.dev) this app is built to.
+             One number, filtered into build-info.properties: About, the version option, AGENTS.md and the
+             README badge all name it. Moving to a newer edition is its own change — read that
+             edition's changelog for new MUSTs, meet them, then change this, AGENTS.md and the
+             README together. docs/pauta-audit-*.md records what is still unmet. -->
+        <pauta.version>2.0.2</pauta.version>
 
         <javafx.version>27.0.1</javafx.version>
         <spotless.version>3.10.4</spotless.version>

@@ -17,15 +17,17 @@ permissions:
   contents: read
 
 concurrency:
-  # A newer push supersedes an older one on the same branch; nothing is learned from finishing a run
-  # against code that has already been replaced.
+  # A newer push supersedes an older one on the same pull request; nothing is learned from finishing
+  # a run against code that has already been replaced. Never on master (REL-26, Pauta 2.0.2): each
+  # of its commits keeps its own result, so a break can be pinned to the commit that made it.
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       # One platform failing must not cancel the others: which platforms are affected is usually
       # the most useful thing about the failure.
@@ -34,10 +36,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '25'
@@ -47,29 +49,58 @@ jobs:
         run: ./mvnw -B --no-transfer-progress verify
         shell: bash
 
+      # Even when the tests pass (REL-27, Pauta 2.0.2): a flaky test is found by reading the
+      # reports of the runs that passed as well as the one that did not.
       - name: Upload test reports
-        # Only the failures matter here, and only then.
-        if: failure()
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: surefire-${{ matrix.os }}
           path: target/surefire-reports/
           retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload the coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jacoco-${{ matrix.os }}
+          path: target/site/jacoco/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # The totals from JaCoCo's CSV, on the run's summary page, so a drop is seen without
+      # downloading anything.
+      - name: Coverage summary
+        if: always()
+        shell: bash
+        run: |
+          csv=target/site/jacoco/jacoco.csv
+          if [ ! -f "$csv" ]; then echo "No coverage report for ${{ matrix.os }}." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          awk -F, -v os="${{ matrix.os }}" '
+            function pct(c, m) { return (c + m) == 0 ? "n/a" : sprintf("%.1f%%", 100 * c / (c + m)) }
+            NR > 1 { lm += $8; lc += $9; bm += $6; bc += $7; mm += $12; mc += $13 }
+            END {
+              printf "### Coverage (%s)\n\n| Lines | Branches | Methods |\n|---|---|---|\n| %s | %s | %s |\n",
+                os, pct(lc, lm), pct(bc, bm), pct(mc, mm)
+            }' "$csv" >> "$GITHUB_STEP_SUMMARY"
 
   package:
     name: Package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: test
+    # Packaging trains the AOT cache and, on Linux, builds and checks every installer.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '25'

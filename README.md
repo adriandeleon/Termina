@@ -11,6 +11,7 @@
   <img alt="Java" src="https://img.shields.io/badge/Java-25-orange">
   <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-27-blue">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey">
+  <a href="https://pauta-project.dev/2.0.2/"><img alt="Built to Pauta 2.0.2" src="https://img.shields.io/badge/Pauta-2.0.2-5b6ee1"></a>
 </p>
 
 <p align="center">

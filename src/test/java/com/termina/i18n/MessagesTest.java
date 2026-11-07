@@ -48,6 +48,56 @@ class MessagesTest {
     }
 
     @Test
+    void noValueIsEmpty() throws Exception {
+        // A blank value renders as nothing at all: a button with no label, a row with no title.
+        // INTL-08 (Pauta 2.0.2) counts it as missing.
+        java.util.List<String> empty = new java.util.ArrayList<>();
+        for (String lang : Messages.available().keySet()) {
+            Properties theirs = catalogue(lang);
+            for (String key : theirs.stringPropertyNames()) {
+                if (theirs.getProperty(key).isBlank()) empty.add(lang + " " + key);
+            }
+        }
+        assertEquals(java.util.List.of(), empty);
+    }
+
+    /**
+     * The {@code menu.*} titles that are not commands, so have no palette row to describe: the
+     * menus themselves, a submenu, a label the update check rewrites, and items that live only on a
+     * right-click menu. The last group is a gap rather than a choice (KBD-01, Pauta 2.0.2); a key
+     * leaves this list when its item becomes a command, and then needs its {@code .desc}.
+     */
+    private static final Set<String> NOT_COMMANDS = Set.of(
+            "menu.file",
+            "menu.edit",
+            "menu.view",
+            "menu.window",
+            "menu.help",
+            "menu.zoom",
+            "menu.newTabProfile",
+            "menu.updateAvailable",
+            "menu.closeOtherTabs",
+            "menu.closeTabsToTheRight",
+            "menu.openLink",
+            "menu.copyLinkAddress",
+            "menu.configureProfiles");
+
+    @Test
+    void everyCommandTitleHasADescription() throws Exception {
+        // The palette shows the description under the highlighted row; a command without one shows
+        // a blank line where the explanation should be (DOCS-09, KBD-03, Pauta 2.0.2).
+        Properties english = catalogue("en");
+        Set<String> undescribed = new TreeSet<>();
+        for (String key : english.stringPropertyNames()) {
+            if (!key.startsWith("menu.") || key.indexOf('.', "menu.".length()) >= 0) continue;
+            if (NOT_COMMANDS.contains(key)) continue;
+            if (english.getProperty(key + ".desc") == null) undescribed.add(key);
+        }
+        assertEquals(Set.of(), undescribed);
+        for (String key : NOT_COMMANDS) assertTrue(english.containsKey(key), key + " is no longer in the catalogue");
+    }
+
+    @Test
     void everyApostropheIsWrittenTheWayItsValueIsRead() {
         // A value with a placeholder is a MessageFormat pattern and wants '' for an apostrophe; one
         // without is plain text and shows '' as two. French showed "n''est" in four places because

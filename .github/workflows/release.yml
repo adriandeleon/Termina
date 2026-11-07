@@ -17,10 +17,18 @@ on:
 permissions:
   contents: read
 
+# One release run per ref at a time, and never cancelled: a half-finished release can leave a tag
+# with some of its downloads attached, and GitHub releases are immutable.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    # The macOS legs include notarization, whose own step allows 35 minutes.
+    timeout-minutes: 90
     outputs:
       version: ${{ steps.version.outputs.version }}
     strategy:
@@ -39,10 +47,10 @@ jobs:
             target: windows-x64
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '25'
@@ -302,7 +310,7 @@ jobs:
           ls -la
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Termina-${{ matrix.target }}
           path: target/installers/*
@@ -327,8 +335,9 @@ jobs:
     name: Sign Linux packages
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Signing tools
         run: |
@@ -336,7 +345,7 @@ jobs:
           sudo apt-get install -y -qq rpm debsig-verify
 
       # One directory per artifact: linux/Termina-linux-x64, linux/Termina-linux-arm64.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: Termina-linux-*
           path: linux
@@ -373,7 +382,7 @@ jobs:
           echo "- ✅ Linux: signed with \`$fpr\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed (linux-x64)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Termina-linux-x64
           path: linux/Termina-linux-x64/*
@@ -382,7 +391,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload signed (linux-arm64)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Termina-linux-arm64
           path: linux/Termina-linux-arm64/*
@@ -391,7 +400,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload the public key
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Termina-signing-key
           path: key/termina-signing-key.asc
@@ -402,6 +411,7 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     needs: [build, sign-linux]
+    timeout-minutes: 30
     # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
     if: github.ref_type == 'tag'
     # The only job that writes: contents for the release itself, and id-token plus attestations
@@ -411,19 +421,19 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           # JReleaser reads the git history to build the changelog, and warns that a shallow copy
           # may fail. The default checkout is depth 1.
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
           merge-multiple: true
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '25'
@@ -434,7 +444,7 @@ jobs:
       # A signed statement, kept by GitHub, that each installer was built by this workflow from this
       # commit. `gh attestation verify <file> --repo adriandeleon/Termina` checks a download.
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'artifacts/*'
 
@@ -461,7 +471,7 @@ jobs:
       # to this repository, the Homebrew tap and the winget fork. The JReleaser it downloads is
       # pinned too — the action's default is whatever was released last. Bump both deliberately.
       - name: Publish release
-        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # 2.5.0
+        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # v2.5.0
         with:
           version: 1.26.0
           arguments: ${{ steps.packagers.outputs.args }}
@@ -479,7 +489,7 @@ jobs:
       - name: Upload JReleaser output
         # The trace is the only way to tell a packager that was skipped from one that failed.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: jreleaser-logs
           path: |

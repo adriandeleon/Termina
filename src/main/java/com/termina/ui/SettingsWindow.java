@@ -384,15 +384,14 @@ public final class SettingsWindow {
      * held the user's profiles, and "put the font back" is what most people mean by it.
      */
     private void confirmReset() {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.initOwner(stage);
-        confirm.setTitle(tr("settings.reset"));
-        confirm.setHeaderText(tr("settings.reset.confirmTitle"));
-        confirm.setContentText(tr("settings.reset.confirmDetail"));
-        ButtonType resetButton = new ButtonType(tr("settings.reset.confirm"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-        confirm.getButtonTypes().setAll(resetButton, cancel);
-        if (confirm.showAndWait().orElse(cancel) != resetButton) return;
+        if (!Confirm.ask(
+                stage,
+                tr("settings.reset"),
+                tr("settings.reset.confirmTitle"),
+                tr("settings.reset.confirmDetail"),
+                tr("settings.reset.confirm"))) {
+            return;
+        }
         // One reload, here: the write's own broadcast is not taken as a reason for another.
         write(settings::resetToDefaults);
         reload();
@@ -824,6 +823,15 @@ public final class SettingsWindow {
     private void removeChosenTheme() {
         ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
         if (chosen == null || chosen.isBuiltIn()) return;
+        // Deletes the imported file, and nothing brings it back but importing it again.
+        if (!Confirm.ask(
+                stage,
+                tr("settings.removeTheme.button"),
+                tr("settings.removeTheme.confirmTitle", chosen.displayName()),
+                tr("settings.removeTheme.confirmDetail"),
+                tr("settings.removeTheme.button"))) {
+            return;
+        }
         try {
             Themes.remove(chosen.id());
             themeImportResult.setText(tr("settings.removeTheme.done", chosen.displayName()));
@@ -1410,15 +1418,14 @@ public final class SettingsWindow {
     }
 
     private void confirmResetKeys() {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.initOwner(stage);
-        confirm.setTitle(tr("settings.keys.resetAll"));
-        confirm.setHeaderText(tr("settings.keys.resetAll.confirmTitle"));
-        confirm.setContentText(tr("settings.keys.resetAll.confirmDetail"));
-        ButtonType reset = new ButtonType(tr("settings.keys.resetAll"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-        confirm.getButtonTypes().setAll(reset, cancel);
-        if (confirm.showAndWait().orElse(cancel) != reset) return;
+        if (!Confirm.ask(
+                stage,
+                tr("settings.keys.resetAll"),
+                tr("settings.keys.resetAll.confirmTitle"),
+                tr("settings.keys.resetAll.confirmDetail"),
+                tr("settings.keys.resetAll"))) {
+            return;
+        }
         writeKeys(Map.of());
     }
 
@@ -1843,6 +1850,14 @@ public final class SettingsWindow {
     private void removeSelectedProfile() {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
+        if (!Confirm.ask(
+                stage,
+                tr("settings.profileRemove"),
+                tr("settings.profileRemove.confirmTitle", selected.name()),
+                tr("settings.profileRemove.confirmDetail"),
+                tr("settings.profileRemove"))) {
+            return;
+        }
         // Its style, the default and the hidden entry go with it: the next profile added may get its id.
         write(() -> profiles.removeUserProfile(selected.id()));
         refreshProfileList();
@@ -2041,7 +2056,16 @@ public final class SettingsWindow {
         syncAccount.getStyleClass().add("settings-row-description");
         syncRemoveCredentials = new Button(tr("settings.sync.removeCredentials"));
         syncRemoveCredentials.setOnAction(e -> {
-            if (sync != null) sync.removeCredentialsFromUrl();
+            // The token in the address may be the only copy the user has of it.
+            if (sync != null
+                    && Confirm.ask(
+                            stage,
+                            tr("settings.sync.removeCredentials"),
+                            tr("settings.sync.removeCredentials.confirmTitle"),
+                            tr("settings.sync.removeCredentials.confirmDetail"),
+                            tr("settings.sync.removeCredentials"))) {
+                sync.removeCredentialsFromUrl();
+            }
         });
         HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway, syncRemoveCredentials);
         VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
