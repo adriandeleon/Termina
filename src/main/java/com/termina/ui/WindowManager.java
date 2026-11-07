@@ -365,8 +365,37 @@ public final class WindowManager {
     /** The Debug Log: a command now, not only a button on the Advanced page (DIAG-03). */
     void showDebugLog(Window from) {
         DebugLogWindow window = debugLogWindow;
-        if (window == null) debugLogWindow = window = new DebugLogWindow(from);
+        if (window == null) debugLogWindow = window = new DebugLogWindow(from, () -> showReportProblem(from));
         window.show();
+    }
+
+    private @Nullable ReportProblemWindow reportWindow;
+
+    /**
+     * Help → Report a Problem (DIAG-06): this session's report, redacted, in a window to read and
+     * edit before the user sends it themselves.
+     */
+    void showReportProblem(Window from) {
+        ReportProblemWindow window = reportWindow;
+        if (window == null) reportWindow = window = new ReportProblemWindow(openLink);
+        window.show(from, currentReport());
+    }
+
+    /** Opens Report a Problem and returns its scene, for the development capture hook. */
+    public javafx.scene.Scene showReportProblemForCapture(Window from) {
+        showReportProblem(from);
+        ReportProblemWindow window = reportWindow;
+        if (window == null) throw new IllegalStateException("not shown");
+        return window.scene();
+    }
+
+    /** What a report would hold now. */
+    com.termina.report.ProblemReport currentReport() {
+        return com.termina.report.ProblemReport.build(
+                com.termina.AppInfo.details(),
+                settings.values(),
+                DebugLog.text(),
+                com.termina.report.Redactor.forThisMachine());
     }
 
     private void notifyUpdateListeners() {

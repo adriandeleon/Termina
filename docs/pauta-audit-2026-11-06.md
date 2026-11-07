@@ -152,6 +152,17 @@ Addressed on 2026-11-07, branch `pinned-tabs`:
   - Pinning moves a tab to the pinned group's boundary.
   - Reopen restores the pin.
 
+Addressed on 2026-11-07, branch `report-problem`:
+
+- **Now met:**
+  - DIAG-06: Help → Report a Problem. `report.ProblemReport` builds the report and `report.Redactor`
+    redacts it, both tested. It is shown editable, copied, and opened as a prefilled
+    `bug_report.yml` issue. Over 7,500 characters the link carries only the environment and the
+    report is pasted.
+  - CLI-05: `termina --report`.
+  - DIAG-03: Report a Problem in the Debug Log window. Export is still open.
+  - SET-15's redaction half: home paths, the user name, addresses, credentials and tokens.
+
 Everything else below stands.
 
 ## Totals

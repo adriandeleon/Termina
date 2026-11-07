@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Termina went wrong. About → Copy details fills in the environment.
+description: Something in Termina went wrong. Help → Report a Problem (or `termina --report`) fills in both fields below.
 labels: ["bug"]
 body:
   - type: textarea
@@ -27,5 +27,5 @@ body:
     id: report
     attributes:
       label: Problem report
-      description: Anything from Settings → Advanced → Show Debug Log… that looks related. Read it before you submit — anything left in it becomes public.
+      description: Filled in by Help → Report a Problem — the settings worth knowing and the end of the Debug Log, with private details taken out. Read it before you submit; anything left in it becomes public.
       render: text

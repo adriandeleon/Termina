@@ -119,4 +119,12 @@ class CommandLineTest {
             assertTrue(usage.contains(option), "usage omits " + option);
         }
     }
+
+    @Test
+    void reportIsAnswerWithoutStartingTheApp() {
+        CommandLine cli = CommandLine.parse("--report");
+        org.junit.jupiter.api.Assertions.assertTrue(cli.report());
+        org.junit.jupiter.api.Assertions.assertFalse(cli.shouldRun(), "--report prints and exits; no window");
+        org.junit.jupiter.api.Assertions.assertTrue(CommandLine.usage("termina").contains("--report"));
+    }
 }

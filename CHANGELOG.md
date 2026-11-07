@@ -13,6 +13,12 @@ done.
 
 ### Added
 
+- **Report a Problem.** Help ▸ Report a Problem, and a button in the Debug Log, build a report of
+  the session — version, Java, OS, the settings worth knowing, the end of the Debug Log — with your
+  home folder, user name, addresses, credentials and tokens taken out. It is shown for you to read
+  and edit, copied to the clipboard, and opened as a GitHub issue with the bug form filled in;
+  nothing is sent until you submit it. `termina --report` does the same without the window, from
+  the last session's log.
 - **An optional status bar, and a Message Log.** Settings ▸ Appearance or View ▸ Show Status Bar
   turns on a row under the terminal that says what the last command reported: red for an error,
   amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
