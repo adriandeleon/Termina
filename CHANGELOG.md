@@ -41,6 +41,9 @@ done.
 
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
   Log, then About.
+- **The window themes come through AtlantaFX**, the theme library the Editora themes were drawn
+  from, now a dependency rather than only their source. If a build ever lacks its Editora sheet,
+  AtlantaFX's own Primer theme of the same lightness draws the windows instead of nothing.
 - **Settings are JSON, with a schema version.** `~/.termina/settings.json` holds preferences and
   `workspace-state.json` the window's place and size and the update check's memory. Each names its
   `schemaVersion`. The keys are the same dotted names, one per line. A `settings.properties` from

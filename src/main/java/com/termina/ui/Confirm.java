@@ -40,7 +40,7 @@ final class Confirm {
         ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
         alert.getButtonTypes().setAll(go, cancel);
         if (alert.getDialogPane().lookupButton(go) instanceof Button button) {
-            button.getStyleClass().add("danger");
+            button.getStyleClass().add(atlantafx.base.theme.Styles.DANGER);
         }
         var css = Confirm.class.getResource("/com/termina/styles/app.css");
         if (css != null) alert.getDialogPane().getStylesheets().add(css.toExternalForm());

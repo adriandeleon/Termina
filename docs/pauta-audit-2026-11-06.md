@@ -112,6 +112,15 @@ Addressed on 2026-11-07, branch `status-bar` (decision record 0008):
   - DIAG-05: an available update is also announced in the log and the bar.
   - DOCS-07: the Help menu is in Pauta's order, apart from the rows Termina does not have yet.
 
+Addressed on 2026-11-07, branch `atlantafx`:
+
+- **Now met:**
+  - PLAT-05: `atlantafx-base` 3.0.0 is a dependency and `requires atlantafx.base`.
+  - The Editora sheets are served through AtlantaFX's `Theme` API (`ChromeTheme`), with Primer
+    Light/Dark as the fallback.
+  - The confirm button uses `Styles.DANGER`.
+  - The module is in the jlinked image, checked by building `-Pdist` and launching it headless.
+
 Addressed on 2026-11-07, branch `config-json` (decision record 0009, superseding 0005):
 
 - **Now met:**
