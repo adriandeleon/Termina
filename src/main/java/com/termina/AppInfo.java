@@ -41,6 +41,22 @@ public final class AppInfo {
     public static final String GITHUB_REPO = "adriandeleon/Termina";
     public static final String HOMEPAGE = "https://termina-project.dev";
     public static final String RELEASES_PAGE = "https://github.com/" + GITHUB_REPO + "/releases";
+
+    /** The user documentation, on the website (DOCS-06, Pauta 2.0.2). */
+    public static final String DOCUMENTATION = HOMEPAGE + "/docs/";
+
+    /**
+     * This build's release notes (DOCS-05): its own release's page, or the list of releases for a
+     * snapshot, which has none.
+     */
+    public static String releaseNotesUrl() {
+        return releaseNotesUrl(VERSION);
+    }
+
+    static String releaseNotesUrl(String version) {
+        return version.endsWith("-SNAPSHOT") ? RELEASES_PAGE : RELEASES_PAGE + "/tag/v" + version;
+    }
+
     public static final String LATEST_RELEASE_API = "https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest";
 
     private AppInfo() {}

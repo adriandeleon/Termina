@@ -13,6 +13,8 @@ done.
 
 ### Added
 
+- **Help ▸ Documentation and Help ▸ What's New** open the user documentation and this version's
+  release notes.
 - **One Termina per config folder.** Launching it again opens a new window in the running Termina,
   with that launch's `-d`, `-e` and `-T`, in the directory it was launched from; the second process
   exits as soon as the first has the request. `--new-instance` starts a separate one.
@@ -48,6 +50,8 @@ done.
 
 ### Changed
 
+- **A release's notes are its section of this changelog**, under the install instructions, rather
+  than a list of commit subjects. A tag whose version has no section here fails before building.
 - **The multi-line paste prompt can no longer be switched off from Settings.** A setting that only
   makes Termina less safe is a `settings.json` key instead: `"input.confirmPaste": false`.
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug

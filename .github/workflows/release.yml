@@ -64,6 +64,8 @@ jobs:
           pom=$(./mvnw -B -q --no-transfer-progress help:evaluate -Dexpression=project.version -DforceStdout)
           public="${pom%-SNAPSHOT}"
           echo "version=$public" >> "$GITHUB_OUTPUT"
+          # A tag must have its notes written before anything is built (DOCS-05).
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then bash scripts/release-notes.sh "$public" > /dev/null; fi
 
           if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
             tag="${GITHUB_REF_NAME#v}"
@@ -447,6 +449,20 @@ jobs:
       - name: Check every download is here
         shell: bash
         run: bash scripts/check-release-assets.sh "${{ needs.build.outputs.version }}" artifacts
+
+      # The release notes: install instructions and the version's CHANGELOG.md section, which
+      # jreleaser.yml reads. A manual dry run's version has no section yet, so [Unreleased] stands in.
+      - name: Write the release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            bash scripts/release-notes.sh "${{ needs.build.outputs.version }}" > out/release-notes.md
+          else
+            bash scripts/release-notes.sh "${{ needs.build.outputs.version }}" --unreleased-ok > out/release-notes.md
+          fi
+          cat out/release-notes.md >> "$GITHUB_STEP_SUMMARY"
 
       # A signed statement, kept by GitHub, that each installer was built by this workflow from this
       # commit. `gh attestation verify <file> --repo adriandeleon/Termina` checks a download.

@@ -71,4 +71,11 @@ class AppInfoTest {
         assertTrue(details.stream().anyMatch(l -> l.startsWith("Java: ")));
         assertTrue(details.stream().anyMatch(l -> l.startsWith("JavaFX: ")));
     }
+
+    @Test
+    void whatsNewOpensThisVersionsReleaseOrTheListForASnapshot() {
+        assertEquals("https://github.com/adriandeleon/Termina/releases/tag/v1.2.3", AppInfo.releaseNotesUrl("1.2.3"));
+        assertEquals(AppInfo.RELEASES_PAGE, AppInfo.releaseNotesUrl("1.3.0-SNAPSHOT"));
+        assertTrue(AppInfo.DOCUMENTATION.startsWith(AppInfo.HOMEPAGE));
+    }
 }
