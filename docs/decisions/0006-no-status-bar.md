@@ -1,5 +1,7 @@
 # 0006. No status bar
 
+**Superseded by [0008](0008-optional-status-bar.md).**
+
 Recorded: 2026-11-07, from the reasoning in the code and the old AGENTS.md.
 
 ## Context

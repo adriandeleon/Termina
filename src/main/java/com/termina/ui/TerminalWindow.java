@@ -115,6 +115,12 @@ public final class TerminalWindow {
     private final MenuAction closeLeftAction =
             item("menu.closeTabsToTheLeft", () -> withActiveTab(this::closeTabsToTheLeft));
 
+    /**
+     * Shows or hides the status bar (WIN-01): the setting, as a command. Off by default; the menu
+     * and the palette say which way it will go.
+     */
+    private final MenuAction statusBarAction = item("menu.showStatusBar", this::toggleStatusBar);
+
     private final MenuAction closeRightAction =
             item("menu.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
 
@@ -261,6 +267,8 @@ public final class TerminalWindow {
         tabs.getTabs().addListener((ListChangeListener<Tab>) c -> applyTabWidths());
 
         BorderPane root = new BorderPane(tabHost);
+        windowRoot = root;
+        statusBar = new StatusBar(windows.messages(), () -> windows.showMessageLog(stage));
         menuBar = buildMenuBar();
         // Decided here and never again: a stage's style is fixed before it is first shown, so the
         // setting reaches this window only if it was on when the window was made. Settings says so
@@ -274,6 +282,7 @@ public final class TerminalWindow {
         // and the window buttons over the terminal. The menus stay, as an ordinary row.
         if (headerBar != null) stage.fullScreenProperty().addListener((o, was, full) -> placeHeaderBar(root, full));
         applyMenuBarVisibility();
+        applyStatusBarVisibility();
 
         // A StackPane over the whole window so the palette has somewhere to be. It is empty until
         // the palette opens, so it costs a node and nothing else.
@@ -1943,6 +1952,12 @@ public final class TerminalWindow {
      */
     private final List<Runnable> onDispose = new ArrayList<>();
 
+    /** The window's layout, whose bottom the status bar takes when it is on. */
+    private final BorderPane windowRoot;
+
+    /** Off by default (a row the terminal would otherwise have); Settings and View turn it on. */
+    private final StatusBar statusBar;
+
     private void dispose() {
         for (Runnable undo : List.copyOf(onDispose)) undo.run();
         onDispose.clear();
@@ -2816,6 +2831,7 @@ public final class TerminalWindow {
                     () -> settings.setShowMenuBar(!settings.showMenuBar())));
             viewItems.add(menuBarToggle);
         }
+        viewItems.add(statusBarAction);
         // An ordinary binding since the keyboard settings arrived; keys.commandPalette is its line,
         // as it was when this was the only chord that could be changed. showPalette keeps it out of
         // its own list — a palette that offers to open the palette is noise in every search.
@@ -2823,6 +2839,10 @@ public final class TerminalWindow {
         register(paletteAction);
         viewItems.add(paletteAction);
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
+        // Says which way it will go. An event handler, not setOnShowing, which the zoom row uses.
+        view.addEventHandler(Menu.ON_SHOWING, e -> {
+            for (MenuItem item : itemsFor(statusBarAction.id())) item.setText(statusBarLabel());
+        });
         if (showsZoomRow(SYSTEM_MENU_BAR)) {
             ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
             view.getItems().add(0, zoomRow.item());
@@ -2927,17 +2947,32 @@ public final class TerminalWindow {
         MenuAction shortcutsRef = registerIn(
                 tr("menu.help"),
                 item("menu.keyboardShortcuts", MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
+        MenuAction messageLog =
+                registerIn(tr("menu.help"), item("menu.messageLog", () -> windows.showMessageLog(stage)));
+        MenuAction debugLog = registerIn(tr("menu.help"), item("menu.debugLog", () -> windows.showDebugLog(stage)));
         commands.add(shortcutsRef.withKeywords(tr("menu.help")));
-        commands.add(about.withKeywords(tr("menu.help")));
         commands.add(checkForUpdates.withKeywords(tr("menu.help")));
-        help.getItems().addAll(menuItem(shortcutsRef), new SeparatorMenuItem(), menuItem(about), updateItem);
+        commands.add(messageLog.withKeywords(tr("menu.help")));
+        commands.add(debugLog.withKeywords(tr("menu.help")));
+        commands.add(about.withKeywords(tr("menu.help")));
+        // Pauta's order (DOCS-07), less what Termina does not have yet: the reference, the update
+        // check, the two logs, then About last.
+        help.getItems()
+                .addAll(
+                        menuItem(shortcutsRef),
+                        new SeparatorMenuItem(),
+                        updateItem,
+                        menuItem(messageLog),
+                        menuItem(debugLog),
+                        new SeparatorMenuItem(),
+                        menuItem(about));
 
-        // The Help menu is where an available update shows up. Termina has no status bar, which is
-        // where Editora puts its badge, and a banner over the terminal would cost a row of the
-        // thing the user is actually looking at.
+        // The Help menu is where an available update shows up, the status bar being off by
+        // default; with it on, the notice is in its echo area as well.
         Runnable onUpdate = this::refreshUpdateItem;
         windows.addUpdateListener(onUpdate);
         onDispose.add(() -> windows.removeUpdateListener(onUpdate));
+        onDispose.add(statusBar::detach);
         refreshUpdateItem();
 
         // Last, once every command is in the table: a stored chord is placed against all of them.
@@ -3062,7 +3097,44 @@ public final class TerminalWindow {
      * option — it is the only surface that cannot be missed, and this only ever runs in response to
      * the user picking the menu item.
      */
-    private void report(String message) {
+    /**
+     * Says how something went: into the Message Log always, and where the user will see it — the
+     * status bar's echo area when the bar is on, otherwise the dialog this always used to be, since
+     * a message nobody can see is no message (WIN-01, DIAG-01, Pauta 2.0.2).
+     */
+    private void report(MessageLog.Severity severity, String message) {
+        windows.messages().add(severity, message);
+        if (settings.showStatusBar()) return;
+        showReportDialog(message);
+    }
+
+    private void toggleStatusBar() {
+        settings.setShowStatusBar(!settings.showStatusBar());
+    }
+
+    private String statusBarLabel() {
+        return settings.showStatusBar() ? tr("menu.hideStatusBar") : tr("menu.showStatusBar");
+    }
+
+    /** Places or removes the status bar, as the setting says. */
+    private void applyStatusBarVisibility() {
+        boolean show = settings.showStatusBar();
+        if (show == (windowRoot.getBottom() == statusBar)) return;
+        if (show) {
+            statusBar.attach();
+            windowRoot.setBottom(statusBar);
+        } else {
+            statusBar.detach();
+            windowRoot.setBottom(null);
+        }
+    }
+
+    /** What the status bar says, or "off" — for the capture hook. */
+    public String statusBarForCapture() {
+        return windowRoot.getBottom() == statusBar ? statusBar.echoForCapture() : "off";
+    }
+
+    private void showReportDialog(String message) {
         // One dialog, reused, because reporting is a sequence rather than an event: the update
         // check says "checking…" and then says how it went. Opening a second alert for the second
         // message left the first sitting underneath it — the user dismissed the result and was
@@ -3099,15 +3171,15 @@ public final class TerminalWindow {
      */
     private void reportOpenFailed(String command, boolean missing) {
         String message = missing ? tr("status.openNotFound", command) : tr("status.openFailed", command);
-        javafx.application.Platform.runLater(() -> report(message));
+        javafx.application.Platform.runLater(() -> report(MessageLog.Severity.ERROR, message));
     }
 
     /** The live {@link #report} dialog, so a follow-up message replaces it instead of stacking. */
     private @Nullable Alert reportAlert;
 
     /** Drives {@link #report} from the development capture hook. */
-    public void reportForCapture(String message) {
-        report(message);
+    public void reportForCapture(MessageLog.Severity severity, String message) {
+        report(severity, message);
     }
 
     /**
@@ -3370,6 +3442,7 @@ public final class TerminalWindow {
     public void applySettings() {
         applyTabBarVisibility();
         applyMenuBarVisibility();
+        applyStatusBarVisibility();
         // Live, and on the stage rather than the scene: a decorated window's native background is
         // opaque, so scene-level transparency needs StageStyle.TRANSPARENT — which takes the title
         // bar with it and can only be chosen before the window is shown. Stage opacity keeps both
@@ -3463,6 +3536,19 @@ public final class TerminalWindow {
                                 all.get(at).keywords(),
                                 menuBarToggle.id()));
             }
+        }
+        for (int at = 0; at < all.size(); at++) {
+            MenuAction row = all.get(at);
+            if (!row.sameActionAs(statusBarAction)) continue;
+            all.set(
+                    at,
+                    new MenuAction(
+                            statusBarLabel(),
+                            row.accelerator(),
+                            row.action(),
+                            row.description(),
+                            row.keywords(),
+                            row.id()));
         }
         // Close Tab closes the active pane of a split tab, and the row says so.
         if (activeTabIsSplit()) {

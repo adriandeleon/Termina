@@ -59,6 +59,12 @@ public final class WindowManager {
     /** Keeps the key bindings the same on every computer connected to the user's repository. */
     private final SettingsSync sync;
 
+    /** This session's messages, for every window's status bar and the Message Log. */
+    private final MessageLog messages = new MessageLog();
+
+    private @Nullable MessageLogWindow messageLogWindow;
+    private @Nullable DebugLogWindow debugLogWindow;
+
     public WindowManager(Settings settings) {
         this.settings = settings;
         this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
@@ -67,6 +73,11 @@ public final class WindowManager {
         // menu already on screen when the answer lands would otherwise keep the shorter list.
         profiles.discoverInBackground(found -> {});
         settings.addOnChange(this::applySettingsEverywhere);
+        // An uncaught exception is recorded in the Debug Log first; this says so where the user is
+        // looking, never as a dialog with a stack trace in it (DIAG-04).
+        DebugLog.onUncaught(error -> javafx.application.Platform.runLater(() -> messages.add(
+                MessageLog.Severity.ERROR,
+                tr("status.uncaughtError", error.getClass().getSimpleName()))));
         // The desktop's light or dark, for the theme that follows it. Re-applied whatever the
         // stored theme, because a profile can follow the system while the default does not; the
         // desktop changes its scheme a few times a day at most.
@@ -292,19 +303,19 @@ public final class WindowManager {
     }
 
     /** The user asked. Ignores both the interval and the enable setting, and always reports. */
-    public void checkForUpdatesNow(java.util.function.Consumer<String> report) {
-        report.accept(tr("status.checkingForUpdates"));
+    public void checkForUpdatesNow(Reporter report) {
+        report.info(tr("status.checkingForUpdates"));
         settings.setLastUpdateCheck(System.currentTimeMillis());
         updates.check(com.termina.AppInfo.VERSION, outcome -> {
             onUpdateOutcome(outcome, true);
             var error = outcome.error();
             var latest = outcome.latest();
             if (error != null) {
-                report.accept(describeFailure(error, outcome.detail()));
+                report.error(describeFailure(error, outcome.detail()));
             } else if (outcome.available() && latest != null) {
-                report.accept(tr("status.updateAvailable", latest.version()));
+                report.info(tr("status.updateAvailable", latest.version()));
             } else {
-                report.accept(tr("status.upToDate", com.termina.AppInfo.NAME));
+                report.info(tr("status.upToDate", com.termina.AppInfo.NAME));
             }
         });
     }
@@ -335,6 +346,27 @@ public final class WindowManager {
         if (!manual && latest.version().equals(settings.dismissedUpdate())) return;
         availableUpdate = latest;
         notifyUpdateListeners();
+        // The status-bar notice (DIAG-05), beside the Help menu's: the log is where the bar's
+        // echo area reads from.
+        if (!manual) messages.add(MessageLog.Severity.INFO, tr("status.updateAvailable", latest.version()));
+    }
+
+    MessageLog messages() {
+        return messages;
+    }
+
+    /** The Message Log, beside whichever window asked. */
+    void showMessageLog(Window from) {
+        MessageLogWindow window = messageLogWindow;
+        if (window == null) messageLogWindow = window = new MessageLogWindow(messages);
+        window.show(from);
+    }
+
+    /** The Debug Log: a command now, not only a button on the Advanced page (DIAG-03). */
+    void showDebugLog(Window from) {
+        DebugLogWindow window = debugLogWindow;
+        if (window == null) debugLogWindow = window = new DebugLogWindow(from);
+        window.show();
     }
 
     private void notifyUpdateListeners() {
@@ -462,7 +494,7 @@ public final class WindowManager {
      * Sync Now from a menu or the palette. {@code report} hears that it started and how it went, as
      * the update check's does, because the Sync page that would otherwise say so is not on screen.
      */
-    public void syncSettingsNow(java.util.function.Consumer<String> report) {
+    public void syncSettingsNow(Reporter report) {
         sync.syncNow(report, this::commandLabel);
     }
 

@@ -60,6 +60,14 @@ public final class DebugLog {
 
     private DebugLog() {}
 
+    /** Told of each uncaught exception after it is recorded, on the thread that threw it. */
+    private static volatile java.util.function.@Nullable Consumer<Throwable> uncaughtListener;
+
+    /** Who says something went wrong where the user is looking (DIAG-04): the window manager. */
+    public static void onUncaught(java.util.function.Consumer<Throwable> listener) {
+        uncaughtListener = listener;
+    }
+
     /** Captures j.u.l output and uncaught exceptions. Call once, as early as possible. */
     public static void install() {
         Logger root = Logger.getLogger("");
@@ -79,6 +87,8 @@ public final class DebugLog {
 
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
             append(stamp("UNCAUGHT on " + thread.getName() + ": " + stackTrace(error)));
+            java.util.function.Consumer<Throwable> listener = uncaughtListener;
+            if (listener != null) listener.accept(error);
             // Still to stderr, for anyone who did launch from a terminal.
             error.printStackTrace();
         });

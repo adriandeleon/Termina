@@ -406,6 +406,7 @@ final class DevCapture {
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
             System.out.println("[capture] " + w.focusReport());
             System.out.println("[capture] " + w.closeTooltipReport() + " tabTooltip=<" + w.tabTooltipReport() + ">");
+            System.out.println("[capture] statusBar=" + w.statusBarForCapture());
             System.out.println("[capture] " + w.tabMarkReport());
             System.out.println("[capture] " + w.tabDragReport());
             System.out.println("[capture] " + w.paneReport());

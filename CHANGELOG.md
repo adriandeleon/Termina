@@ -13,6 +13,12 @@ done.
 
 ### Added
 
+- **An optional status bar, and a Message Log.** Settings ▸ Appearance or View ▸ Show Status Bar
+  turns on a row under the terminal that says what the last command reported: red for an error,
+  amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
+  lists everything Termina reported this session, with times, whether the bar is on or not. Help ▸
+  Debug Log opens the Debug Log, which was only on the Advanced page. A crash says so in the log
+  too, pointing at the Debug Log.
 - **A theme that follows the system.** "Follow the System" in Settings, a profile's theme picker and
   the palette uses Editora Light while the desktop is light and Editora Dark while it is dark, and
   switches when the desktop does.
@@ -29,6 +35,8 @@ done.
 
 ### Changed
 
+- **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
+  Log, then About.
 - **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
   shows; the other bundled font families and the large icons follow the first frame, and the daily
   update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a
