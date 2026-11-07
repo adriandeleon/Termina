@@ -63,6 +63,23 @@ Addressed on 2026-11-07, branch `pauta-repo-docs`:
   - REPO-01 / DOCS-19: the README lost its contributor sections and gained a License section. At
     804 lines, the feature catalogue that belongs on the website is still in it.
 
+Addressed on 2026-11-07, branch `pauta-tabs-ui`:
+
+- **Now met:**
+  - ICON-07: `-state-red/amber/green` are declared on `.root` in app.css, and `.state-error` and
+    `.state-warning` replace the inline styles.
+  - ICON-12 / KBD-16: the focus ring is a `:focus-visible` block at the end of app.css. Settings
+    now loads app.css.
+  - ICON-16 / WIN-02: "Follow the System" theme, which also met PLAT-05's light/dark half.
+  - ICON-20: one New Tab glyph, guarded by `NewTabGlyphTest`.
+  - MENU-07: the press that dismisses the terminal's menu is no longer consumed.
+  - ICON-09: the warning-4 text now uses the theme's warning text role.
+- **Narrowed:**
+  - TABS-01 / KBD-01 / MENU-05: Close Other Tabs, Close Tabs to the Left and Close Tabs to the
+    Right are commands, in the File menu and the palette, with reasons (`TabRanges`). Configure
+    Profiles is a command too. Pin, and therefore TABS-03/04/05, is still open. Close All is the
+    existing Close Window.
+
 Everything else below stands.
 
 ## Totals

@@ -83,6 +83,8 @@ public final class App extends Application {
         // Applied before any window is built, so the first frame is already themed.
         // The imported themes are read first: the stored theme may be one of them.
         com.termina.ui.Themes.useDirectory(settings.directory().resolve("themes"));
+        com.termina.ui.Themes.followSystem(
+                javafx.application.Platform.getPreferences().getColorScheme() == javafx.application.ColorScheme.DARK);
         Application.setUserAgentStylesheet(
                 com.termina.ui.Themes.byId(settings.themeId()).stylesheet());
 

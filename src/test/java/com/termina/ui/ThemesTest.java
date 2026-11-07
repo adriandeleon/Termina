@@ -183,4 +183,24 @@ class ThemesTest {
                 TerminalWindow.themeFor(com.termina.config.Settings.ProfileStyle.NONE, "clear-light")
                         .id());
     }
+
+    @Test
+    void followingTheSystemResolvesToEditoraLightOrDarkAndChangesWithIt() {
+        try {
+            Themes.followSystem(false);
+            assertEquals("editora-light", Themes.byId(Themes.SYSTEM_ID).id());
+            Themes.followSystem(true);
+            assertEquals("editora-dark", Themes.byId(Themes.SYSTEM_ID).id());
+        } finally {
+            Themes.followSystem(true);
+        }
+    }
+
+    @Test
+    void thePickerOffersTheSystemChoiceFirstAndStoresItsIdNotTodaysAnswer() {
+        var first = Themes.byDisplayName().entrySet().iterator().next();
+        assertEquals(Themes.systemDisplayName(), first.getKey());
+        assertEquals(Themes.SYSTEM_ID, first.getValue().id());
+        assertTrue(first.getValue().isBuiltIn(), "the system choice cannot be removed");
+    }
 }

@@ -13,6 +13,13 @@ done.
 
 ### Added
 
+- **A theme that follows the system.** "Follow the System" in Settings, a profile's theme picker and
+  the palette uses Editora Light while the desktop is light and Editora Dark while it is dark, and
+  switches when the desktop does.
+- **Close Other Tabs, Close Tabs to the Left and Close Tabs to the Right are commands**: in the File
+  menu and the palette, bindable on the Keyboard page, and greyed with the reason while they would
+  close nothing. Close Tabs to the Left is new, on a tab's menu too. Configure Profiles is a command
+  as well, and opens Settings on the Profiles page.
 - **About names the Pauta edition Termina is built to, and what it runs on.** A "Built to Pauta
   2.0.2" link to that edition's guidelines, the Java and JavaFX versions, and a Copy details button
   that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
@@ -22,6 +29,11 @@ done.
 
 ### Changed
 
+- **New Tab wears the same + in the menus as on the tab strip.**
+- **A keyboard focus ring in Settings and the dialogs.** A control reached with Tab draws a 2px
+  accent ring; a click draws none. Check boxes and links showed no focus at all before.
+- **Warnings and errors in Settings use the theme's readable text colours**, named once as state
+  colours. The amber "chord already taken" read at under 3:1 on the light theme.
 - **Removing a theme, a profile or a token in the sync address asks first.** Each deleted what the
   user had made at a click, with no way back but making it again.
 - **Reopen Closed Tab reaches back twenty tabs instead of ten.**
@@ -67,6 +79,8 @@ done.
 
 ### Fixed
 
+- **A click that closes the terminal's right-click menu now also acts.** It was swallowed, so
+  closing the menu cost a click; a right-click elsewhere now reopens the menu there.
 - **About no longer says "You are up to date" when nothing has checked.** It said so whenever no
   newer release was known — before the day's check had run, after it had failed, and with checks
   turned off. It now says which of those it is, and claims up to date only on an answer from this

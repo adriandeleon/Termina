@@ -46,6 +46,16 @@ public final class Themes {
 
     private static final ThemeEntry FALLBACK = ThemeEntry.of(Theme.EDITORA_DARK);
 
+    /**
+     * The theme setting's value for "follow the system" (ICON-16, WIN-02, Pauta 2.0.2): Editora
+     * Light while the desktop is light, Editora Dark while it is dark, changing with it. Resolved
+     * here, in {@link #byId}, so everything that draws follows without knowing the choice exists.
+     */
+    public static final String SYSTEM_ID = "system";
+
+    /** What the desktop's scheme is, as the window manager last heard; dark until told. */
+    private static volatile boolean systemDark = true;
+
     private static volatile @Nullable Path directory;
     private static volatile List<ThemeEntry> imported = List.of();
 
@@ -96,8 +106,29 @@ public final class Themes {
         return out;
     }
 
-    /** The theme an id names, or Editora Dark. */
+    /** The desktop's scheme changed, or was read at startup. */
+    public static void followSystem(boolean dark) {
+        systemDark = dark;
+    }
+
+    /** Whether an id is the follow-the-system choice rather than a theme. */
+    public static boolean followsSystem(String id) {
+        return SYSTEM_ID.equals(id);
+    }
+
+    /** The built-in theme that stands for the desktop's scheme. */
+    static Theme forSystem(boolean dark) {
+        return dark ? Theme.EDITORA_DARK : Theme.EDITORA_LIGHT;
+    }
+
+    /** What the pickers call the follow-the-system choice. */
+    public static String systemDisplayName() {
+        return com.termina.i18n.Messages.tr("settings.theme.system");
+    }
+
+    /** The theme an id names, or Editora Dark; {@link #SYSTEM_ID} names whichever the desktop's is. */
     public static ThemeEntry byId(String id) {
+        if (followsSystem(id)) id = forSystem(systemDark).id();
         for (ThemeEntry entry : BUILT_IN) {
             if (entry.id().equals(id)) return entry;
         }
@@ -107,9 +138,14 @@ public final class Themes {
         return FALLBACK;
     }
 
-    /** Display name to theme, in {@link #all} order — what a picker shows. */
+    /**
+     * Display name to theme, in {@link #all} order after "Follow the System" — what a picker shows.
+     * The first entry carries {@link #SYSTEM_ID}, so choosing it stores the choice, not today's
+     * answer to it.
+     */
     public static Map<String, ThemeEntry> byDisplayName() {
         Map<String, ThemeEntry> map = new LinkedHashMap<>();
+        map.put(systemDisplayName(), byId(SYSTEM_ID).as(SYSTEM_ID, systemDisplayName()));
         for (ThemeEntry entry : all()) map.putIfAbsent(entry.displayName(), entry);
         return map;
     }

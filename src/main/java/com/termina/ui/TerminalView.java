@@ -2362,18 +2362,16 @@ public final class TerminalView extends Region {
     }
 
     private void onMousePressed(MouseEvent e) {
-        // A click anywhere in the terminal dismisses the menu instead of acting on the terminal.
-        // ContextMenu's own auto-hide covers clicks outside the window, but this filter runs first
-        // for clicks inside it, which would otherwise start a selection under the open menu.
+        // A click anywhere in the terminal closes the menu first, then acts as the click it is
+        // (MENU-07, Pauta 2.0.2): it places or clears a selection, reaches a program that asked for
+        // the mouse, or — a right-click — opens the menu again where it landed. ContextMenu's own
+        // auto-hide covers clicks outside the window, but this filter runs first for clicks inside
+        // it, which used to be swallowed, so dismissing the menu cost a second click.
         // Kept from the program until reportMouse below says otherwise: every way out before it —
-        // the menu, the bars, the pane drag, a link — is a press the program never hears of.
+        // the bars, the pane drag, a link — is a press the program never hears of.
         reportedPresses.pressed(e.getButton(), false);
         ContextMenu shownMenu = shownContextMenu();
-        if (shownMenu != null) {
-            shownMenu.hide();
-            e.consume();
-            return;
-        }
+        if (shownMenu != null) shownMenu.hide();
         // The mouse filters are on this Region, and a filter runs in the capturing phase — so a
         // press on the scrollbar reaches the terminal *before* the bar itself. Without this the
         // terminal starts a selection under every scroll drag.
