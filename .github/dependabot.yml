@@ -15,3 +15,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    ignore:
+      # Held at 3.1.0, as the comment above its version in pom.xml says: 3.2.0 warns once for
+      # every Maven property exportAntProperties would carry back (31 lines on a dist build,
+      # checked 2026-11-07) and the executions need nothing it adds.
+      - dependency-name: org.apache.maven.plugins:maven-antrun-plugin
