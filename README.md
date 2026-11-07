@@ -557,6 +557,10 @@ files on the first launch and kept as `settings.properties.migrated`. More than 
 on one config folder: each save writes only the keys that process changed, under a lock, on top of
 whatever the file holds by then.
 
+A setting that only makes Termina less safe has no row in Settings; it is a key in `settings.json`
+for anyone who means it. There is one: `"input.confirmPaste": false` pastes several lines without
+first showing them, where by default a paste with a line break asks.
+
 The window follows Editora's: a grouped sidebar, a search box that narrows both rows and
 categories, and **no OK or Cancel**. Every control writes its setting immediately and the terminal
 re-applies. That is the point rather than a shortcut — choosing a font or a theme is a judgement
