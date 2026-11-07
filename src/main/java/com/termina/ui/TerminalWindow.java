@@ -595,14 +595,16 @@ public final class TerminalWindow {
         if (menuBar == null) return;
         boolean systemBar = SYSTEM_MENU_BAR && menusFitASystemMenuBar(menuBar.getMenus());
         boolean occupies = menuBarOccupiesSpace(systemBar, settings.showMenuBar());
+        // The style class is touched only when it changes: this runs on every settings write, and
+        // a remove-then-add of the same class restyles the bar for nothing.
+        boolean collapsed = menuBar.getStyleClass().contains(COLLAPSED_MENU_BAR);
         if (systemBar) {
-            menuBar.getStyleClass().removeAll(COLLAPSED_MENU_BAR);
-            menuBar.getStyleClass().add(COLLAPSED_MENU_BAR);
+            if (!collapsed) menuBar.getStyleClass().add(COLLAPSED_MENU_BAR);
             menuBar.setVisible(true);
             menuBar.setManaged(true);
             return;
         }
-        menuBar.getStyleClass().removeAll(COLLAPSED_MENU_BAR);
+        if (collapsed) menuBar.getStyleClass().remove(COLLAPSED_MENU_BAR);
         menuBar.setVisible(occupies);
         menuBar.setManaged(occupies);
     }
@@ -640,8 +642,9 @@ public final class TerminalWindow {
      */
     private void applyTabBarVisibility() {
         boolean show = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
-        tabs.getStyleClass().removeAll(HIDE_TAB_BAR);
-        if (!show) tabs.getStyleClass().add(HIDE_TAB_BAR);
+        boolean hidden = tabs.getStyleClass().contains(HIDE_TAB_BAR);
+        if (show && hidden) tabs.getStyleClass().remove(HIDE_TAB_BAR);
+        if (!show && !hidden) tabs.getStyleClass().add(HIDE_TAB_BAR);
         // The buttons live in the strip, so they go with it — and unmanaged as well as invisible,
         // for the same reason the menu bar had to be: a hidden-but-managed node still paints.
         tabStripButtons.setVisible(show);
@@ -1659,9 +1662,9 @@ public final class TerminalWindow {
 
         /** Magenta for a notification, yellow for a bell, cyan for activity, in the theme's own rendering of each. */
         void setColours(TerminalPalette palette) {
-            activity = palette.ansi()[6];
-            bell = palette.ansi()[3];
-            notify = palette.ansi()[5];
+            activity = palette.ansi(6);
+            bell = palette.ansi(3);
+            notify = palette.ansi(5);
             paint();
         }
 
@@ -2283,7 +2286,6 @@ public final class TerminalWindow {
         return (PaneGroup) tab.getUserData();
     }
 
-    /** Every live terminal in this window. */
     /** The terminal of the selected tab, or null when there is none. */
     public @Nullable TerminalView selectedTerminal() {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
@@ -2324,7 +2326,6 @@ public final class TerminalWindow {
                 + " stageFocused=" + stage.isFocused();
     }
 
-    /** Heights of the chrome above the terminal, for diagnosing stray bands. */
     /** The menu bar as text, so a capture run can assert on what is in it. */
     public String menuReport() {
         StringBuilder out = new StringBuilder();
@@ -2463,10 +2464,6 @@ public final class TerminalWindow {
      */
     private final javafx.scene.layout.HBox tabStripButtons = new javafx.scene.layout.HBox(newTabButton, profileButton);
 
-    /**
-     * Space kept clear at the right end of the strip for the new-tab button, and the per-tab
-     * padding and close button that sit outside the width JavaFX lets us set.
-     */
     /** Size a window opens at before one has ever been recorded. */
     private static final double DEFAULT_WIDTH = 900;
 
@@ -2498,7 +2495,6 @@ public final class TerminalWindow {
      */
     private static final double TAB_CHROME = 17;
 
-    /** Sizes every tab so the strip fills the window, shrinking as tabs are added. */
     /**
      * Gives the new-tab button the height of the tab strip, so its glyph centres on the same line as
      * every tab's close button.
@@ -2881,6 +2877,7 @@ public final class TerminalWindow {
         MenuAction about = registerIn(
                 tr("menu.help"),
                 MenuAction.of(tr("menu.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
+                        .describedAs(description("menu.about"))
                         .withId("about"));
         MenuAction checkForUpdates = registerIn(
                 tr("menu.help"), item("menu.checkForUpdates", () -> windows.checkForUpdatesNow(this::report)));
@@ -3074,7 +3071,6 @@ public final class TerminalWindow {
         report(message);
     }
 
-    /** Records the binding for the scene filter and hands the action back for the menu. */
     /**
      * The tab a number selects, or -1 when there is none.
      *
@@ -3164,7 +3160,6 @@ public final class TerminalWindow {
         return item;
     }
 
-    /** A null entry becomes a separator. */
     /**
      * Builds a menu, and records its actions as the palette's command list.
      *
@@ -3273,9 +3268,9 @@ public final class TerminalWindow {
         };
     }
 
-    /** Zoom writes through the settings so it persists and shows up in the settings window. */
     /**
-     * Steps the zoom, which is no longer the font size.
+     * Steps the zoom, which is no longer the font size. It writes through the settings so it
+     * persists and shows up in the settings window.
      *
      * <p>It used to add a pixel to the configured size, which meant zooming quietly rewrote the
      * preference and there was no level to show in the zoom row — and no meaning for resetting one.

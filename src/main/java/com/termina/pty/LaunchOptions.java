@@ -47,12 +47,4 @@ public record LaunchOptions(String shell, String workingDirectory, List<String> 
     public LaunchOptions withShell(String newShell) {
         return new LaunchOptions(newShell, workingDirectory, command, profileId);
     }
-
-    /**
-     * The profile these were made from, which travels with the pane — to its splits, its duplicate,
-     * its reopening — so the profile's font and theme go with it. Empty for none.
-     */
-    public LaunchOptions withProfileId(String id) {
-        return new LaunchOptions(shell, workingDirectory, command, id);
-    }
 }

@@ -547,10 +547,6 @@ public final class TerminalView extends Region {
      * scrollback sizes a buffer that already exists, and the shell is already running — so the
      * settings UI says so rather than pretending otherwise.
      */
-    public void setSessionOptions(int scrollbackLines, String shellOverride) {
-        setSessionOptions(scrollbackLines, com.termina.pty.LaunchOptions.ofShell(shellOverride));
-    }
-
     public void setSessionOptions(int scrollbackLines, com.termina.pty.LaunchOptions options) {
         this.scrollbackLines = scrollbackLines;
         this.launchOptions = options == null ? com.termina.pty.LaunchOptions.DEFAULTS : options;
@@ -567,8 +563,10 @@ public final class TerminalView extends Region {
         // Both before the emulator starts reading: the first prompt can already carry a mark.
         session.getTerminal().setUrlHyperlinkFilter(ExplicitLink.FILTER);
         session.setOscListener(this::onOsc);
-        session.setTypeAheadWanted(
-                () -> typeAheadAllowed && com.termina.term.TypeAheadModel.predictsFor(display.getProgram()));
+        // Two volatile reads. The predictor asks on every buffer mutation, so the decision is made
+        // where the program changes (below), not here — lower-casing the name per write was 3% of
+        // the emulator thread in a profile.
+        session.setTypeAheadWanted(() -> typeAheadAllowed && programPredicts);
         session.typeAhead().setOnRedraw(this::markDirty);
         session.setOnSessionEnded(() -> Platform.runLater(() -> {
             if (onSessionEnded != null) onSessionEnded.run();
@@ -587,11 +585,17 @@ public final class TerminalView extends Region {
                 cwd -> {
                     if (osKnows && !directoryReported) display.setCwd(cwd);
                 },
-                display::setProgram);
+                program -> {
+                    display.setProgram(program);
+                    programPredicts = com.termina.term.TypeAheadModel.predictsFor(program);
+                });
         markDirty();
     }
 
     private @Nullable CwdWatcher cwdWatch;
+
+    /** Whether the foreground program is one type-ahead predicts for; see {@link #start}. */
+    private volatile boolean programPredicts;
 
     private @Nullable Runnable onSessionEnded;
 
@@ -676,10 +680,6 @@ public final class TerminalView extends Region {
         applyFont();
     }
 
-    public double getFontSize() {
-        return fontSize;
-    }
-
     private void applyFont() {
         String family = fontFamily;
         font = Font.font(family, fontSize);
@@ -715,10 +715,28 @@ public final class TerminalView extends Region {
 
     /** Applies a theme's colours and repaints. */
     public void setPalette(TerminalPalette palette) {
+        // Every settings write reaches here for every pane; most of them changed no colour, and
+        // restyling the scrollbar plus a full repaint per pane is not nothing. The first call always
+        // applies: the scrollbar is not styled for the initial palette until it does.
+        if (paletteApplied && palette.equals(this.palette)) return;
+        paletteApplied = true;
         this.palette = palette;
         this.selectionWash = washFor(palette);
+        this.searchWash = withAlpha(palette.ansi(3), SEARCH_ALPHA);
+        this.searchStrong = withAlpha(palette.ansi(3), CURRENT_MATCH_ALPHA);
         styleScrollBar(palette);
         markDirty();
+    }
+
+    private boolean paletteApplied;
+
+    /** The search overlay's colours, derived here rather than on every frame the find bar is open. */
+    private Color searchWash = withAlpha(Theme.EDITORA_DARK.palette().ansi(3), SEARCH_ALPHA);
+
+    private Color searchStrong = withAlpha(Theme.EDITORA_DARK.palette().ansi(3), CURRENT_MATCH_ALPHA);
+
+    private static Color withAlpha(Color c, double alpha) {
+        return Color.color(c.getRed(), c.getGreen(), c.getBlue(), alpha);
     }
 
     /**
@@ -749,12 +767,13 @@ public final class TerminalView extends Region {
             Color own = palette.selection();
             return Color.color(own.getRed(), own.getGreen(), own.getBlue(), 0.55);
         }
-        Color blue = palette.ansi()[4];
+        Color blue = palette.ansi(4);
         return Color.color(blue.getRed(), blue.getGreen(), blue.getBlue(), SELECTION_ALPHA);
     }
 
     public void setPreferredCursor(Settings.CursorShape shape) {
-        this.preferredCursor = shape == null ? Settings.CursorShape.BLOCK : shape;
+        if (shape == preferredCursor) return; // every settings write reaches here
+        this.preferredCursor = shape;
         markDirty();
     }
 
@@ -1003,10 +1022,12 @@ public final class TerminalView extends Region {
                 g.restore();
             }
             drawPaneFocus(g, w, h);
-            updateScrollBar();
         } finally {
             buffer.unlock();
         }
+        // After the lock. Setting the bar's properties invalidates its skin, and while output
+        // streams they change every frame; the emulator thread sat blocked on lock() for all of it.
+        updateScrollBar();
     }
 
     /** Draws each style run it is handed at its row: {@code y - startRow}, against the scroll origin. */
@@ -1069,7 +1090,7 @@ public final class TerminalView extends Region {
      */
     private void drawPaneFocus(GraphicsContext g, double w, double h) {
         if (!paneFocusShown) return;
-        g.setStroke(palette.ansi()[4]);
+        g.setStroke(palette.ansi(4));
         g.setLineWidth(1);
         g.strokeRect(0.5, 0.5, w - 1, h - 1);
     }
@@ -1712,7 +1733,8 @@ public final class TerminalView extends Region {
             linkStatus.setText(address);
         }
         if (linkStatus != null && linkStatus.isVisible() != show) linkStatus.setVisible(show);
-        requestLayout();
+        // Only once there is a label to place: this runs on every hover transition.
+        if (linkStatus != null) requestLayout();
     }
 
     private javafx.scene.control.@Nullable Label linkStatus;
@@ -3027,7 +3049,7 @@ public final class TerminalView extends Region {
      */
     private void drawPromptMarks(GraphicsContext g) {
         if (marks.isEmpty() || display.isAlternateScreen()) return;
-        Color red = palette.ansi()[1];
+        Color red = palette.ansi(1);
         for (PromptMarks.Command command : marks.all()) {
             if (!command.failed()) continue;
             int row = (int) (command.prompt().line() - linesScrolled) - scrollOrigin;
@@ -3322,10 +3344,6 @@ public final class TerminalView extends Region {
         requestFocus();
     }
 
-    public boolean isSearchShowing() {
-        return searchOpen;
-    }
-
     /** Whether the find bar's field has the keyboard — the one case the focus guard must leave alone. */
     public boolean searchHasFocus() {
         return searchOpen && searchBar != null && searchBar.fieldIsFocused();
@@ -3473,9 +3491,8 @@ public final class TerminalView extends Region {
             return;
         }
         int moved = (int) (linesScrolled - state.scrolledAt());
-        Color yellow = palette.ansi()[3];
-        Color wash = Color.color(yellow.getRed(), yellow.getGreen(), yellow.getBlue(), SEARCH_ALPHA);
-        Color strong = Color.color(yellow.getRed(), yellow.getGreen(), yellow.getBlue(), CURRENT_MATCH_ALPHA);
+        Color wash = searchWash;
+        Color strong = searchStrong;
         for (int i = 0; i < state.matches().size(); i++) {
             ScrollbackSearch.Match match = state.matches().get(i);
             if (match.lastLine() - moved < scrollOrigin || match.firstLine() - moved >= scrollOrigin + rows) continue;
@@ -3491,7 +3508,7 @@ public final class TerminalView extends Region {
                 g.setFill(current ? strong : wash);
                 g.fillRect(x, y, to - x, lineHeight);
                 if (current) {
-                    g.setStroke(yellow);
+                    g.setStroke(palette.ansi(3));
                     g.setLineWidth(1);
                     g.strokeRect(x + 0.5, y + 0.5, to - x - 1, lineHeight - 1);
                 }

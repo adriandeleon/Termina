@@ -108,6 +108,13 @@
     -fx-font-size: 0.85em;
 }
 
+/* The chord-recording field: while it has the focus it is empty and its prompt says what to do,
+   so the prompt must stay readable rather than fade as the theme makes a focused prompt do. Here,
+   not in app.css: this window's scene loads only this sheet, and the rule did nothing from there. */
+.shortcut-capture:focused {
+    -fx-prompt-text-fill: -color-fg-muted;
+}
+
 .settings-preview {
     -fx-border-color: -color-border-default;
     -fx-border-radius: 6;

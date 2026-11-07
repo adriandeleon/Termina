@@ -162,11 +162,6 @@ final class CommandPalette {
         return host.getChildren().contains(card);
     }
 
-    /** Shows every command as runnable. */
-    void show(List<MenuAction> commands) {
-        show(commands, a -> true, a -> null);
-    }
-
     /**
      * Shows the palette over {@code commands}, or hides it if it is already up.
      *

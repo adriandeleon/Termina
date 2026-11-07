@@ -253,6 +253,11 @@ public final class SettingsWindow {
         if (shouldReload(stage.isShowing(), reloading)) reload();
     }
 
+    /** Sets a field's text unless the user is in it, the way {@code reloadKeys} leaves a recording field alone. */
+    private static void setUnlessEditing(TextField field, String text) {
+        if (!field.isFocused()) field.setText(text);
+    }
+
     /**
      * Whether a settings change should refresh the controls: only while the window can be seen,
      * and never from inside the refresh itself. The second half is the re-entrancy guard — a
@@ -326,8 +331,6 @@ public final class SettingsWindow {
         VBox.setVgrow(body, Priority.ALWAYS);
         root.setPadding(new Insets(14));
 
-        // 20% larger than the original 760x520: the Appearance page overflowed, and a page of
-        // preferences that scrolls hides the rows below the fold.
         // Grown from the original 760x520 over several passes; a page of preferences that scrolls
         // hides the rows below the fold, which is the opposite of what a settings window is for.
         // Tall enough for the longest page, but never taller than the screen — a settings window
@@ -458,12 +461,6 @@ public final class SettingsWindow {
     }
 
     // ---------------------------------------------------------------- search
-
-    /** Case-insensitive substring over a row's own keywords. */
-    static boolean matches(String query, String keywords) {
-        if (query == null || query.isBlank()) return true;
-        return keywords.toLowerCase(Locale.ROOT).contains(query.trim().toLowerCase(Locale.ROOT));
-    }
 
     /**
      * How well a row answers a query: 2 for a hit in its title, 1 for a hit anywhere else, 0 for
@@ -2243,11 +2240,13 @@ public final class SettingsWindow {
             showScrollBar.setSelected(settings.showScrollBar());
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             language.setValue(settings.uiLanguage());
-            shellField.setText(settings.shell());
-            linkCommandField.setText(settings.linkOpenCommand());
+            // Not under the user's fingers: a change from elsewhere — a sync run, a zoom chord in a
+            // terminal window — reloads this window, and a field being typed into keeps its text.
+            setUnlessEditing(shellField, settings.shell());
+            setUnlessEditing(linkCommandField, settings.linkOpenCommand());
             updateCheck.setSelected(settings.updateCheck());
-            syncRepository.setText(settings.syncRepository());
-            syncBranch.setText(settings.syncBranch());
+            setUnlessEditing(syncRepository, settings.syncRepository());
+            setUnlessEditing(syncBranch, settings.syncBranch());
             syncAuto.setSelected(settings.syncAuto());
             syncInterval.getValueFactory().setValue(settings.syncIntervalMinutes());
             settingsPath.setText(settings.file().toString());

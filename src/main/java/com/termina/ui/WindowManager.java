@@ -69,10 +69,14 @@ public final class WindowManager {
         // A window joins this list as it is shown, before its first frame: the one place that
         // catches every window — settings, About, a confirmation dialog — however it was made.
         Window.getWindows().addListener((javafx.collections.ListChangeListener<Window>) change -> {
-            javafx.application.ColorScheme scheme =
-                    Themes.byId(settings.themeId()).colorScheme();
+            // Looked up only once a window was actually added: the list also fires for removals,
+            // and every tooltip and menu is a window.
+            javafx.application.@Nullable ColorScheme scheme = null;
             while (change.next()) {
-                for (Window added : change.getAddedSubList()) applyColorScheme(added, scheme);
+                for (Window added : change.getAddedSubList()) {
+                    if (scheme == null) scheme = Themes.byId(settings.themeId()).colorScheme();
+                    applyColorScheme(added, scheme);
+                }
             }
         });
     }

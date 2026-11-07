@@ -81,17 +81,27 @@ public final class Themes {
         imported = List.copyOf(found);
     }
 
+    /**
+     * The four built-in entries, made once. {@link #byId} is asked twice per pane on every settings
+     * change and once for every window that opens, tooltips and menus included; it used to build
+     * these four, and a list, on each call.
+     */
+    private static final List<ThemeEntry> BUILT_IN =
+            java.util.Arrays.stream(Theme.values()).map(ThemeEntry::of).toList();
+
     /** Built in first, in their order, then the imported ones by file name. */
     public static List<ThemeEntry> all() {
-        List<ThemeEntry> out = new ArrayList<>();
-        for (Theme theme : Theme.values()) out.add(ThemeEntry.of(theme));
+        List<ThemeEntry> out = new ArrayList<>(BUILT_IN);
         out.addAll(imported);
         return out;
     }
 
     /** The theme an id names, or Editora Dark. */
     public static ThemeEntry byId(String id) {
-        for (ThemeEntry entry : all()) {
+        for (ThemeEntry entry : BUILT_IN) {
+            if (entry.id().equals(id)) return entry;
+        }
+        for (ThemeEntry entry : imported) {
             if (entry.id().equals(id)) return entry;
         }
         return FALLBACK;

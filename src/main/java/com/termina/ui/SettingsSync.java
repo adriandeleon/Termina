@@ -192,11 +192,6 @@ final class SettingsSync {
         return configured() && primary();
     }
 
-    /** Whether another Termina on this settings folder is the one syncing. */
-    boolean secondary() {
-        return secondary;
-    }
-
     /** The folder that holds the clone and the backups. */
     Path syncDir() {
         return settings.directory().resolve("sync");
