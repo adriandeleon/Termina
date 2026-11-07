@@ -132,6 +132,13 @@ public final class SettingsWindow {
     /** Set for the duration of {@link #reload}, so a change it provokes cannot start another. */
     private boolean reloading;
 
+    /**
+     * Set while a control of this window writes a setting through, so the broadcast that write causes
+     * does not reload the window that made it. The control already shows the value; whatever else on
+     * the page depends on it is refreshed by the control's own listener.
+     */
+    private boolean writing;
+
     private PalettePreview preview;
 
     public SettingsWindow(Settings settings, com.termina.shell.ShellProfiles profiles) {
@@ -164,6 +171,11 @@ public final class SettingsWindow {
         // this a checkbox left showing the old value wrote that old value on its next click — a
         // click that did nothing, followed by one that did the opposite of its label.
         settings.addOnChange(this::onSettingsChanged);
+        // The file is written a moment after the change, off the FX thread; the row that reports a
+        // failed write hears about it then, not when the control was clicked.
+        settings.addOnSaved(() -> javafx.application.Platform.runLater(() -> {
+            if (stage.isShowing()) refreshSaveError();
+        }));
         if (sync != null) sync.addListener(this::refreshSync);
     }
 
@@ -250,7 +262,18 @@ public final class SettingsWindow {
     }
 
     private void onSettingsChanged() {
-        if (shouldReload(stage.isShowing(), reloading)) reload();
+        if (shouldReload(stage.isShowing(), reloading, writing)) reload();
+    }
+
+    /** Runs a write-through from one of this window's controls, marked as this window's own. */
+    private void write(Runnable change) {
+        boolean was = writing;
+        writing = true;
+        try {
+            change.run();
+        } finally {
+            writing = was;
+        }
     }
 
     /** Sets a field's text unless the user is in it, the way {@code reloadKeys} leaves a recording field alone. */
@@ -260,12 +283,14 @@ public final class SettingsWindow {
 
     /**
      * Whether a settings change should refresh the controls: only while the window can be seen,
-     * and never from inside the refresh itself. The second half is the re-entrancy guard — a
-     * reload sets every control under {@code loading}, so none of them writes back, but a reload
-     * started by a reload would still be a loop waiting for one that does.
+     * never from inside the refresh itself, and never for a change this window is making. The second
+     * half is the re-entrancy guard — a reload sets every control under {@code loading}, so none of
+     * them writes back, but a reload started by a reload would still be a loop waiting for one that
+     * does. The third is the cost: a reload re-sets some thirty controls, resolves every key binding
+     * and rebuilds the profile list and the preview, which a spinner tick is not worth.
      */
-    static boolean shouldReload(boolean showing, boolean reloading) {
-        return showing && !reloading;
+    static boolean shouldReload(boolean showing, boolean reloading, boolean writing) {
+        return showing && !reloading && !writing;
     }
 
     // ---------------------------------------------------------------- shell
@@ -368,7 +393,8 @@ public final class SettingsWindow {
         ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
         confirm.getButtonTypes().setAll(resetButton, cancel);
         if (confirm.showAndWait().orElse(cancel) != resetButton) return;
-        settings.resetToDefaults();
+        // One reload, here: the write's own broadcast is not taken as a reason for another.
+        write(settings::resetToDefaults);
         reload();
     }
 
@@ -819,7 +845,7 @@ public final class SettingsWindow {
             if (loading || value == null) return;
             ThemeEntry chosen = Themes.byDisplayName().get(value);
             if (chosen != null) {
-                settings.setThemeId(chosen.id());
+                write(() -> settings.setThemeId(chosen.id()));
                 refreshPreview();
             }
             removeTheme.setDisable(chosen == null || chosen.isBuiltIn());
@@ -858,7 +884,7 @@ public final class SettingsWindow {
         fontCombo.getItems().setAll(MonospaceFonts.available());
         fontCombo.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setFontFamily(value);
+            write(() -> settings.setFontFamily(value));
             refreshPreview();
         });
         row(
@@ -876,7 +902,7 @@ public final class SettingsWindow {
         makeLenient(fontSize, d -> d);
         fontSize.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setFontSize(value);
+            write(() -> settings.setFontSize(value));
             refreshPreview();
         });
         row(
@@ -892,7 +918,7 @@ public final class SettingsWindow {
         hideTabBar = new CheckBox();
         hideTabBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setHideTabBarWhenSingle(value);
+            write(() -> settings.setHideTabBarWhenSingle(value));
         });
         row(
                 Category.APPEARANCE,
@@ -907,7 +933,7 @@ public final class SettingsWindow {
         showMenuBar = new CheckBox();
         showMenuBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setShowMenuBar(value);
+            write(() -> settings.setShowMenuBar(value));
         });
         boolean mac = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
         // Disabled rather than hidden on macOS: a setting that silently does nothing is worse than
@@ -924,7 +950,7 @@ public final class SettingsWindow {
         menuBarInTitleBar = new CheckBox();
         menuBarInTitleBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setMenuBarInTitleBar(value);
+            write(() -> settings.setMenuBarInTitleBar(value));
         });
         boolean extendedWindows =
                 javafx.application.Platform.isSupported(javafx.application.ConditionalFeature.EXTENDED_WINDOW);
@@ -947,7 +973,7 @@ public final class SettingsWindow {
         showScrollBar = new CheckBox();
         showScrollBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setShowScrollBar(value);
+            write(() -> settings.setShowScrollBar(value));
         });
         row(
                 Category.APPEARANCE,
@@ -970,10 +996,10 @@ public final class SettingsWindow {
         windowOpacity.valueProperty().addListener((o, old, value) -> {
             windowOpacityValue.setText(WindowOpacity.percent(value.doubleValue() / 100) + "%");
             if (loading || windowOpacity.isValueChanging()) return;
-            settings.setWindowOpacity(value.doubleValue() / 100);
+            write(() -> settings.setWindowOpacity(value.doubleValue() / 100));
         });
         windowOpacity.valueChangingProperty().addListener((o, was, changing) -> {
-            if (!changing && !loading) settings.setWindowOpacity(windowOpacity.getValue() / 100);
+            if (!changing && !loading) write(() -> settings.setWindowOpacity(windowOpacity.getValue() / 100));
         });
         HBox opacityControl = new HBox(8, windowOpacity, windowOpacityValue);
         opacityControl.setAlignment(Pos.CENTER_RIGHT);
@@ -1006,7 +1032,7 @@ public final class SettingsWindow {
         });
         language.valueProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setUiLanguage(value == null ? "" : value);
+            write(() -> settings.setUiLanguage(value == null ? "" : value));
         });
         row(
                 Category.APPEARANCE,
@@ -1046,7 +1072,7 @@ public final class SettingsWindow {
         cursorShape.setPrefWidth(160);
         cursorShape.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setCursorShape(value);
+            write(() -> settings.setCursorShape(value));
         });
         row(
                 Category.TERMINAL,
@@ -1063,7 +1089,7 @@ public final class SettingsWindow {
         makeLenient(padding, d -> (int) Math.round(d));
         padding.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setPadding(value);
+            write(() -> settings.setPadding(value));
         });
         row(
                 Category.TERMINAL,
@@ -1076,14 +1102,14 @@ public final class SettingsWindow {
         bell = new CheckBox();
         bell.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setBell(value);
+            write(() -> settings.setBell(value));
         });
         row(Category.TERMINAL, display, tr("settings.bell"), tr("settings.bell.desc"), bell, "bell alert flash sound");
 
         notifications = new CheckBox();
         notifications.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setNotifications(value);
+            write(() -> settings.setNotifications(value));
         });
         row(
                 Category.TERMINAL,
@@ -1098,7 +1124,7 @@ public final class SettingsWindow {
         confirmClose = new CheckBox();
         confirmClose.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setConfirmClose(value);
+            write(() -> settings.setConfirmClose(value));
         });
         row(
                 Category.TERMINAL,
@@ -1115,7 +1141,7 @@ public final class SettingsWindow {
         makeLenient(scrollback, d -> (int) Math.round(d));
         scrollback.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setScrollbackLines(value);
+            write(() -> settings.setScrollbackLines(value));
         });
         row(
                 Category.TERMINAL,
@@ -1129,10 +1155,10 @@ public final class SettingsWindow {
         shellField.setPromptText(tr("settings.shell.prompt"));
         shellField.setPrefWidth(260);
         shellField.focusedProperty().addListener((o, was, focused) -> {
-            if (!focused && !loading) settings.setShell(shellField.getText());
+            if (!focused && !loading) write(() -> settings.setShell(shellField.getText()));
         });
         shellField.setOnAction(e -> {
-            if (!loading) settings.setShell(shellField.getText());
+            if (!loading) write(() -> settings.setShell(shellField.getText()));
         });
         // The launcher falls back to $SHELL when this is not executable, on purpose and without a
         // word; this line is the word. Typing /bin/zshh and getting bash otherwise reads as the
@@ -1153,10 +1179,10 @@ public final class SettingsWindow {
         linkCommandField.setPromptText("/path/to/editor {file}:{line}");
         linkCommandField.setPrefWidth(260);
         linkCommandField.focusedProperty().addListener((o, was, focused) -> {
-            if (!focused && !loading) settings.setLinkOpenCommand(linkCommandField.getText());
+            if (!focused && !loading) write(() -> settings.setLinkOpenCommand(linkCommandField.getText()));
         });
         linkCommandField.setOnAction(e -> {
-            if (!loading) settings.setLinkOpenCommand(linkCommandField.getText());
+            if (!loading) write(() -> settings.setLinkOpenCommand(linkCommandField.getText()));
         });
         row(
                 Category.TERMINAL,
@@ -1173,7 +1199,7 @@ public final class SettingsWindow {
         altIsMeta = new CheckBox();
         altIsMeta.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setAltIsMeta(value);
+            write(() -> settings.setAltIsMeta(value));
         });
         row(
                 Category.TERMINAL,
@@ -1186,7 +1212,7 @@ public final class SettingsWindow {
         confirmPaste = new CheckBox();
         confirmPaste.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setConfirmPaste(value);
+            write(() -> settings.setConfirmPaste(value));
         });
         row(
                 Category.TERMINAL,
@@ -1199,7 +1225,7 @@ public final class SettingsWindow {
         copyOnSelect = new CheckBox();
         copyOnSelect.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setCopyOnSelect(value);
+            write(() -> settings.setCopyOnSelect(value));
         });
         row(
                 Category.TERMINAL,
@@ -1212,7 +1238,7 @@ public final class SettingsWindow {
         clipboardWrite = new CheckBox();
         clipboardWrite.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setClipboardWrite(value);
+            write(() -> settings.setClipboardWrite(value));
         });
         row(
                 Category.TERMINAL,
@@ -1225,7 +1251,7 @@ public final class SettingsWindow {
         typeAhead = new CheckBox();
         typeAhead.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setTypeAhead(value);
+            write(() -> settings.setTypeAhead(value));
         });
         row(
                 Category.TERMINAL,
@@ -1396,9 +1422,10 @@ public final class SettingsWindow {
         writeKeys(Map.of());
     }
 
-    /** One write and one broadcast; the change listener reloads the rows, every window rebinds. */
+    /** One write and one broadcast: every window rebinds, and the rows here are reloaded by hand. */
     private void writeKeys(Map<String, String> stored) {
-        settings.replaceKeyBindings(stored);
+        write(() -> settings.replaceKeyBindings(stored));
+        reloadKeys();
     }
 
     private Map<String, KeyCombination> effectiveKeys() {
@@ -1506,7 +1533,7 @@ public final class SettingsWindow {
         defaultProfile.setButtonCell(new ProfileCell(false));
         defaultProfile.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            profiles.setDefaultProfileId(value.id());
+            write(() -> profiles.setDefaultProfileId(value.id()));
             refreshProfileList();
         });
         Node defaultRow = row(
@@ -1561,7 +1588,7 @@ public final class SettingsWindow {
             if (loading) return;
             com.termina.shell.Profile selected = editing;
             if (selected == null) return;
-            profiles.setHidden(selected.id(), !value);
+            write(() -> profiles.setHidden(selected.id(), !value));
             refreshProfileList();
         });
 
@@ -1746,12 +1773,10 @@ public final class SettingsWindow {
                 fontSize = null;
             }
         }
-        settings.setProfileStyle(
-                editing.id(),
-                new com.termina.config.Settings.ProfileStyle(
-                        font == null || font.equals(defaultLabel) ? "" : font,
-                        fontSize,
-                        theme == null ? "" : theme.id()));
+        com.termina.config.Settings.ProfileStyle style = new com.termina.config.Settings.ProfileStyle(
+                font == null || font.equals(defaultLabel) ? "" : font, fontSize, theme == null ? "" : theme.id());
+        String profileId = editing.id();
+        write(() -> settings.setProfileStyle(profileId, style));
     }
 
     /**
@@ -1797,7 +1822,7 @@ public final class SettingsWindow {
             break;
         }
         if (!changed) return;
-        profiles.setUserProfiles(user);
+        write(() -> profiles.setUserProfiles(user));
         refreshProfileList(selected.id());
     }
 
@@ -1809,7 +1834,7 @@ public final class SettingsWindow {
                 .withCommandLine(profiles.systemProfile().commandLine());
         List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
         user.add(created);
-        profiles.setUserProfiles(user);
+        write(() -> profiles.setUserProfiles(user));
         refreshProfileList(created.id());
         profileName.requestFocus();
         profileName.selectAll();
@@ -1819,7 +1844,7 @@ public final class SettingsWindow {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
         // Its style, the default and the hidden entry go with it: the next profile added may get its id.
-        profiles.removeUserProfile(selected.id());
+        write(() -> profiles.removeUserProfile(selected.id()));
         refreshProfileList();
     }
 
@@ -1894,7 +1919,7 @@ public final class SettingsWindow {
         updateCheck = new CheckBox();
         updateCheck.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setUpdateCheck(value);
+            write(() -> settings.setUpdateCheck(value));
         });
         row(
                 Category.ADVANCED,
@@ -2033,7 +2058,7 @@ public final class SettingsWindow {
 
         syncAuto = new CheckBox();
         syncAuto.selectedProperty().addListener((o, old, value) -> {
-            if (!loading) settings.setSyncAuto(value);
+            if (!loading) write(() -> settings.setSyncAuto(value));
         });
         row(
                 Category.SYNC,
@@ -2049,7 +2074,7 @@ public final class SettingsWindow {
         syncInterval.setPrefWidth(110);
         makeLenient(syncInterval, value -> (int) Math.round(value));
         syncInterval.valueProperty().addListener((o, old, value) -> {
-            if (!loading && value != null) settings.setSyncIntervalMinutes(value);
+            if (!loading && value != null) write(() -> settings.setSyncIntervalMinutes(value));
         });
         row(
                 Category.SYNC,
@@ -2091,7 +2116,7 @@ public final class SettingsWindow {
     private void toggleSyncConnection() {
         if (sync == null) return;
         if (settings.syncEnabled()) {
-            settings.setSyncEnabled(false);
+            write(() -> settings.setSyncEnabled(false));
             sync.disconnected();
             refreshSync();
             return;
@@ -2110,9 +2135,11 @@ public final class SettingsWindow {
             return;
         }
         showSyncFieldError(null);
-        settings.setSyncRepository(url);
-        settings.setSyncBranch(branch);
-        settings.setSyncEnabled(true);
+        write(() -> {
+            settings.setSyncRepository(url);
+            settings.setSyncBranch(branch);
+            settings.setSyncEnabled(true);
+        });
         sync.connected();
         refreshSync();
     }

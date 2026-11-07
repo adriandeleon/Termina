@@ -59,7 +59,7 @@ public final class App extends Application {
         com.termina.perf.Startup.mark("fonts");
 
         CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
-        Settings settings = new Settings(Settings.defaultFile(cli.configDir()));
+        Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
         com.termina.ui.DebugLog.attachFile(settings.directory());

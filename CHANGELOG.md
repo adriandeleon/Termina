@@ -5,8 +5,9 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
-The quick fixes from the [2026-11-06 performance review](docs/review-2026-11-06.md); the larger
-items there (coalesced settings saves, damage tracking, the theme stylesheets' size) are not done.
+The quick fixes from the [2026-11-06 performance review](docs/review-2026-11-06.md) and its
+settings-layer items; the larger ones there (damage tracking, the theme stylesheets' size) are not
+done.
 
 ### Fixed
 
@@ -22,8 +23,30 @@ items there (coalesced settings saves, damage tracking, the theme stylesheets' s
 - **A capture run can answer the paste prompt** (`-Dtermina.capturePasteAnswer=paste|cancel`); the
   hook existed and nothing called it, so a run that reached the prompt hung. The README now lists
   every capture option, not two thirds of them.
+- **GNOME Software's Project Website button works before installing.** The window opened by
+  double-clicking a downloaded `.deb` reads only the package's own fields, and the packages
+  declared no homepage. They now name termina-project.dev (the deb's `Homepage`, the rpm's `URL`,
+  the MSI's About link). That window still shows a generic icon and Unknown License for any
+  downloaded package; the listing, with the icon, licence and release notes, is on Termina's page
+  under Installed.
+- **0.14.0 has release notes in Software.** Its page said "No details for this release".
+- **Every window tells the system whether the theme is light or dark.** Only a terminal window
+  with the menu bar in its title bar was told, and only its buttons; the rest — an ordinary
+  terminal window, Settings, About, Keyboard Shortcuts, confirmation dialogs — reported the
+  desktop's setting, which is what JavaFX picks a native frame's dark variant from on Windows and
+  macOS. On Linux the native frame follows the desktop whatever the app says.
 
 ### Changed
+
+- **The settings file is written once per run of changes, not once per change.** Every setter
+  wrote the whole file, under a file lock, on the thread that called it, so a spinner held down, the
+  zoom chord under key auto-repeat and the opacity slider's arrow keys wrote it per tick. A change
+  still applies live — memory and every window see it at once — and the file is written 300 ms
+  after the last change in a run, off the FX thread; whatever is pending is written when the app
+  quits. The Settings window also stops rebuilding all of its controls for a change one of them has
+  just made: a tick re-set thirty controls, resolved every key binding four times and rebuilt the
+  profile list and the preview, for a value the control was already showing. A change from
+  elsewhere still reloads it.
 
 - **Less work per frame and per write.** The scrollbar is updated after the buffer lock is released
   rather than inside it; whether type-ahead is wanted is decided when the foreground program
@@ -40,18 +63,6 @@ items there (coalesced settings saves, damage tracking, the theme stylesheets' s
   `Theme.byDisplayName`, four unused `MenuIcons` glyphs, `SettingsSync.secondary`,
   `CommandPalette.show(List)`; and ten Javadoc blocks that documented nothing.
 
-- **GNOME Software's Project Website button works before installing.** The window opened by
-  double-clicking a downloaded `.deb` reads only the package's own fields, and the packages
-  declared no homepage. They now name termina-project.dev (the deb's `Homepage`, the rpm's `URL`,
-  the MSI's About link). That window still shows a generic icon and Unknown License for any
-  downloaded package; the listing, with the icon, licence and release notes, is on Termina's page
-  under Installed.
-- **0.14.0 has release notes in Software.** Its page said "No details for this release".
-- **Every window tells the system whether the theme is light or dark.** Only a terminal window
-  with the menu bar in its title bar was told, and only its buttons; the rest — an ordinary
-  terminal window, Settings, About, Keyboard Shortcuts, confirmation dialogs — reported the
-  desktop's setting, which is what JavaFX picks a native frame's dark variant from on Windows and
-  macOS. On Linux the native frame follows the desktop whatever the app says.
 
 ## 0.14.0 — 2026-10-31
 

@@ -67,9 +67,19 @@ class SettingsWindowTest {
 
     @Test
     void theWindowReloadsOnlyWhileShownAndNeverFromInsideAReload() {
-        assertTrue(SettingsWindow.shouldReload(true, false));
-        assertFalse(SettingsWindow.shouldReload(false, false), "nothing to refresh when hidden; show() reloads anyway");
-        assertFalse(SettingsWindow.shouldReload(true, true), "the re-entrancy guard");
+        assertTrue(SettingsWindow.shouldReload(true, false, false));
+        assertFalse(
+                SettingsWindow.shouldReload(false, false, false),
+                "nothing to refresh when hidden; show() reloads anyway");
+        assertFalse(SettingsWindow.shouldReload(true, true, false), "the re-entrancy guard");
+    }
+
+    @Test
+    void theWindowDoesNotReloadForAChangeItIsMakingItself() {
+        // A spinner tick re-set thirty controls, resolved every key binding and rebuilt the profile
+        // list and the preview, for a value the spinner was already showing.
+        assertFalse(SettingsWindow.shouldReload(true, false, true));
+        assertTrue(SettingsWindow.shouldReload(true, false, false), "a change from elsewhere still reloads");
     }
 
     // ---------------------------------------------------------------- validation

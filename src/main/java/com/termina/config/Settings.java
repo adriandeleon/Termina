@@ -143,8 +143,92 @@ public final class Settings {
     /** Why the last save failed, or null when it succeeded. */
     private volatile @Nullable String lastSaveError;
 
+    /** How long a save waits for the next change before it writes, in {@link #deferred}. */
+    public static final long SAVE_DELAY_MS = 300;
+
+    /** Where a deferred save runs, or null when every change writes at once. */
+    private final @Nullable SaveScheduler scheduler;
+
+    private final long saveDelayMs;
+
+    /** The save waiting to run, if one is; guarded by {@code this}. */
+    private SaveScheduler.@Nullable Scheduled pendingSave;
+
+    /** Whether memory has changes the file has not seen; guarded by {@code this}. */
+    private boolean saveWanted;
+
+    /** Held for the whole of a write, so a flush waits for a save already under way. */
+    private final Object saveLock = new Object();
+
+    private final List<Runnable> onSaved = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Settings that write the file on every change, as they are made.
+     *
+     * <p>For tests and tools, which want the file to hold what was just set. The application uses
+     * {@link #deferred}, which coalesces a run of changes into one write.
+     */
     public Settings(Path file) {
         this.file = file;
+        this.scheduler = null;
+        this.saveDelayMs = 0;
+    }
+
+    /**
+     * Settings whose writes are deferred: a change updates memory and tells the listeners at once,
+     * and the file is written {@code saveDelayMs} after the last change in a run — one write for a
+     * slider dragged across forty values, not forty. {@link #flush} writes whatever is pending now.
+     *
+     * @param scheduler what runs the deferred save; a test's can be stepped by hand
+     */
+    public Settings(Path file, SaveScheduler scheduler, long saveDelayMs) {
+        this.file = file;
+        this.scheduler = scheduler;
+        this.saveDelayMs = Math.max(0, saveDelayMs);
+    }
+
+    /**
+     * The application's settings: deferred saves on one daemon thread, flushed when the JVM exits.
+     *
+     * <p>The shutdown hook is a backstop for the paths that do not go through {@code App.stop} — a
+     * {@code System.exit} — and for a {@code closeAll} that wrote the window geometry after its own
+     * flush. Shutdown is the one moment a pending write may not be left pending.
+     */
+    public static Settings deferred(Path file) {
+        java.util.concurrent.ScheduledExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
+                    Thread thread = new Thread(task, "termina-settings-save");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        Settings settings = new Settings(file, SaveScheduler.on(executor), SAVE_DELAY_MS);
+        Runtime.getRuntime().addShutdownHook(new Thread(settings::flush, "termina-settings-flush"));
+        return settings;
+    }
+
+    /**
+     * Runs a save once, after a delay, unless cancelled first. The seam between {@link Settings} and
+     * the thread its writes happen on: production hands it a {@link
+     * java.util.concurrent.ScheduledExecutorService}, a test steps its own by hand and counts.
+     */
+    @FunctionalInterface
+    public interface SaveScheduler {
+
+        /** A save that has been scheduled and may still be called off. */
+        @FunctionalInterface
+        interface Scheduled {
+            void cancel();
+        }
+
+        Scheduled schedule(Runnable task, long delayMs);
+
+        static SaveScheduler on(java.util.concurrent.ScheduledExecutorService executor) {
+            return (task, delayMs) -> {
+                java.util.concurrent.ScheduledFuture<?> future =
+                        executor.schedule(task, delayMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+                return () -> future.cancel(false);
+            };
+        }
     }
 
     /** The standard location. Honours {@code TERMINA_CONFIG_DIR} so a dev run can be isolated. */
@@ -185,6 +269,15 @@ public final class Settings {
 
     public void removeOnChange(Runnable listener) {
         onChange.remove(listener);
+    }
+
+    /**
+     * Notified after every attempt to write the file, on whatever thread wrote it — the save thread
+     * for a deferred save — so {@link #lastSaveError} can be shown when it is known rather than when
+     * the change was made.
+     */
+    public void addOnSaved(Runnable listener) {
+        onSaved.add(listener);
     }
 
     private void fireChange() {
@@ -252,7 +345,14 @@ public final class Settings {
      * two writers never share one. The rename is atomic where the filesystem offers it and a plain
      * replace where it does not, which still leaves either the whole new file or the old one.
      */
-    public synchronized void save() {
+    public void save() {
+        synchronized (saveLock) {
+            writeFile();
+        }
+        for (Runnable listener : onSaved) listener.run();
+    }
+
+    private void writeFile() {
         Path temp = null;
         try {
             Path parent = file.toAbsolutePath().getParent();
@@ -285,6 +385,49 @@ public final class Settings {
                 }
             }
         }
+    }
+
+    /**
+     * Writes now, or — with a scheduler — {@code saveDelayMs} after the last request. Each request
+     * calls the pending save off and schedules a new one, so a run of changes ends in one write.
+     */
+    private void requestSave() {
+        if (scheduler == null) {
+            save();
+            return;
+        }
+        synchronized (this) {
+            saveWanted = true;
+            if (pendingSave != null) pendingSave.cancel();
+            pendingSave = scheduler.schedule(this::flush, saveDelayMs);
+        }
+    }
+
+    /**
+     * Writes whatever is pending, now, on this thread; returns with the file current. Nothing pending
+     * writes nothing, but still waits for a save already under way elsewhere. Called on shutdown, and
+     * by the scheduler when the delay runs out.
+     */
+    public void flush() {
+        boolean wanted;
+        synchronized (this) {
+            if (pendingSave != null) pendingSave.cancel();
+            pendingSave = null;
+            wanted = saveWanted;
+            saveWanted = false;
+        }
+        if (wanted) {
+            save();
+        } else {
+            synchronized (saveLock) {
+                // Only to wait: a save the scheduler started finishes before a flush returns.
+            }
+        }
+    }
+
+    /** Whether memory holds changes the file has not been given yet. */
+    public synchronized boolean hasPendingSave() {
+        return saveWanted;
     }
 
     /** What the file holds now, or what this process last knew it to hold if it cannot be read. */
@@ -486,7 +629,7 @@ public final class Settings {
                 .filter(name -> name.startsWith(KEYS_PREFIX))
                 .forEach(properties::remove);
         next.forEach((id, chord) -> properties.setProperty(KEYS_PREFIX + id, chord));
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -592,7 +735,7 @@ public final class Settings {
         for (java.util.Map.Entry<String, String> entry : next.entrySet()) {
             if (entry.getValue() != null) properties.setProperty(entry.getKey(), entry.getValue());
         }
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -747,7 +890,7 @@ public final class Settings {
         properties.setProperty(WINDOW_WIDTH, String.valueOf(Math.round(width)));
         properties.setProperty(WINDOW_HEIGHT, String.valueOf(Math.round(height)));
         properties.setProperty(WINDOW_MAXIMIZED, String.valueOf(maximized));
-        save();
+        requestSave();
     }
 
     /** Size and position in one write. A position that is not sane is left unrecorded. */
@@ -867,7 +1010,7 @@ public final class Settings {
      */
     public void resetToDefaults() {
         for (String key : keysToReset(properties.stringPropertyNames())) properties.remove(key);
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -952,7 +1095,7 @@ public final class Settings {
         changed |= setOrRemove(prefix + "fontSize", next.fontSize() == null ? "" : String.valueOf(next.fontSize()));
         changed |= setOrRemove(prefix + "theme", next.themeId());
         if (!changed) return;
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -998,7 +1141,7 @@ public final class Settings {
             changed = true;
         }
         if (!changed) return;
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -1029,7 +1172,7 @@ public final class Settings {
         String previous = properties.getProperty(key);
         if (value.equals(previous)) return false;
         properties.setProperty(key, value);
-        save();
+        requestSave();
         return true;
     }
 

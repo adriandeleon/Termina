@@ -388,7 +388,10 @@ Each of these cost real time, and none of them announces itself.
   full set of `-Dtermina.capture*` options.
 - **A settings change applies live.** Every control writes through immediately; there is no OK
   button. Two settings cannot (scrollback sizes an existing buffer, the shell is already running)
-  and each says so on its own row rather than appearing to work.
+  and each says so on its own row rather than appearing to work. Live means memory and the change
+  broadcast; the *file* is written 300 ms after the last change in a run, on a daemon thread
+  (`Settings.deferred`), and `WindowManager.closeAll` flushes what is pending. A test that wants
+  the file current calls `flush()` or uses the plain constructor, which writes at once.
 - **Settings are clamped on read as well as write.** The file is meant to be hand-edited; clamping
   only on write would let a two-million-line scrollback exhaust memory at the next launch.
 - **Ported themes are faithful, not improved.** Clear Dark/Light colours were decoded from Apple's
