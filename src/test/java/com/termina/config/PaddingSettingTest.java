@@ -38,11 +38,11 @@ class PaddingSettingTest {
         settings.load();
         assertEquals(Settings.MAX_PADDING, settings.padding());
 
-        Files.writeString(file, "terminal.padding=-8\n");
+        StoredConfig.writeSettings(dir, "terminal.padding", "-8");
         settings.load();
         assertEquals(Settings.MIN_PADDING, settings.padding());
 
-        Files.writeString(file, "terminal.padding=wide\n");
+        StoredConfig.writeSettings(dir, "terminal.padding", "wide");
         settings.load();
         assertEquals(Settings.DEFAULT_PADDING, settings.padding());
     }

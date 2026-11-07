@@ -9,8 +9,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * How {@code settings.properties} is read and written: properties syntax, with one change to what a
- * backslash means.
+ * How the pre-0.15 {@code settings.properties} was read and written, and so how its one-time import
+ * into {@code settings.json} reads it: properties syntax, with one change to what a backslash means.
+ * The files themselves are {@link ConfigJson} now.
  *
  * <p>{@link java.util.Properties} treats every backslash as an escape and drops the ones it does not
  * know, so a hand-typed {@code C:\Windows\System32\wsl.exe} loaded as {@code C:WindowsSystem32wsl.exe},
