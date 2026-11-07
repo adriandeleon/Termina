@@ -21,6 +21,12 @@ public final class AppInfo {
     public static final String BUILD_TIME = load("build.time", "");
 
     /**
+     * The commit this build came from, abbreviated, with {@code -dirty} when the tree had
+     * uncommitted changes; empty for a build with no repository to ask (a source archive).
+     */
+    public static final String COMMIT = commit(resource("/com/termina/commit.txt"));
+
+    /**
      * The edition of the Pauta guidelines this build is built to, from {@code pauta.version} in the
      * pom. Empty for an unfiltered build, in which case nothing names one rather than a guess.
      */
@@ -58,6 +64,20 @@ public final class AppInfo {
             return value.startsWith("${") ? fallback : value;
         } catch (IOException e) {
             return fallback;
+        }
+    }
+
+    /** What {@code git describe --always --dirty} wrote, if it is a commit; empty otherwise. */
+    static String commit(String described) {
+        String id = described.strip();
+        return id.matches("[0-9a-f]{7,40}(-dirty)?") ? id : "";
+    }
+
+    private static String resource(String name) {
+        try (InputStream in = AppInfo.class.getResourceAsStream(name)) {
+            return in == null ? "" : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return "";
         }
     }
 
@@ -101,6 +121,7 @@ public final class AppInfo {
         var lines = new java.util.ArrayList<String>();
         lines.add(NAME + " " + VERSION);
         if (!BUILD_TIME.isBlank()) lines.add("Built: " + BUILD_TIME);
+        if (!COMMIT.isBlank()) lines.add("Commit: " + COMMIT);
         if (!PAUTA_EDITION.isBlank()) lines.add("Pauta: " + PAUTA_EDITION);
         lines.add("Java: " + javaVersion());
         String fx = javaFxVersion();

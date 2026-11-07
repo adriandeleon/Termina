@@ -46,6 +46,23 @@ class AppInfoTest {
     }
 
     @Test
+    void aDirtyTreeSaysSoAndNoAnswerNamesNoCommit() {
+        assertEquals("abc1234567", AppInfo.commit("abc1234567\n"));
+        assertEquals("abc1234567-dirty", AppInfo.commit("abc1234567-dirty\n"));
+        assertEquals("", AppInfo.commit(""));
+        // Whatever git printed when it could not answer is not a commit.
+        assertEquals("", AppInfo.commit("fatal: not a git repository (or any of the parent directories): .git\n"));
+    }
+
+    @Test
+    void thePautaLineFollowsTheCommit() {
+        // ABOUT-05 (Pauta 2.0.2): the edition sits right after the commit in the copied block.
+        List<String> details = AppInfo.details();
+        int pauta = details.indexOf("Pauta: " + AppInfo.PAUTA_EDITION);
+        if (!AppInfo.COMMIT.isBlank()) assertEquals("Commit: " + AppInfo.COMMIT, details.get(pauta - 1));
+    }
+
+    @Test
     void detailsOpenWithNameAndVersionAndCarryTheEdition() {
         List<String> details = AppInfo.details();
         // The first line is what anything parsing --version reads.

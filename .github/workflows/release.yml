@@ -412,8 +412,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, sign-linux]
     timeout-minutes: 30
-    # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
-    if: github.ref_type == 'tag'
+    # A tag publishes. A manual run is a dry run (REL-21, Pauta 2.0.2): it gathers and checks every
+    # download and runs JReleaser with --dry-run, which publishes and attests nothing.
     # The only job that writes: contents for the release itself, and id-token plus attestations
     # for the build provenance below.
     permissions:
@@ -441,9 +441,17 @@ jobs:
       - name: List what will be released
         run: ls -la artifacts
 
+      # Exactly the files jreleaser.yml attaches, before anything is published: a GitHub release is
+      # immutable, so a download missing from one cannot be added afterwards (REL-07). The same check
+      # makes the attestation below cover the same list JReleaser attaches (REL-18).
+      - name: Check every download is here
+        shell: bash
+        run: bash scripts/check-release-assets.sh "${{ needs.build.outputs.version }}" artifacts
+
       # A signed statement, kept by GitHub, that each installer was built by this workflow from this
       # commit. `gh attestation verify <file> --repo adriandeleon/Termina` checks a download.
       - name: Attest build provenance
+        if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'artifacts/*'
@@ -459,11 +467,16 @@ jobs:
           PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
         run: |
           set -euo pipefail
+          dry=""
+          if [ "${GITHUB_REF_TYPE:-}" != "tag" ]; then
+            dry=" --dry-run"
+            echo "::notice::Manual run: JReleaser runs with --dry-run and publishes nothing."
+          fi
           if [ -n "${PACKAGES_TOKEN:-}" ]; then
-            echo "args=full-release" >> "$GITHUB_OUTPUT"
+            echo "args=full-release$dry" >> "$GITHUB_OUTPUT"
             echo "PACKAGES_TOKEN is set: the Homebrew cask and winget PR will be published."
           else
-            echo "args=full-release --exclude-packager brew --exclude-packager winget" >> "$GITHUB_OUTPUT"
+            echo "args=full-release$dry --exclude-packager brew --exclude-packager winget" >> "$GITHUB_OUTPUT"
             echo "::notice::No PACKAGES_TOKEN — publishing the GitHub release only. No Homebrew cask, no winget pull request."
           fi
 
@@ -486,6 +499,14 @@ jobs:
           JRELEASER_BREW_GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
           JRELEASER_WINGET_GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
+      # JReleaser writes the checksums file it attaches; it gets the same provenance as the files it
+      # vouches for (REL-18), or a tampered checksums file would verify a tampered download.
+      - name: Attest the checksums file
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'out/jreleaser/checksums/checksums_sha256.txt'
+
       - name: Upload JReleaser output
         # The trace is the only way to tell a packager that was skipped from one that failed.
         if: always()
@@ -496,3 +517,46 @@ jobs:
             out/jreleaser/trace.log
             out/jreleaser/output.properties
           retention-days: 7
+
+  # Moves master to the next development version once a release is out (REL-06, Pauta 2.0.2): the
+  # minor number up, as every release since 0.1.0 has started the next. A pull request, not a push,
+  # so master's protections apply. One opened with GITHUB_TOKEN starts no workflows of its own;
+  # closing and reopening it runs CI. Needs "Allow GitHub Actions to create and approve pull
+  # requests" in the repository's Actions settings.
+  bump:
+    name: Start the next snapshot
+    runs-on: ubuntu-latest
+    needs: [build, release]
+    if: github.ref_type == 'tag'
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: master
+
+      - name: Open the bump pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASED: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          IFS=. read -r major minor _ <<<"$RELEASED"
+          next="$major.$((minor + 1)).0-SNAPSHOT"
+          current="$(sed -n 's|^    <version>\(.*\)</version>$|\1|p' pom.xml | head -1)"
+          if [ "$current" = "$next" ]; then
+            echo "master is already on $next."
+            exit 0
+          fi
+          branch="build/start-$next"
+          git switch -c "$branch"
+          # The project's own <version>, the first at four spaces of indent; dependencies' are deeper.
+          sed -i "0,/^    <version>.*<\/version>\$/s||    <version>$next</version>|" pom.xml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -am "build: start $next"
+          git push -u origin "$branch"
+          gh pr create --base master --head "$branch" --title "build: start $next" \
+            --body "Released $RELEASED. Opened by the release workflow; close and reopen it to run CI."
