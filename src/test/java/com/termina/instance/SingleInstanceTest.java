@@ -62,6 +62,10 @@ class SingleInstanceTest {
         assertTrue(socket.toString().length() <= SingleInstance.MAX_SOCKET_PATH + 40, socket.toString());
         assertTrue(socket.getFileName().toString().startsWith("termina-"));
         assertEquals(socket, SingleInstance.socketFor(deep));
-        assertEquals(Path.of("/tmp/c/instance.sock"), SingleInstance.socketFor(Path.of("/tmp/c")));
+        // Absolute, as the code makes it: on Windows "/tmp/c" gains the current drive.
+        Path shortFolder = Path.of("/tmp/c");
+        assertEquals(
+                shortFolder.toAbsolutePath().normalize().resolve("instance.sock"),
+                SingleInstance.socketFor(shortFolder));
     }
 }
