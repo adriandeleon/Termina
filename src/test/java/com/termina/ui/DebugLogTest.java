@@ -53,7 +53,8 @@ class DebugLogTest {
             DebugLog.attachFile(dir, 1);
             assertEquals(
                     "last session's crash\n", java.nio.file.Files.readString(dir.resolve(DebugLog.PREVIOUS_FILE_NAME)));
-            assertEquals("", java.nio.file.Files.readString(log), "this session starts empty");
+            // By size, not content: the log is locked now, and on Windows the lock bars reading it.
+            assertEquals(0, java.nio.file.Files.size(log), "this session starts empty");
         } finally {
             DebugLog.detachFile();
         }
