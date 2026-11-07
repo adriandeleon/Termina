@@ -174,6 +174,15 @@
     -fx-padding: 0 2 0 2;
 }
 
+/* A pinned tab (TABS-03, Pauta 2.0.2): a bold title and a pin after it. Bulk closes pass over it. */
+.tab-title.pinned {
+    -fx-font-weight: bold;
+}
+
+.tab-pin {
+    -fx-fill: -color-fg-muted;
+}
+
 .tab-dragging {
     -fx-opacity: 0.4;
 }

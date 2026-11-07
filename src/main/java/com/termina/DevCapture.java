@@ -150,6 +150,7 @@ final class DevCapture {
                 chordsAtFocusIfRequested(window);
                 fireMenuItemIfRequested(active, settings);
                 selectTabIfRequested(window);
+                pinTabIfRequested(window);
                 closeTabsIfRequested(window);
                 renameTabIfRequested(window);
                 duplicateTabIfRequested(window);
@@ -544,6 +545,28 @@ final class DevCapture {
 
     private static long descendants() {
         return ProcessHandle.current().descendants().count();
+    }
+
+    /**
+     * Pins tab N (0-based); with {@code ,others}, then runs Close Other Tabs on the last tab, to
+     * check a bulk close passes over the pinned one. Reports the strip after each step.
+     *
+     * <pre>-Dtermina.capturePinTab=1[,others]</pre>
+     */
+    private static void pinTabIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.capturePinTab");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        window.togglePinForCapture(Integer.parseInt(parts[0].trim()));
+        System.out.println("[capture] pinned " + window.pinReportForCapture());
+        if (parts.length > 1 && parts[1].trim().equals("others")) {
+            String answer = System.getProperty("termina.captureCloseAnswer");
+            if (answer != null && !answer.isBlank()) {
+                window.setCloseAnswerForCapture("close".equalsIgnoreCase(answer.trim()));
+            }
+            window.closeOthersFromLastForCapture();
+            System.out.println("[capture] after close others " + window.pinReportForCapture());
+        }
     }
 
     /** {@code -Dtermina.captureCloseTabs=N} closes N tabs, to check they are actually reaped. */

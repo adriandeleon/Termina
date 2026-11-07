@@ -118,6 +118,9 @@ public final class TerminalWindow {
     private final MenuAction closeRightAction =
             item("menu.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
 
+    /** Pins or unpins the selected tab; the menus and the palette say which it will do. */
+    private final MenuAction pinAction = item("menu.pinTab", () -> withActiveTab(this::togglePin));
+
     /**
      * The commands that need the shell's prompt marks, greyed in the palette until there are some.
      * Terminal.app's Cmd+Up and Cmd+Down on macOS.
@@ -1559,6 +1562,7 @@ public final class TerminalWindow {
                 tabItem(tr("menu.closeTabsToTheLeft"), MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
         MenuItem closeRight =
                 tabItem(tr("menu.closeTabsToTheRight"), MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
+        MenuItem pin = tabItem(tr("menu.pinTab"), MenuIcons.pin(), () -> togglePin(tab));
         MenuItem moveLeft = tabItem(tr("menu.moveTabLeft"), MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
         MenuItem moveRight = tabItem(tr("menu.moveTabRight"), MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
 
@@ -1572,6 +1576,7 @@ public final class TerminalWindow {
                 tabItem(tr("menu.duplicateTab"), MenuIcons.duplicate(), () -> duplicateTab(tab)),
                 new SeparatorMenuItem(),
                 tabItem(tr("menu.renameTab"), MenuIcons.rename(), () -> renameTab(tab)),
+                pin,
                 new SeparatorMenuItem(),
                 tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> closeTab(tab)),
                 closeOthers,
@@ -1585,6 +1590,7 @@ public final class TerminalWindow {
         menu.setOnShowing(e -> {
             int index = tabs.getTabs().indexOf(tab);
             int count = tabs.getTabs().size();
+            pin.setText(pinLabel(tab));
             closeOthers.setDisable(count < 2);
             closeLeft.setDisable(index <= 0);
             closeRight.setDisable(index < 0 || index >= count - 1);
@@ -1604,15 +1610,27 @@ public final class TerminalWindow {
     }
 
     private void closeOtherTabs(Tab keep) {
-        List<Tab> doomed = new ArrayList<>(tabs.getTabs());
-        doomed.remove(keep);
-        closeTabs(doomed);
+        closeTabs(bulk(TabRanges.CLOSE_OTHERS, keep));
     }
 
     private void closeTabsToTheLeft(Tab from) {
-        int index = tabs.getTabs().indexOf(from);
-        if (index <= 0) return;
-        closeTabs(new ArrayList<>(tabs.getTabs().subList(0, index)));
+        closeTabs(bulk(TabRanges.CLOSE_LEFT, from));
+    }
+
+    private void closeTabsToTheRight(Tab from) {
+        closeTabs(bulk(TabRanges.CLOSE_RIGHT, from));
+    }
+
+    /** The tabs bulk close {@code id} takes, run on {@code from}: never a pinned one. */
+    private List<Tab> bulk(String id, Tab from) {
+        List<Tab> all = List.copyOf(tabs.getTabs());
+        List<Tab> doomed = new ArrayList<>();
+        for (int i : TabRanges.closing(id, all.indexOf(from), pinnedFlags())) doomed.add(all.get(i));
+        return doomed;
+    }
+
+    private List<Boolean> pinnedFlags() {
+        return tabs.getTabs().stream().map(TerminalWindow::isPinned).toList();
     }
 
     /**
@@ -1622,16 +1640,70 @@ public final class TerminalWindow {
     private @Nullable String bulkCloseUnavailable(MenuAction bulk) {
         Tab selected = tabs.getSelectionModel().getSelectedItem();
         int index = selected == null ? -1 : tabs.getTabs().indexOf(selected);
-        String reason =
-                TabRanges.unavailable(bulk.requireId(), index, tabs.getTabs().size());
+        String reason = TabRanges.unavailable(bulk.requireId(), index, pinnedFlags());
         return reason == null ? null : tr(reason);
     }
 
-    private void closeTabsToTheRight(Tab from) {
-        int index = tabs.getTabs().indexOf(from);
-        if (index < 0) return;
-        closeTabs(
-                new ArrayList<>(tabs.getTabs().subList(index + 1, tabs.getTabs().size())));
+    // ---------------------------------------------------------------- pinned tabs
+
+    /** Marks a pinned tab in its properties: the strip's order is the only other place it shows. */
+    private static final String PINNED = "termina.pinned";
+
+    static boolean isPinned(Tab tab) {
+        return Boolean.TRUE.equals(tab.getProperties().get(PINNED));
+    }
+
+    /**
+     * Pins or unpins a tab (TABS-01, TABS-05, Pauta 2.0.2). A pinned tab moves to the end of the
+     * pinned group at the left, an unpinned one to just after it, so the pinned tabs stay together;
+     * bulk closes pass over them, and the header says so with a pin and a bold title.
+     */
+    private void togglePin(Tab tab) {
+        boolean pin = !isPinned(tab);
+        int pinnedOthers = 0;
+        for (Tab other : tabs.getTabs()) {
+            if (other != tab && isPinned(other)) pinnedOthers++;
+        }
+        setPinned(tab, pin);
+        int from = tabs.getTabs().indexOf(tab);
+        // Both ends land on the boundary: as the last pinned tab, or as the first one after them.
+        if (from >= 0 && from != pinnedOthers) moveTab(from, pinnedOthers);
+    }
+
+    /** A reopened tab of one pane is pinned again if it was, in the place it came back to. */
+    private void restorePin(ClosedTabs.Entry entry, int index) {
+        if (entry.pinned() && index >= 0 && index < tabs.getTabs().size())
+            setPinned(tabs.getTabs().get(index), true);
+    }
+
+    /** Pins or unpins tab {@code index} as the command would — for the capture hook. */
+    public void togglePinForCapture(int index) {
+        if (index >= 0 && index < tabs.getTabs().size())
+            togglePin(tabs.getTabs().get(index));
+    }
+
+    /** Close Other Tabs, run on the last tab — for the capture hook. */
+    public void closeOthersFromLastForCapture() {
+        if (!tabs.getTabs().isEmpty()) closeOtherTabs(tabs.getTabs().getLast());
+    }
+
+    /** Each tab's title in strip order, a pinned one starred — for the capture hook. */
+    public String pinReportForCapture() {
+        List<String> out = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) out.add((isPinned(tab) ? "*" : "") + label(tab));
+        return out.toString();
+    }
+
+    /** "Pin Tab" or "Unpin Tab", for what the command would do to {@code tab}. */
+    private static String pinLabel(@Nullable Tab tab) {
+        return tab != null && isPinned(tab) ? tr("menu.unpinTab") : tr("menu.pinTab");
+    }
+
+    /** Sets the mark without moving the tab: for a tab coming back where it was. */
+    private void setPinned(Tab tab, boolean pinned) {
+        if (pinned) tab.getProperties().put(PINNED, Boolean.TRUE);
+        else tab.getProperties().remove(PINNED);
+        if (tab.getProperties().get(TAB_MARKS) instanceof TabMarkState marks) marks.setPinned(pinned);
     }
 
     /**
@@ -1696,11 +1768,44 @@ public final class TerminalWindow {
             paint();
         }
 
+        /** The pin, beside the dot when there is one; made on first pin. */
+        javafx.scene.@Nullable Node pin;
+
+        boolean pinned;
+
         void apply(TabMarks.Mark next) {
             if (next == mark) return;
             mark = next;
             paint();
-            title.setGraphic(next == TabMarks.Mark.NONE ? null : dot);
+            attach();
+        }
+
+        void setPinned(boolean next) {
+            if (next == pinned) return;
+            pinned = next;
+            if (next) title.getStyleClass().add("pinned");
+            else title.getStyleClass().remove("pinned");
+            attach();
+        }
+
+        /**
+         * Attaches what the header shows after the title, as a new graphic rather than by toggling
+         * visibility: a Labeled ignores a graphic that was unmanaged when it was set (see gotchas).
+         */
+        private void attach() {
+            boolean marked = mark != TabMarks.Mark.NONE;
+            javafx.scene.Node pinNode = null;
+            if (pinned) {
+                if (pin == null) pin = MenuIcons.tabPin();
+                pinNode = pin;
+            }
+            if (pinNode != null && marked) {
+                javafx.scene.layout.HBox both = new javafx.scene.layout.HBox(4, pinNode, dot);
+                both.setAlignment(javafx.geometry.Pos.CENTER);
+                title.setGraphic(both);
+            } else {
+                title.setGraphic(pinNode != null ? pinNode : marked ? dot : null);
+            }
         }
 
         private void paint() {
@@ -1730,7 +1835,8 @@ public final class TerminalWindow {
                     state == null
                             ? "?"
                             : state.mark.name().toLowerCase(java.util.Locale.ROOT)
-                                    + (state.title.getGraphic() == state.dot ? "(" + state.dot.getFill() + ")" : ""));
+                                    + (state.mark != TabMarks.Mark.NONE ? "(" + state.dot.getFill() + ")" : "")
+                                    + (state.pinned ? "[pinned]" : ""));
         }
         return "marks=" + marks;
     }
@@ -1883,7 +1989,7 @@ public final class TerminalWindow {
     private ClosedTabs.@Nullable Entry entryOf(Tab tab, long stamp) {
         PaneGroup group = groupOf(tab);
         if (group.panes().isEmpty()) return null;
-        return new ClosedTabs.Entry(group.layout(this::leafOf), tabs.getTabs().indexOf(tab), stamp);
+        return new ClosedTabs.Entry(group.layout(this::leafOf), tabs.getTabs().indexOf(tab), stamp, isPinned(tab));
     }
 
     /**
@@ -1977,6 +2083,7 @@ public final class TerminalWindow {
         int index = ClosedTabs.reopenIndex(entry.index(), tabs.getTabs().size());
         if (entry.layout().root() instanceof PaneLayout.Leaf leaf) {
             openTab(leaf.options(), index, leaf.userTitle());
+            restorePin(entry, index);
             return;
         }
         Tab tab = new Tab();
@@ -1986,6 +2093,7 @@ public final class TerminalWindow {
             return pane;
         });
         addTab(tab, group, index);
+        if (entry.pinned()) setPinned(tab, true);
         // Splits made in this pulse have no skin and their panes are not in the scene yet; laid out
         // first, every shell starts at its real size. See splitActivePane.
         tabs.applyCss();
@@ -2854,6 +2962,7 @@ public final class TerminalWindow {
                 // goes. They are here for the palette, and so the keyboard can reach them at all.
                 item("menu.renameTab", () -> withActiveTab(this::renameTab)),
                 item("menu.duplicateTab", () -> withActiveTab(this::duplicateTab)),
+                pinAction,
                 null,
                 // iTerm2's Cmd+D and Cmd+Shift+D on macOS; Terminator's Ctrl+Shift+E and O
                 // elsewhere, where Ctrl+Shift+D would be the pair's odd one out.
@@ -2875,6 +2984,11 @@ public final class TerminalWindow {
                     TerminalView pane = tab == null ? null : groupOf(tab).active();
                     if (pane != null) movePaneToNewTab(pane);
                 })));
+        // Says what it will do to the selected tab.
+        window.setOnShowing(e -> {
+            Tab selected = tabs.getSelectionModel().getSelectedItem();
+            for (MenuItem item : itemsFor(pinAction.id())) item.setText(pinLabel(selected));
+        });
 
         // Moving between panes: chords and palette entries, no menu items — four of them would be
         // most of the Window menu. iTerm2's Cmd+Option+arrows on macOS; the same with Shift added
@@ -3445,7 +3559,19 @@ public final class TerminalWindow {
     private void showPalette() {
         List<MenuAction> all = new ArrayList<>();
         for (MenuAction command : commands) {
-            if (!command.sameActionAs(paletteAction)) all.add(bound(command));
+            if (command.sameActionAs(paletteAction)) continue;
+            MenuAction row = bound(command);
+            // Pin or Unpin, as the Window menu says, for the tab it would act on.
+            if (row.sameActionAs(pinAction)) {
+                row = new MenuAction(
+                        pinLabel(tabs.getSelectionModel().getSelectedItem()),
+                        row.accelerator(),
+                        row.action(),
+                        row.description(),
+                        row.keywords(),
+                        row.id());
+            }
+            all.add(row);
         }
         // The View menu's item can only say "Hide", since the menu is inside the bar; the palette
         // is reachable either way, so its row has to name the move that is actually available.
