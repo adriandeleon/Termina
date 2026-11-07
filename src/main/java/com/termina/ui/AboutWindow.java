@@ -18,6 +18,7 @@ import javafx.stage.Window;
 import com.termina.AppInfo;
 import com.termina.config.Settings;
 import com.termina.update.ReleaseInfo;
+import com.termina.update.UpdateService;
 import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
@@ -27,10 +28,12 @@ public final class AboutWindow {
 
     private final Stage stage = new Stage();
     private final VBox updateRow = new VBox(4);
+    private final Button copy = new Button();
     private final Consumer<String> openLink;
     private final Settings settings;
 
     private @Nullable ReleaseInfo update;
+    private UpdateService.@Nullable Outcome answer;
 
     public AboutWindow(Settings settings, Consumer<String> openLink) {
         this.settings = settings;
@@ -38,10 +41,36 @@ public final class AboutWindow {
         build();
     }
 
-    /** @param update the newer release, or null when there is none */
-    public void setUpdate(@Nullable ReleaseInfo update) {
+    /**
+     * @param update the newer release, or null when none is known
+     * @param answer what the last update check this session answered, or null when none has
+     */
+    public void setUpdate(@Nullable ReleaseInfo update, UpdateService.@Nullable Outcome answer) {
         this.update = update;
+        this.answer = answer;
         refreshUpdateRow();
+    }
+
+    /** What the update row may say. */
+    enum UpdateLine {
+        AVAILABLE,
+        UP_TO_DATE,
+        CHECK_FAILED,
+        NOT_CHECKED,
+        CHECKS_OFF
+    }
+
+    /**
+     * Which line the update row shows. "Up to date" is a claim, and only an answer from this
+     * session earns it: the stored check time is stamped <em>before</em> the request so that an
+     * offline launch does not retry every time, so it says nothing about whether one answered.
+     */
+    static UpdateLine updateLine(
+            @Nullable ReleaseInfo update, UpdateService.@Nullable Outcome answer, boolean checksOn) {
+        if (update != null) return UpdateLine.AVAILABLE;
+        if (answer == null) return checksOn ? UpdateLine.NOT_CHECKED : UpdateLine.CHECKS_OFF;
+        if (answer.error() != null) return UpdateLine.CHECK_FAILED;
+        return UpdateLine.UP_TO_DATE;
     }
 
     /**
@@ -54,6 +83,7 @@ public final class AboutWindow {
      */
     public void show(Window from) {
         refreshUpdateRow();
+        copy.setText(tr("about.copyDetails"));
         if (stage.isShowing()) {
             stage.toFront();
             stage.requestFocus();
@@ -88,10 +118,30 @@ public final class AboutWindow {
         if (!AppInfo.BUILD_TIME.isBlank()) {
             details.getChildren().add(new Label(tr("about.built", AppInfo.BUILD_TIME)));
         }
+        details.getChildren().add(new Label(tr("about.runtime", AppInfo.javaVersion(), AppInfo.javaFxVersion())));
         details.getChildren().addAll(new Label(AppInfo.COPYRIGHT), new Label(AppInfo.LICENSE));
 
         Hyperlink homepage = new Hyperlink(AppInfo.HOMEPAGE);
         homepage.setOnAction(e -> openLink.accept(AppInfo.HOMEPAGE));
+        HBox links = new HBox(4, homepage);
+        links.setAlignment(Pos.CENTER_LEFT);
+        // The numbered edition's page, never latest/: a newer edition may hold rules this build
+        // does not meet. Absent from an unfiltered build rather than linking nowhere.
+        if (!AppInfo.PAUTA_EDITION.isBlank()) {
+            Hyperlink pauta = new Hyperlink(tr("about.pauta", AppInfo.PAUTA_EDITION));
+            pauta.setOnAction(e -> openLink.accept(AppInfo.pautaUrl()));
+            links.getChildren().add(pauta);
+        }
+
+        // Everything --version prints, for a bug report. In the content rather than the button
+        // bar, and the window stays open: copying is a step on the way to somewhere else.
+        copy.setText(tr("about.copyDetails"));
+        copy.setOnAction(e -> {
+            var content = new javafx.scene.input.ClipboardContent();
+            content.putString(String.join("\n", AppInfo.details()) + "\n");
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+            copy.setText(tr("about.copied"));
+        });
 
         Label settingsPath = new Label(tr("about.settings", settings.file()));
         settingsPath.getStyleClass().add("about-path");
@@ -108,18 +158,18 @@ public final class AboutWindow {
         close.setDefaultButton(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox footer = new HBox(spacer, close);
+        HBox footer = new HBox(8, copy, spacer, close);
         footer.setAlignment(Pos.CENTER_RIGHT);
 
         VBox titles = new VBox(2, name, version);
         heading.getChildren().add(titles);
 
-        VBox root = new VBox(10, heading, details, homepage, updateRow, settingsPath, credits, footer);
+        VBox root = new VBox(10, heading, details, links, updateRow, settingsPath, credits, footer);
         root.setPadding(new Insets(20));
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = new Scene(root, 460, 400);
+        Scene scene = new Scene(root, 480, 440);
         var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
@@ -134,9 +184,16 @@ public final class AboutWindow {
         updateRow.getChildren().clear();
         ReleaseInfo update = this.update;
         if (update == null) {
-            Label upToDate = new Label(tr("about.upToDate"));
-            upToDate.getStyleClass().add("about-uptodate");
-            updateRow.getChildren().add(upToDate);
+            UpdateLine line = updateLine(null, answer, settings.updateCheck());
+            Label status = new Label(
+                    switch (line) {
+                        case UP_TO_DATE, AVAILABLE -> tr("about.upToDate");
+                        case CHECK_FAILED -> tr("about.checkFailed");
+                        case NOT_CHECKED -> tr("about.notChecked");
+                        case CHECKS_OFF -> tr("about.checksOff");
+                    });
+            status.getStyleClass().add(line == UpdateLine.UP_TO_DATE ? "about-uptodate" : "about-details");
+            updateRow.getChildren().add(status);
         } else {
             Label headline = new Label(tr("about.updateHeadline", update.version()));
             headline.getStyleClass().add("about-update-headline");
@@ -147,10 +204,9 @@ public final class AboutWindow {
             });
             updateRow.getChildren().addAll(headline, download);
         }
-        // When the last check ran, so "up to date" can be read as "as of when". Absent until a
-        // check has happened at all — on a fresh install with the check turned off, there is no
-        // time to show and no claim to qualify.
-        String checked = lastChecked(settings.lastUpdateCheck());
+        // When the last check ran, so "up to date" can be read as "as of when". Only beside an
+        // answer from this session: under "not checked" a date reads as the check that was not.
+        String checked = answer == null ? null : lastChecked(settings.lastUpdateCheck());
         if (checked != null) {
             Label when = new Label(tr("about.lastChecked", checked));
             when.getStyleClass().add("about-details");

@@ -16,7 +16,7 @@
 
 /* Group headings are labels, not choices — no hover, no selection affordance. */
 .settings-group-header {
-    -fx-text-fill: -color-fg-subtle;
+    -fx-text-fill: -color-fg-muted;
     -fx-font-size: 0.75em;
     -fx-font-weight: bold;
     -fx-padding: 12 10 4 10;

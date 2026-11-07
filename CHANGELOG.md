@@ -9,8 +9,32 @@ The quick fixes from the [2026-11-06 performance review](docs/review-2026-11-06.
 settings-layer items; the larger ones there (damage tracking, the theme stylesheets' size) are not
 done.
 
+### Added
+
+- **About names the Pauta edition Termina is built to, and what it runs on.** A "Built to Pauta
+  2.0.2" link to that edition's guidelines, the Java and JavaFX versions, and a Copy details button
+  that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
+  JavaFX, OS) for a bug report.
+
+### Changed
+
+- **Removing a theme, a profile or a token in the sync address asks first.** Each deleted what the
+  user had made at a click, with no way back but making it again.
+- **Reopen Closed Tab reaches back twenty tabs instead of ten.**
+- **The light Editora theme matches Editora's again.** Its accent, warning and success text had
+  kept the colours Editora later darkened, which read below 4.5:1 on their tinted backgrounds. The
+  About credits, the settings path and the Settings sidebar headings move from the faintest text
+  colour to the muted one for the same reason.
+- **Icon-only buttons have names a screen reader can read.** The new-tab and profile buttons, the
+  tabs' close buttons, the find bar's buttons and the zoom row's buttons carried a tooltip and
+  nothing else.
+
 ### Fixed
 
+- **About no longer says "You are up to date" when nothing has checked.** It said so whenever no
+  newer release was known — before the day's check had run, after it had failed, and with checks
+  turned off. It now says which of those it is, and claims up to date only on an answer from this
+  session.
 - **The Keyboard page's "Press a shortcut…" prompt shows while recording.** Its rule was in the
   stylesheet the terminal windows load, not the one the settings window does, so a focused
   recording field was a blank box. The Debug Log window's path label had the opposite problem and

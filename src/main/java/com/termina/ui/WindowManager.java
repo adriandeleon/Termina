@@ -41,6 +41,8 @@ public final class WindowManager {
      * clicking through to the release page would be a lie.
      */
     private com.termina.update.@Nullable ReleaseInfo knownUpdate;
+    /** The last update check that answered this session, failures included; null until one has. */
+    private com.termina.update.UpdateService.@Nullable Outcome lastAnswer;
 
     private final List<Runnable> updateListeners = new ArrayList<>();
     private java.util.function.Consumer<String> openLink = url -> {};
@@ -246,7 +248,7 @@ public final class WindowManager {
     /** One About window for the application, shown beside whichever window asked. */
     public void showAbout(Window from) {
         AboutWindow about = aboutWindow();
-        about.setUpdate(knownUpdate);
+        about.setUpdate(knownUpdate, lastAnswer);
         about.show(from);
     }
 
@@ -314,11 +316,13 @@ public final class WindowManager {
     }
 
     private void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
+        lastAnswer = outcome;
+        if (aboutWindow != null) aboutWindow.setUpdate(knownUpdate, outcome);
         com.termina.update.ReleaseInfo latest = outcome.latest();
         // Available always comes with the release; the pair is checked so the type says so too.
         if (!outcome.available() || latest == null) return;
         knownUpdate = latest;
-        if (aboutWindow != null) aboutWindow.setUpdate(latest);
+        if (aboutWindow != null) aboutWindow.setUpdate(latest, outcome);
         // A version the user has already been shown stays out of the menu, but a manual check
         // surfaces it again — they just asked.
         if (!manual && latest.version().equals(settings.dismissedUpdate())) return;

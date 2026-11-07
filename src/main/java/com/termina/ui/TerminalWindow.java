@@ -210,10 +210,7 @@ public final class TerminalWindow {
         plus.getStyleClass().add("tab-strip-glyph");
         newTabButton.setGraphic(plus);
         newTabButton.setOnAction(e -> openTab());
-        Tooltip newTabTip = new Tooltip();
-        newTabTip.textProperty().bind(newTabTipText);
-        newTabTip.setShowDelay(Duration.millis(400));
-        newTabButton.setTooltip(newTabTip);
+        IconNames.name(newTabButton, newTabTipText);
 
         // The chevron beside it, which is how every terminal with more than one kind of shell offers
         // the others. Separate from the + rather than a long-press or a right-click on it: the whole
@@ -226,9 +223,7 @@ public final class TerminalWindow {
         profileButton.setOnAction(e -> showProfileMenu());
         // Dismissed without a choice, nothing moves focus back from the button: ask the guard.
         profileMenu.setOnHidden(e -> reclaimFocusIfUnclaimed());
-        Tooltip profileTip = new Tooltip(tr("tooltip.profiles"));
-        profileTip.setShowDelay(Duration.millis(400));
-        profileButton.setTooltip(profileTip);
+        IconNames.name(profileButton, tr("tooltip.profiles"));
 
         tabStripButtons.getStyleClass().add("tab-strip-buttons");
         tabStripButtons.setPickOnBounds(false);
@@ -716,10 +711,7 @@ public final class TerminalWindow {
         }
         javafx.scene.Node close = header.lookup(".tab-close-button");
         if (close != null && close.getProperties().putIfAbsent(CLOSE_TIP_INSTALLED, Boolean.TRUE) == null) {
-            Tooltip tip = new Tooltip();
-            tip.textProperty().bind(closeTabTipText);
-            tip.setShowDelay(Duration.millis(400));
-            Tooltip.install(close, tip);
+            IconNames.name(close, closeTabTipText);
         }
     }
 
@@ -2680,6 +2672,7 @@ public final class TerminalWindow {
                                     tr("menu.newTabProfileNumber", number),
                                     MenuAction.profileChord(digitKey(number)),
                                     () -> openProfileByNumber(chosen))
+                            .describedAs(tr("menu.newTabProfileNumber.desc", number))
                             .withId(PROFILE_CHORD_ID + number));
         }
 
@@ -2865,10 +2858,13 @@ public final class TerminalWindow {
         for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
             int selected = number;
             KeyCode digit = KeyCode.valueOf("DIGIT" + number);
-            String title = number == TAB_CHORD_COUNT ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
+            boolean last = number == TAB_CHORD_COUNT;
+            String title = last ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
+            String desc = last ? tr("menu.goToLastTab.desc") : tr("menu.goToTab.desc", number);
             registerIn(
                     tr("menu.window"),
                     MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected))
+                            .describedAs(desc)
                             .withId(TAB_CHORD_ID + number));
         }
 

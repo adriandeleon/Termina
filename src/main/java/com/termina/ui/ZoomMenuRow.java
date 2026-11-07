@@ -5,10 +5,8 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CustomMenuItem;
 import javafx.scene.control.Label;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
-import javafx.util.Duration;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -93,9 +91,8 @@ final class ZoomMenuRow {
         Button button = new Button(text);
         button.getStyleClass().add("zoom-button");
         button.setFocusTraversable(false);
-        Tooltip tooltip = new Tooltip(tip);
-        tooltip.setShowDelay(Duration.millis(400));
-        button.setTooltip(tooltip);
+        // Its text is a symbol ("−", "+", "⤢"), which a screen reader would read as itself.
+        IconNames.name(button, tip);
         button.setOnAction(e -> {
             action.run();
             // The menu is still open and still showing the old number.

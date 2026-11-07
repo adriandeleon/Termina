@@ -1,0 +1,17 @@
+# Weekly updates for the actions the workflows pin by commit SHA, and for the Maven build
+# (REL-23, Pauta 2.0.2). A SHA pin never moves by itself, so without this nothing ever would.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10

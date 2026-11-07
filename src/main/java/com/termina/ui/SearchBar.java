@@ -5,7 +5,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -62,7 +61,7 @@ final class SearchBar extends HBox {
 
         regex.getStyleClass().add("search-toggle");
         regex.setFocusTraversable(false);
-        regex.setTooltip(new Tooltip(tr("search.regex")));
+        IconNames.name(regex, tr("search.regex"));
         regex.selectedProperty().addListener((o, was, now) -> fireQuery());
 
         Button older = button(MenuIcons.arrowUp(), tr("search.older"), () -> listener.step(true));
@@ -81,7 +80,7 @@ final class SearchBar extends HBox {
         Button button = new Button(null, icon);
         button.getStyleClass().add("search-button");
         button.setFocusTraversable(false);
-        button.setTooltip(new Tooltip(tip));
+        IconNames.name(button, tip);
         button.setOnAction(e -> action.run());
         return button;
     }

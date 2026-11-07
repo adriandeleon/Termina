@@ -3,6 +3,20 @@
 A cross-platform terminal emulator. JDK 25 + JavaFX 27 + Maven, modular (JPMS, module
 `com.termina`).
 
+## Pauta
+
+This app is built to Pauta 2.0.2. Its rules: https://pauta-project.dev/2.0.2/llms.txt (every rule
+in one file: https://pauta-project.dev/2.0.2/llms-full.txt). What it does not meet yet is in
+`docs/pauta-audit-2026-11-06.md`.
+
+- Before building a feature, read the rules on its page and copy from the code each rule's
+  Reference names (Editora, usually checked out beside this repository).
+- Cite a rule by its ID and edition: "KBD-07 (Pauta 2.0.2)".
+- Read the numbered edition, never `latest/`. Moving to a newer edition is its own change:
+  `pauta.version` in `pom.xml`, this file and the README badge change together, and `AppInfoTest`
+  fails when one is left behind.
+- Where Pauta and this file disagree, report the difference rather than picking a side.
+
 ## Commands
 
 - Run: `./mvnw javafx:run`
