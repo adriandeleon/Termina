@@ -180,6 +180,18 @@ Addressed on 2026-11-07, branch `single-instance`:
   - CLI-03: `--new-instance`.
 - **Not done:** macOS `openFiles` Apple Events. Termina opens no files.
 
+Addressed on 2026-11-07, branch `small-musts`:
+
+- **Now met:**
+  - SET-07 and CLI-02: `--dev` selects `~/.termina-dev`, in Pauta's resolution order.
+  - DIAG-02: every root-logger record; `termina-session.prev.log`; slf4j routed into
+    java.util.logging through `slf4j-jdk14` (module `org.slf4j.jul` in jlink's `addModules`).
+  - DIAG-03: Export, plus Report a Problem from #70.
+  - TRAY-09: a failed notification is logged.
+  - REPO-04: `NoticeTest` checks the MIT line, a credit for every shipped dependency, and LICENSE and
+    NOTICE in both the jar and the image.
+  - CONF-03: the close prompt's button has the danger style; `Confirm` already gave it to the rest.
+
 Everything else below stands.
 
 ## Totals

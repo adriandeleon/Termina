@@ -714,6 +714,7 @@ termina [options] [-e command [args...]]
   -v, --version                  Show the version and exit
       --report                   Print a problem report, open a GitHub issue for it, and exit
       --new-instance             Start a Termina of its own, not a window in the running one
+      --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
   -d, --working-directory=DIR    Start the shell in DIR
   -T, --title=TITLE              Name the first tab TITLE
   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

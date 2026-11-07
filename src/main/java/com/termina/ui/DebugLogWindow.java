@@ -49,6 +49,27 @@ final class DebugLogWindow {
             content.putString(text.getText());
             Clipboard.getSystemClipboard().setContent(content);
         });
+        // Export (DIAG-03): the whole session, to a file of the user's choosing, written off the FX thread.
+        Button export = new Button(tr("debuglog.export"));
+        export.setOnAction(e -> {
+            javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+            chooser.setInitialFileName("termina-debug-log.txt");
+            java.io.File target = chooser.showSaveDialog(stage);
+            if (target == null) return;
+            String captured = DebugLog.text();
+            Thread writer = new Thread(
+                    () -> {
+                        try {
+                            java.nio.file.Files.writeString(target.toPath(), captured + System.lineSeparator());
+                        } catch (java.io.IOException failed) {
+                            java.util.logging.Logger.getLogger(DebugLogWindow.class.getName())
+                                    .log(java.util.logging.Level.WARNING, "could not export the debug log", failed);
+                        }
+                    },
+                    "termina-debuglog-export");
+            writer.setDaemon(true);
+            writer.start();
+        });
         Button clear = new Button(tr("debuglog.clear"));
         clear.setOnAction(e -> {
             DebugLog.clear();
@@ -60,7 +81,7 @@ final class DebugLogWindow {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox buttons = new HBox(8, refresh, copy, clear, spacer, close);
+        HBox buttons = new HBox(8, refresh, copy, export, clear, spacer, close);
         if (onReport != null) {
             Button report = new Button(tr("menu.reportProblem"));
             report.setOnAction(e -> onReport.run());

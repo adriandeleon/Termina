@@ -44,6 +44,22 @@ class DebugLogTest {
     }
 
     @Test
+    void theLastSessionsLogIsKeptWhenThisOneStarts(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        // DIAG-02 (Pauta 2.0.2): the crash a report is about happened last time.
+        java.nio.file.Path log = dir.resolve(DebugLog.FILE_NAME);
+        java.nio.file.Files.writeString(log, "last session's crash\n");
+        try {
+            DebugLog.attachFile(dir, 1);
+            assertEquals(
+                    "last session's crash\n", java.nio.file.Files.readString(dir.resolve(DebugLog.PREVIOUS_FILE_NAME)));
+            assertEquals("", java.nio.file.Files.readString(log), "this session starts empty");
+        } finally {
+            DebugLog.detachFile();
+        }
+    }
+
+    @Test
     void aSecondInstanceDoesNotTruncateTheFirstOnesLog(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
             throws Exception {
         // A dev run without TERMINA_CONFIG_DIR wiped the packaged app's log — the one with the

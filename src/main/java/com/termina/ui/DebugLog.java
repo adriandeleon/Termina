@@ -17,7 +17,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
@@ -47,6 +46,9 @@ public final class DebugLog {
 
     public static final String FILE_NAME = "termina-session.log";
 
+    /** The session before this one's log, kept when this one's starts (DIAG-02). */
+    public static final String PREVIOUS_FILE_NAME = "termina-session.prev.log";
+
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
     private static final Deque<String> ENTRIES = new ArrayDeque<>();
@@ -74,7 +76,9 @@ public final class DebugLog {
         root.addHandler(new Handler() {
             @Override
             public void publish(LogRecord record) {
-                if (record.getLevel().intValue() < Level.WARNING.intValue()) return;
+                // Every record the root logger lets through, INFO and up by default (DIAG-02, Pauta
+                // 2.0.2): what led up to a failure is as useful as the failure. JediTerm's and pty4j's
+                // slf4j records arrive here too, through the java.util.logging binding.
                 append(format(record));
             }
 
@@ -137,6 +141,20 @@ public final class DebugLog {
         if (held == null) {
             opened.close();
             return false;
+        }
+        // The last session's log is what a report after a crash needs, so it is kept, once the lock
+        // says no running Termina is still writing it. A per-process sibling has no history to keep.
+        // Read through the channel that holds the lock: on Windows the lock bars a second handle.
+        long previous = opened.size();
+        if (candidate.getFileName().toString().equals(FILE_NAME) && previous > 0 && previous < 64L * 1024 * 1024) {
+            ByteBuffer bytes = ByteBuffer.allocate((int) previous);
+            opened.position(0);
+            while (bytes.hasRemaining() && opened.read(bytes) > 0) {
+                // reading the whole file
+            }
+            Files.write(
+                    candidate.resolveSibling(PREVIOUS_FILE_NAME),
+                    java.util.Arrays.copyOf(bytes.array(), bytes.position()));
         }
         opened.truncate(0);
         channel = opened;

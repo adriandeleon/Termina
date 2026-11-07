@@ -159,11 +159,13 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
-        <!-- Without a binding slf4j prints a "no providers" warning and drops every log line.
-             simple writes to stderr; swap for a real backend when there's somewhere to write to. -->
+        <!-- Without a binding slf4j prints a "no providers" warning and drops every log line. The
+             java.util.logging binding hands JediTerm's and pty4j's records to the same root logger
+             the Debug Log listens on (DIAG-02, Pauta 2.0.2); slf4j-simple wrote them to a stderr
+             nobody reads in a packaged app. -->
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
+            <artifactId>slf4j-jdk14</artifactId>
             <version>${slf4j.version}</version>
             <scope>runtime</scope>
         </dependency>
@@ -789,7 +791,7 @@
                                         module path.
                                     -->
                                     <addModules>
-                                        <addModule>org.slf4j.simple</addModule>
+                                        <addModule>org.slf4j.jul</addModule>
                                     </addModules>
                                     <javaOptions>
                                         <javaOption>--enable-native-access=javafx.graphics,com.sun.jna</javaOption>

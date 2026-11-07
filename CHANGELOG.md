@@ -13,6 +13,10 @@ done.
 
 ### Added
 
+- **`--dev`** keeps a separate set of settings in `~/.termina-dev`, so a build being tried out never
+  touches the ones in daily use. `--config-dir` and `TERMINA_CONFIG_DIR` still take precedence.
+- **The Debug Log can be exported** to a file, and the previous session's log is kept beside this
+  one's as `termina-session.prev.log`.
 - **One Termina per config folder.** Launching it again opens a new window in the running Termina,
   with that launch's `-d`, `-e` and `-T`, in the directory it was launched from; the second process
   exits as soon as the first has the request. `--new-instance` starts a separate one.
@@ -48,6 +52,10 @@ done.
 
 ### Changed
 
+- **The Debug Log keeps everything logged, not just warnings and errors**, including what JediTerm
+  and pty4j log, which used to go to a stderr nobody saw in an installed app. A desktop
+  notification that could not be shown now says why in it.
+- **Closing a tab with a program still running shows its Close button in the danger style.**
 - **The multi-line paste prompt can no longer be switched off from Settings.** A setting that only
   makes Termina less safe is a `settings.json` key instead: `"input.confirmPaste": false`.
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug

@@ -47,7 +47,8 @@ public final class App extends Application {
         }
         if (cli.report()) {
             // No window: for when the window is what will not start. CLI-05.
-            System.exit(com.termina.report.ReportCommand.run(cli.configDir(), System.out));
+            System.exit(
+                    com.termina.report.ReportCommand.run(Settings.defaultFile(cli.configDir(), cli.dev()), System.out));
         }
         if (cli.version()) {
             // The first line stays "Termina <version>", which is what anything parsing it reads.
@@ -76,8 +77,9 @@ public final class App extends Application {
      * not answer, this one starts on its own rather than not at all, and says why on stderr.
      */
     private static void claimOrHandOff(CommandLine cli, String[] args) {
-        java.nio.file.Path configDir =
-                Settings.defaultFile(cli.configDir()).toAbsolutePath().getParent();
+        java.nio.file.Path configDir = Settings.defaultFile(cli.configDir(), cli.dev())
+                .toAbsolutePath()
+                .getParent();
         if (configDir == null) return;
         try {
             instance = com.termina.instance.SingleInstance.claim(configDir);
@@ -115,7 +117,7 @@ public final class App extends Application {
     public void start(Stage stage) {
         com.termina.perf.Startup.mark("fx-start");
         CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
-        Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir()));
+        Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir(), cli.dev()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
 
