@@ -109,6 +109,18 @@ Addressed on 2026-11-07, branch `atlantafx`:
   - The confirm button uses `Styles.DANGER`.
   - The module is in the jlinked image, checked by building `-Pdist` and launching it headless.
 
+Addressed on 2026-11-07, branch `config-json` (decision record 0009, superseding 0005):
+
+- **Now met:**
+  - PLAT-14: `ConfigJson` writes a versioned JSON object through jackson-core streaming, without
+    data-bound objects.
+  - SET-08: `settings.json` and `workspace-state.json`, with the names as constants.
+  - SET-09: `SCHEMA_VERSION` and a migration step per version.
+  - SET-10: a newer file is kept as `.v<n>.bak` and defaults load.
+  - SET-11: a corrupt file is kept as `.corrupt.bak` and defaults load.
+  - The legacy file is imported once.
+- **Still open:** SET-12 (Export/Import configuration).
+
 Addressed on 2026-11-07, branch `keymap-json`:
 
 - **Narrowed:**

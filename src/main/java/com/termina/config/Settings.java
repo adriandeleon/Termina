@@ -20,7 +20,14 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * User preferences, stored as a plain properties file in {@code ~/.termina/settings.properties}.
+ * User preferences and the little session state there is, stored as JSON (see {@link ConfigJson})
+ * in two files in {@code ~/.termina}: {@code settings.json} for preferences and
+ * {@code workspace-state.json} for where the window was and what the update check last did (SET-08,
+ * Pauta 2.0.2). Before 0.15 both lived in one {@code settings.properties}, which the first load
+ * imports and keeps as {@code settings.properties.migrated}.
+ *
+ * <p>What follows about the format describes that properties file, which is still how the import
+ * reads it.
  *
  * <p>Properties rather than JSON or TOML because it needs no dependency, and because a terminal's
  * settings file is one someone will reasonably open in a text editor. Every getter falls back to a
@@ -169,7 +176,7 @@ public final class Settings {
      * {@link #deferred}, which coalesces a run of changes into one write.
      */
     public Settings(Path file) {
-        this.file = file;
+        this.file = jsonFileFor(file);
         this.scheduler = null;
         this.saveDelayMs = 0;
     }
@@ -182,7 +189,7 @@ public final class Settings {
      * @param scheduler what runs the deferred save; a test's can be stepped by hand
      */
     public Settings(Path file, SaveScheduler scheduler, long saveDelayMs) {
-        this.file = file;
+        this.file = jsonFileFor(file);
         this.scheduler = scheduler;
         this.saveDelayMs = Math.max(0, saveDelayMs);
     }
@@ -242,7 +249,7 @@ public final class Settings {
      */
     public static Path defaultFile(String override) {
         if (override != null && !override.isBlank()) {
-            return Path.of(override.trim()).resolve("settings.properties");
+            return Path.of(override.trim()).resolve(SETTINGS_FILE);
         }
         return defaultFileFromEnvironment();
     }
@@ -252,7 +259,48 @@ public final class Settings {
         Path dir = override != null && !override.isBlank()
                 ? Path.of(override)
                 : Path.of(System.getProperty("user.home"), ".termina");
-        return dir.resolve("settings.properties");
+        return dir.resolve(SETTINGS_FILE);
+    }
+
+    /** Preferences. */
+    public static final String SETTINGS_FILE = "settings.json";
+
+    /** Session state: the window's place and size, and the update check's memory. */
+    public static final String STATE_FILE = "workspace-state.json";
+
+    /** The single file before 0.15, imported once into the two above. */
+    public static final String LEGACY_FILE = "settings.properties";
+
+    /**
+     * The keys that are session state rather than preference, and so live in {@link #STATE_FILE}.
+     * Everything else is a preference.
+     */
+    static boolean isStateKey(String key) {
+        return switch (key) {
+            case WINDOW_X,
+                    WINDOW_Y,
+                    WINDOW_WIDTH,
+                    WINDOW_HEIGHT,
+                    WINDOW_MAXIMIZED,
+                    LAST_UPDATE_CHECK,
+                    DISMISSED_UPDATE -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * The settings file in a folder, given either it or the folder's legacy properties file: a
+     * caller holding the old path gets the file that replaced it, which the legacy one is imported
+     * into on the first load.
+     */
+    static Path jsonFileFor(Path file) {
+        String name = file.getFileName() == null ? "" : file.getFileName().toString();
+        return name.endsWith(".properties") ? file.resolveSibling(SETTINGS_FILE) : file;
+    }
+
+    /** Where this folder keeps session state. */
+    Path stateFile() {
+        return file.resolveSibling(STATE_FILE);
     }
 
     /**
@@ -287,44 +335,99 @@ public final class Settings {
     /**
      * Reads the file, if there is one. Never throws: whatever goes wrong, the app opens on defaults.
      *
-     * <p>Settings are a convenience, and a terminal that will not open is not one. The format itself
-     * cannot fail ({@link SettingsFormat}); what is left is a file that cannot be read at all, or a
-     * bug. Either way the file is copied aside first, as {@code settings.properties.bad-<time>}, so
-     * the next save — which writes only the keys this process changes, but still writes — cannot be
-     * the end of whatever the user had in it.
+     * <p>Settings are a convenience, and a terminal that will not open is not one. A pre-0.15
+     * {@code settings.properties} beside no JSON is imported first. A file that is not this format is
+     * copied aside as {@code <name>.corrupt.bak} and one a newer build wrote as {@code <name>.v<n>.bak}
+     * (see {@link #readDocument}), so the next save — which writes only the keys this process
+     * changes, but still writes — cannot be the end of whatever the user had in it.
      */
     public void load() {
-        if (!Files.exists(file)) return;
+        Path legacy = file.resolveSibling(LEGACY_FILE);
         try {
-            Map<String, String> read = SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(file)));
-            read.forEach(properties::setProperty);
+            if (!Files.exists(file) && !Files.exists(stateFile()) && Files.exists(legacy)) {
+                importLegacy(legacy);
+            }
         } catch (IOException | RuntimeException e) {
-            Path backup = backUpUnreadable(file, System.currentTimeMillis());
+            // The legacy file is still there, untouched; this launch reads it straight instead.
             System.getLogger(Settings.class.getName())
-                    .log(
-                            System.Logger.Level.WARNING,
-                            "could not read " + file + "; using defaults"
-                                    + (backup == null ? "" : "; the file is kept as " + backup),
-                            e);
+                    .log(System.Logger.Level.WARNING, "could not import " + legacy + "; reading it in place", e);
+            readLegacyInto(legacy);
+            baseline = snapshot();
+            return;
+        }
+        for (Path path : List.of(file, stateFile())) {
+            if (Files.exists(path)) readDocument(path, true).forEach(properties::setProperty);
         }
         baseline = snapshot();
     }
 
     /**
-     * Copies a settings file that failed to load beside itself, named for when.
-     *
-     * @return the copy, or null when even that failed (the warning still names the original)
+     * Brings a pre-0.15 {@code settings.properties} into the two JSON files, once, and keeps it as
+     * {@code settings.properties.migrated}. The properties reader cannot fail on content
+     * ({@link SettingsFormat}), so what can go wrong here is the disk.
      */
-    static @Nullable Path backUpUnreadable(Path file, long epochMs) {
-        String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
-                .withZone(java.time.ZoneId.systemDefault())
-                .format(java.time.Instant.ofEpochMilli(epochMs));
-        Path backup = file.resolveSibling(file.getFileName() + ".bad-" + stamp);
+    private void importLegacy(Path legacy) throws IOException {
+        Map<String, String> read = SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy)));
+        read.forEach(properties::setProperty);
+        baseline = Map.of();
+        writeFile();
+        if (lastSaveError != null) throw new IOException(lastSaveError);
+        Files.move(legacy, legacy.resolveSibling(LEGACY_FILE + ".migrated"), StandardCopyOption.REPLACE_EXISTING);
+        System.getLogger(Settings.class.getName())
+                .log(System.Logger.Level.INFO, "imported " + legacy + " into " + file + " and " + stateFile());
+    }
+
+    private void readLegacyInto(Path legacy) {
         try {
-            return Files.copy(file, backup, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException | RuntimeException e) {
-            return null;
+            SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy)))
+                    .forEach(properties::setProperty);
+        } catch (IOException | RuntimeException ignored) {
+            // Defaults, then: never a launch that fails over its settings.
         }
+    }
+
+    /**
+     * One file's values, at this build's schema version; never throws (SET-10, SET-11). A file a
+     * newer build wrote is kept as {@code <name>.v<n>.bak} and not read — its keys may mean things
+     * this build does not know — and one that is not this format is kept as
+     * {@code <name>.corrupt.bak}. Either way defaults stand, and the next save writes a current file
+     * beside the copy, which is never overwritten by this build.
+     *
+     * @param onLoad whether this is the load, which backs a bad file up and says so; a save's
+     *     re-read only needs the values
+     */
+    private Map<String, String> readDocument(Path path, boolean onLoad) {
+        ConfigJson.Document document;
+        try {
+            document = ConfigJson.read(SettingsFormat.decode(Files.readAllBytes(path)));
+        } catch (IOException | ConfigJson.FormatException | RuntimeException e) {
+            if (onLoad) setAside(path, path.getFileName() + ".corrupt.bak", e.getMessage());
+            return new java.util.HashMap<>();
+        }
+        if (document.schemaVersion() > ConfigJson.SCHEMA_VERSION) {
+            if (onLoad) {
+                setAside(
+                        path,
+                        path.getFileName() + ".v" + document.schemaVersion() + ".bak",
+                        "written by a newer Termina (schema " + document.schemaVersion() + ")");
+            }
+            return new java.util.HashMap<>();
+        }
+        return new java.util.HashMap<>(ConfigJson.migrate(document.schemaVersion(), document.values()));
+    }
+
+    /** Copies a file that will not be read beside itself, and says where. */
+    private static void setAside(Path path, String backupName, @Nullable String why) {
+        Path backup = path.resolveSibling(backupName);
+        String kept;
+        try {
+            Files.copy(path, backup, StandardCopyOption.REPLACE_EXISTING);
+            kept = "; the file is kept as " + backup;
+        } catch (IOException | RuntimeException e) {
+            kept = "";
+        }
+        System.getLogger(Settings.class.getName())
+                .log(System.Logger.Level.WARNING, "not reading " + path + " (" + why + "); using defaults" + kept);
     }
 
     /**
@@ -333,7 +436,7 @@ public final class Settings {
      * <p>Only the changes, because more than one Termina can be running on one config folder, and
      * each used to rewrite the whole file from its own memory on every change and on every window
      * close: change the theme in one, close a window of the other, and the theme was back. So a save
-     * takes a lock (a {@link FileLock} on {@code settings.properties.lock}, plus a monitor for two
+     * takes a lock (a {@link FileLock} on {@code settings.json.lock}, one per file, plus a monitor for two
      * {@code Settings} in one process, which a file lock does not separate), re-reads the file,
      * applies what differs between memory and what was last loaded or saved — set or removed — and
      * writes the result. Keys another process changed meanwhile stay as it left them; this process
@@ -353,29 +456,47 @@ public final class Settings {
     }
 
     private void writeFile() {
+        Map<String, String> mine = snapshot();
+        Map<String, String> base = baseline;
+        boolean ok = writeOne(file, false, mine, base) & writeOne(stateFile(), true, mine, base);
+        if (ok) {
+            baseline = mine;
+            lastSaveError = null;
+        }
+    }
+
+    /**
+     * Writes one of the two files: the keys that belong in it, merged into what it holds on disk.
+     * Skipped when none of its keys changed and it exists, so state never rewrites preferences.
+     *
+     * @return whether it is now current
+     */
+    private boolean writeOne(Path path, boolean state, Map<String, String> mine, Map<String, String> base) {
+        Map<String, String> myPart = part(mine, state);
+        Map<String, String> basePart = part(base, state);
+        if (myPart.equals(basePart) && Files.exists(path)) return true;
         Path temp = null;
         try {
-            Path parent = file.toAbsolutePath().getParent();
-            if (parent == null) throw new IOException("no folder to write " + file + " into");
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent == null) throw new IOException("no folder to write " + path + " into");
             Files.createDirectories(parent);
-            Object monitor = MONITORS.computeIfAbsent(file.toAbsolutePath().normalize(), k -> new Object());
+            Object monitor = MONITORS.computeIfAbsent(path.toAbsolutePath().normalize(), k -> new Object());
             synchronized (monitor) {
                 try (FileChannel lockChannel = FileChannel.open(
-                                lockFileFor(file), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                                lockFileFor(path), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                         FileLock held = lockChannel.lock()) {
-                    Map<String, String> mine = snapshot();
-                    Map<String, String> merged = merge(readOnDisk(), baseline, mine);
-                    temp = Files.createTempFile(parent, file.getFileName() + ".", ".tmp");
-                    Files.writeString(temp, SettingsFormat.format(merged), StandardCharsets.UTF_8);
-                    moveIntoPlace(temp, file);
+                    Map<String, String> merged = merge(readOnDisk(path, basePart), basePart, myPart);
+                    temp = Files.createTempFile(parent, path.getFileName() + ".", ".tmp");
+                    Files.writeString(temp, ConfigJson.write(merged), StandardCharsets.UTF_8);
+                    moveIntoPlace(temp, path);
                     temp = null;
-                    baseline = mine;
                 }
             }
-            lastSaveError = null;
+            return true;
         } catch (IOException | RuntimeException e) {
             lastSaveError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + file, e);
+            System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + path, e);
+            return false;
         } finally {
             if (temp != null) {
                 try {
@@ -385,6 +506,15 @@ public final class Settings {
                 }
             }
         }
+    }
+
+    /** The keys of {@code all} that belong in the state file, or those that do not. */
+    static Map<String, String> part(Map<String, String> all, boolean state) {
+        Map<String, String> out = new java.util.HashMap<>();
+        all.forEach((key, value) -> {
+            if (isStateKey(key) == state) out.put(key, value);
+        });
+        return out;
     }
 
     /**
@@ -430,13 +560,22 @@ public final class Settings {
         return saveWanted;
     }
 
-    /** What the file holds now, or what this process last knew it to hold if it cannot be read. */
-    private Map<String, String> readOnDisk() {
-        if (!Files.exists(file)) return new java.util.HashMap<>();
+    /**
+     * What a file holds now, at this build's version. A file a newer build has written since this one
+     * loaded is not merged into — its keys may mean something else — and is backed up before this
+     * build writes over it; one that cannot be read leaves what this process last knew of it.
+     */
+    private Map<String, String> readOnDisk(Path path, Map<String, String> lastKnown) {
+        if (!Files.exists(path)) return new java.util.HashMap<>();
         try {
-            return SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(file)));
-        } catch (IOException | RuntimeException e) {
-            return new java.util.HashMap<>(baseline);
+            ConfigJson.Document document = ConfigJson.read(SettingsFormat.decode(Files.readAllBytes(path)));
+            if (document.schemaVersion() > ConfigJson.SCHEMA_VERSION) {
+                readDocument(path, true); // sets it aside, as a load would
+                return new java.util.HashMap<>();
+            }
+            return new java.util.HashMap<>(ConfigJson.migrate(document.schemaVersion(), document.values()));
+        } catch (IOException | ConfigJson.FormatException | RuntimeException e) {
+            return new java.util.HashMap<>(lastKnown);
         }
     }
 

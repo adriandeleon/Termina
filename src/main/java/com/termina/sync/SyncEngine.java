@@ -24,7 +24,7 @@ import org.jspecify.annotations.Nullable;
  * caller picks the thread.
  *
  * <p>Git only carries the data. Termina keeps a clone of its own ({@code sync/repo} beside
- * {@code settings.properties}) that nothing else reads, and never asks git to merge: the working tree is
+ * {@code settings.json}) that nothing else reads, and never asks git to merge: the working tree is
  * set to what the remote has, the merged files ({@link SyncMerge}) are written over it, and that is
  * committed and pushed. So there are no conflict markers and no half-finished rebase to recover from.
  *
@@ -108,7 +108,7 @@ public final class SyncEngine {
     /**
      * Whether {@code url} carries a secret: a password after the user name ({@code https://me:TOKEN@host/…})
      * or a user name that is itself an access token ({@code https://ghp_…@github.com/…}). Sync refuses such
-     * a URL: it would sit in plain text in {@code settings.properties} and in the clone's
+     * a URL: it would sit in plain text in {@code settings.json} and in the clone's
      * {@code .git/config}. An SSH user ({@code git@host:…}, {@code ssh://git@host/…}) is never a secret.
      */
     public static boolean hasCredentials(String url) {
