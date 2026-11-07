@@ -1,8 +1,5 @@
 package com.termina.ui;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import javafx.scene.paint.Color;
 
 /**
@@ -175,12 +172,5 @@ public enum Theme {
             if (t.id.equals(id)) return t;
         }
         return fallback;
-    }
-
-    /** Display name to theme, in declaration order — what a picker shows. */
-    public static Map<String, Theme> byDisplayName() {
-        Map<String, Theme> map = new LinkedHashMap<>();
-        for (Theme t : values()) map.put(t.displayName, t);
-        return map;
     }
 }

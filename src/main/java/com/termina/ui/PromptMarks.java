@@ -53,6 +53,13 @@ final class PromptMarks {
 
     private final Deque<Command> commands = new ArrayDeque<>();
 
+    /**
+     * {@link #all} as last handed out, dropped by every mutator. The painter asks on every dirty
+     * frame for the life of the tab; copying up to {@link #MAX_COMMANDS} records each time was a
+     * per-frame allocation for a list that changes once per command.
+     */
+    private @Nullable List<Command> snapshot;
+
     synchronized void prompt(Pos at) {
         // A shell that redraws its prompt (zsh on a resize, a prompt with a clock) sends A again
         // without running anything. The second is the same prompt, not a new command.
@@ -63,6 +70,7 @@ final class PromptMarks {
                 && last.prompt().line() == at.line()) return;
         commands.addLast(new Command(at, null, null, null));
         while (commands.size() > MAX_COMMANDS) commands.removeFirst();
+        snapshot = null;
     }
 
     synchronized void outputStarts(Pos at) {
@@ -81,10 +89,14 @@ final class PromptMarks {
     private void replaceLast(Command next) {
         commands.removeLast();
         commands.addLast(next);
+        snapshot = null;
     }
 
+    /** Every command, oldest first. Immutable, and the same list until something changes. */
     synchronized List<Command> all() {
-        return List.copyOf(commands);
+        List<Command> current = snapshot;
+        if (current == null) snapshot = current = List.copyOf(commands);
+        return current;
     }
 
     synchronized boolean isEmpty() {
@@ -93,11 +105,15 @@ final class PromptMarks {
 
     synchronized void clear() {
         commands.clear();
+        snapshot = null;
     }
 
     /** Forgets the commands whose prompts have scrolled out of the history. */
     synchronized void dropAbove(long firstLine) {
-        while (!commands.isEmpty() && commands.peekFirst().prompt().line() < firstLine) commands.removeFirst();
+        while (!commands.isEmpty() && commands.peekFirst().prompt().line() < firstLine) {
+            commands.removeFirst();
+            snapshot = null;
+        }
     }
 
     /**
@@ -116,6 +132,7 @@ final class PromptMarks {
         }
         commands.clear();
         commands.addAll(moved);
+        snapshot = null;
     }
 
     /**

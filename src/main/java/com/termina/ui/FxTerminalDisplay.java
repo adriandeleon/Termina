@@ -44,7 +44,6 @@ public final class FxTerminalDisplay implements TerminalDisplay {
 
     private volatile boolean alternateScreen;
     private volatile MouseMode mouseMode = MouseMode.MOUSE_REPORTING_NONE;
-    private volatile MouseFormat mouseFormat = MouseFormat.MOUSE_FORMAT_XTERM;
     private volatile boolean bracketedPaste;
 
     /**
@@ -286,7 +285,7 @@ public final class FxTerminalDisplay implements TerminalDisplay {
 
     @Override
     public void setMouseFormat(MouseFormat format) {
-        mouseFormat = format;
+        // Nothing here reads it: the wire format is decided from the buffer's mode by MouseEncoding.
     }
 
     @Override
@@ -326,10 +325,6 @@ public final class FxTerminalDisplay implements TerminalDisplay {
 
     public MouseMode getMouseMode() {
         return mouseMode;
-    }
-
-    public MouseFormat getMouseFormat() {
-        return mouseFormat;
     }
 
     public boolean isBracketedPaste() {

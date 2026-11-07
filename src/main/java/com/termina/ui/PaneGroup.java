@@ -59,8 +59,10 @@ final class PaneGroup extends StackPane {
      */
     private final ReadOnlyObjectWrapper<@Nullable TerminalView> active = new ReadOnlyObjectWrapper<>();
 
-    /** The tree's top: a terminal, or a split. */
-    /** Null once the last pane has left, which happens only as the tab closes. */
+    /**
+     * The tree's top: a terminal, or a split. Null once the last pane has left, which happens only
+     * as the tab closes.
+     */
     private @Nullable Node root;
 
     /**

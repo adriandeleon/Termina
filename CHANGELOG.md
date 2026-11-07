@@ -5,7 +5,40 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
 
 ## Unreleased
 
+The quick fixes from the [2026-11-06 performance review](docs/review-2026-11-06.md); the larger
+items there (coalesced settings saves, damage tracking, the theme stylesheets' size) are not done.
+
 ### Fixed
+
+- **The Keyboard page's "Press a shortcut…" prompt shows while recording.** Its rule was in the
+  stylesheet the terminal windows load, not the one the settings window does, so a focused
+  recording field was a blank box. The Debug Log window's path label had the opposite problem and
+  is styled now.
+- **A settings change from elsewhere no longer overwrites what is being typed into the settings
+  window.** A sync run finishing, or a zoom chord in a terminal window, reloads the window; the
+  shell, link-command and sync fields keep their text while they have the focus.
+- **About has a palette description**, like every other command. Its text was translated and
+  never read.
+- **A capture run can answer the paste prompt** (`-Dtermina.capturePasteAnswer=paste|cancel`); the
+  hook existed and nothing called it, so a run that reached the prompt hung. The README now lists
+  every capture option, not two thirds of them.
+
+### Changed
+
+- **Less work per frame and per write.** The scrollbar is updated after the buffer lock is released
+  rather than inside it; whether type-ahead is wanted is decided when the foreground program
+  changes, not on every buffer write (3% of the emulator thread in a profile); the prompt-mark list
+  is copied when it changes, not on every frame; the search overlay's colours are derived once per
+  theme.
+- **A settings write no longer restyles and repaints every pane whose colours did not change.**
+  `setPalette` and the cursor-shape setter short-circuit on an unchanged value, the menu bar's and
+  tab strip's style classes are touched only when they change, and the theme lookup no longer
+  builds four entries and a list per call.
+- Removed members nothing called: `TerminalView.getFontSize`, `isSearchShowing`, the
+  `setSessionOptions(int, String)` overload, `FxTerminalDisplay.getMouseFormat`,
+  `AppInfo.isSnapshot`, `LaunchOptions.withProfileId`, `SettingsWindow.matches`,
+  `Theme.byDisplayName`, four unused `MenuIcons` glyphs, `SettingsSync.secondary`,
+  `CommandPalette.show(List)`; and ten Javadoc blocks that documented nothing.
 
 - **GNOME Software's Project Website button works before installing.** The window opened by
   double-clicking a downloaded `.deb` reads only the package's own fields, and the packages

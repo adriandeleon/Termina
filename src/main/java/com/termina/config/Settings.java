@@ -672,7 +672,6 @@ public final class Settings {
         put(MENU_BAR_IN_TITLE_BAR, String.valueOf(inTitleBar));
     }
 
-    /** Show a scrollbar for the scrollback. The wheel works either way. */
     /**
      * Whether to ask before closing a tab that is running something.
      *
@@ -688,6 +687,7 @@ public final class Settings {
         put(CONFIRM_CLOSE, String.valueOf(confirm));
     }
 
+    /** Show a scrollbar for the scrollback. The wheel works either way. */
     public boolean showScrollBar() {
         return readBoolean(SHOW_SCROLL_BAR, true);
     }

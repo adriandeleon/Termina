@@ -449,10 +449,12 @@
     -fx-padding: 7 10 2 10;
 }
 
-/* The settings window's chord-recording field: while it has the focus it is empty and its prompt
-   says what to do, so the prompt must stay readable rather than fade as a focused prompt does. */
-.shortcut-capture:focused {
-    -fx-prompt-text-fill: -color-fg-muted;
+/* A file path in a window's footer: the Debug Log's, and the settings window's (settings.css has
+   its own copy, since that scene does not load this sheet). */
+.settings-path {
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-family: monospace;
+    -fx-font-size: 0.85em;
 }
 
 

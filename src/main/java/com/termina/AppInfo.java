@@ -48,9 +48,4 @@ public final class AppInfo {
             return fallback;
         }
     }
-
-    /** True for a development build; releases drop the suffix. */
-    public static boolean isSnapshot() {
-        return VERSION.endsWith("-SNAPSHOT");
-    }
 }

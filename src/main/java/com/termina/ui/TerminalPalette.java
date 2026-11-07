@@ -121,4 +121,27 @@ public record TerminalPalette(
     public Color[] ansi() {
         return ansi.clone();
     }
+
+    /** One ANSI colour, without copying the table — for the paint path, which asks per frame. */
+    public Color ansi(int index) {
+        return ansi[index];
+    }
+
+    // By value, including the array: a record compares arrays by identity, and the constructor
+    // clones its argument, so two palettes made from one theme would never be equal — and the
+    // view's setPalette short-circuit on an unchanged palette would never fire.
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof TerminalPalette that
+                && background.equals(that.background)
+                && foreground.equals(that.foreground)
+                && java.util.Arrays.equals(ansi, that.ansi)
+                && java.util.Objects.equals(cursor, that.cursor)
+                && java.util.Objects.equals(selection, that.selection);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(background, foreground, java.util.Arrays.hashCode(ansi), cursor, selection);
+    }
 }

@@ -737,6 +737,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureWindowIndex=1       # photograph a window other than the first
   -Dtermina.captureCloseTabs=2         # close N tabs, reporting the child-process count
   -Dtermina.captureCloseAnswer=cancel  # ...answering the running-program prompt (cancel|close)
+  -Dtermina.capturePasteAnswer=paste   # answer the multi-line paste prompt up front (paste|cancel);
+                                       # without it a run that reaches the prompt hangs on it
   -Dtermina.captureTheme=editora-light # switch theme after the windows exist
   -Dtermina.captureChord=T             # fire an application chord at the scene
                                        # ...,plain for a bare key (F11) with no shortcut modifier
@@ -789,6 +791,38 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # owner a moment later, then press Escape at it
   -Dtermina.captureFailShellStarts=2   # make the next N shell starts fail, as an unstartable
                                        # shell's would (with captureWindows=1: the window stays)
+  -Dtermina.captureSettleMs=2500       # how long to wait for the shell before driving it
+  -Dtermina.captureAfterCommandMs=2000 # ...and after captureCommand before the input options fire;
+                                       # the command is re-sent every 400 ms until it is on screen,
+                                       # so a command that scrolls itself off needs more
+  -Dtermina.captureTypeTab=git ch      # type the text then press Tab, without Return — completion
+  -Dtermina.captureAfterTab=y          # ...answering zsh's "list all N possibilities?" question
+  -Dtermina.capturePressKey=TAB,true   # fire one real key event (KeyCode, shift) at the terminal —
+                                       # for keys the view handles itself (Shift+PageUp, Shift+Insert)
+  -Dtermina.capturePressKeyAfter='ls ' # ...after typing a partial command, so it lands in the
+                                       # shell's line editor
+  -Dtermina.captureKeyProbe=true       # press the keys that have no encoding and report whether
+                                       # focus stayed in the terminal
+  -Dtermina.captureTypeIn=1:ls         # run text in tab N without selecting it
+  -Dtermina.captureSelectTab=1         # select tab N, to check what follows the selection
+  -Dtermina.captureSelectTabLater=1,1000 # ...N milliseconds later, after its output has arrived
+  -Dtermina.captureBellIn=1            # ring the bell in tab N, to check the mark on its header
+  -Dtermina.captureRenameTab=build     # name the active tab, bypassing the dialog
+  -Dtermina.captureDuplicateTab=true   # duplicate the active tab, reporting the count
+  -Dtermina.captureReopenTab=true      # reopen the last closed tab; pair with captureCloseTabs
+  -Dtermina.captureTabMenu=1           # open tab N's header menu (see captureTabMenuEscape)
+  -Dtermina.captureMenuDismiss=escape  # open the context menu and dismiss it (escape|click)
+  -Dtermina.captureScrollBarTo=120     # move the scrollbar as a drag would, through its listener
+  -Dtermina.captureDragScrollBar=40,300 # drag the bar's thumb from y1 to y2, fired at the bar
+  -Dtermina.captureResizeTo=1000,700   # resize the window before it closes, so the next run can
+                                       # show whether the size was remembered
+  -Dtermina.captureOpenLink=true       # with captureLinkAt: actually open the last link found
+  -Dtermina.captureScreenText=true     # print the screen as text — the smoke test's check that a
+                                       # shell ran and the emulator parsed what it wrote
+  -Dtermina.captureLogProbe=true       # push a warning and an uncaught exception through the
+                                       # logging path, to check the debug log captures them
+  -Dtermina.captureShortcuts=true      # photograph the Keyboard Shortcuts window (or =<query>)
+  -Dtermina.captureAbout=true          # ...the About window
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful

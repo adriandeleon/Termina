@@ -85,6 +85,12 @@ final class DevCapture {
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
         long afterCommandMs = Long.getLong("termina.captureAfterCommandMs", 2000);
+        // The paste prompt is modal and would hang the run; answered up front, like the close
+        // prompt (captureCloseAnswer). paste to check the paste goes through, cancel that it does not.
+        String pasteAnswer = System.getProperty("termina.capturePasteAnswer");
+        if (pasteAnswer != null && !pasteAnswer.isBlank()) {
+            window.setPasteAnswerForCapture("paste".equalsIgnoreCase(pasteAnswer.trim()));
+        }
 
         STALL_METER.start();
         PauseTransition settle = new PauseTransition(Duration.millis(settleMs));
