@@ -112,6 +112,15 @@ Addressed on 2026-11-07, branch `config-json` (decision record 0009, superseding
   - The legacy file is imported once.
 - **Still open:** SET-12 (Export/Import configuration).
 
+Addressed on 2026-11-07, branch `pinned-tabs`:
+
+- **Now met:** TABS-01, TABS-03, TABS-04 and TABS-05.
+  - Pin is a command.
+  - A pinned header shows a pin and a bold title.
+  - Bulk closes skip pinned tabs (`TabRanges.closing`).
+  - Pinning moves a tab to the pinned group's boundary.
+  - Reopen restores the pin.
+
 Everything else below stands.
 
 ## Totals
