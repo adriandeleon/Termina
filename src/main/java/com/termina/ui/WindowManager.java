@@ -171,6 +171,18 @@ public final class WindowManager {
      * recently. {@code from} may be null, in which case the window opens where the stage would on
      * its own.
      */
+    /**
+     * A window for another launch's command line (CLI-07): its options apply to this window's
+     * first tab, as they would have to a process of its own, and it comes to the front.
+     */
+    public TerminalWindow openHandedOff(com.termina.pty.LaunchOptions cli, String title) {
+        firstTabTitle = title;
+        TerminalWindow window = open(new Stage(), cli, windows.isEmpty() ? null : windows.getLast(), null);
+        window.stage().toFront();
+        window.stage().requestFocus();
+        return window;
+    }
+
     public TerminalWindow openWindow(@Nullable TerminalWindow from) {
         return open(new Stage(), null, from, null);
     }

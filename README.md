@@ -709,6 +709,7 @@ termina [options] [-e command [args...]]
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
       --report                   Print a problem report, open a GitHub issue for it, and exit
+      --new-instance             Start a Termina of its own, not a window in the running one
   -d, --working-directory=DIR    Start the shell in DIR
   -T, --title=TITLE              Name the first tab TITLE
   -e, --command CMD [args...]    Run CMD instead of the shell; must come last
@@ -722,6 +723,12 @@ an option that is silently dropped looks exactly like one that exists and does n
 `-e` takes the rest of the line, which is xterm's convention and why it has to come last: `-e ls -l`
 passes `-l` to `ls` rather than rejecting it here. The command replaces the shell rather than running
 inside one, so the terminal closes when it exits.
+
+One Termina runs per config folder. Launching it again — from a shell, a desktop shortcut, or as
+the system terminal — opens a new window in the running one, with that launch's `-d`, `-e` and `-T`,
+and in the directory it was launched from when `-d` is not given; the second process exits as soon
+as the first has the request. `--new-instance` starts a separate Termina instead, and a different
+`--config-dir` is a separate Termina anyway.
 
 The command line applies to the first tab of the first window only. A second tab re-running `-e vim`,
 or reopening in a directory you have since navigated away from, is not what anybody means by it.

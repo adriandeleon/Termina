@@ -43,6 +43,10 @@ built on that platform, which is what the CI matrix is for.
 
 ## Development capture
 
+A capture run is always a process of its own: `-Dtermina.capture` skips the single-instance hand-off,
+so it never becomes a window in a Termina you have open. Anything else started on your own config
+folder does hand off; give a manual run `--config-dir` or `--new-instance`.
+
 Terminal bugs are visual and none of them throw. `DevCapture` renders the real window, types into
 the real shell, and writes a PNG:
 
