@@ -101,6 +101,7 @@ final class DevCapture {
             // report, not during the first.
             checkUpdatesIfRequested(windows, window);
             syncNowIfRequested(windows, window);
+            if (settings != null) importConfigIfRequested(windows, settings);
             TerminalView terminal = window.activeTerminal();
             if (!command.isBlank() && terminal != null) {
                 sendUntilItTakes(terminal, command);
@@ -1076,6 +1077,36 @@ final class DevCapture {
     private static void syncNowIfRequested(WindowManager windows, TerminalWindow window) {
         if (!Boolean.getBoolean("termina.captureSyncNow")) return;
         windows.syncSettingsNow(window::reportForCapture);
+    }
+
+    /**
+     * Runs Import Configuration on a zip, ticking the parts named, and prints what the settings and
+     * the theme list hold once it has applied — the chooser and the dialog are skipped, being the
+     * two things a capture cannot drive.
+     *
+     * <pre>-Dtermina.captureImportConfig=/path/export.zip;KEY_BINDINGS,THEMES</pre>
+     */
+    private static void importConfigIfRequested(WindowManager windows, com.termina.config.Settings settings) {
+        String spec = System.getProperty("termina.captureImportConfig");
+        if (spec == null || spec.isBlank()) return;
+        int semi = spec.lastIndexOf(';');
+        java.nio.file.Path zip = java.nio.file.Path.of(semi < 0 ? spec : spec.substring(0, semi));
+        java.util.Set<com.termina.config.ConfigArchive.Part> parts =
+                java.util.EnumSet.noneOf(com.termina.config.ConfigArchive.Part.class);
+        if (semi >= 0) {
+            for (String name : spec.substring(semi + 1).split(",")) {
+                if (!name.isBlank()) parts.add(com.termina.config.ConfigArchive.Part.valueOf(name.trim()));
+            }
+        }
+        windows.importConfigurationForCapture(zip, parts, (severity, message) -> {
+            System.out.println("[capture] import " + severity + ": " + message);
+            java.util.Map<String, String> stored = new java.util.TreeMap<>(settings.values());
+            System.out.println("[capture] import settings " + stored);
+            System.out.println("[capture] import themes "
+                    + com.termina.ui.Themes.all().stream()
+                            .map(com.termina.ui.ThemeEntry::id)
+                            .toList());
+        });
     }
 
     /** Every dialog currently on screen, by its message. */

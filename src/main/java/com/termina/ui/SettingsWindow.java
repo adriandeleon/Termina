@@ -1960,6 +1960,39 @@ public final class SettingsWindow {
                 settingsPath,
                 "settings file path properties config location save error");
 
+        // SET-12 (Pauta 2.0.2). Each button reports on its row; the palette's commands report to the
+        // window that ran them.
+        ConfigTransfer transfer = new ConfigTransfer(settings);
+        Label transferResult = new Label();
+        transferResult.getStyleClass().add("settings-row-description");
+        transferResult.setWrapText(true);
+        transferResult.setMaxWidth(420);
+        Reporter onRow = (severity, message) -> {
+            transferResult.setText(message);
+            transferResult.getStyleClass().remove("state-error");
+            if (severity == MessageLog.Severity.ERROR)
+                transferResult.getStyleClass().add("state-error");
+        };
+        Button exportConfig = new Button(tr("settings.exportConfig.button"));
+        exportConfig.setOnAction(e -> transfer.export(onRow));
+        row(
+                Category.ADVANCED,
+                files,
+                tr("settings.exportConfig"),
+                tr("settings.exportConfig.desc"),
+                exportConfig,
+                "export backup configuration zip settings save copy move computer");
+        Button importConfig = new Button(tr("settings.importConfig.button"));
+        importConfig.setOnAction(e -> transfer.importFrom(stage, onRow));
+        row(
+                Category.ADVANCED,
+                files,
+                tr("settings.importConfig"),
+                tr("settings.importConfig.desc"),
+                new VBox(4, importConfig, transferResult),
+                importConfig,
+                "import restore configuration zip settings backup load computer");
+
         VBox updates = section(page, tr("settings.section.updates"));
 
         updateCheck = new CheckBox();
