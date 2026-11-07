@@ -152,6 +152,13 @@ Addressed on 2026-11-07, branch `pinned-tabs`:
   - Pinning moves a tab to the pinned group's boundary.
   - Reopen restores the pin.
 
+Addressed on 2026-11-07, branch `set-16-paste`, for Pauta 3.0.0:
+
+- **SET-16:** the multi-line paste prompt has no Settings row, only `input.confirmPaste`, and
+  `SecurityOptionsTest` keeps it that way.
+- **Kept, by decision:** the OSC 52 clipboard-write row. It defaults on, so its row mostly makes
+  Termina safer; that goes to Pauta as a request.
+
 Addressed on 2026-11-07, branch `report-problem`:
 
 - **Now met:**

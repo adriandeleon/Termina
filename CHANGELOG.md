@@ -48,6 +48,8 @@ done.
 
 ### Changed
 
+- **The multi-line paste prompt can no longer be switched off from Settings.** A setting that only
+  makes Termina less safe is a `settings.json` key instead: `"input.confirmPaste": false`.
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
   Log, then About.
 - **The window themes come through AtlantaFX**, the theme library the Editora themes were drawn

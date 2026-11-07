@@ -754,7 +754,6 @@ public final class SettingsWindow {
     private ComboBox<Settings.CursorShape> cursorShape;
     private Spinner<Integer> padding;
     private CheckBox altIsMeta;
-    private CheckBox confirmPaste;
     private CheckBox copyOnSelect;
     private CheckBox notifications;
     private CheckBox clipboardWrite;
@@ -1255,18 +1254,9 @@ public final class SettingsWindow {
                 altIsMeta,
                 "alt option meta escape readline compose");
 
-        confirmPaste = new CheckBox();
-        confirmPaste.selectedProperty().addListener((o, old, value) -> {
-            if (loading) return;
-            write(() -> settings.setConfirmPaste(value));
-        });
-        row(
-                Category.TERMINAL,
-                input,
-                tr("settings.confirmPaste"),
-                tr("settings.confirmPaste.desc"),
-                confirmPaste,
-                "paste clipboard multiline newline confirm ask safety");
+        // No row for the multi-line paste prompt (SET-16, Pauta 3.0.0): it is on by default, and a
+        // row could only turn it off, which is the unsafe way. It stays a settings.json key,
+        // input.confirmPaste, for anyone who means to.
 
         copyOnSelect = new CheckBox();
         copyOnSelect.selectedProperty().addListener((o, old, value) -> {
@@ -2319,7 +2309,6 @@ public final class SettingsWindow {
             cursorShape.setValue(settings.cursorShape());
             padding.getValueFactory().setValue(settings.padding());
             altIsMeta.setSelected(settings.altIsMeta());
-            confirmPaste.setSelected(settings.confirmPaste());
             copyOnSelect.setSelected(settings.copyOnSelect());
             clipboardWrite.setSelected(settings.clipboardWrite());
             typeAhead.setSelected(settings.typeAhead());
