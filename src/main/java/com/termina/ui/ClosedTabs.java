@@ -41,8 +41,13 @@ final class ClosedTabs {
      * @param index where it sat in the strip when it closed
      * @param stamp when it closed, on a clock shared by every window, so Reopen can tell whether a
      *     tab closed here or a whole window closed elsewhere is the more recent; 0 when nothing asks
+     * @param pinned whether it was pinned, which it is again when it comes back
      */
-    record Entry(PaneLayout.Tab layout, int index, long stamp) {
+    record Entry(PaneLayout.Tab layout, int index, long stamp, boolean pinned) {
+
+        Entry(PaneLayout.Tab layout, int index, long stamp) {
+            this(layout, index, stamp, false);
+        }
 
         Entry(PaneLayout.Tab layout, int index) {
             this(layout, index, 0);

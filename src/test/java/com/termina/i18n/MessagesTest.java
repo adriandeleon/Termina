@@ -77,6 +77,7 @@ class MessagesTest {
             "menu.newTabProfile",
             "menu.updateAvailable",
             "menu.hideStatusBar",
+            "menu.unpinTab",
             "menu.openLink",
             "menu.copyLinkAddress");
 

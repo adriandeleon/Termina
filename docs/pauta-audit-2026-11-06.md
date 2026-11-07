@@ -112,6 +112,15 @@ Addressed on 2026-11-07, branch `status-bar` (decision record 0008):
   - DIAG-05: an available update is also announced in the log and the bar.
   - DOCS-07: the Help menu is in Pauta's order, apart from the rows Termina does not have yet.
 
+Addressed on 2026-11-07, branch `pinned-tabs`:
+
+- **Now met:** TABS-01, TABS-03, TABS-04 and TABS-05.
+  - Pin is a command.
+  - A pinned header shows a pin and a bold title.
+  - Bulk closes skip pinned tabs (`TabRanges.closing`).
+  - Pinning moves a tab to the pinned group's boundary.
+  - Reopen restores the pin.
+
 Everything else below stands.
 
 ## Totals

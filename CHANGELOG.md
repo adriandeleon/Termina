@@ -19,6 +19,10 @@ done.
   lists everything Termina reported this session, with times, whether the bar is on or not. Help ▸
   Debug Log opens the Debug Log, which was only on the Advanced page. A crash says so in the log
   too, pointing at the Debug Log.
+- **Pinned tabs.** Pin Tab, in the Window menu, a tab's own menu and the palette, moves a tab to the
+  pinned group at the left and marks it with a pin and a bold title. Close Other Tabs and the other
+  bulk closes pass over it, and Reopen Closed Tab brings it back pinned. Closing it by itself still
+  works.
 - **A theme that follows the system.** "Follow the System" in Settings, a profile's theme picker and
   the palette uses Editora Light while the desktop is light and Editora Dark while it is dark, and
   switches when the desktop does.
