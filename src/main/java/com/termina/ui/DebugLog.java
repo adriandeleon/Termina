@@ -45,7 +45,7 @@ public final class DebugLog {
     /** Enough to hold a session's worth of trouble without holding a session's worth of memory. */
     private static final int MAX_ENTRIES = 2000;
 
-    private static final String FILE_NAME = "termina-session.log";
+    public static final String FILE_NAME = "termina-session.log";
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 

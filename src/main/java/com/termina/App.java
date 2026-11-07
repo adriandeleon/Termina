@@ -38,6 +38,10 @@ public final class App extends Application {
             // toolkit, whose non-daemon thread would keep the process alive after main returns.
             System.exit(0);
         }
+        if (cli.report()) {
+            // No window: for when the window is what will not start. CLI-05.
+            System.exit(com.termina.report.ReportCommand.run(cli.configDir(), System.out));
+        }
         if (cli.version()) {
             // The first line stays "Termina <version>", which is what anything parsing it reads.
             AppInfo.details().forEach(System.out::println);

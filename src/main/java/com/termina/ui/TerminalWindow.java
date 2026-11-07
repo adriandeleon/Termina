@@ -3001,6 +3001,8 @@ public final class TerminalWindow {
         MenuAction messageLog =
                 registerIn(tr("menu.help"), item("menu.messageLog", () -> windows.showMessageLog(stage)));
         MenuAction debugLog = registerIn(tr("menu.help"), item("menu.debugLog", () -> windows.showDebugLog(stage)));
+        MenuAction reportProblem =
+                registerIn(tr("menu.help"), item("menu.reportProblem", () -> windows.showReportProblem(stage)));
         // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
         // which is the "?" key under the usual modifier: keymap.json.
         MenuAction shortcutsRef = registerIn(tr("menu.help"), item("menu.keyboardShortcuts", this::showShortcuts));
@@ -3008,6 +3010,7 @@ public final class TerminalWindow {
         commands.add(checkForUpdates.withKeywords(tr("menu.help")));
         commands.add(messageLog.withKeywords(tr("menu.help")));
         commands.add(debugLog.withKeywords(tr("menu.help")));
+        commands.add(reportProblem.withKeywords(tr("menu.help")));
         commands.add(about.withKeywords(tr("menu.help")));
         // Pauta's order (DOCS-07), less what Termina does not have yet: the reference, the update
         // check, the two logs, then About last.
@@ -3018,6 +3021,7 @@ public final class TerminalWindow {
                         updateItem,
                         menuItem(messageLog),
                         menuItem(debugLog),
+                        menuItem(reportProblem),
                         new SeparatorMenuItem(),
                         menuItem(about));
 
