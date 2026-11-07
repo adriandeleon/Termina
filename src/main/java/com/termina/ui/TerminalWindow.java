@@ -93,16 +93,14 @@ public final class TerminalWindow {
     // initialization.
 
     /** The palette's own entry: rebound live when the setting changes, and kept out of its own list. */
-    private final MenuAction paletteAction =
-            item("menu.commandPalette", MenuAction.DEFAULT_PALETTE_CHORD, this::showPalette);
+    private final MenuAction paletteAction = item("menu.commandPalette", this::showPalette);
 
     /**
      * Reopen Closed Tab, which the palette greys while there is nothing to reopen. Cmd+Z on macOS,
      * which is iTerm2's "Undo Close"; Ctrl+Shift+Z elsewhere, where the browsers' Ctrl+Shift+T is
      * already New Tab.
      */
-    private final MenuAction reopenAction =
-            item("menu.reopenClosedTab", MenuAction.appChord(KeyCode.Z), this::reopenClosedTab);
+    private final MenuAction reopenAction = item("menu.reopenClosedTab", this::reopenClosedTab);
 
     /**
      * The bulk closes, as commands on the selected tab (TABS-01, Pauta 2.0.2): in the File menu and
@@ -131,15 +129,11 @@ public final class TerminalWindow {
      * The commands that need the shell's prompt marks, greyed in the palette until there are some.
      * Terminal.app's Cmd+Up and Cmd+Down on macOS.
      */
-    private final MenuAction previousPromptAction = item(
-            "menu.previousPrompt",
-            MenuAction.appChord(KeyCode.UP),
-            () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)));
+    private final MenuAction previousPromptAction =
+            item("menu.previousPrompt", () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)));
 
-    private final MenuAction nextPromptAction = item(
-            "menu.nextPrompt",
-            MenuAction.appChord(KeyCode.DOWN),
-            () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)));
+    private final MenuAction nextPromptAction =
+            item("menu.nextPrompt", () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)));
     private final MenuAction selectOutputAction =
             item("menu.selectLastOutput", () -> withActiveTerminal(TerminalView::selectLastOutput));
 
@@ -2782,22 +2776,19 @@ public final class TerminalWindow {
 
         Menu file = menu(
                 tr("menu.file"),
-                register(item("menu.newTab", MenuAction.appChord(KeyCode.T), this::openTab)),
-                register(item("menu.newWindow", MenuAction.appChord(KeyCode.N), () -> windows.openWindow(this))),
+                register(item("menu.newTab", this::openTab)),
+                register(item("menu.newWindow", () -> windows.openWindow(this))),
                 null,
-                register(item("menu.closeTab", MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
+                register(item("menu.closeTab", this::closeCurrentTab)),
                 closeOthersAction,
                 closeLeftAction,
                 closeRightAction,
-                register(item("menu.closeWindow", MenuAction.closeWindowChord(), this::close)),
+                register(item("menu.closeWindow", this::close)),
                 register(reopenAction),
                 null,
                 // Ctrl+, off macOS, Windows Terminal's: no shell binding can receive it, since Ctrl+,
                 // has no control byte in the legacy encoding and arrives as a plain comma.
-                register(item(
-                        "menu.settings",
-                        new KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN),
-                        () -> windows.showSettings(stage))),
+                register(item("menu.settings", () -> windows.showSettings(stage))),
                 // No chord by default: an occasional command, and every free chord is one the shell
                 // might want. The Keyboard page can give it one.
                 register(item("menu.syncNow", () -> windows.syncSettingsNow(this::report))),
@@ -2836,7 +2827,7 @@ public final class TerminalWindow {
                     tr("menu.file"),
                     MenuAction.of(
                                     tr("menu.newTabProfileNumber", number),
-                                    MenuAction.profileChord(digitKey(number)),
+                                    Keymap.defaultFor(PROFILE_CHORD_ID + number),
                                     () -> openProfileByNumber(chosen))
                             .describedAs(tr("menu.newTabProfileNumber.desc", number))
                             .withId(PROFILE_CHORD_ID + number));
@@ -2844,36 +2835,17 @@ public final class TerminalWindow {
 
         Menu edit = menu(
                 tr("menu.edit"),
-                register(item(
-                        "menu.copy",
-                        MenuAction.appChord(KeyCode.C),
-                        () -> withActiveTerminal(TerminalView::copySelection))),
-                register(item(
-                        "menu.paste", MenuAction.appChord(KeyCode.V), () -> withActiveTerminal(TerminalView::paste))),
-                register(item(
-                        "menu.selectAll",
-                        MenuAction.appChord(KeyCode.A),
-                        () -> withActiveTerminal(TerminalView::selectAll))),
+                register(item("menu.copy", () -> withActiveTerminal(TerminalView::copySelection))),
+                register(item("menu.paste", () -> withActiveTerminal(TerminalView::paste))),
+                register(item("menu.selectAll", () -> withActiveTerminal(TerminalView::selectAll))),
                 null,
-                register(item(
-                        "menu.clearScrollback",
-                        MenuAction.appChord(KeyCode.K),
-                        () -> withActiveTerminal(TerminalView::clearScrollback))),
+                register(item("menu.clearScrollback", () -> withActiveTerminal(TerminalView::clearScrollback))),
                 null,
-                register(item(
-                        "menu.find",
-                        MenuAction.appChord(KeyCode.F),
-                        () -> withActiveTerminal(TerminalView::showSearch))),
+                register(item("menu.find", () -> withActiveTerminal(TerminalView::showSearch))),
                 // GNOME Terminal's pair off macOS, Ctrl+Shift+G and H; the system's Cmd+G and
                 // Cmd+Shift+G on it, where Cmd+H would hide the application.
-                register(item(
-                        "menu.findNext",
-                        MenuAction.appChord(KeyCode.G),
-                        () -> withActiveTerminal(terminal -> terminal.findNext(true)))),
-                register(item(
-                        "menu.findPrevious",
-                        MAC ? MenuAction.shiftChord(KeyCode.G) : MenuAction.appChord(KeyCode.H),
-                        () -> withActiveTerminal(terminal -> terminal.findNext(false)))),
+                register(item("menu.findNext", () -> withActiveTerminal(terminal -> terminal.findNext(true)))),
+                register(item("menu.findPrevious", () -> withActiveTerminal(terminal -> terminal.findNext(false)))),
                 null,
                 register(previousPromptAction),
                 register(nextPromptAction),
@@ -2892,15 +2864,10 @@ public final class TerminalWindow {
         // EQUALS, not PLUS: on every common layout + is Shift+=, so the key JavaFX reports for
         // Ctrl and that key is EQUALS, and a menu saying "Ctrl++" named a chord no keyboard
         // produces. PLUS and the numeric keypad's ADD stay accepted in onKeyPressed.
-        MenuAction zoomIn = item(
-                "menu.zoomIn", new KeyCodeCombination(KeyCode.EQUALS, KeyCombination.SHORTCUT_DOWN), () -> zoom(1));
-        MenuAction zoomOut = item(
-                "menu.zoomOut", new KeyCodeCombination(KeyCode.MINUS, KeyCombination.SHORTCUT_DOWN), () -> zoom(-1));
-        MenuAction actualSize = item(
-                "menu.actualSize",
-                new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.SHORTCUT_DOWN),
-                this::resetZoom);
-        MenuAction fullScreen = item("menu.fullScreen", fullScreenChord(), this::toggleFullScreen);
+        MenuAction zoomIn = item("menu.zoomIn", () -> zoom(1));
+        MenuAction zoomOut = item("menu.zoomOut", () -> zoom(-1));
+        MenuAction actualSize = item("menu.actualSize", this::resetZoom);
+        MenuAction fullScreen = item("menu.fullScreen", this::toggleFullScreen);
         List<MenuAction> viewActions = List.of(zoomIn, zoomOut, actualSize, fullScreen);
         // Only the row's actions need recording here. As items they reach the palette the ordinary
         // way, by being in a menu, and recording them twice would list each of them twice.
@@ -2933,10 +2900,7 @@ public final class TerminalWindow {
             // opened while the bar is showing, and a checkbox you can only see when it is
             // ticked says nothing. The way back is the right-click menu, which is reachable
             // either way and therefore does carry a checkbox.
-            menuBarToggle = register(item(
-                    "menu.hideMenuBar",
-                    new KeyCodeCombination(KeyCode.M, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                    () -> settings.setShowMenuBar(!settings.showMenuBar())));
+            menuBarToggle = register(item("menu.hideMenuBar", () -> settings.setShowMenuBar(!settings.showMenuBar())));
             viewItems.add(menuBarToggle);
         }
         viewItems.add(statusBarAction);
@@ -2962,21 +2926,13 @@ public final class TerminalWindow {
 
         Menu window = menu(
                 tr("menu.window"),
-                register(
-                        item("menu.nextTab", MenuAction.shiftChord(KeyCode.CLOSE_BRACKET), () -> selectRelativeTab(1))),
-                register(item(
-                        "menu.previousTab", MenuAction.shiftChord(KeyCode.OPEN_BRACKET), () -> selectRelativeTab(-1))),
+                register(item("menu.nextTab", () -> selectRelativeTab(1))),
+                register(item("menu.previousTab", () -> selectRelativeTab(-1))),
                 null,
                 // Dragging is the usual way, but a tab strip that can only be reordered by mouse is
                 // unreachable from the keyboard entirely.
-                register(item(
-                        "menu.moveTabLeft",
-                        new KeyCodeCombination(KeyCode.LEFT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                        () -> moveSelectedTab(-1))),
-                register(item(
-                        "menu.moveTabRight",
-                        new KeyCodeCombination(KeyCode.RIGHT, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                        () -> moveSelectedTab(1))),
+                register(item("menu.moveTabLeft", () -> moveSelectedTab(-1))),
+                register(item("menu.moveTabRight", () -> moveSelectedTab(1))),
                 null,
                 // No chords: neither has one anywhere else, and a tab's own menu is where the hand
                 // goes. They are here for the palette, and so the keyboard can reach them at all.
@@ -2986,19 +2942,11 @@ public final class TerminalWindow {
                 null,
                 // iTerm2's Cmd+D and Cmd+Shift+D on macOS; Terminator's Ctrl+Shift+E and O
                 // elsewhere, where Ctrl+Shift+D would be the pair's odd one out.
-                register(item(
-                        "menu.splitRight",
-                        MAC
-                                ? new KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN)
-                                : MenuAction.appChord(KeyCode.E),
-                        () -> splitActivePane(javafx.geometry.Orientation.HORIZONTAL))),
-                register(item(
-                        "menu.splitDown",
-                        MAC ? MenuAction.shiftChord(KeyCode.D) : MenuAction.appChord(KeyCode.O),
-                        () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))),
+                register(item("menu.splitRight", () -> splitActivePane(javafx.geometry.Orientation.HORIZONTAL))),
+                register(item("menu.splitDown", () -> splitActivePane(javafx.geometry.Orientation.VERTICAL))),
                 // iTerm2's Cmd+Shift+Enter, and the same with Ctrl elsewhere — Ctrl+Shift+Z, tmux's
                 // idea, is too close to an editor's redo to take from a program.
-                register(item("menu.maximizePane", MenuAction.shiftChord(KeyCode.ENTER), this::toggleMaximizePane)),
+                register(item("menu.maximizePane", this::toggleMaximizePane)),
                 register(item("menu.movePaneToNewTab", () -> {
                     Tab tab = tabs.getSelectionModel().getSelectedItem();
                     TerminalView pane = tab == null ? null : groupOf(tab).active();
@@ -3015,14 +2963,9 @@ public final class TerminalWindow {
         // elsewhere, where Ctrl+Alt+arrows switch workspaces in GNOME and Ctrl+Shift+arrows are
         // already Move Tab and the prompt jumps.
         for (PaneGroup.Direction direction : PaneGroup.Direction.values()) {
-            KeyCode arrow = KeyCode.valueOf(direction.name());
-            KeyCombination chord = MAC
-                    ? new KeyCodeCombination(arrow, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
-                    : new KeyCodeCombination(
-                            arrow, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN);
             String key = "menu.focusPane" + direction.name().charAt(0)
                     + direction.name().substring(1).toLowerCase(java.util.Locale.ROOT);
-            MenuAction action = item(key, chord, () -> focusPane(direction));
+            MenuAction action = item(key, () -> focusPane(direction));
             bindingGroups.put(action.id(), tr("menu.window"));
             command(action);
         }
@@ -3034,13 +2977,12 @@ public final class TerminalWindow {
         // rows that were mostly dead drowned the entries people actually searched for.
         for (int number = 1; number <= TAB_CHORD_COUNT; number++) {
             int selected = number;
-            KeyCode digit = KeyCode.valueOf("DIGIT" + number);
             boolean last = number == TAB_CHORD_COUNT;
             String title = last ? tr("menu.goToLastTab") : tr("menu.goToTab", number);
             String desc = last ? tr("menu.goToLastTab.desc") : tr("menu.goToTab.desc", number);
             registerIn(
                     tr("menu.window"),
-                    MenuAction.of(title, MenuAction.tabChord(digit), () -> selectTabByNumber(selected))
+                    MenuAction.of(title, Keymap.defaultFor(TAB_CHORD_ID + number), () -> selectTabByNumber(selected))
                             .describedAs(desc)
                             .withId(TAB_CHORD_ID + number));
         }
@@ -3064,6 +3006,7 @@ public final class TerminalWindow {
         MenuAction messageLog =
                 registerIn(tr("menu.help"), item("menu.messageLog", () -> windows.showMessageLog(stage)));
         MenuAction debugLog = registerIn(tr("menu.help"), item("menu.debugLog", () -> windows.showDebugLog(stage)));
+        MenuAction shortcutsRef = registerIn(tr("menu.help"), item("menu.keyboardShortcuts", this::showShortcuts));
         commands.add(shortcutsRef.withKeywords(tr("menu.help")));
         commands.add(checkForUpdates.withKeywords(tr("menu.help")));
         commands.add(messageLog.withKeywords(tr("menu.help")));
@@ -3101,8 +3044,8 @@ public final class TerminalWindow {
      * {@code key} and {@code key.desc}. The description is what the palette shows under the list
      * for the highlighted row.
      */
-    private static MenuAction item(String key, @Nullable KeyCombination chord, Runnable action) {
-        return MenuAction.of(tr(key), chord, action)
+    private static MenuAction item(String key, Runnable action) {
+        return MenuAction.of(tr(key), Keymap.defaultFor(idOf(key)), action)
                 .describedAs(description(key))
                 .withId(idOf(key));
     }
@@ -3110,10 +3053,6 @@ public final class TerminalWindow {
     /** A command's id is its catalogue key without the menu's prefix: {@code menu.newTab} is {@code newTab}. */
     static String idOf(String key) {
         return key.startsWith("menu.") ? key.substring("menu.".length()) : key;
-    }
-
-    private static MenuAction item(String key, Runnable action) {
-        return item(key, null, action);
     }
 
     /** The catalogue's description for a menu key, or empty when it has none. */
@@ -3511,13 +3450,6 @@ public final class TerminalWindow {
 
     private void toggleFullScreen() {
         stage.setFullScreen(!stage.isFullScreen());
-    }
-
-    /** macOS has its own convention and gives F11 to the desktop. */
-    private static KeyCombination fullScreenChord() {
-        return MAC
-                ? new KeyCodeCombination(KeyCode.F, KeyCombination.CONTROL_DOWN, KeyCombination.META_DOWN)
-                : new KeyCodeCombination(KeyCode.F11);
     }
 
     /** Shared by the View menu's row and every tab's right-click row. */

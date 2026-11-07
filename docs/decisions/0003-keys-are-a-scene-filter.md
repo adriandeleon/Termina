@@ -21,3 +21,6 @@ There is one table of default chords, with the user's `keys.*` overrides on top.
   are the shell's in a terminal. The palette opens on Ctrl+Shift+P / Cmd+Shift+P.
 - Pauta's menu rows built as `CustomMenuItem`s (MENU-02) do not fit either: one such item makes
   JavaFX decline the macOS screen menu bar for every menu.
+- Since 2026-11-07 the default chords are data, `keymaps/keymap.json` and `keymap.mac.json`
+  (`ui.Keymap`), one file per platform. That meets the half of KBD-09 that asks for keymaps as
+  data, but not the Emacs/CUA pair, for the reason above.

@@ -41,6 +41,9 @@ done.
 
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
   Log, then About.
+- **The default shortcuts are data.** `keymaps/keymap.json` (Windows and Linux) and
+  `keymap.mac.json` hold every command's default chord, which used to be written into the code. No
+  shortcut changes.
 - **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
   shows; the other bundled font families and the large icons follow the first frame, and the daily
   update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a
