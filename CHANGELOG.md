@@ -13,6 +13,12 @@ done.
 
 ### Added
 
+- **An optional status bar, and a Message Log.** Settings ▸ Appearance or View ▸ Show Status Bar
+  turns on a row under the terminal that says what the last command reported: red for an error,
+  amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
+  lists everything Termina reported this session, with times, whether the bar is on or not. Help ▸
+  Debug Log opens the Debug Log, which was only on the Advanced page. A crash says so in the log
+  too, pointing at the Debug Log.
 - **Pinned tabs.** Pin Tab, in the Window menu, a tab's own menu and the palette, moves a tab to the
   pinned group at the left and marks it with a pin and a bold title. Close Other Tabs and the other
   bulk closes pass over it, and Reopen Closed Tab brings it back pinned. Closing it by itself still
@@ -33,6 +39,8 @@ done.
 
 ### Changed
 
+- **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
+  Log, then About.
 - **The window themes come through AtlantaFX**, the theme library the Editora themes were drawn
   from, now a dependency rather than only their source. If a build ever lacks its Editora sheet,
   AtlantaFX's own Primer theme of the same lightness draws the windows instead of nothing.

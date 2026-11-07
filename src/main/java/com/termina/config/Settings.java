@@ -76,6 +76,7 @@ public final class Settings {
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
+    public static final String SHOW_STATUS_BAR = "ui.showStatusBar";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
     public static final String WINDOW_X = "window.x";
     public static final String WINDOW_Y = "window.y";
@@ -976,6 +977,18 @@ public final class Settings {
 
     public void setShowScrollBar(boolean show) {
         put(SHOW_SCROLL_BAR, String.valueOf(show));
+    }
+
+    /**
+     * Show the status bar under the terminal. Off by default: it costs the terminal a row, and
+     * every message it would show also reaches a dialog or the Message Log without it.
+     */
+    public boolean showStatusBar() {
+        return readBoolean(SHOW_STATUS_BAR, false);
+    }
+
+    public void setShowStatusBar(boolean show) {
+        put(SHOW_STATUS_BAR, String.valueOf(show));
     }
 
     /** Width a new window opens at, or 0 when none has been recorded yet. */

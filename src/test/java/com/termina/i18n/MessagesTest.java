@@ -76,6 +76,7 @@ class MessagesTest {
             "menu.zoom",
             "menu.newTabProfile",
             "menu.updateAvailable",
+            "menu.hideStatusBar",
             "menu.unpinTab",
             "menu.openLink",
             "menu.copyLinkAddress");

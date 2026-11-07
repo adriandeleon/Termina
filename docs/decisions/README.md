@@ -11,4 +11,5 @@ that says which one it replaces.
 - [0005. Settings are a hand-editable properties file](0005-settings-in-a-properties-file.md)
 - [0006. No status bar](0006-no-status-bar.md)
 - [0007. The working directory is read from the OS](0007-directory-from-the-os.md)
+- [0008. The status bar is an option, off by default](0008-optional-status-bar.md)
 - [0009. Config is JSON, with a schema version](0009-config-in-json.md)

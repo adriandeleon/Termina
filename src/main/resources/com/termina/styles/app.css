@@ -645,6 +645,31 @@
 }
 
 /*
+ * The status bar (WIN-01): one quiet row under the terminal, in the chrome's surface, its echo text
+ * in the readable muted ink until a message says something is wrong.
+ */
+.status-bar {
+    -fx-background-color: -color-bg-subtle;
+    -fx-border-color: -color-border-muted transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 2 10 3 10;
+    -fx-spacing: 12;
+}
+
+.status-bar .status-echo {
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-size: 0.85em;
+}
+
+.status-bar .status-echo.state-error { -fx-text-fill: -state-red; }
+.status-bar .status-echo.state-warning { -fx-text-fill: -state-amber; }
+
+.status-bar .status-unread {
+    -fx-font-size: 0.85em;
+    -fx-font-weight: bold;
+}
+
+/*
  * The keyboard focus ring (ICON-12, KBD-16, Pauta 2.0.2), Editora's, cut to the controls Termina
  * has. Most of the main window's chrome is deliberately not focus-traversable (Tab is the shell's);
  * this is for Settings, the dialogs and the other windows, where it is.

@@ -100,6 +100,18 @@ Addressed on 2026-11-07, branch `pauta-fx-thread`:
     - The sync instance lock: once per process, and only when sync is configured.
     - The settings read at launch, before any window exists (PERF-16).
 
+Addressed on 2026-11-07, branch `status-bar` (decision record 0008):
+
+- **Now met:**
+  - WIN-01: an optional status bar, off by default, with an echo area in red or amber.
+  - DIAG-01 and MLOG-01, 02, 04, 05, 06 and 07: `MessageLog`, `MessageLogWindow`, and severity
+    taken from the key.
+  - MLOG-03: Escape, C-g and focus loss close the log.
+  - DIAG-03 (narrowed): the Debug Log is a Help command.
+  - DIAG-04: a crash posts an error message.
+  - DIAG-05: an available update is also announced in the log and the bar.
+  - DOCS-07: the Help menu is in Pauta's order, apart from the rows Termina does not have yet.
+
 Addressed on 2026-11-07, branch `atlantafx`:
 
 - **Now met:**

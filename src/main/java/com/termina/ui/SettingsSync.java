@@ -120,7 +120,7 @@ final class SettingsSync {
     /** The run under way, for {@link #cancel()}; null between runs. Written on the worker. */
     private volatile @Nullable SyncEngine runningEngine;
     /** Who asked for the run under way from a menu, and hears how it went; null when nobody is waiting. */
-    private @Nullable Consumer<String> waiting;
+    private @Nullable Reporter waiting;
     /** How {@link #waiting} names a command in a conflict. */
     private Function<String, String> waitingLabels = id -> id;
     /** Cancel was asked before the run's engine existed, while the sign-in account was being chosen. */
@@ -293,15 +293,15 @@ final class SettingsSync {
      *
      * @param label how a command id is named to the user, for a conflict
      */
-    void syncNow(Consumer<String> report, Function<String, String> label) {
+    void syncNow(Reporter report, Function<String, String> label) {
         String unavailable = unavailableText();
         if (unavailable != null) {
-            report.accept(unavailable);
+            report.report(MessageLog.Severity.WARNING, unavailable);
             return;
         }
         waiting = report;
         waitingLabels = label;
-        report.accept(tr("sync.state.syncing"));
+        report.info(tr("sync.state.syncing"));
         request(true, false);
     }
 
@@ -536,17 +536,18 @@ final class SettingsSync {
         running = false;
         remoteFailed =
                 report.status() == SyncReport.Status.FETCH_FAILED || report.status() == SyncReport.Status.PUSH_FAILED;
-        Consumer<String> asker = waiting;
+        Reporter asker = waiting;
         waiting = null;
         if (!active()) { // disconnected while it ran
             again = false;
             setState(new State(Phase.OFF, null, null));
-            if (asker != null) asker.accept(tr("sync.state.off"));
+            if (asker != null) asker.info(tr("sync.state.off"));
             return;
         }
         account = login;
         if (asker != null) {
-            asker.accept(report.ok() ? tr("sync.done", summary(report, waitingLabels)) : problemText(report));
+            if (report.ok()) asker.info(tr("sync.done", summary(report, waitingLabels)));
+            else asker.error(problemText(report));
         }
         if (report.status() == SyncReport.Status.CANCELLED) {
             again = false;
