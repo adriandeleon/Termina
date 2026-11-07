@@ -487,5 +487,8 @@ public final class WindowManager {
         // Shutdown, not a user action: App.stop() reaches here after the quit is already decided.
         for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();
         updates.shutdown();
+        // After the windows, whose closing wrote their geometry: saves are deferred, and this is the
+        // last moment on the FX thread where a pending one can still be written.
+        settings.flush();
     }
 }

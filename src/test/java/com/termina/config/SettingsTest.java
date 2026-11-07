@@ -58,8 +58,8 @@ class SettingsTest {
 
     @Test
     void everySetterPersistsImmediately(@TempDir Path dir) throws IOException {
-        // There is no Save button, so a value that is not on disk the moment it changes is a value
-        // lost to a crash or a force-quit.
+        // There is no Save button. Settings made with the plain constructor — tests, tools — write
+        // on every change; the application's are deferred and covered by SettingsSaveTest.
         Path file = dir.resolve("settings.properties");
         new Settings(file).setFontSize(21);
         assertTrue(Files.readString(file).contains("21"));
