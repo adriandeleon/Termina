@@ -2998,14 +2998,11 @@ public final class TerminalWindow {
                 tr("menu.help"), item("menu.checkForUpdates", () -> windows.checkForUpdatesNow(this::report)));
         updateItem = menuItem(checkForUpdates);
         Menu help = new Menu(tr("menu.help"));
-        // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
-        // which is the "?" key under the usual modifier.
-        MenuAction shortcutsRef = registerIn(
-                tr("menu.help"),
-                item("menu.keyboardShortcuts", MenuAction.appChord(KeyCode.SLASH), this::showShortcuts));
         MenuAction messageLog =
                 registerIn(tr("menu.help"), item("menu.messageLog", () -> windows.showMessageLog(stage)));
         MenuAction debugLog = registerIn(tr("menu.help"), item("menu.debugLog", () -> windows.showDebugLog(stage)));
+        // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
+        // which is the "?" key under the usual modifier: keymap.json.
         MenuAction shortcutsRef = registerIn(tr("menu.help"), item("menu.keyboardShortcuts", this::showShortcuts));
         commands.add(shortcutsRef.withKeywords(tr("menu.help")));
         commands.add(checkForUpdates.withKeywords(tr("menu.help")));
