@@ -29,6 +29,13 @@ done.
 
 ### Changed
 
+- **Settings are JSON, with a schema version.** `~/.termina/settings.json` holds preferences and
+  `workspace-state.json` the window's place and size and the update check's memory. Each names its
+  `schemaVersion`. The keys are the same dotted names, one per line. A `settings.properties` from
+  an earlier version is imported on the first launch and kept as `settings.properties.migrated`. A
+  file a newer Termina wrote is kept as `settings.json.v<n>.bak` rather than read, and one that is
+  not valid JSON as `settings.json.corrupt.bak`; either way Termina opens on defaults. Hand-editing
+  a Windows path now means JSON's doubled backslashes.
 - **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
   shows; the other bundled font families and the large icons follow the first frame, and the daily
   update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a

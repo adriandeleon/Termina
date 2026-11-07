@@ -100,6 +100,18 @@ Addressed on 2026-11-07, branch `pauta-fx-thread`:
     - The sync instance lock: once per process, and only when sync is configured.
     - The settings read at launch, before any window exists (PERF-16).
 
+Addressed on 2026-11-07, branch `config-json` (decision record 0009, superseding 0005):
+
+- **Now met:**
+  - PLAT-14: `ConfigJson` writes a versioned JSON object through jackson-core streaming, without
+    data-bound objects.
+  - SET-08: `settings.json` and `workspace-state.json`, with the names as constants.
+  - SET-09: `SCHEMA_VERSION` and a migration step per version.
+  - SET-10: a newer file is kept as `.v<n>.bak` and defaults load.
+  - SET-11: a corrupt file is kept as `.corrupt.bak` and defaults load.
+  - The legacy file is imported once.
+- **Still open:** SET-12 (Export/Import configuration).
+
 Everything else below stands.
 
 ## Totals

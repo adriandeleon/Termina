@@ -1,5 +1,7 @@
 # 0005. Settings are a hand-editable properties file
 
+**Superseded by [0009](0009-config-in-json.md).**
+
 Recorded: 2026-11-07, from the reasoning in the code and the old AGENTS.md.
 
 ## Context

@@ -80,7 +80,8 @@ class SettingsSaveTest {
 
         assertEquals(1, saves.get());
         assertFalse(settings.hasPendingSave());
-        assertTrue(Files.readString(settings.file()).contains("terminal.scrollback=40000"));
+        assertTrue(
+                StoredConfig.stored(settings.directory()).contains(StoredConfig.entry("terminal.scrollback", "40000")));
         assertTrue(scheduler.pending.isEmpty());
     }
 
@@ -98,9 +99,9 @@ class SettingsSaveTest {
 
         assertEquals(1, saves.get());
         assertTrue(scheduler.pending.isEmpty(), "the scheduled save was cancelled, not left to write again");
-        String written = Files.readString(settings.file());
-        assertTrue(written.contains("theme=editora-light"), written);
-        assertTrue(written.contains("window.width=800"), written);
+        String written = StoredConfig.stored(settings.directory());
+        assertTrue(written.contains(StoredConfig.entry("theme", "editora-light")), written);
+        assertTrue(written.contains(StoredConfig.entry("window.width", "800")), written);
 
         scheduler.elapse();
         settings.flush();
@@ -134,10 +135,12 @@ class SettingsSaveTest {
         scheduler.elapse();
         settings.setFontSize(13);
         assertTrue(settings.hasPendingSave());
-        assertTrue(Files.readString(settings.file()).contains("font.size=12"), "the first write stands");
+        assertTrue(
+                StoredConfig.stored(settings.directory()).contains(StoredConfig.entry("font.size", "12")),
+                "the first write stands");
         scheduler.elapse();
         assertEquals(2, saves.get());
-        assertTrue(Files.readString(settings.file()).contains("font.size=13"));
+        assertTrue(StoredConfig.stored(settings.directory()).contains(StoredConfig.entry("font.size", "13")));
     }
 
     @Test
@@ -177,7 +180,7 @@ class SettingsSaveTest {
             for (int i = 0; i < 10; i++) settings.setPadding(i);
             assertTrue(saved.await(5, TimeUnit.SECONDS), "the save ran");
             assertEquals(List.of("test-settings-save"), threads);
-            assertTrue(Files.readString(settings.file()).contains("terminal.padding=9"));
+            assertTrue(StoredConfig.stored(settings.directory()).contains(StoredConfig.entry("terminal.padding", "9")));
             settings.flush();
             assertEquals(1, threads.size(), "the flush had nothing to write");
         } finally {
@@ -193,6 +196,6 @@ class SettingsSaveTest {
         settings.setFontSize(21);
         assertEquals(1, saves.get());
         assertFalse(settings.hasPendingSave());
-        assertTrue(Files.readString(settings.file()).contains("font.size=21"));
+        assertTrue(StoredConfig.stored(settings.directory()).contains(StoredConfig.entry("font.size", "21")));
     }
 }
