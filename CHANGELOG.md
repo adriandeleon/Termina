@@ -13,6 +13,9 @@ done.
 
 ### Added
 
+- **One Termina per config folder.** Launching it again opens a new window in the running Termina,
+  with that launch's `-d`, `-e` and `-T`, in the directory it was launched from; the second process
+  exits as soon as the first has the request. `--new-instance` starts a separate one.
 - **Report a Problem.** Help ▸ Report a Problem, and a button in the Debug Log, build a report of
   the session — version, Java, OS, the settings worth knowing, the end of the Debug Log — with your
   home folder, user name, addresses, credentials and tokens taken out. It is shown for you to read

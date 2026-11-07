@@ -15,6 +15,13 @@ public final class App extends Application {
 
     private @Nullable WindowManager windows;
 
+    /**
+     * This process's hold on its config folder (CLI-07), taken in {@link #main} before the toolkit
+     * starts and served once the first window is up; null with {@code --new-instance}, or when the
+     * folder could not be claimed and this one started anyway.
+     */
+    private static com.termina.instance.@Nullable SingleInstance instance;
+
     /** How the launcher is invoked, for the usage text. */
     private static final String LAUNCH_NAME = "termina";
 
@@ -54,7 +61,54 @@ public final class App extends Application {
         // single AppKit run loop — an intermittent hang rather than a clean failure.
         System.setProperty("java.awt.headless", "true");
         com.termina.perf.Startup.mark("main");
+        // A capture or an AOT training run is a process of its own whatever the folder: handed to a
+        // Termina already running, it would photograph or train nothing.
+        boolean ownProcess = cli.newInstance()
+                || System.getProperty("termina.capture") != null
+                || System.getProperty("termina.aotTrain") != null;
+        if (!ownProcess) claimOrHandOff(cli, args);
         launch(args);
+    }
+
+    /**
+     * One Termina per config folder (CLI-07): the first launch claims it; a later one hands its
+     * arguments to the first, which opens a window for them, and exits here. When the holder does
+     * not answer, this one starts on its own rather than not at all, and says why on stderr.
+     */
+    private static void claimOrHandOff(CommandLine cli, String[] args) {
+        java.nio.file.Path configDir =
+                Settings.defaultFile(cli.configDir()).toAbsolutePath().getParent();
+        if (configDir == null) return;
+        try {
+            instance = com.termina.instance.SingleInstance.claim(configDir);
+        } catch (java.io.IOException | RuntimeException e) {
+            return; // a folder that cannot be locked is no reason not to start
+        }
+        if (instance != null) return;
+        var request = new com.termina.instance.SingleInstance.Request(
+                System.getProperty("user.dir", ""), java.util.List.of(args));
+        if (com.termina.instance.SingleInstance.handOff(configDir, request, java.time.Duration.ofSeconds(5))) {
+            System.exit(0);
+        }
+        System.err.println(
+                AppInfo.NAME + ": another Termina holds " + configDir + " but did not answer; starting a second one.");
+    }
+
+    /**
+     * A later launch's request: a new window, started as that launch would have started its first.
+     * Its {@code -d} is relative to where it was run, and with no {@code -d} the window opens there.
+     */
+    private void openHandedOff(com.termina.instance.SingleInstance.Request request, Settings settings) {
+        WindowManager manager = windows;
+        if (manager == null) return;
+        CommandLine handed = CommandLine.parse(request.args().toArray(String[]::new));
+        if (handed.error() != null || !handed.shouldRun()) return;
+        String directory = handed.workingDirectory().isBlank()
+                ? request.cwd()
+                : java.nio.file.Path.of(request.cwd())
+                        .resolve(handed.workingDirectory())
+                        .toString();
+        manager.openHandedOff(new LaunchOptions(settings.shell(), directory, handed.command()), handed.title());
     }
 
     @Override
@@ -102,6 +156,15 @@ public final class App extends Application {
         TerminalWindow first = windows.openFirstWindow(
                 stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()), cli.title());
         com.termina.perf.Startup.mark("window-shown");
+        com.termina.instance.SingleInstance held = instance;
+        if (held != null) {
+            try {
+                held.serve(request -> javafx.application.Platform.runLater(() -> openHandedOff(request, settings)));
+            } catch (java.io.IOException e) {
+                java.util.logging.Logger.getLogger(App.class.getName())
+                        .log(java.util.logging.Level.WARNING, "cannot listen for other launches", e);
+            }
+        }
 
         // What nobody waits for, after the first frame (PERF-15, DIAG-05): the font picker's other
         // families, the window icons a title bar never shows, and — a few seconds later still,
@@ -138,5 +201,7 @@ public final class App extends Application {
     @Override
     public void stop() {
         if (windows != null) windows.closeAll();
+        com.termina.instance.SingleInstance held = instance;
+        if (held != null) held.close();
     }
 }

@@ -170,6 +170,16 @@ Addressed on 2026-11-07, branch `report-problem`:
   - DIAG-03: Report a Problem in the Debug Log window. Export is still open.
   - SET-15's redaction half: home paths, the user name, addresses, credentials and tokens.
 
+Addressed on 2026-11-07, branch `single-instance`:
+
+- **Now met:**
+  - CLI-07: `instance.SingleInstance`, a lock on `instance.lock` plus a Unix-domain socket in the
+    config folder, or a hashed one in the temp folder when the path is too long. A second launch
+    hands its arguments and working directory over and exits.
+  - CLI-08: the lock.
+  - CLI-03: `--new-instance`.
+- **Not done:** macOS `openFiles` Apple Events. Termina opens no files.
+
 Everything else below stands.
 
 ## Totals
