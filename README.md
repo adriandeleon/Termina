@@ -708,6 +708,7 @@ termina [options] [-e command [args...]]
 
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
+      --report                   Print a problem report, open a GitHub issue for it, and exit
   -d, --working-directory=DIR    Start the shell in DIR
   -T, --title=TITLE              Name the first tab TITLE
   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

@@ -33,5 +33,6 @@ Building app images and installers: [`docs/building-and-packaging.md`](docs/buil
 
 ## Reporting a problem
 
-Open an issue with the bug report form. About → **Copy details** copies what `termina --version`
-prints, for its Environment field.
+Help → **Report a Problem** (or `termina --report`, when the window will not open) builds a report
+with private details taken out, shows it to you, and opens the bug report form with it filled in.
+Nothing is sent until you submit the issue.

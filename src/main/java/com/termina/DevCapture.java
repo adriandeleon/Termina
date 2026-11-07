@@ -988,6 +988,10 @@ final class DevCapture {
         if (shortcuts != null) {
             return window.showShortcutsForCapture("true".equals(shortcuts) ? "" : shortcuts);
         }
+        // -Dtermina.captureReport=true opens Help → Report a Problem.
+        if (System.getProperty("termina.captureReport") != null) {
+            return windows.showReportProblemForCapture(window.stage());
+        }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
         }

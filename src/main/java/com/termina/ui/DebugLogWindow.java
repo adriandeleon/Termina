@@ -16,6 +16,8 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
+import org.jspecify.annotations.Nullable;
+
 import static com.termina.i18n.Messages.tr;
 
 /** Shows what {@link DebugLog} has captured, with a button to copy it into a bug report. */
@@ -26,6 +28,11 @@ final class DebugLogWindow {
     private final Label path = new Label();
 
     DebugLogWindow(Window owner) {
+        this(owner, null);
+    }
+
+    /** @param onReport opens Report a Problem, or null where nothing can (DIAG-03) */
+    DebugLogWindow(Window owner, @Nullable Runnable onReport) {
         text.setEditable(false);
         text.setWrapText(false);
         text.getStyleClass().add("debug-log-text");
@@ -54,6 +61,11 @@ final class DebugLogWindow {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox buttons = new HBox(8, refresh, copy, clear, spacer, close);
+        if (onReport != null) {
+            Button report = new Button(tr("menu.reportProblem"));
+            report.setOnAction(e -> onReport.run());
+            buttons.getChildren().add(buttons.getChildren().indexOf(spacer), report);
+        }
         buttons.setAlignment(Pos.CENTER_LEFT);
 
         VBox root = new VBox(10, text, path, buttons);

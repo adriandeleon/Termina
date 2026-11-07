@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
 public record CommandLine(
         boolean help,
         boolean version,
+        boolean report,
         String workingDirectory,
         List<String> command,
         String configDir,
@@ -28,7 +29,7 @@ public record CommandLine(
 
     /** Parsed successfully and the application should start. */
     public boolean shouldRun() {
-        return !help && !version && error == null;
+        return !help && !version && !report && error == null;
     }
 
     /** Whether a command was given with {@code -e}, to be run instead of a shell. */
@@ -39,6 +40,7 @@ public record CommandLine(
     public static CommandLine parse(String... args) {
         boolean help = false;
         boolean version = false;
+        boolean report = false;
         String workingDirectory = "";
         String configDir = "";
         String title = "";
@@ -65,6 +67,7 @@ public record CommandLine(
             switch (arg) {
                 case "-h", "--help" -> help = true;
                 case "-v", "-V", "--version" -> version = true;
+                case "--report" -> report = true;
                 case "-d", "--working-directory" -> {
                     if (i + 1 >= args.length) return error(arg + " needs a directory");
                     workingDirectory = args[++i];
@@ -94,7 +97,7 @@ public record CommandLine(
                 }
             }
         }
-        return new CommandLine(help, version, workingDirectory, List.copyOf(command), configDir, title, null);
+        return new CommandLine(help, version, report, workingDirectory, List.copyOf(command), configDir, title, null);
     }
 
     private static String value(String arg) {
@@ -102,7 +105,7 @@ public record CommandLine(
     }
 
     private static CommandLine error(String message) {
-        return new CommandLine(false, false, "", List.of(), "", "", message);
+        return new CommandLine(false, false, false, "", List.of(), "", "", message);
     }
 
     /** The text {@code --help} prints. */
@@ -115,6 +118,7 @@ public record CommandLine(
                 Options:
                   -h, --help                     Show this help and exit
                   -v, --version                  Show the version and exit
+                      --report                   Print a problem report, open a GitHub issue for it, and exit
                   -d, --working-directory=DIR    Start the shell in DIR
                   -T, --title=TITLE              Name the first tab TITLE
                   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

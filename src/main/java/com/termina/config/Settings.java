@@ -604,6 +604,11 @@ public final class Settings {
         return copy;
     }
 
+    /** Every stored key and value, as text: for a problem report's settings summary, which picks from it. */
+    public Map<String, String> values() {
+        return Map.copyOf(snapshot());
+    }
+
     /** Where saves queue up between processes: beside the file, never replaced, never deleted. */
     static Path lockFileFor(Path file) {
         return file.resolveSibling(file.getFileName() + ".lock");
