@@ -3,6 +3,8 @@ module com.termina {
     requires static org.jspecify;
     requires javafx.controls;
     requires javafx.graphics;
+    // The control themes: AtlantaFX's Theme API and its Primer themes (ui.ChromeTheme).
+    requires atlantafx.base;
 
     // The VT/xterm emulation core and the PTY. Both are automatic modules (no module-info,
     // no Automatic-Module-Name), so these names are derived from the jar file names —
