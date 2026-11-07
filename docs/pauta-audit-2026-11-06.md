@@ -109,6 +109,16 @@ Addressed on 2026-11-07, branch `atlantafx`:
   - The confirm button uses `Styles.DANGER`.
   - The module is in the jlinked image, checked by building `-Pdist` and launching it headless.
 
+Addressed on 2026-11-07, branch `keymap-json`:
+
+- **Narrowed:**
+  - KBD-09: the default bindings are `keymap.json` and `keymap.mac.json`, loaded by `ui.Keymap`. No
+    chord is left in the code.
+  - The Emacs/CUA pair stays out for the terminal reason in decision record 0003; that part goes to
+    Pauta as a request for a terminal scope.
+  - `KeymapTest`: both platforms bind the same ids, there are no duplicate chords, no plain
+    Ctrl+letter is bound off macOS, and every id is a command.
+
 Addressed on 2026-11-07, branch `pinned-tabs`:
 
 - **Now met:** TABS-01, TABS-03, TABS-04 and TABS-05.

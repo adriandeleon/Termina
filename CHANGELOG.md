@@ -36,6 +36,9 @@ done.
 - **The window themes come through AtlantaFX**, the theme library the Editora themes were drawn
   from, now a dependency rather than only their source. If a build ever lacks its Editora sheet,
   AtlantaFX's own Primer theme of the same lightness draws the windows instead of nothing.
+- **The default shortcuts are data.** `keymaps/keymap.json` (Windows and Linux) and
+  `keymap.mac.json` hold every command's default chord, which used to be written into the code. No
+  shortcut changes.
 - **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
   shows; the other bundled font families and the large icons follow the first frame, and the daily
   update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a
