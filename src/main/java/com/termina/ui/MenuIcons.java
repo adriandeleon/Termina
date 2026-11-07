@@ -45,6 +45,28 @@ public final class MenuIcons {
                 + " 13.41 12 17 15.59z");
     }
 
+    /** Material's "push pin": Pin Tab, and the mark on a pinned tab's header. */
+    private static final String PIN =
+            "M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3"
+                    + " 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z";
+
+    static Node pin() {
+        return of(PIN);
+    }
+
+    /**
+     * The pin at the size of a tab title's text, for a pinned tab's header. In a Group, so the
+     * header lays it out at the size it is drawn rather than at the path's own 24 units.
+     */
+    static Node tabPin() {
+        SVGPath svg = new SVGPath();
+        svg.setContent(PIN);
+        svg.setScaleX(0.5);
+        svg.setScaleY(0.5);
+        svg.getStyleClass().add("tab-pin");
+        return new javafx.scene.Group(svg);
+    }
+
     /** {@link #closeRight}, mirrored. */
     static Node closeLeft() {
         return of("M16 6h2v12h-2zM13.5 12L9 16.5V13H3v-2h6V7.5z");
