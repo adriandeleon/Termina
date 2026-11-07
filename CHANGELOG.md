@@ -41,6 +41,13 @@ done.
 
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
   Log, then About.
+- **Settings are JSON, with a schema version.** `~/.termina/settings.json` holds preferences and
+  `workspace-state.json` the window's place and size and the update check's memory. Each names its
+  `schemaVersion`. The keys are the same dotted names, one per line. A `settings.properties` from
+  an earlier version is imported on the first launch and kept as `settings.properties.migrated`. A
+  file a newer Termina wrote is kept as `settings.json.v<n>.bak` rather than read, and one that is
+  not valid JSON as `settings.json.corrupt.bak`; either way Termina opens on defaults. Hand-editing
+  a Windows path now means JSON's doubled backslashes.
 - **The default shortcuts are data.** `keymaps/keymap.json` (Windows and Linux) and
   `keymap.mac.json` hold every command's default chord, which used to be written into the code. No
   shortcut changes.

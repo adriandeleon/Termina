@@ -62,7 +62,7 @@ class SettingsTest {
         // on every change; the application's are deferred and covered by SettingsSaveTest.
         Path file = dir.resolve("settings.properties");
         new Settings(file).setFontSize(21);
-        assertTrue(Files.readString(file).contains("21"));
+        assertTrue(StoredConfig.stored(dir).contains("21"));
     }
 
     @Test
@@ -150,10 +150,10 @@ class SettingsTest {
         settings.setWindowGeometry(10, 20, 800, 600, false);
 
         assertEquals(0, changes.get(), "quiet keys must not fire the change broadcast");
-        String stored = Files.readString(file);
+        String stored = StoredConfig.stored(dir);
         assertTrue(stored.contains("1700000000000"), stored);
         assertTrue(stored.contains("9.9.9"), stored);
-        assertTrue(stored.contains("window.x=10"), stored);
+        assertTrue(stored.contains(StoredConfig.entry("window.x", "10")), stored);
     }
 
     @Test
@@ -207,7 +207,7 @@ class SettingsTest {
         settings.setThemeId("editora-light");
         settings.setFontSize(19);
 
-        assertTrue(Files.readString(file).contains("editora-light"));
+        assertTrue(StoredConfig.stored(dir).contains("editora-light"));
         try (var listing = Files.list(dir)) {
             assertEquals(
                     java.util.List.of(),
@@ -308,14 +308,62 @@ class SettingsTest {
     }
 
     @Test
-    void aBadFileIsCopiedAsideBeforeAnythingOverwritesIt(@TempDir Path dir) throws IOException {
-        Path file = dir.resolve("settings.properties");
-        Files.writeString(file, "theme=mine\n");
-        Path backup = Settings.backUpUnreadable(file, 0);
-        assertNotNull(backup);
-        assertTrue(backup.getFileName().toString().startsWith("settings.properties.bad-"), backup.toString());
-        assertEquals("theme=mine\n", Files.readString(backup));
-        assertNull(Settings.backUpUnreadable(dir.resolve("missing.properties"), 0));
+    void aCorruptFileIsKeptAsideAndDefaultsLoad(@TempDir Path dir) throws IOException {
+        // SET-11 (Pauta 2.0.2): never a launch that fails over its settings, never a file lost.
+        Path json = dir.resolve(Settings.SETTINGS_FILE);
+        Files.writeString(json, "{ this is not json");
+        Settings settings = new Settings(json);
+        settings.load();
+        assertEquals("editora-dark", settings.themeId());
+        assertEquals("{ this is not json", Files.readString(dir.resolve("settings.json.corrupt.bak")));
+    }
+
+    @Test
+    void aFileFromANewerBuildIsBackedUpAndNotRead(@TempDir Path dir) throws IOException {
+        // SET-10: an older build never reads keys whose meaning it does not know, nor loses the file.
+        Path json = dir.resolve(Settings.SETTINGS_FILE);
+        String newer = "{\"schemaVersion\": 99, \"settings\": {\"theme\": \"from-the-future\"}}";
+        Files.writeString(json, newer);
+        Settings settings = new Settings(json);
+        settings.load();
+        assertEquals("editora-dark", settings.themeId());
+        assertEquals(newer, Files.readString(dir.resolve("settings.json.v99.bak")));
+        settings.setFontSize(15);
+        assertTrue(Files.readString(json).contains("\"schemaVersion\" : " + ConfigJson.SCHEMA_VERSION));
+        assertEquals(newer, Files.readString(dir.resolve("settings.json.v99.bak")), "the copy is left alone");
+    }
+
+    @Test
+    void theOldPropertiesFileIsImportedOnceAndKept(@TempDir Path dir) throws IOException {
+        Path legacy = dir.resolve(Settings.LEGACY_FILE);
+        Files.writeString(legacy, "theme=editora-light\nwindow.width=1200\nfont.size=15\n");
+        Settings settings = new Settings(legacy);
+        settings.load();
+        assertEquals("editora-light", settings.themeId());
+        assertEquals(15, settings.fontSize());
+        assertTrue(Files.exists(dir.resolve("settings.properties.migrated")));
+        assertTrue(Files.notExists(legacy));
+        String preferences = Files.readString(dir.resolve(Settings.SETTINGS_FILE));
+        String state = Files.readString(dir.resolve(Settings.STATE_FILE));
+        assertTrue(preferences.contains("\"theme\" : \"editora-light\""), preferences);
+        assertTrue(preferences.contains("\"font.size\" : 15"), preferences);
+        assertTrue(!preferences.contains("window.width"), "window geometry is state, not a preference");
+        assertTrue(state.contains("\"window.width\" : 1200"), state);
+
+        Settings again = new Settings(dir.resolve(Settings.SETTINGS_FILE));
+        again.load();
+        assertEquals("editora-light", again.themeId());
+        assertEquals(1200, again.windowWidth());
+    }
+
+    @Test
+    void preferencesAndSessionStateGoToTheirOwnFiles(@TempDir Path dir) throws IOException {
+        Settings settings = new Settings(dir.resolve(Settings.SETTINGS_FILE));
+        settings.setThemeId("editora-light");
+        settings.setWindowGeometry(10, 20, 800, 600, false);
+        assertTrue(Files.readString(dir.resolve(Settings.SETTINGS_FILE)).contains("editora-light"));
+        assertTrue(!Files.readString(dir.resolve(Settings.SETTINGS_FILE)).contains("window.x"));
+        assertTrue(Files.readString(dir.resolve(Settings.STATE_FILE)).contains("\"window.x\" : 10"));
     }
 
     @Test
@@ -361,9 +409,7 @@ class SettingsTest {
         assertEquals("café {file}", settings.linkOpenCommand());
 
         settings.setThemeId("editora-light");
-        assertTrue(
-                Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).contains("/home/josé/bin/fish"),
-                "written back as UTF-8, legible");
+        assertTrue(StoredConfig.stored(dir).contains("/home/josé/bin/fish"), "written back as UTF-8, legible");
     }
 
     @Test
@@ -409,7 +455,7 @@ class SettingsTest {
         assertEquals(40, settings.windowY().orElseThrow());
 
         // A corrupt line reads as unset rather than as a window a hundred thousand pixels away.
-        Files.writeString(file, "window.x=999999999\nwindow.y=NaN\n");
+        StoredConfig.writeState(dir, "window.x", "999999999", "window.y", "NaN");
         Settings read = new Settings(file);
         read.load();
         assertTrue(read.windowX().isEmpty());

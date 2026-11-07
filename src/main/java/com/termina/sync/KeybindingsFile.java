@@ -9,7 +9,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * The user's key bindings as the sync repository holds them: one {@code command=chord} line per
  * changed command, sorted, in the same {@code KeyCombination} notation as the {@code keys.*} block of
- * {@code settings.properties}. A command that is absent keeps its default; {@code none} is a command
+ * {@code settings.json}. A command that is absent keeps its default; {@code none} is a command
  * the user took off every key.
  *
  * <p>One file per platform family, because a chord means something different on each: the defaults

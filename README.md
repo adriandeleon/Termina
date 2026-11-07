@@ -542,19 +542,20 @@ legacy encoder already does, by whether the press composed something.
 ### Settings
 
 `Cmd/Ctrl+,` or the context menu opens preferences: theme, font family and size, cursor shape, visual bell, scrollback
-depth, shell, and Alt-as-Meta. Stored as a plain properties file at
-`~/.termina/settings.properties` — no dependency, and a file someone will reasonably open in an
-editor. Every getter falls back to a default, so one bad hand-edited line costs that key and not the
-rest, and values are clamped **on read as well as on write** (a hand-edited two-million-line
-scrollback would otherwise exhaust memory at the next launch).
+depth, shell, and Alt-as-Meta. Stored as JSON in `~/.termina`: `settings.json` for preferences and
+`workspace-state.json` for the window's place and size and the update check's memory. Each file
+names its `schemaVersion`, and its keys are the dotted names used here (`"font.size": 13`), flat, one
+per line, so a key is easy to find and change by hand. Every getter falls back to a default, so one
+bad hand-edited value costs that key and not the rest, and values are clamped **on read as well as
+on write** (a hand-edited two-million-line scrollback would otherwise exhaust memory at the next
+launch).
 
-The file is UTF-8, and **a backslash is a backslash**: `terminal.shell=C:\Windows\System32\wsl.exe`
-means what it says, unlike Java's own properties syntax, which ate every backslash it did not know.
-`\\` is one backslash, `\uXXXX` a character, and `\=` `\:` `\#` `\!` `\ ` the character after them —
-which is everything the previous writer produced, so older files read unchanged. A file that cannot be
-read at all opens on defaults and is copied aside as `settings.properties.bad-<time>` first. More
-than one Termina may run on one config folder: each save writes only the keys that process changed,
-under a lock, on top of whatever the file holds by then.
+A file written by a newer Termina is not read, since its keys may mean things this one does not
+know: it is kept as `settings.json.v<n>.bak` and defaults load. A file that is not valid JSON is kept
+as `settings.json.corrupt.bak`. A `settings.properties` from before 0.15 is imported into the two
+files on the first launch and kept as `settings.properties.migrated`. More than one Termina may run
+on one config folder: each save writes only the keys that process changed, under a lock, on top of
+whatever the file holds by then.
 
 The window follows Editora's: a grouped sidebar, a search box that narrows both rows and
 categories, and **no OK or Cancel**. Every control writes its setting immediately and the terminal
