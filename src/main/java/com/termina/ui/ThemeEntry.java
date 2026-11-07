@@ -28,6 +28,11 @@ public final class ThemeEntry {
         this.file = file;
     }
 
+    /** This theme under another id and name: what a picker shows for "Follow the System". */
+    ThemeEntry as(String otherId, String otherName) {
+        return new ThemeEntry(otherId, otherName, dark, chrome, palette, file);
+    }
+
     static ThemeEntry of(Theme theme) {
         return new ThemeEntry(theme.id(), theme.displayName(), theme.isDark(), theme.chrome(), theme.palette(), null);
     }

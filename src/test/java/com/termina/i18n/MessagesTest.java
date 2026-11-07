@@ -76,11 +76,8 @@ class MessagesTest {
             "menu.zoom",
             "menu.newTabProfile",
             "menu.updateAvailable",
-            "menu.closeOtherTabs",
-            "menu.closeTabsToTheRight",
             "menu.openLink",
-            "menu.copyLinkAddress",
-            "menu.configureProfiles");
+            "menu.copyLinkAddress");
 
     @Test
     void everyCommandTitleHasADescription() throws Exception {

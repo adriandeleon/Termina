@@ -248,6 +248,12 @@ public final class SettingsWindow {
      * Shows the window beside {@code from}, without being owned by it. Ownership would close it
      * with the first terminal window to have opened it; see {@link SecondaryWindows}.
      */
+    /** Opens the window on the Profiles page: Configure Profiles, from the profile menu or a chord. */
+    public void showProfiles(Window from) {
+        show(from);
+        sidebar.getSelectionModel().select(Category.PROFILES);
+    }
+
     public void show(Window from) {
         if (stage.isShowing()) {
             stage.toFront();
@@ -365,8 +371,12 @@ public final class SettingsWindow {
         javafx.geometry.Rectangle2D visible = javafx.stage.Screen.getPrimary().getVisualBounds();
         Scene scene =
                 new Scene(root, Math.min(1153, visible.getWidth() * 0.95), Math.min(985, visible.getHeight() * 0.92));
-        // A scene stylesheet, not part of the theme: it must survive the runtime
-        // setUserAgentStylesheet swap that changing the theme performs.
+        // Scene stylesheets, not part of the theme: they must survive the runtime
+        // setUserAgentStylesheet swap that changing the theme performs. app.css first, for the
+        // state colours and the keyboard focus ring every window shares; settings.css after it,
+        // so the window's own rules win where the two meet.
+        var app = SettingsWindow.class.getResource("/com/termina/styles/app.css");
+        if (app != null) scene.getStylesheets().add(app.toExternalForm());
         var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
@@ -661,7 +671,7 @@ public final class SettingsWindow {
     private static VBox withValidation(
             TextField field, Label status, java.util.function.Function<String, ShellLauncher.PathStatus> check) {
         status.getStyleClass().add("settings-row-description");
-        status.setStyle("-fx-text-fill: -color-danger-4;");
+        status.getStyleClass().add("state-error");
         status.setWrapText(true);
         status.setVisible(false);
         status.setManaged(false);
@@ -1455,7 +1465,8 @@ public final class SettingsWindow {
     /** A refusal is red; a note about a chord that was taken is the warning colour. Hidden when null. */
     private static void showKeyStatus(Label status, @Nullable String message, boolean refusal) {
         status.setText(message == null ? "" : message);
-        status.setStyle(refusal ? "-fx-text-fill: -color-danger-4;" : "-fx-text-fill: -color-warning-4;");
+        status.getStyleClass().removeAll("state-error", "state-warning");
+        status.getStyleClass().add(refusal ? "state-error" : "state-warning");
         status.setVisible(message != null);
         status.setManaged(message != null);
     }
@@ -1755,7 +1766,9 @@ public final class SettingsWindow {
         profileFontSize.setValue(size == null ? defaultLabel : formatSize(size));
         ThemeEntry theme = style.themeId().isEmpty() ? null : Themes.byId(style.themeId());
         profileTheme.setValue(
-                theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
+                Themes.followsSystem(style.themeId())
+                        ? Themes.systemDisplayName()
+                        : theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
     }
 
     private static String formatSize(double size) {
@@ -1916,7 +1929,7 @@ public final class SettingsWindow {
         // warning nobody reads, and the file still holds the old one until the next launch.
         saveError = new Label();
         saveError.getStyleClass().add("settings-row-description");
-        saveError.setStyle("-fx-text-fill: -color-danger-4;");
+        saveError.getStyleClass().add("state-error");
         saveError.setWrapText(true);
         VBox fileControl = new VBox(2, settingsPath, saveError);
         fileControl.setMaxWidth(420);
@@ -1992,7 +2005,7 @@ public final class SettingsWindow {
         });
         syncFieldError = new Label();
         syncFieldError.getStyleClass().add("settings-row-description");
-        syncFieldError.setStyle("-fx-text-fill: -color-danger-4;");
+        syncFieldError.getStyleClass().add("state-error");
         syncFieldError.setWrapText(true);
         syncFieldError.setMaxWidth(320);
         showSyncFieldError(null);
@@ -2269,7 +2282,8 @@ public final class SettingsWindow {
         try {
             ThemeEntry theme = Themes.byId(settings.themeId());
             themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-            themeCombo.setValue(theme.displayName());
+            themeCombo.setValue(
+                    Themes.followsSystem(settings.themeId()) ? Themes.systemDisplayName() : theme.displayName());
             removeTheme.setDisable(theme.isBuiltIn());
             fontCombo.setValue(MonospaceFonts.resolve(settings.fontFamily()));
             fontSize.getValueFactory().setValue(settings.fontSize());

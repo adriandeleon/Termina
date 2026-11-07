@@ -4,6 +4,26 @@
  */
 
 /*
+ * State colours (ICON-07, Pauta 2.0.2), named once here and used by name everywhere else, so what
+ * a colour means is decided in one place:
+ *
+ *   red    broken: a refusal, a failure, a value that will not be used
+ *   amber  not durable yet: a warning, something that needs another step
+ *   green  verified: a check that answered yes
+ *
+ * Each chains to the theme's text role for that state, which keeps 4.5:1 on its grounds.
+ */
+.root {
+    -state-red: -color-danger-fg;
+    -state-amber: -color-warning-fg;
+    -state-green: -color-success-fg;
+}
+
+/* A status line saying something failed or was refused, and one asking for attention. */
+.state-error { -fx-text-fill: -state-red; }
+.state-warning { -fx-text-fill: -state-amber; }
+
+/*
  * Context-menu glyphs. Coloured here rather than in MenuIcons so they track the theme; an SVGPath
  * takes its colour from -fx-fill, not -fx-text-fill, so it does not inherit the item's own.
  */
@@ -77,7 +97,7 @@
 .about-details .label { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.9em; }
 .about-credits { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.85em; }
 .about-path { -fx-text-fill: -color-fg-muted; -fx-font-family: monospace; -fx-font-size: 0.8em; }
-.about-uptodate { -fx-text-fill: -color-success-fg; -fx-font-size: 0.9em; }
+.about-uptodate { -fx-text-fill: -state-green; -fx-font-size: 0.9em; }
 .about-update-headline { -fx-text-fill: -color-accent-fg; -fx-font-weight: bold; }
 
 /*
@@ -526,7 +546,7 @@
 
 /* A regular expression that does not compile yet: said in the text, not by a dialog. */
 .search-bar .search-field:invalid {
-    -fx-text-fill: -color-danger-fg;
+    -fx-text-fill: -state-red;
 }
 
 .search-bar .search-count {
@@ -613,4 +633,42 @@
 .empty-window-placeholder {
     -fx-text-fill: -color-fg-muted;
     -fx-padding: 24;
+}
+
+/*
+ * The keyboard focus ring (ICON-12, KBD-16, Pauta 2.0.2), Editora's, cut to the controls Termina
+ * has. Most of the main window's chrome is deliberately not focus-traversable (Tab is the shell's);
+ * this is for Settings, the dialogs and the other windows, where it is.
+ *
+ * AtlantaFX marks focus by recolouring a control's 1px border layer, and has no focus rule at all
+ * for check boxes or hyperlinks. `:focus-visible` is set only when focus arrives from the keyboard,
+ * so a click never leaves a ring behind. The ring is a 2px border with negative insets: just outside
+ * the control, adding nothing to its insets, so focusing never shifts layout. `-focus-ring` is a
+ * looked-up colour, 3:1 or better against every surface in the Editora themes.
+ *
+ * Keep this block last: equal-specificity author rules are decided by order.
+ */
+.root {
+    -focus-ring: -color-accent-emphasis;
+}
+.button:focus-visible,
+.toggle-button:focus-visible,
+.menu-button:focus-visible,
+.hyperlink:focus-visible,
+.combo-box-base:focus-visible,
+.check-box:focus-visible > .box {
+    -fx-border-color: -focus-ring;
+    -fx-border-width: 2;
+    -fx-border-insets: -3;
+    -fx-border-radius: 10;
+    -fx-border-style: solid;
+}
+.check-box:focus-visible > .box {
+    -fx-border-radius: 6;
+}
+/* A text field already gets the theme's accent border on focus; from the keyboard it is thickened to
+   the same 2px weight by widening that border layer, which keeps the ring inside the field. */
+.text-field:focus-visible,
+.password-field:focus-visible {
+    -fx-background-insets: 0, 2px;
 }

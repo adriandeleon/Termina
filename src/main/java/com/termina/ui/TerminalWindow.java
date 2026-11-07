@@ -105,6 +105,20 @@ public final class TerminalWindow {
             item("menu.reopenClosedTab", MenuAction.appChord(KeyCode.Z), this::reopenClosedTab);
 
     /**
+     * The bulk closes, as commands on the selected tab (TABS-01, Pauta 2.0.2): in the File menu and
+     * the palette, and bindable, as well as on a tab's own menu, where they act on the tab that was
+     * clicked. No default chords — every free one is one the shell might want. The palette greys
+     * each with the reason while it would close nothing.
+     */
+    private final MenuAction closeOthersAction = item("menu.closeOtherTabs", () -> withActiveTab(this::closeOtherTabs));
+
+    private final MenuAction closeLeftAction =
+            item("menu.closeTabsToTheLeft", () -> withActiveTab(this::closeTabsToTheLeft));
+
+    private final MenuAction closeRightAction =
+            item("menu.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
+
+    /**
      * The commands that need the shell's prompt marks, greyed in the palette until there are some.
      * Terminal.app's Cmd+Up and Cmd+Down on macOS.
      */
@@ -851,7 +865,7 @@ public final class TerminalWindow {
         profileMenu.getItems().setAll(profileMenuItems());
         profileMenu.getItems().add(new SeparatorMenuItem());
         MenuItem configure = new MenuItem(tr("menu.configureProfiles"), MenuIcons.settings());
-        configure.setOnAction(e -> windows.showSettings(stage));
+        configure.setOnAction(e -> windows.showProfileSettings(stage));
         profileMenu.getItems().add(configure);
         profileMenu.show(profileButton, javafx.geometry.Side.BOTTOM, 0, 0);
     }
@@ -1541,6 +1555,8 @@ public final class TerminalWindow {
      */
     private ContextMenu buildTabMenu(Tab tab) {
         MenuItem closeOthers = tabItem(tr("menu.closeOtherTabs"), MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
+        MenuItem closeLeft =
+                tabItem(tr("menu.closeTabsToTheLeft"), MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
         MenuItem closeRight =
                 tabItem(tr("menu.closeTabsToTheRight"), MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
         MenuItem moveLeft = tabItem(tr("menu.moveTabLeft"), MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
@@ -1559,6 +1575,7 @@ public final class TerminalWindow {
                 new SeparatorMenuItem(),
                 tabItem(tr("menu.closeTab"), MenuIcons.close(), () -> closeTab(tab)),
                 closeOthers,
+                closeLeft,
                 closeRight,
                 new SeparatorMenuItem(),
                 moveLeft,
@@ -1569,6 +1586,7 @@ public final class TerminalWindow {
             int index = tabs.getTabs().indexOf(tab);
             int count = tabs.getTabs().size();
             closeOthers.setDisable(count < 2);
+            closeLeft.setDisable(index <= 0);
             closeRight.setDisable(index < 0 || index >= count - 1);
             moveLeft.setDisable(index <= 0);
             moveRight.setDisable(index < 0 || index >= count - 1);
@@ -1589,6 +1607,24 @@ public final class TerminalWindow {
         List<Tab> doomed = new ArrayList<>(tabs.getTabs());
         doomed.remove(keep);
         closeTabs(doomed);
+    }
+
+    private void closeTabsToTheLeft(Tab from) {
+        int index = tabs.getTabs().indexOf(from);
+        if (index <= 0) return;
+        closeTabs(new ArrayList<>(tabs.getTabs().subList(0, index)));
+    }
+
+    /**
+     * Why a bulk close would close nothing for the selected tab, or null when it would close
+     * something. One answer for the menu's greying and the palette's reason.
+     */
+    private @Nullable String bulkCloseUnavailable(MenuAction bulk) {
+        Tab selected = tabs.getSelectionModel().getSelectedItem();
+        int index = selected == null ? -1 : tabs.getTabs().indexOf(selected);
+        String reason =
+                TabRanges.unavailable(bulk.requireId(), index, tabs.getTabs().size());
+        return reason == null ? null : tr(reason);
     }
 
     private void closeTabsToTheRight(Tab from) {
@@ -2627,6 +2663,9 @@ public final class TerminalWindow {
                 register(item("menu.newWindow", MenuAction.appChord(KeyCode.N), () -> windows.openWindow(this))),
                 null,
                 register(item("menu.closeTab", MenuAction.appChord(KeyCode.W), this::closeCurrentTab)),
+                closeOthersAction,
+                closeLeftAction,
+                closeRightAction,
                 register(item("menu.closeWindow", MenuAction.closeWindowChord(), this::close)),
                 register(reopenAction),
                 null,
@@ -2638,7 +2677,8 @@ public final class TerminalWindow {
                         () -> windows.showSettings(stage))),
                 // No chord by default: an occasional command, and every free chord is one the shell
                 // might want. The Keyboard page can give it one.
-                register(item("menu.syncNow", () -> windows.syncSettingsNow(this::report))));
+                register(item("menu.syncNow", () -> windows.syncSettingsNow(this::report))),
+                item("menu.configureProfiles", () -> windows.showProfileSettings(stage)));
 
         // Added by hand rather than through menu(): a submenu is a Menu, not a MenuAction, and its
         // contents are not known until it is opened. Its entries reach the palette through
@@ -2654,6 +2694,9 @@ public final class TerminalWindow {
         // By id, not by label: a label is a translation, and the one for Close Tab changes under it.
         file.setOnShowing(e -> {
             for (MenuItem item : itemsFor(idOf("menu.reopenClosedTab"))) item.setDisable(!canReopen());
+            for (MenuAction bulk : List.of(closeOthersAction, closeLeftAction, closeRightAction)) {
+                for (MenuItem item : itemsFor(bulk.id())) item.setDisable(bulkCloseUnavailable(bulk) != null);
+            }
             // Says what its chord will do: in a split tab that is the active pane, not the tab.
             for (MenuItem item : itemsFor(idOf("menu.closeTab"))) {
                 item.setText(activeTabIsSplit() ? tr("menu.closePane") : tr("menu.closeTab"));
@@ -3473,7 +3516,7 @@ public final class TerminalWindow {
                     .describedAs(tr("palette.newTabProfile.desc"))
                     .withKeywords(tr("palette.group.profiles")));
         }
-        for (ThemeEntry theme : Themes.all()) {
+        for (ThemeEntry theme : Themes.byDisplayName().values()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
             all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id()))
                     .describedAs(tr("palette.theme.desc"))
@@ -3486,13 +3529,21 @@ public final class TerminalWindow {
         boolean marked = promptMarksAvailable();
         palette.show(
                 all,
-                action ->
-                        !(action.sameActionAs(reopenAction) && !canReopen()) && !(needsPromptMarks(action) && !marked),
+                action -> !(action.sameActionAs(reopenAction) && !canReopen())
+                        && !(needsPromptMarks(action) && !marked)
+                        && !(isBulkClose(action) && bulkCloseUnavailable(action) != null),
                 action -> {
                     if (action.sameActionAs(reopenAction)) return tr("palette.disabled.nothingToReopen");
                     if (needsPromptMarks(action)) return tr("palette.disabled.noPromptMarks");
+                    if (isBulkClose(action)) return bulkCloseUnavailable(action);
                     return null;
                 });
+    }
+
+    private boolean isBulkClose(MenuAction action) {
+        return action.sameActionAs(closeOthersAction)
+                || action.sameActionAs(closeLeftAction)
+                || action.sameActionAs(closeRightAction);
     }
 
     private boolean needsPromptMarks(MenuAction action) {

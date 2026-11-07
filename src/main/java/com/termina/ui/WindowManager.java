@@ -67,6 +67,13 @@ public final class WindowManager {
         // menu already on screen when the answer lands would otherwise keep the shorter list.
         profiles.discoverInBackground(found -> {});
         settings.addOnChange(this::applySettingsEverywhere);
+        // The desktop's light or dark, for the theme that follows it. Re-applied whatever the
+        // stored theme, because a profile can follow the system while the default does not; the
+        // desktop changes its scheme a few times a day at most.
+        javafx.application.Platform.getPreferences().colorSchemeProperty().addListener((o, was, now) -> {
+            Themes.followSystem(now == javafx.application.ColorScheme.DARK);
+            applySettingsEverywhere();
+        });
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
         // A window joins this list as it is shown, before its first frame: the one place that
         // catches every window — settings, About, a confirmation dialog — however it was made.
@@ -430,6 +437,11 @@ public final class WindowManager {
      */
     public void showSettings(Window from) {
         settingsWindow().show(from);
+    }
+
+    /** The settings window, on its Profiles page. */
+    public void showProfileSettings(Window from) {
+        settingsWindow().showProfiles(from);
     }
 
     /** The settings window, made on first use. */

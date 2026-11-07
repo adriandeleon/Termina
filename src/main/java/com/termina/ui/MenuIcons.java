@@ -18,9 +18,15 @@ public final class MenuIcons {
 
     private MenuIcons() {}
 
+    /**
+     * Material's "add", the glyph New Tab wears everywhere (ICON-20, Pauta 2.0.2): the tab strip's
+     * button draws the same path from CSS ({@code .tab-strip-glyph} in app.css), and
+     * {@code NewTabGlyphTest} fails when the two drift apart.
+     */
+    static final String ADD = "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+
     public static Node newTab() {
-        return of("M4 5h16v2H4v12h16v-7h2v7c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7c0-1.1.9-2 2-2zm14"
-                + " 0V2h2v3h3v2h-3v3h-2V7h-3V5h3z");
+        return of(ADD);
     }
 
     static Node newWindow() {
@@ -37,6 +43,11 @@ public final class MenuIcons {
         return of("M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59"
                 + " 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41"
                 + " 13.41 12 17 15.59z");
+    }
+
+    /** {@link #closeRight}, mirrored. */
+    static Node closeLeft() {
+        return of("M16 6h2v12h-2zM13.5 12L9 16.5V13H3v-2h6V7.5z");
     }
 
     static Node closeRight() {
