@@ -221,6 +221,12 @@ is broken.
   overlay drawn on the text (translated in `render`) are measured from inside it. A new
   `e.getX() / charWidth` that skips it is off by the padding — a few pixels, so it looks right
   until it selects the wrong cell at an edge.
+- **`Font.getFamilies()` is a snapshot.** JavaFX builds the list the first time it is asked and
+  never adds a font registered after, though `Font.font` finds one. Since the bundled families other
+  than the terminal's load after the first frame (`Fonts.ensure`, `loadRest`), `MonospaceFonts` adds
+  `Fonts.loadedFamilies()` to what it reads as installed — without it a profile in Fira Code drew in
+  JetBrains Mono, with nothing logged. `DeferredFontsTest` pins it, and runs its resolve case first
+  because a font cannot be unloaded.
 - **JavaFX's fallback list is not a Nerd Font lookup.** No bundled face has private-use glyphs, so
   an icon goes to fontconfig's *sans* ordering and the first face that maps the code point wins.
   Arial (msttcorefonts) maps U+F016 and MathJax_WinIE6 maps U+E271 to glyphs of their own, both

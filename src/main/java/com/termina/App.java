@@ -55,16 +55,18 @@ public final class App extends Application {
 
     @Override
     public void start(Stage stage) {
-        // Before the stylesheet below and before any window: CSS naming a font that is not yet
-        // registered does not wait for it, it silently resolves to the system face.
         com.termina.perf.Startup.mark("fx-start");
-        com.termina.ui.Fonts.load();
-        com.termina.perf.Startup.mark("fonts");
-
         CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
         Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
+
+        // Before the stylesheet below and before any window: CSS naming a font that is not yet
+        // registered does not wait for it, it silently resolves to the system face. Only what the
+        // first window draws — the interface font, the icons, the terminal's family; the other
+        // bundled families follow the first frame (PERF-15).
+        com.termina.ui.Fonts.load(settings.fontFamily());
+        com.termina.perf.Startup.mark("fonts");
         com.termina.ui.DebugLog.attachFile(settings.directory());
 
         // Before the command names, menus and Settings rows are built — all of which read the
@@ -89,13 +91,26 @@ public final class App extends Application {
                 com.termina.ui.Themes.byId(settings.themeId()).stylesheet());
 
         com.termina.ui.StallMonitor.installIfRequested();
-        windows = new WindowManager(settings);
+        WindowManager manager = new WindowManager(settings);
+        windows = manager;
         windows.setLinkOpener(url -> getHostServices().showDocument(url));
         com.termina.perf.Startup.mark("pre-window");
         TerminalWindow first = windows.openFirstWindow(
                 stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()), cli.title());
         com.termina.perf.Startup.mark("window-shown");
-        windows.maybeCheckForUpdates();
+
+        // What nobody waits for, after the first frame (PERF-15, DIAG-05): the font picker's other
+        // families, the window icons a title bar never shows, and — a few seconds later still,
+        // so it never competes with the shell's own startup — the daily update check.
+        com.termina.ui.FirstFrame.after(() -> {
+            if (com.termina.ui.Fonts.loadRest()) com.termina.ui.MonospaceFonts.forget();
+            com.termina.ui.Icons.loadLarge();
+            javafx.animation.PauseTransition settle =
+                    new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));
+            settle.setOnFinished(e -> manager.maybeCheckForUpdates());
+            settle.play();
+        });
+        com.termina.ui.FirstFrame.start();
 
         if (DevCapture.requested()) DevCapture.schedule(windows, first, settings);
         maybeExitAfterTraining();

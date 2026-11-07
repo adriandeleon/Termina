@@ -29,6 +29,11 @@ done.
 
 ### Changed
 
+- **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
+  shows; the other bundled font families and the large icons follow the first frame, and the daily
+  update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a
+  start of roughly 470 ms.
+- **The Debug Log's file and a theme's removal no longer write to disk on the interface thread.**
 - **New Tab wears the same + in the menus as on the tab strip.**
 - **A keyboard focus ring in Settings and the dialogs.** A control reached with Tab draws a 2px
   accent ring; a click draws none. Check boxes and links showed no focus at all before.

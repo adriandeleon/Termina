@@ -80,6 +80,26 @@ Addressed on 2026-11-07, branch `pauta-tabs-ui`:
     Profiles is a command too. Pin, and therefore TABS-03/04/05, is still open. Close All is the
     existing Close Window.
 
+Addressed on 2026-11-07, branch `pauta-fx-thread`:
+
+- **PERF-15, now met for what the first window does not need.**
+  - Only Inter, the symbols font and the terminal's family load before the window. The other
+    bundled families follow the first frame, or load on first use by a profile.
+  - The 128/256/512 icons are decoded off the FX thread after the first frame.
+  - The update check waits 3 s after the first frame (also DIAG-05's delay).
+  - Shell discovery still starts before the window, because the first tab waits on its default.
+- **PERF-01, narrowed.**
+  - Debug Log file writes go through a writer thread.
+  - Theme removal runs on a worker.
+  - Deliberately left on the FX thread, on the 2026-11-06 performance review's measurements:
+    - The PTY spawn: 5% of startup, and moving it is not worth the complexity.
+    - The scrollback search: chunked, capped and debounced, listed under "done well".
+    - Hover `Files.exists`: once per target per hover.
+    - The procfs/`proc_pidinfo` reads for a new tab's directory and the close prompt: memory-backed,
+      and the prompt needs the answer.
+    - The sync instance lock: once per process, and only when sync is configured.
+    - The settings read at launch, before any window exists (PERF-16).
+
 Everything else below stands.
 
 ## Totals

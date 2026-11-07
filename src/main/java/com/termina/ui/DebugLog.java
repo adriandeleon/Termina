@@ -148,9 +148,53 @@ public final class DebugLog {
         file = null;
     }
 
-    static synchronized void append(String line) {
-        ENTRIES.addLast(line);
-        while (ENTRIES.size() > MAX_ENTRIES) ENTRIES.removeFirst();
+    /**
+     * Writes the file, one line at a time, in order. Records come from any thread, the JavaFX one
+     * included, and a write is disk I/O that thread must not wait on (PERF-01, Pauta 2.0.2).
+     */
+    private static final java.util.concurrent.ExecutorService WRITER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "debug-log-writer");
+                t.setDaemon(true);
+                return t;
+            });
+
+    static void append(String line) {
+        synchronized (DebugLog.class) {
+            ENTRIES.addLast(line);
+            while (ENTRIES.size() > MAX_ENTRIES) ENTRIES.removeFirst();
+            if (channel == null) return;
+        }
+        // A thread already inside this class's lock writes for itself: the writer needs that lock,
+        // and waiting on it from here would wait forever.
+        if (Thread.holdsLock(DebugLog.class)) {
+            write(line);
+            return;
+        }
+        java.util.concurrent.Future<?> written = WRITER.submit(() -> write(line));
+        // Any other thread waits for its line to reach the file: a record of something going wrong
+        // is worth most just before the process ends, and the writer is a daemon that would die
+        // with the line still queued. The FX thread hands its line over and moves on.
+        if (!onFxThread()) {
+            try {
+                written.get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (java.util.concurrent.ExecutionException ignored) {
+                // write() swallows its own failures; nothing reaches here.
+            }
+        }
+    }
+
+    private static boolean onFxThread() {
+        try {
+            return javafx.application.Platform.isFxApplicationThread();
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
+    }
+
+    private static synchronized void write(String line) {
         if (channel == null) return;
         try {
             ByteBuffer bytes = ByteBuffer.wrap((line + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));

@@ -65,6 +65,8 @@ public final class MonospaceFonts {
 
     /** Installed monospace families, preferred ones first, then the rest alphabetically. */
     public static synchronized List<String> available() {
+        // The picker lists every bundled family, including the ones deferred past the first frame.
+        if (Fonts.loadRest()) forget();
         if (cached != null) return cached;
 
         Set<String> families = installed();
@@ -89,6 +91,8 @@ public final class MonospaceFonts {
 
     /** The family to actually use for a stored preference, which may be blank or uninstalled. */
     public static synchronized String resolve(String preference) {
+        // A bundled family the first frame did not need — a profile's — is registered on first use.
+        if (preference != null && Fonts.ensure(preference)) forget();
         // The same answer the full list would give — a preferred family is trusted, any other must
         // measure as monospace — without measuring every other family to get it.
         if (preference != null
@@ -111,8 +115,20 @@ public final class MonospaceFonts {
         return available().get(0);
     }
 
+    /** Drops what was read of the installed families, after more were registered. */
+    public static synchronized void forget() {
+        cached = null;
+        installed = null;
+    }
+
     private static Set<String> installed() {
-        if (installed == null) installed = Set.copyOf(Font.getFamilies());
+        if (installed == null) {
+            // Plus the bundled families loaded since JavaFX first listed its own: see
+            // Fonts.loadedFamilies.
+            Set<String> all = new java.util.HashSet<>(Font.getFamilies());
+            all.addAll(Fonts.loadedFamilies());
+            installed = Set.copyOf(all);
+        }
         return installed;
     }
 

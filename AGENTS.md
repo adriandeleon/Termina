@@ -121,6 +121,7 @@ touching its area.
 - Double-width characters occupy two cells.
 - JediTerm's cursor x is a slot, not a column.
 - Every pixel-to-cell sum goes through the padding.
+- `Font.getFamilies()` is a snapshot.
 - JavaFX's fallback list is not a Nerd Font lookup.
 - The command palette is a port of Editora's, and the pure parts are verbatim.
 - Every binding has two lists: the defaults and the chords in force.

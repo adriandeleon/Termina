@@ -842,15 +842,29 @@ public final class SettingsWindow {
                 tr("settings.removeTheme.button"))) {
             return;
         }
-        try {
-            Themes.remove(chosen.id());
-            themeImportResult.setText(tr("settings.removeTheme.done", chosen.displayName()));
-        } catch (java.io.IOException e) {
-            themeImportResult.setText(tr("settings.removeTheme.failed", chosen.displayName(), e.getMessage()));
-        }
-        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-        // What it falls back to is Editora Dark, which the stored id now means.
-        settings.setThemeId(Theme.EDITORA_DARK.id());
+        // Off the FX thread, like the import: a file deleted and a folder re-read (PERF-01, Pauta
+        // 2.0.2). The button waits for it, so a second click cannot race the first.
+        removeTheme.setDisable(true);
+        Thread worker = new Thread(
+                () -> {
+                    String result;
+                    try {
+                        Themes.remove(chosen.id());
+                        result = tr("settings.removeTheme.done", chosen.displayName());
+                    } catch (java.io.IOException e) {
+                        result = tr("settings.removeTheme.failed", chosen.displayName(), e.getMessage());
+                    }
+                    String shown = result;
+                    javafx.application.Platform.runLater(() -> {
+                        themeImportResult.setText(shown);
+                        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+                        // What it falls back to is Editora Dark, which the stored id now means.
+                        settings.setThemeId(Theme.EDITORA_DARK.id());
+                    });
+                },
+                "termina-theme-remove");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void buildAppearance(VBox page) {
