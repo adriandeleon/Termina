@@ -65,6 +65,11 @@ GNU GPL version 2 with the Classpath Exception at
 https://openjdk.org/legal/gplv2+ce.html, and the EPL-1.0 at
 https://www.eclipse.org/legal/epl-v10.html.
 
+AtlantaFX — https://github.com/mkpaz/atlantafx (io.github.mkpaz:atlantafx-base)
+JavaFX CSS theme library. Licensed under the MIT License. Unmodified
+dependency: the theme API and the Primer themes the Editora themes fall back
+to.
+
 --------------------------------------------------------------------------------
 Vendored source
 --------------------------------------------------------------------------------

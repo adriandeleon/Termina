@@ -100,6 +100,15 @@ Addressed on 2026-11-07, branch `pauta-fx-thread`:
     - The sync instance lock: once per process, and only when sync is configured.
     - The settings read at launch, before any window exists (PERF-16).
 
+Addressed on 2026-11-07, branch `atlantafx`:
+
+- **Now met:**
+  - PLAT-05: `atlantafx-base` 3.0.0 is a dependency and `requires atlantafx.base`.
+  - The Editora sheets are served through AtlantaFX's `Theme` API (`ChromeTheme`), with Primer
+    Light/Dark as the fallback.
+  - The confirm button uses `Styles.DANGER`.
+  - The module is in the jlinked image, checked by building `-Pdist` and launching it headless.
+
 Everything else below stands.
 
 ## Totals

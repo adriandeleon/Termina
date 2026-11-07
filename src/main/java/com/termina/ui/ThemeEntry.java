@@ -75,10 +75,13 @@ public final class ThemeEntry {
         return file;
     }
 
+    /** The control theme this entry draws windows in: an Editora sheet, through AtlantaFX. */
+    ChromeTheme chromeTheme() {
+        return new ChromeTheme(chrome, dark);
+    }
+
     /** The control stylesheet URL, for {@code Application.setUserAgentStylesheet}. */
     public String stylesheet() {
-        var url = ThemeEntry.class.getResource("/com/termina/styles/" + chrome + ".css");
-        if (url == null) throw new IllegalStateException("missing stylesheet for theme " + id);
-        return url.toExternalForm();
+        return chromeTheme().stylesheetUrl();
     }
 }
