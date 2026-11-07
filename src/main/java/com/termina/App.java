@@ -19,6 +19,11 @@ public final class App extends Application {
     private static final String LAUNCH_NAME = "termina";
 
     public static void main(String[] args) {
+        // First, before the arguments are even read (DIAG-04, Pauta 2.0.2): anything that goes wrong
+        // from here on is captured, not printed to a console a packaged app does not have. It
+        // keeps records in memory only; the file beside the settings is attached once the config
+        // folder is known. Nothing in it loads AWT, which the line below must precede.
+        com.termina.ui.DebugLog.install();
         // Parsed before anything else starts. --version is what somebody pastes into a bug report,
         // so it must not depend on a display, a config file, or the toolkit coming up at all.
         CommandLine cli = CommandLine.parse(args);
@@ -45,9 +50,6 @@ public final class App extends Application {
         // single AppKit run loop — an intermittent hang rather than a clean failure.
         System.setProperty("java.awt.headless", "true");
         com.termina.perf.Startup.mark("main");
-        // Before launch, so anything that goes wrong during startup is captured too — that is the
-        // window in which a packaged application is most likely to fail and least able to say so.
-        com.termina.ui.DebugLog.install();
         launch(args);
     }
 

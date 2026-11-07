@@ -7,12 +7,14 @@ import javafx.scene.Node;
 import com.termina.shell.Profile;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Which mark a profile gets, and whether that mark actually draws. */
+@Tag("fx")
 class ProfileIconsTest {
 
     /** An SVGPath is a Node, and constructing one asks the toolkit for the platform stylesheet. */

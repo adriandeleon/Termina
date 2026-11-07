@@ -20,7 +20,8 @@ in one file: https://pauta-project.dev/2.0.2/llms-full.txt). What it does not me
 ## Commands
 
 - Run: `./mvnw javafx:run`
-- Test: `./mvnw test`
+- Test: `./mvnw test`; without the JavaFX tests, `./mvnw test -DexcludedGroups=fx`. A test class that
+  starts the toolkit carries `@Tag("fx")`, and `FxTestTagsTest` fails one that does not.
 - Native app image: **`./mvnw clean -Pdist -DskipTests package`** ⇒ `target/dist/Termina{.app}`.
   `clean` is **required**: jlink's input is built from `target/classes`, and an incremental compile
   can leave that inconsistent in ways javac will not correct.

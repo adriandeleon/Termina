@@ -9,11 +9,13 @@ import javafx.scene.Node;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Every context-menu and settings-sidebar glyph actually draws. */
+@Tag("fx")
 class MenuIconsTest {
 
     @BeforeAll

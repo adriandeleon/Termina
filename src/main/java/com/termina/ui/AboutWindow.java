@@ -118,6 +118,7 @@ public final class AboutWindow {
         if (!AppInfo.BUILD_TIME.isBlank()) {
             details.getChildren().add(new Label(tr("about.built", AppInfo.BUILD_TIME)));
         }
+        if (!AppInfo.COMMIT.isBlank()) details.getChildren().add(new Label(tr("about.commit", AppInfo.COMMIT)));
         details.getChildren().add(new Label(tr("about.runtime", AppInfo.javaVersion(), AppInfo.javaFxVersion())));
         details.getChildren().addAll(new Label(AppInfo.COPYRIGHT), new Label(AppInfo.LICENSE));
 

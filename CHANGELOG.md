@@ -15,6 +15,8 @@ done.
   2.0.2" link to that edition's guidelines, the Java and JavaFX versions, and a Copy details button
   that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
   JavaFX, OS) for a bug report.
+- **About and `--version` name the commit a build came from**, with `-dirty` for a build from
+  uncommitted changes. A build from a source archive, with no repository, names none.
 
 ### Changed
 
@@ -28,6 +30,13 @@ done.
 - **Icon-only buttons have names a screen reader can read.** The new-tab and profile buttons, the
   tabs' close buttons, the find bar's buttons and the zoom row's buttons carried a tooltip and
   nothing else.
+
+- **Builds and releases check more before they finish.** The build refuses a JDK older than 25
+  and a Maven outside 3.9; the JavaFX tests run on the headless platform everywhere and are tagged,
+  so `./mvnw test -DexcludedGroups=fx` runs the rest alone; CI has a separate Format check; a
+  release stops before publishing if any download is missing or unexpected, attests the checksums
+  file as well as the downloads, runs as a full dry run when started by hand, and opens the pull
+  request that starts the next snapshot.
 
 ### Fixed
 

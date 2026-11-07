@@ -9,6 +9,7 @@ import javafx.application.Platform;
 import javafx.geometry.Orientation;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** How a tab's panes are arranged as they are split and closed, and which one a move lands on. */
+@Tag("fx")
 class PaneGroupTest {
 
     @BeforeAll

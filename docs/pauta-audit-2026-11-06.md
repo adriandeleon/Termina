@@ -26,6 +26,23 @@ Addressed on 2026-11-07, branch `pauta-quick-wins`:
     new one bypassing it.
   - REPO-04: the MIT line is in NOTICE. The NOTICE tests are still missing.
 
+Addressed on 2026-11-07, branch `pauta-build-gates`:
+
+- **Now met:**
+  - PLAT-01: the enforcer requires JDK 25+ and Maven 3.9.
+  - QUAL-06: FX tests are tagged, and `FxTestTagsTest` enforces it.
+  - REL-07: `scripts/check-release-assets.sh` checks the downloads against `jreleaser.yml`.
+  - REL-18: the checksums file is attested, and the attested list is checked to be JReleaser's.
+  - REL-19: CI has a separate Format job. The required status checks are a repository setting.
+  - REL-21: a manual run is a JReleaser `--dry-run`, and the snapshot bump job runs after a release.
+  - REL-06: master moves to the next snapshot through that bump job.
+  - DIAG-04: the handler is installed before argument parsing.
+  - ABOUT-02: the commit is in About and `--version`.
+  - QUAL-15: `WorkflowRulesTest` keeps the pins, timeouts, permissions, asset check and
+    attestations in place.
+- **Narrowed:**
+  - PLAT-11: Headless glass is set in surefire. There is still no TestFX.
+
 Everything else below stands.
 
 ## Totals

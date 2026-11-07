@@ -213,6 +213,31 @@
             </resource>
         </resources>
         <plugins>
+            <!-- The JDK floor as a check, not only as maven.compiler.release (PLAT-01, Pauta 2.0.2):
+                 an older JDK otherwise gets as far as an obscure compiler error. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.7.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-build-environment</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>[3.9.0,4.0.0)</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>[25,)</version>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
@@ -464,6 +489,13 @@
                     <!-- Tests run on the classpath (unnamed module) so they can reach
                          package-private members and setAccessible freely. -->
                     <useModulePath>false</useModulePath>
+                    <!-- Every FX test runs on JavaFX's Headless glass platform (PLAT-11, Pauta 2.0.2):
+                         no display, no Monocle, no xvfb, the same on a laptop and a runner. The
+                         tests also set it themselves, for a run from an IDE. -->
+                    <systemPropertyVariables>
+                        <glass.platform>Headless</glass.platform>
+                        <prism.order>sw</prism.order>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
 
@@ -917,6 +949,52 @@
                 </executions>
             </plugin>
         </plugins>
+            </build>
+        </profile>
+        <!-- The commit a build came from, for About and -v (ABOUT-02, Pauta 2.0.2), asked of git in
+             the project folder and written beside build-info.properties. Not a plugin's idea of
+             it: git-commit-id walked up from a worktree nested in the main checkout and reported
+             the main checkout's commit, and buildnumber-maven-plugin reports the last commit that
+             is not a merge. Active only where there is a .git (a directory, or a worktree's file):
+             a build from a source archive names no commit rather than failing. -->
+        <profile>
+            <id>git-commit</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/.git</exists>
+                </file>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.4</version>
+                        <executions>
+                            <execution>
+                                <id>git-commit</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>git</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <!-- The abbreviated hash, -dirty when the tree has changes. The
+                                         match excludes every tag, so a tag never replaces it. -->
+                                    <arguments>
+                                        <argument>describe</argument>
+                                        <argument>--always</argument>
+                                        <argument>--dirty=-dirty</argument>
+                                        <argument>--abbrev=10</argument>
+                                        <argument>--match=no-tag-matches-this</argument>
+                                    </arguments>
+                                    <outputFile>${project.build.outputDirectory}/com/termina/commit.txt</outputFile>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
             </build>
         </profile>
     </profiles>
