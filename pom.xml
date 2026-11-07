@@ -29,7 +29,7 @@
         <javafx.version>27.0.1</javafx.version>
         <spotless.version>3.10.4</spotless.version>
         <palantir.version>2.102.0</palantir.version>
-        <jacoco.version>0.8.15</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <javafx.plugin.version>0.0.8</javafx.plugin.version>
 
         <!-- Prism pipeline order (-Dprism.order). Set per-OS in the os-* profiles:
