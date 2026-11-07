@@ -40,6 +40,9 @@ done.
   file a newer Termina wrote is kept as `settings.json.v<n>.bak` rather than read, and one that is
   not valid JSON as `settings.json.corrupt.bak`; either way Termina opens on defaults. Hand-editing
   a Windows path now means JSON's doubled backslashes.
+- **The default shortcuts are data.** `keymaps/keymap.json` (Windows and Linux) and
+  `keymap.mac.json` hold every command's default chord, which used to be written into the code. No
+  shortcut changes.
 - **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
   shows; the other bundled font families and the large icons follow the first frame, and the daily
   update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a

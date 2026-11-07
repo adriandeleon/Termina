@@ -54,8 +54,10 @@ branch switches and commits cannot interfere.
 
 - Read the nearby code and its tests first, and follow their patterns.
 - **A user action is a command**: a `MenuAction` with an id in `TerminalWindow.table`, titled by
-  `menu.<id>` with a `menu.<id>.desc`, in all six `messages*.properties`. Anything that shows a
-  chord asks `chordOf(id)`, never the action's default.
+  `menu.<id>` with a `menu.<id>.desc`, in all six `messages*.properties`. Its default chord, if it
+  has one, goes in `src/main/resources/com/termina/keymaps/keymap.json` and `keymap.mac.json`, not
+  in the code (`KeymapTest` checks both). Anything that shows a chord asks `chordOf(id)`, never the
+  action's default.
 - **Application chords are `Ctrl+Shift+key` off macOS**, never plain `Ctrl+key`, which is the
   shell's.
 - **Nothing blocks the JavaFX thread** — no file or network I/O, no process start or wait, no
