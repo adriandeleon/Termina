@@ -1,9 +1,11 @@
 # Changelog
 
-Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
-1.0.0 the minor number moves for anything user-visible.
+Notable changes, newest first. The format is based on
+[Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html); until 1.0.0 the minor number
+moves for anything user-visible. Each entry opens with a bold one-line summary.
 
-## Unreleased
+## [Unreleased]
 
 The quick fixes from the [2026-11-06 performance review](docs/review-2026-11-06.md) and its
 settings-layer items; the larger ones there (damage tracking, the theme stylesheets' size) are not
@@ -30,6 +32,31 @@ done.
 - **Icon-only buttons have names a screen reader can read.** The new-tab and profile buttons, the
   tabs' close buttons, the find bar's buttons and the zoom row's buttons carried a tooltip and
   nothing else.
+
+- **The settings file is written once per run of changes, not once per change.** Every setter
+  wrote the whole file, under a file lock, on the thread that called it, so a spinner held down, the
+  zoom chord under key auto-repeat and the opacity slider's arrow keys wrote it per tick. A change
+  still applies live — memory and every window see it at once — and the file is written 300 ms
+  after the last change in a run, off the FX thread; whatever is pending is written when the app
+  quits. The Settings window also stops rebuilding all of its controls for a change one of them has
+  just made: a tick re-set thirty controls, resolved every key binding four times and rebuilt the
+  profile list and the preview, for a value the control was already showing. A change from
+  elsewhere still reloads it.
+
+- **Less work per frame and per write.** The scrollbar is updated after the buffer lock is released
+  rather than inside it; whether type-ahead is wanted is decided when the foreground program
+  changes, not on every buffer write (3% of the emulator thread in a profile); the prompt-mark list
+  is copied when it changes, not on every frame; the search overlay's colours are derived once per
+  theme.
+- **A settings write no longer restyles and repaints every pane whose colours did not change.**
+  `setPalette` and the cursor-shape setter short-circuit on an unchanged value, the menu bar's and
+  tab strip's style classes are touched only when they change, and the theme lookup no longer
+  builds four entries and a list per call.
+- **Removed members nothing called:** `TerminalView.getFontSize`, `isSearchShowing`, the
+  `setSessionOptions(int, String)` overload, `FxTerminalDisplay.getMouseFormat`,
+  `AppInfo.isSnapshot`, `LaunchOptions.withProfileId`, `SettingsWindow.matches`,
+  `Theme.byDisplayName`, four unused `MenuIcons` glyphs, `SettingsSync.secondary`,
+  `CommandPalette.show(List)`; and ten Javadoc blocks that documented nothing.
 
 - **Builds and releases check more before they finish.** The build refuses a JDK older than 25
   and a Maven outside 3.9; the JavaFX tests run on the headless platform everywhere and are tagged,
@@ -69,35 +96,7 @@ done.
   desktop's setting, which is what JavaFX picks a native frame's dark variant from on Windows and
   macOS. On Linux the native frame follows the desktop whatever the app says.
 
-### Changed
-
-- **The settings file is written once per run of changes, not once per change.** Every setter
-  wrote the whole file, under a file lock, on the thread that called it, so a spinner held down, the
-  zoom chord under key auto-repeat and the opacity slider's arrow keys wrote it per tick. A change
-  still applies live — memory and every window see it at once — and the file is written 300 ms
-  after the last change in a run, off the FX thread; whatever is pending is written when the app
-  quits. The Settings window also stops rebuilding all of its controls for a change one of them has
-  just made: a tick re-set thirty controls, resolved every key binding four times and rebuilt the
-  profile list and the preview, for a value the control was already showing. A change from
-  elsewhere still reloads it.
-
-- **Less work per frame and per write.** The scrollbar is updated after the buffer lock is released
-  rather than inside it; whether type-ahead is wanted is decided when the foreground program
-  changes, not on every buffer write (3% of the emulator thread in a profile); the prompt-mark list
-  is copied when it changes, not on every frame; the search overlay's colours are derived once per
-  theme.
-- **A settings write no longer restyles and repaints every pane whose colours did not change.**
-  `setPalette` and the cursor-shape setter short-circuit on an unchanged value, the menu bar's and
-  tab strip's style classes are touched only when they change, and the theme lookup no longer
-  builds four entries and a list per call.
-- Removed members nothing called: `TerminalView.getFontSize`, `isSearchShowing`, the
-  `setSessionOptions(int, String)` overload, `FxTerminalDisplay.getMouseFormat`,
-  `AppInfo.isSnapshot`, `LaunchOptions.withProfileId`, `SettingsWindow.matches`,
-  `Theme.byDisplayName`, four unused `MenuIcons` glyphs, `SettingsSync.secondary`,
-  `CommandPalette.show(List)`; and ten Javadoc blocks that documented nothing.
-
-
-## 0.14.0 — 2026-10-31
+## [0.14.0] - 2026-10-31
 
 Signed and notarized macOS dmgs, signed Linux downloads, an AppImage and a tarball, a proper GNOME
 Software listing, and Ctrl+click on the URLs in Markdown links. New downloads and new behaviour, so
@@ -130,7 +129,7 @@ the minor number moves.
   at the start of a word, so `[docs](https://…)` read as a file path that did not exist and the
   click did nothing. A badge's `[![CI](…/badge.svg)](…/ci.yml)` is now two links.
 
-## 0.13.0 — 2026-10-27
+## [0.13.0] - 2026-10-27
 
 Everything from the [2026-10-27 review](docs/review-2026-10-27.md): padding, a hollow cursor in
 unfocused panes, `-T` for the first tab's title, Reopen for panes and windows, and Linux packages
@@ -165,16 +164,6 @@ moves.
 - **Theme import runs in the background**, and names that would share a file get files of their own.
 - **Search keeps the newest 1,000 matches** rather than the oldest, reads the scrollback in chunks
   from the bottom up, and waits for typing to pause.
-
-### Security
-
-- **A `file:` link to another machine, or any UNC path, is never opened or looked up.** One was
-  handed to the system's URL opener (on Windows, an SMB fetch that sends the user's credentials
-  hash), and hovering over one made a network connection.
-- **A crafted `.terminal` theme can no longer hang or crash the app** — shared references in its
-  binary property list were expanded once per path, and a deep chain overflowed the stack.
-- **Release workflows run with read-only tokens except where they publish**, the JReleaser action
-  is pinned to a commit, and release artefacts carry build-provenance attestations.
 
 ### Fixed
 
@@ -263,7 +252,17 @@ Translations:
 - **Importing a theme file with a byte-order mark failed.**
 - **The Settings search box looked empty**: its prompt disappeared while focused.
 
-## 0.12.0 — 2026-10-25
+### Security
+
+- **A `file:` link to another machine, or any UNC path, is never opened or looked up.** One was
+  handed to the system's URL opener (on Windows, an SMB fetch that sends the user's credentials
+  hash), and hovering over one made a network connection.
+- **A crafted `.terminal` theme can no longer hang or crash the app** — shared references in its
+  binary property list were expanded once per path, and a deep chain overflowed the stack.
+- **Release workflows run with read-only tokens except where they publish**, the JReleaser action
+  is pinned to a commit, and release artefacts carry build-provenance attestations.
+
+## [0.12.0] - 2026-10-25
 
 The sync repository can be created on GitHub from Settings, and the shortcut reference names what a
 middle-click pastes on Linux. New user-visible behaviour, so the minor number moves.
@@ -280,7 +279,7 @@ middle-click pastes on Linux. New user-visible behaviour, so the minor number mo
 - **The shortcut reference said a middle-click pastes the clipboard** on Linux, where it pastes the
   PRIMARY selection. It says "Paste the selection" there now.
 
-## 0.11.0 — 2026-10-25
+## [0.11.0] - 2026-10-25
 
 Split panes, scrollback search, shell integration and shortcuts that can all be changed. Four
 requests programs make of a terminal — a declared link, the clipboard, the directory, a
@@ -407,7 +406,7 @@ can be imported from six other terminals' formats; and a profile can have its ow
 - **Drag-selecting while output arrived could read a line mid-write.** The mouse handlers read the
   screen without the lock the emulator writes under. They now take it.
 
-## 0.10.0 — 2026-10-23
+## [0.10.0] - 2026-10-23
 
 An icon beside each page in the settings sidebar. New user-visible behaviour, so the minor number
 moves.
@@ -419,7 +418,7 @@ moves.
   They are muted at rest and take the accent colour when their page is selected, and each sits in
   a box of fixed width so the labels beside them line up.
 
-## 0.9.0 — 2026-10-21
+## [0.9.0] - 2026-10-21
 
 The command palette is now Editora's: the same card, the same matcher and ranking, and Emacs keys
 to drive it. It opens on Alt+X instead of Shift+Ctrl/Cmd+P, and the chord is a setting. The
@@ -449,10 +448,10 @@ default chord changed, so the minor number moves.
 
 ### Fixed
 
-- The chord that opens the palette no longer leaks its typed character: on macOS Option+X also
+- **The chord that opens the palette no longer leaks its typed character:** on macOS Option+X also
   composes "≈", which landed in the query field the chord had just focused.
 
-## 0.8.0 — 2026-10-21
+## [0.8.0] - 2026-10-21
 
 The fixes from the 2026-10-20 review, and the features that fell out of it: tabs can be renamed,
 reopened and duplicated and say when something happened in them, there is a searchable list of
@@ -503,6 +502,30 @@ with the title bar. Moved to JavaFX 27. New user-visible behaviour, so the minor
   once and left alone; a new tab's own first prompt does not count.
 - **The window's last position is remembered** along with its size, and pulled back onto a screen
   that still exists.
+
+### Changed
+
+- **The palette lists the tabs that exist, by title**, with the chord that reaches each, instead of
+  nine numbered "Go to Tab" rows of which most were dead. Its menu-bar row says "Show" or "Hide"
+  according to the current state.
+
+- **`sh` and `dash` are no longer offered as shell profiles**, and shells that are symlinks to
+  the same binary are listed once. Nobody opens a tab as `dash`.
+- **The cursor's DECSCUSR 0 ("default") still arrives from JediTerm as a blinking block,
+  indistinguishable from an explicit 1, so a program that resets to "default" rather than to "no
+  shape" still leaves a block.** Said here because the fix above covers the other case.
+
+- **Moved to JavaFX 27.** Its extended stage style (`StageStyle.EXTENDED` and `HeaderBar`), a preview
+  feature in 25 and 26, is final there and is what the title-bar option is built on.
+- **`scripts/dev-run.sh` now clears `target/deps` before refilling it, so a dependency bump cannot
+  leave the old jar beside the new one with the old one winning.**
+- **Dependencies brought up to date:** JediTerm 3.76 (mouse-scroll direction fix, faster double-width
+  checks), pty4j 0.14.0 (`Cleaner` instead of `finalize`, a fix for `breakRead` waking the wrong
+  PTY after a close, retries when opening the PTY master, ConPTY 1.24), Kotlin stdlib 2.4.21, slf4j
+  2.0.20, Jackson 2.22.4 and JUnit 6.1. Build plugins likewise: Spotless 3.10.4 with
+  palantir-java-format 2.102.0 (one reflow), JaCoCo 0.8.15, ModiTect 1.3.0, jpackage-maven-plugin
+  1.8.0, the compiler, surefire, dependency and exec plugins, and Maven 3.9.16 in the wrapper.
+  antrun stays at 3.1.0, because 3.2.0 warns about every exported property.
 
 ### Fixed
 
@@ -577,42 +600,27 @@ with the title bar. Moved to JavaFX 27. New user-visible behaviour, so the minor
 - **New windows cascade from the window the action came from** and stay on its screen.
 - **On Windows, Ctrl+click opens files through the shell handler** rather than `cmd /c start`, so
   `&`, `^` and `%` in a name are not interpreted. (Still unrun on Windows.)
-- Settings search prefers a match in a row's title and opens that row's page; the profiles note
+- **Settings search prefers a match in a row's title and opens that row's page; the profiles note
   names the platform's own chord; the shell field's prompt is translated; row titles and
   checkboxes are labelled for screen readers; arrow keys in the settings sidebar skip the group
-  headers; Escape closes Settings, About and the Debug Log. `NaN` in a hand-edited settings file
+  headers; Escape closes Settings, About and the Debug Log.** `NaN` in a hand-edited settings file
   is treated as absent rather than handed to the font.
 
-### Changed
-
-- **The palette lists the tabs that exist, by title**, with the chord that reaches each, instead of
-  nine numbered "Go to Tab" rows of which most were dead. Its menu-bar row says "Show" or "Hide"
-  according to the current state.
-
-- **`sh` and `dash` are no longer offered as shell profiles**, and shells that are symlinks to
-  the same binary are listed once. Nobody opens a tab as `dash`.
-- The cursor's DECSCUSR 0 ("default") still arrives from JediTerm as a blinking block,
-  indistinguishable from an explicit 1, so a program that resets to "default" rather than to "no
-  shape" still leaves a block. Said here because the fix above covers the other case.
-
-### Maintenance
-
-- Moved to JavaFX 27. Its extended stage style (`StageStyle.EXTENDED` and `HeaderBar`), a preview
-  feature in 25 and 26, is final there and is what the title-bar option is built on.
-- `scripts/dev-run.sh` now clears `target/deps` before refilling it, so a dependency bump cannot
-  leave the old jar beside the new one with the old one winning.
-- Dependencies brought up to date: JediTerm 3.76 (mouse-scroll direction fix, faster double-width
-  checks), pty4j 0.14.0 (`Cleaner` instead of `finalize`, a fix for `breakRead` waking the wrong
-  PTY after a close, retries when opening the PTY master, ConPTY 1.24), Kotlin stdlib 2.4.21, slf4j
-  2.0.20, Jackson 2.22.4 and JUnit 6.1. Build plugins likewise: Spotless 3.10.4 with
-  palantir-java-format 2.102.0 (one reflow), JaCoCo 0.8.15, ModiTect 1.3.0, jpackage-maven-plugin
-  1.8.0, the compiler, surefire, dependency and exec plugins, and Maven 3.9.16 in the wrapper.
-  antrun stays at 3.1.0, because 3.2.0 warns about every exported property.
-
-## 0.7.1 — 2026-09-30
+## [0.7.1] - 2026-09-30
 
 Fixes for keyboard input, shell-profile startup, and commands that could hang discovery or the
 interface. No new features, so the patch number moves.
+
+### Changed
+
+- **Added regressions for AltGr input, deferred profile startup, asynchronous link-command resolution,
+  and subprocess timeouts and output limits.**
+- **Made the working-directory integration test retry its harmless `cd` command until shell startup
+  accepts input.**
+- **Corrected Linux installer validation to select a regular desktop-entry file rather than the
+  bundled JDK's `java.desktop` directory.**
+- **Updated release-page installation instructions for the native installers and published checksum
+  filename.**
 
 ### Fixed
 
@@ -626,21 +634,44 @@ interface. No new features, so the patch number moves.
 - **Login-shell PATH and WSL discovery enforce their five-second deadlines.** A command that keeps
   stdout open can no longer bypass the timeout. Timed-out processes are terminated.
 
-### Maintenance
-
-- Added regressions for AltGr input, deferred profile startup, asynchronous link-command resolution,
-  and subprocess timeouts and output limits.
-- Made the working-directory integration test retry its harmless `cd` command until shell startup
-  accepts input.
-- Corrected Linux installer validation to select a regular desktop-entry file rather than the
-  bundled JDK's `java.desktop` directory.
-- Updated release-page installation instructions for the native installers and published checksum
-  filename.
-
-## 0.7.0 — 2026-08-12
+## [0.7.0] - 2026-08-12
 
 A tab can be opened as any shell the machine has, rather than only as the one shell a setting could
 name. New user-visible behaviour, so the minor number moves.
+
+**Known gaps.** Unchanged from 0.6.2, except that the first entry below is new and the Windows one has grown teeth.
+
+- **The Windows half of shell profiles has not run on Windows.** Every branch of discovery is driven
+  in tests with the filesystem and `wsl.exe` probes replaced, and CI builds and packages Windows on
+  every commit — but "PowerShell 7 is installed at that path" and "`wsl --list` answers in that
+  shape" are claims about a machine, not about code, and nothing in a test can check them.
+  `-Dtermina.captureProfiles=true` prints every entry a machine found and the command it runs; that
+  is the check. The macOS and Linux halves are exercised the same way and the macOS one is
+  device-tested.
+- **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
+  application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
+  visible text happens to be the target. See issue #11.
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
+- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
+  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
+  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
+  something other than the screen it was given. JavaFX reports the window as full screen and
+  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
+  unaffected.
+- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
+  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
+  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
+  a question nobody can act on.
+- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
+  inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
+  would cover Windows and any shell configured to emit it, and is not implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
+  same thing.
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
+  its source.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -684,17 +715,12 @@ name. New user-visible behaviour, so the minor number moves.
 - **A command given with `-e` still replaces the shell, and `-d` still wins over a profile's own
   starting directory.** One is an instruction for this launch; the other is a standing preference.
 
-### Known gaps
+## [0.6.2] - 2026-08-11
 
-Unchanged from 0.6.2, except that the first entry below is new and the Windows one has grown teeth.
+Interface fixes and polish. No new behaviour, so the patch number moves.
 
-- **The Windows half of shell profiles has not run on Windows.** Every branch of discovery is driven
-  in tests with the filesystem and `wsl.exe` probes replaced, and CI builds and packages Windows on
-  every commit — but "PowerShell 7 is installed at that path" and "`wsl --list` answers in that
-  shape" are claims about a machine, not about code, and nothing in a test can check them.
-  `-Dtermina.captureProfiles=true` prints every entry a machine found and the command it runs; that
-  is the check. The macOS and Linux halves are exercised the same way and the macOS one is
-  device-tested.
+**Known gaps.** Unchanged from 0.6.1.
+
 - **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
   application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
   visible text happens to be the target. See issue #11.
@@ -713,16 +739,12 @@ Unchanged from 0.6.2, except that the first entry below is new and the Windows o
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
   would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.6.2 — 2026-08-11
-
-Interface fixes and polish. No new behaviour, so the patch number moves.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Changed
 
@@ -744,9 +766,12 @@ Interface fixes and polish. No new behaviour, so the patch number moves.
   nothing happened, which from the outside is a terminal that cannot reorder tabs. The gesture now covers
   the whole tab, and what follows the pointer is the tab rather than its text.
 
-### Known gaps
+## [0.6.1] - 2026-08-11
 
-Unchanged from 0.6.1.
+Two fixes to the clickable links 0.6.0 introduced, and a set of dependency bumps. No new behaviour, so
+the patch number moves rather than the minor.
+
+**Known gaps.** Unchanged from 0.6.0.
 
 - **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
   application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
@@ -766,17 +791,22 @@ Unchanged from 0.6.1.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
   would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
-## 0.6.1 — 2026-08-11
+### Changed
 
-Two fixes to the clickable links 0.6.0 introduced, and a set of dependency bumps. No new behaviour, so
-the patch number moves rather than the minor.
+- **Routine dependency bumps:** pty4j 0.13.10 → 0.13.12, JNA 5.17.0 → 5.19.1, Jackson 2.22.1, JUnit 5.14.4.
+  All patch or minor.
+
+  Checked against a packaged build rather than the suite alone, because pty4j ships the native libraries
+  for every platform and JNA is how they are found — and those survive packaging by an accident of JPMS
+  rather than by design (see the note in the README). The built app image starts a real shell and runs a
+  command in it.
 
 ### Fixed
 
@@ -791,19 +821,12 @@ the patch number moves rather than the minor.
   was simply not there from a click. The PATH is taken from a login shell, asked once and only when
   a bare command actually has to be resolved.
 
-### Internal
+## [0.6.0] - 2026-08-10
 
-- Routine dependency bumps: pty4j 0.13.10 → 0.13.12, JNA 5.17.0 → 5.19.1, Jackson 2.22.1, JUnit 5.14.4.
-  All patch or minor.
+The minor number moves for the clickable links; the Meta fix goes with it, and it is the one to read
+first if any keyboard chord has ever behaved oddly for you.
 
-  Checked against a packaged build rather than the suite alone, because pty4j ships the native libraries
-  for every platform and JNA is how they are found — and those survive packaging by an accident of JPMS
-  rather than by design (see the note in the README). The built app image starts a real shell and runs a
-  command in it.
-
-### Known gaps
-
-Unchanged from 0.6.0.
+**Known gaps.** Unchanged from 0.5.1, plus the first entry below.
 
 - **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
   application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
@@ -823,17 +846,12 @@ Unchanged from 0.6.0.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
   would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.6.0 — 2026-08-10
-
-The minor number moves for the clickable links; the Meta fix goes with it, and it is the one to read
-first if any keyboard chord has ever behaved oddly for you.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -874,13 +892,12 @@ first if any keyboard chord has ever behaved oddly for you.
   event, which by then reports whatever the OS composed. Alt with Ctrl is left alone, because that
   combination is AltGr on Windows and Linux and composing is exactly what it is for.
 
-### Known gaps
+## [0.5.1] - 2026-08-10
 
-Unchanged from 0.5.1, plus the first entry below.
+Two fixes, no new behaviour, so the patch number moves rather than the minor.
 
-- **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
-  application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
-  visible text happens to be the target. See issue #11.
+**Known gaps.** Unchanged from 0.5.0, less the macOS menus above.
+
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
 - **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
@@ -894,18 +911,14 @@ Unchanged from 0.5.1, plus the first entry below.
   `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
   a question nobody can act on.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
-  inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
-  would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
+  implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.5.1 — 2026-08-10
-
-Two fixes, no new behaviour, so the patch number moves rather than the minor.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Fixed
 
@@ -924,9 +937,9 @@ Two fixes, no new behaviour, so the patch number moves rather than the minor.
   pass underneath. The page now keeps the same margin from the scrollbar that it keeps from the
   sidebar, whether or not it is long enough to scroll.
 
-### Known gaps
+## [0.5.0] - 2026-08-08
 
-Unchanged from 0.5.0, less the macOS menus above.
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
@@ -943,14 +956,12 @@ Unchanged from 0.5.0, less the macOS menus above.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
   implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.5.0 — 2026-08-08
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -964,39 +975,26 @@ Unchanged from 0.5.0, less the macOS menus above.
   open on purpose, because zooming is two or three presses to find the right size; going full screen
   is done once, so that button now closes the menu, as the same button does in Firefox's panel.
 
-### Known gaps
+## [0.4.0] - 2026-08-08
+
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
-- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
-  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
-  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
-  something other than the screen it was given. JavaFX reports the window as full screen and
-  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
-  unaffected.
 - **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
   quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
   `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
-  a question nobody can act on.
+  a question nobody can act on. Doing it properly means intercepting the quit before `Platform.exit`.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
-  inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
-  implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  inheriting. Reading another process's cwd means `NtQueryInformationProcess`, a different order of
+  undertaking from a `readlink`. Handling OSC 7 would cover Windows and any shell configured to
+  emit it, and is not implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.4.0 — 2026-08-08
-
-### Changed
-
-- **No rule between settings rows.** A line under every row turned a page of eight settings into
-  eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
-  now, as it is in Editora's settings — which is why the row padding grew as the border went. Row
-  titles and descriptions take Editora's sizes with them, stated in px for both rather than left to
-  inherit.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -1016,26 +1014,30 @@ Unchanged from 0.5.0, less the macOS menus above.
   ends every tab's programs at once. A reorder and a shell that exited on its own do not ask, since
   neither ends anything. Settings → Terminal turns it off for anyone who would rather not be asked.
 
-### Known gaps
+### Changed
+
+- **No rule between settings rows.** A line under every row turned a page of eight settings into
+  eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
+  now, as it is in Editora's settings — which is why the row padding grew as the border went. Row
+  titles and descriptions take Editora's sizes with them, stated in px for both rather than left to
+  inherit.
+
+## [0.3.0] - 2026-08-08
+
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
-- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
-  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
-  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
-  a question nobody can act on. Doing it properly means intercepting the quit before `Platform.exit`.
-- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
-  inheriting. Reading another process's cwd means `NtQueryInformationProcess`, a different order of
-  undertaking from a `readlink`. Handling OSC 7 would cover Windows and any shell configured to
-  emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **The working directory is not shown on Windows.** Reading another process's cwd there means
+  `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
+  the escape sequence a shell can send to report its directory — would cover Windows and any shell
+  configured to emit it, and is not implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.3.0 — 2026-08-08
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -1076,7 +1078,9 @@ Unchanged from 0.5.0, less the macOS menus above.
   `Desktop … Downloads … Games` copied `…Game`. Whole-line and select-all were bounded by the
   column count too, which cut the tail off any line carrying more slots than the grid has columns.
 
-### Known gaps
+## [0.2.0] - 2026-08-08
+
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
@@ -1084,14 +1088,12 @@ Unchanged from 0.5.0, less the macOS menus above.
   `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
   the escape sequence a shell can send to report its directory — would cover Windows and any shell
   configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.2.0 — 2026-08-08
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -1126,24 +1128,20 @@ Unchanged from 0.5.0, less the macOS menus above.
   check reports twice — once when it starts, once when it finishes — and each report opened its own
   alert instead of replacing the first, so the two stacked and were dismissed in reverse order.
 
-### Known gaps
-
-- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
-  warn.
-- **The working directory is not shown on Windows.** Reading another process's cwd there means
-  `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
-  the escape sequence a shell can send to report its directory — would cover Windows and any shell
-  configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
-  same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
-  its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.1.0 — 2026-08-07
+## [0.1.0] - 2026-08-07
 
 First release.
+
+**Known gaps:**
+
+- **Windows and Linux are unrun.** The code paths exist and pty4j carries every platform's natives, but
+  only macOS has actually been exercised.
+- **Installers are not built and nothing is signed — `-Pdist` produces an app image, and macOS will
+  refuse a downloaded copy until it is signed and notarised.**
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
+  its source.
+- **No tab reordering, no splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -1163,7 +1161,7 @@ First release.
 - **Per-tab right-click menu**: new, close, close others, close to the right, move left/right.
 - **Window title follows the selected tab**, as macOS Terminal does.
 - **Optional scrollbar** for the scrollback (Appearance → Window), palette-coloured.
-- Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.
+- **Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.**
 - **Window size is remembered** across launches, clamped to the current screen.
 - **Fixed**: a Nerd Font icon (or any emoji) in a directory listing shifted the rest of its line one
   column right, so columns did not line up between rows.
@@ -1173,7 +1171,7 @@ First release.
 - **Window opacity** (Appearance → Window), clamped so it cannot hide the window that undoes it.
 - **Bundled fonts**: five monospace families plus Inter for the interface, so a terminal looks the
   same on every platform. JetBrains Mono is now the default.
-- Tooltip on the new-tab button; "Hide Menu Bar" no longer appears in the menu on macOS.
+- **Tooltip on the new-tab button; "Hide Menu Bar" no longer appears in the menu on macOS.**
 - **Tab reordering** by drag, or `Cmd/Ctrl+Shift+Left/Right`.
 - **Tab bar hides itself** while only one tab is open, reclaiming the row for the terminal.
 - **About window** and an **update check** against GitHub releases, throttled to once a day and
@@ -1193,13 +1191,22 @@ First release.
   elsewhere.
 - **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
 
-### Known gaps
-
-- Windows and Linux are unrun. The code paths exist and pty4j carries every platform's natives, but
-  only macOS has actually been exercised.
-- Installers are not built and nothing is signed — `-Pdist` produces an app image, and macOS will
-  refuse a downloaded copy until it is signed and notarised.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
-  its source.
-- No tab reordering, no splits, no search in scrollback, no keybinding customisation.
+[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/adriandeleon/Termina/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/adriandeleon/Termina/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/adriandeleon/Termina/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/adriandeleon/Termina/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/adriandeleon/Termina/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/adriandeleon/Termina/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/adriandeleon/Termina/compare/v0.7.1...v0.8.0
+[0.7.1]: https://github.com/adriandeleon/Termina/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/adriandeleon/Termina/compare/v0.6.2...v0.7.0
+[0.6.2]: https://github.com/adriandeleon/Termina/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/adriandeleon/Termina/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/adriandeleon/Termina/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/adriandeleon/Termina/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/adriandeleon/Termina/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/adriandeleon/Termina/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/adriandeleon/Termina/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/adriandeleon/Termina/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/adriandeleon/Termina/releases/tag/v0.1.0

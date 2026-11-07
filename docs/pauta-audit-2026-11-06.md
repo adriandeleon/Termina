@@ -43,6 +43,26 @@ Addressed on 2026-11-07, branch `pauta-build-gates`:
 - **Narrowed:**
   - PLAT-11: Headless glass is set in surefire. There is still no TestFX.
 
+Addressed on 2026-11-07, branch `pauta-repo-docs`:
+
+- **Now met:**
+  - REPO-02: CHANGELOG is in Keep a Changelog 1.1 form, every entry opens with a bold summary, and
+    "Known gaps" became a note on its version.
+  - REPO-05: AGENTS.md has commands, worktrees and a change checklist, down from 455 lines to 167.
+  - REPO-06: CONTRIBUTING.md.
+  - REPO-07: `docs/` has architecture, conventions, testing, gotchas, release,
+    building-and-packaging and `decisions/`.
+  - REPO-09: `bug_report.yml` with `environment` and `report`.
+  - DOCS-12: `docs/README.md`.
+  - DOCS-13: seven decision records.
+  - DOCS-16, DOCS-17: both rules are stated in `docs/conventions.md` and AGENTS.md.
+  - `RepositoryDocsTest` keeps this shape.
+- **Narrowed:**
+  - DOCS-14: AGENTS.md is short and points into `docs/`. The long catalogue is `docs/gotchas.md`,
+    as in Editora, rather than `docs/reference/`.
+  - REPO-01 / DOCS-19: the README lost its contributor sections and gained a License section. At
+    804 lines, the feature catalogue that belongs on the website is still in it.
+
 Everything else below stands.
 
 ## Totals
