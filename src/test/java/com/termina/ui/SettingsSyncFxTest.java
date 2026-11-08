@@ -134,6 +134,8 @@ class SettingsSyncFxTest {
         assertFalse(settings.syncRepository().contains("secret-token"), settings.syncRepository());
 
         onFx(() -> {
+            // Auto off first, so no timer starts a run after the test; then let a run in flight end.
+            settings.setSyncAuto(false);
             settings.setSyncEnabled(false);
             sync.disconnected();
             return null;
@@ -144,6 +146,11 @@ class SettingsSyncFxTest {
             return null;
         });
         assertTrue(reports.get(reports.size() - 1).startsWith("WARNING"), reports.toString());
+        // Nothing left writing into the folder JUnit is about to delete: the worker runs one job at a
+        // time, so a job queued now runs after any it was still finishing.
+        java.util.concurrent.CountDownLatch drained = new java.util.concurrent.CountDownLatch(1);
+        sync.afterQueuedWorkForTest(drained::countDown);
+        assertTrue(drained.await(30, TimeUnit.SECONDS), "the sync worker finished");
     }
 
     private static SettingsSync.Phase phase(SettingsSync sync) {

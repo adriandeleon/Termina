@@ -73,6 +73,14 @@ class MenusFxTest {
         settings.setUpdateCheck(false);
         settings.setShowStatusBar(true);
         settings.setConfirmClose(false);
+        // Paste is an item: with several lines on the clipboard (a CI runner's) it would ask, modally.
+        settings.setConfirmPaste(false);
+        onFx(() -> {
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString("echo pasted");
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+            return null;
+        });
         Set<String> skipped = new java.util.HashSet<>();
         for (String key : SKIPPED_KEYS) skipped.add(Messages.tr(key));
 
