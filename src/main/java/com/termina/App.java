@@ -122,27 +122,36 @@ public final class App extends Application {
         manager.openHandedOff(new LaunchOptions(settings.shell(), directory, handed.command()), handed.title());
     }
 
+    /**
+     * What is read from disk before the first window, read here: {@code init} runs on the launcher
+     * thread, before {@code start} and off the FX thread (PERF-01, PERF-16, Pauta 2.0.2).
+     */
     @Override
-    public void start(Stage stage) {
-        start(stage, getParameters().getRaw(), url -> getHostServices().showDocument(url));
+    public void init() {
+        prepared = prepare(getParameters().getRaw());
     }
 
+    /** What {@link #init} read, for {@link #start}; null when a test starts the app without it. */
+    private @Nullable Prepared prepared;
+
+    /** The command line, the settings and what was loaded with them, ready for the first window. */
+    record Prepared(CommandLine cli, Settings settings) {}
+
     /**
-     * The start, given what {@code launch} would: the arguments and how to open a link. Apart so a
-     * test can start the real application on a stage of its own; only {@code launch} makes the
-     * parameters and the host services.
+     * The settings, the fonts the first window draws, the log file, the catalogue and the imported
+     * themes — every file the first window needs, read before the toolkit asks for any of them.
      */
-    void start(Stage stage, java.util.List<String> args, java.util.function.Consumer<String> openLink) {
-        com.termina.perf.Startup.mark("fx-start");
+    static Prepared prepare(java.util.List<String> args) {
+        com.termina.perf.Startup.mark("init");
         CommandLine cli = CommandLine.parse(args.toArray(String[]::new));
         Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir(), cli.dev()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
 
-        // Before the stylesheet below and before any window: CSS naming a font that is not yet
-        // registered does not wait for it, it silently resolves to the system face. Only what the
-        // first window draws — the interface font, the icons, the terminal's family; the other
-        // bundled families follow the first frame (PERF-15).
+        // Before the stylesheet and before any window: CSS naming a font that is not yet registered
+        // does not wait for it, it silently resolves to the system face. Only what the first window
+        // draws — the interface font, the icons, the terminal's family; the other bundled families
+        // follow the first frame (PERF-15).
         com.termina.ui.Fonts.load(settings.fontFamily());
         com.termina.perf.Startup.mark("fonts");
         com.termina.ui.DebugLog.attachFile(settings.directory());
@@ -160,9 +169,28 @@ public final class App extends Application {
         java.util.Locale.setDefault(com.termina.i18n.Messages.defaultLocale(
                 settings.uiLanguage(), language, java.util.Locale.getDefault()));
 
-        // Applied before any window is built, so the first frame is already themed.
-        // The imported themes are read first: the stored theme may be one of them.
+        // The imported themes, read now: the stored theme may be one of them.
         com.termina.ui.Themes.useDirectory(settings.directory().resolve("themes"));
+        return new Prepared(cli, settings);
+    }
+
+    @Override
+    public void start(Stage stage) {
+        start(stage, getParameters().getRaw(), url -> getHostServices().showDocument(url));
+    }
+
+    /**
+     * The start, given what {@code launch} would: the arguments and how to open a link. Apart so a
+     * test can start the real application on a stage of its own; only {@code launch} makes the
+     * parameters and the host services, and runs {@link #init}.
+     */
+    void start(Stage stage, java.util.List<String> args, java.util.function.Consumer<String> openLink) {
+        com.termina.perf.Startup.mark("fx-start");
+        Prepared ready = prepared != null ? prepared : prepare(args);
+        CommandLine cli = ready.cli();
+        Settings settings = ready.settings();
+
+        // Applied before any window is built, so the first frame is already themed.
         com.termina.ui.Themes.followSystem(
                 javafx.application.Platform.getPreferences().getColorScheme() == javafx.application.ColorScheme.DARK);
         Application.setUserAgentStylesheet(

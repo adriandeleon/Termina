@@ -23,7 +23,16 @@ final class DialogAnswers {
     private static final java.util.concurrent.atomic.AtomicInteger LATEST =
             new java.util.concurrent.atomic.AtomicInteger();
 
+    /** How many dialogs have been answered, so a test can wait for one shown a moment later. */
+    private static final java.util.concurrent.atomic.AtomicInteger ANSWERED =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private DialogAnswers() {}
+
+    /** The number of dialogs answered so far. */
+    static int answered() {
+        return ANSWERED.get();
+    }
 
     /**
      * @param accept the confirming button (OK, the action's own verb) when true; Cancel when false
@@ -31,10 +40,11 @@ final class DialogAnswers {
      */
     static void next(boolean accept, @Nullable String text) {
         int mine = LATEST.incrementAndGet();
-        Platform.runLater(() -> answer(mine, accept, text, 20));
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+        Platform.runLater(() -> answer(mine, accept, text, deadline));
     }
 
-    private static void answer(int mine, boolean accept, @Nullable String text, int triesLeft) {
+    private static void answer(int mine, boolean accept, @Nullable String text, long deadline) {
         if (mine != LATEST.get()) return;
         for (Window window : List.copyOf(Window.getWindows())) {
             if (!window.isShowing() || window.getScene() == null) continue;
@@ -47,12 +57,21 @@ final class DialogAnswers {
                 ButtonBar.ButtonData data = type.getButtonData();
                 boolean cancel = data == ButtonBar.ButtonData.CANCEL_CLOSE || data.isCancelButton();
                 if (cancel != accept && pane.lookupButton(type) instanceof Button button) {
+                    ANSWERED.incrementAndGet();
                     button.fire();
                     return;
                 }
             }
         }
         // Not up yet: a dialog shown from a later runLater. Look again on the next pulse.
-        if (triesLeft > 0) Platform.runLater(() -> answer(mine, accept, text, triesLeft - 1));
+        // A question asked after a worker has looked something up — the close prompt reads the
+        // process table first — comes a little later than the call that asks it: looked for again
+        // until a deadline, not a count, since an idle FX thread runs a thousand re-posts in a blink.
+        if (System.nanoTime() < deadline) {
+            javafx.animation.PauseTransition again =
+                    new javafx.animation.PauseTransition(javafx.util.Duration.millis(15));
+            again.setOnFinished(e -> answer(mine, accept, text, deadline));
+            again.play();
+        }
     }
 }

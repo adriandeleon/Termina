@@ -168,6 +168,10 @@ class WindowManagerFxTest {
             keeper.close();
             return null;
         });
+        // The close above finishes once the shells' children are read off the FX thread, and the
+        // update checks answer on their own time; both write into the settings folder when they do,
+        // and JUnit cannot delete a folder that is still being written into.
+        waitUntilQuiet(dir);
     }
 
     private static boolean started(TerminalWindow window) {
@@ -220,6 +224,31 @@ class WindowManagerFxTest {
             } catch (java.io.IOException e) {
                 return;
             }
+        }
+    }
+
+    /** Waits until nothing in {@code folder} has changed for half a second, or five seconds pass. */
+    private static void waitUntilQuiet(Path folder) throws Exception {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        String last = "";
+        long stableSince = System.nanoTime();
+        while (System.nanoTime() < deadline) {
+            String now;
+            try (var walk = java.nio.file.Files.walk(folder)) {
+                now = walk.map(p -> p + ":" + p.toFile().lastModified())
+                        .sorted()
+                        .toList()
+                        .toString();
+            } catch (java.io.IOException | java.io.UncheckedIOException e) {
+                now = "";
+            }
+            if (!now.equals(last)) {
+                last = now;
+                stableSince = System.nanoTime();
+            } else if (System.nanoTime() - stableSince > java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(500)) {
+                return;
+            }
+            Thread.sleep(50);
         }
     }
 }

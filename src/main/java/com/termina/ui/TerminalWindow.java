@@ -359,8 +359,11 @@ public final class TerminalWindow {
         if (settings.windowMaximized()) stage.setMaximized(true);
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
         trackGeometry();
+        // Always taken over: whether to ask is known only once the shells' children are read, off
+        // the FX thread, and the window then closes itself if it may.
         stage.setOnCloseRequest(e -> {
-            if (!confirmClose(new ArrayList<>(tabs.getTabs()))) e.consume();
+            e.consume();
+            close();
         });
         // However the window went — its close button, Close Window, quitting — its tabs go through
         // the tab list, which is where disposal is. Closing the stage alone took nothing out of the
@@ -724,11 +727,10 @@ public final class TerminalWindow {
      * blank by default rather than set to home.
      */
     public void openTab(com.termina.shell.@Nullable Profile profile) {
-        if (profile == null) {
-            openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell()).withWorkingDirectory(currentDirectory()));
-            return;
-        }
-        openTab(profile.toLaunchOptions(currentDirectory()));
+        com.termina.pty.LaunchOptions options =
+                profile == null ? com.termina.pty.LaunchOptions.ofShell(settings.shell()) : profile.toLaunchOptions("");
+        // The inherited directory, read as the shell starts: only when the profile names none.
+        openTab(options, tabs.getTabs().size(), "", options.workingDirectory().isBlank() ? currentDirectory() : null);
     }
 
     /**
@@ -865,14 +867,23 @@ public final class TerminalWindow {
      * <p>Blank when there is no tab to inherit from, or on a platform that cannot say, and
      * {@link com.termina.pty.ShellLauncher#workingDirectory} falls back to home.
      */
-    private String currentDirectory() {
+    private java.util.function.@Nullable Supplier<String> currentDirectory() {
         TerminalView terminal = activeTerminal();
-        if (terminal == null || !terminal.isStarted()) return "";
-        // Where a shell's own report wins (Windows: see ProcessCwd), the directory the tab knows —
-        // reported, or polled from the OS until one was — is the answer. Elsewhere the OS, asked now.
+        if (terminal == null || !terminal.isStarted()) return null;
         String known = terminal.getDisplay().getCwd();
-        if (com.termina.pty.ProcessCwd.reportedDirectoryWins() && known != null && !known.isBlank()) return known;
-        return com.termina.pty.ProcessCwd.of(terminal.getSession().pid()).orElse(known);
+        long pid = terminal.getSession().pid();
+        return () -> directoryOf(pid, known);
+    }
+
+    /**
+     * The directory of the shell {@code pid}, on the worker that starts the new one. Where a shell's
+     * own report wins (Windows: see ProcessCwd), the directory the tab knows — reported, or polled
+     * from the OS until one was — is the answer. Elsewhere the OS, asked now.
+     */
+    static String directoryOf(long pid, @Nullable String known) {
+        String fallback = known == null ? "" : known;
+        if (com.termina.pty.ProcessCwd.reportedDirectoryWins() && !fallback.isBlank()) return fallback;
+        return com.termina.pty.ProcessCwd.of(pid).orElse(fallback);
     }
 
     /**
@@ -897,44 +908,56 @@ public final class TerminalWindow {
      * @param userTitle the name the user gave the tab this one stands in for, or ""
      */
     private void openTab(com.termina.pty.LaunchOptions options, int index, String userTitle) {
+        openTab(options, index, userTitle, null);
+    }
+
+    /** @param directory where to start, worked out as the shell starts; null for the options' own */
+    private void openTab(
+            com.termina.pty.LaunchOptions options,
+            int index,
+            String userTitle,
+            java.util.function.@Nullable Supplier<String> directory) {
         Tab tab = new Tab();
         TerminalView terminal = createPane(options, tab);
+        terminal.setDirectoryFrom(directory);
         terminal.getDisplay().setUserTitle(userTitle);
         addTab(tab, new PaneGroup(terminal), index);
 
-        try {
-            if (simulatedStartFailures > 0) {
-                simulatedStartFailures--;
-                throw new IOException("simulated by -Dtermina.captureFailShellStarts");
-            }
-            terminal.start();
-        } catch (IOException e) {
-            // Report first and remove last. Removing first fired the list listener: an empty
-            // window closed itself, the last window closing exited the toolkit, and the dialog then
-            // opened on a dead owner — so a default profile whose command had gone away left nobody
-            // a window to fix it from, and the only way back was editing the settings file.
-            failingTabs.add(tab);
-            int remaining = tabs.getTabs().size() - failingTabs.size();
-            boolean fallBack = WindowRules.shouldFallBackToDefaultShell(remaining + 1, !options.hasCommand());
-            reportShellFailure(options, e, fallBack);
-            if (fallBack) {
-                openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
-                        .withWorkingDirectory(options.workingDirectory()));
-            } else if (WindowRules.keepsWindowOpenEmpty(remaining, fallBack)) {
-                // Nothing left to fall back to: the default shell itself would not start. Closing
-                // the window took the dialog with it — owned by the window — and, for the last
-                // window, the application: it exited with nothing on screen to say why. The window
-                // stays, empty, saying so, with its menus and chords to reach Settings and New Tab.
-                keepEmptyWindow = true;
-                emptyPlaceholder.setText(tr("dialog.shellFailed") + "\n\n"
-                        + tr("dialog.shellFailedDetail", commandLineOf(options), String.valueOf(e.getMessage())));
-            }
-            tabs.getTabs().remove(tab);
-            failingTabs.remove(tab);
-            return;
-        }
         endPaneWithItsShell(tab, terminal);
         Platform.runLater(terminal::requestFocus);
+        if (simulatedStartFailures > 0) {
+            simulatedStartFailures--;
+            shellFailed(tab, options, new IOException("simulated by -Dtermina.captureFailShellStarts"));
+            return;
+        }
+        terminal.start(() -> {}, e -> shellFailed(tab, options, e));
+    }
+
+    /** A new tab's shell would not start: say so, fall back to the default shell, or keep the window. */
+    private void shellFailed(Tab tab, com.termina.pty.LaunchOptions options, IOException e) {
+        if (!tabs.getTabs().contains(tab)) return; // closed while it was starting
+        // Report first and remove last. Removing first fired the list listener: an empty
+        // window closed itself, the last window closing exited the toolkit, and the dialog then
+        // opened on a dead owner — so a default profile whose command had gone away left nobody
+        // a window to fix it from, and the only way back was editing the settings file.
+        failingTabs.add(tab);
+        int remaining = tabs.getTabs().size() - failingTabs.size();
+        boolean fallBack = WindowRules.shouldFallBackToDefaultShell(remaining + 1, !options.hasCommand());
+        reportShellFailure(options, e, fallBack);
+        if (fallBack) {
+            openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                    .withWorkingDirectory(options.workingDirectory()));
+        } else if (WindowRules.keepsWindowOpenEmpty(remaining, fallBack)) {
+            // Nothing left to fall back to: the default shell itself would not start. Closing
+            // the window took the dialog with it — owned by the window — and, for the last
+            // window, the application: it exited with nothing on screen to say why. The window
+            // stays, empty, saying so, with its menus and chords to reach Settings and New Tab.
+            keepEmptyWindow = true;
+            emptyPlaceholder.setText(tr("dialog.shellFailed") + "\n\n"
+                    + tr("dialog.shellFailedDetail", commandLineOf(options), String.valueOf(e.getMessage())));
+        }
+        tabs.getTabs().remove(tab);
+        failingTabs.remove(tab);
     }
 
     /**
@@ -967,9 +990,10 @@ public final class TerminalWindow {
         tab.setContextMenu(buildTabMenu(tab));
         // The close button is JavaFX's own and does not come through closeTab(); consuming the
         // request is the only way to stop it.
+        // Taken over, for the same reason as the window's: the tab goes through closeTab once it may.
         tab.setOnCloseRequest(e -> {
-            if (!confirmClose(List.of(tab))) e.consume();
-            else rememberClosedTabs(List.of(tab));
+            e.consume();
+            closeTab(tab);
         });
         // The header's gestures are attached by the list listener, once the skin has built it.
         tabs.getTabs().add(Math.max(0, Math.min(index, tabs.getTabs().size())), tab);
@@ -1107,15 +1131,12 @@ public final class TerminalWindow {
         // dropped. Styled and laid out now, so the pane starts at its real size and takes focus.
         group.applyCss();
         group.layout();
-        try {
-            added.start();
-        } catch (IOException e) {
-            reportShellFailure(options, e, false);
-            group.remove(added);
-            added.close();
-            return;
-        }
         endPaneWithItsShell(tab, added);
+        added.start(() -> {}, e -> {
+            reportShellFailure(options, e, false);
+            if (group.contains(added)) group.remove(added);
+            added.close();
+        });
         group.setActive(added);
         // At once, not on a later pulse as a new tab's is: the pane is already in a showing scene,
         // and a deferred request could land after the user — or a second chord — moved on.
@@ -1152,13 +1173,17 @@ public final class TerminalWindow {
         Tab tab = tabs.getSelectionModel().getSelectedItem();
         if (tab == null) return;
         TerminalView pane = groupOf(tab).active();
-        if (pane == null || !confirmCloseTerminals(List.of(pane), 1)) return;
-        // Remembered like a tab, so Reopen brings it back — as a tab of its own, right after this
-        // one: the split it came from may not be there to go back into. See ClosedTabs.
-        closedTabs.remember(new ClosedTabs.Entry(
-                new PaneLayout.Tab(leafOf(pane), 0), tabs.getTabs().indexOf(tab) + 1, windows.nextCloseStamp()));
-        clearLastClose();
-        removePane(tab, pane);
+        if (pane == null) return;
+        confirmCloseTerminalsThen(List.of(pane), 1, () -> {
+            // Gone already, by another route, while the question was asked.
+            if (!tabs.getTabs().contains(tab) || !groupOf(tab).panes().contains(pane)) return;
+            // Remembered like a tab, so Reopen brings it back — as a tab of its own, right after
+            // this one: the split it came from may not be there to go back into. See ClosedTabs.
+            closedTabs.remember(new ClosedTabs.Entry(
+                    new PaneLayout.Tab(leafOf(pane), 0), tabs.getTabs().indexOf(tab) + 1, windows.nextCloseStamp()));
+            clearLastClose();
+            removePane(tab, pane);
+        });
     }
 
     /**
@@ -1682,18 +1707,22 @@ public final class TerminalWindow {
      * a remove and an add, and a shell that exited on its own.
      */
     private void closeTab(Tab tab) {
-        if (!confirmClose(List.of(tab))) return;
-        rememberClosedTabs(List.of(tab));
-        tabs.getTabs().remove(tab);
+        closeTabs(List.of(tab));
     }
 
     /** One question for the whole set: closing eight tabs should not ask eight times. */
     private void closeTabs(List<Tab> doomed) {
-        if (doomed.isEmpty() || !confirmClose(doomed)) return;
-        // Remembered so that reopening brings them back leftmost first, each into a strip that
-        // already holds the ones to its left: see ClosedTabs.rememberAll.
-        rememberClosedTabs(doomed);
-        for (Tab tab : doomed) tabs.getTabs().remove(tab);
+        if (doomed.isEmpty()) return;
+        confirmCloseThen(doomed, () -> {
+            // Whatever went while the question was being asked is not closed twice.
+            List<Tab> still = new ArrayList<>(doomed);
+            still.retainAll(tabs.getTabs());
+            if (still.isEmpty()) return;
+            // Remembered so that reopening brings them back leftmost first, each into a strip that
+            // already holds the ones to its left: see ClosedTabs.rememberAll.
+            rememberClosedTabs(still);
+            for (Tab tab : still) tabs.getTabs().remove(tab);
+        });
     }
 
     // ---------------------------------------------------------------- tab marks
@@ -1812,14 +1841,14 @@ public final class TerminalWindow {
     public void ringBellInTabForCapture(int index) {
         if (index < 0 || index >= tabs.getTabs().size()) return;
         TerminalView terminal = terminalOf(tabs.getTabs().get(index));
-        if (terminal != null) terminal.getSession().send(new byte[] {7});
+        if (terminal != null && terminal.isStarted()) terminal.getSession().send(new byte[] {7});
     }
 
     /** Runs a command in a tab by index, without selecting it — for the capture hook. */
     public void typeInTabForCapture(int index, String text) {
         if (index < 0 || index >= tabs.getTabs().size()) return;
         TerminalView terminal = terminalOf(tabs.getTabs().get(index));
-        if (terminal != null) terminal.getSession().sendString(text);
+        if (terminal != null && terminal.isStarted()) terminal.getSession().sendString(text);
     }
 
     // ---------------------------------------------------------------- shortcut reference
@@ -2053,19 +2082,17 @@ public final class TerminalWindow {
         tabs.applyCss();
         tabs.layout();
         for (TerminalView pane : new ArrayList<>(group.panes())) {
-            try {
-                pane.start();
-            } catch (IOException e) {
+            endPaneWithItsShell(tab, pane);
+            pane.start(() -> {}, e -> {
                 reportShellFailure(pane.launchOptions(), e, false);
-                group.remove(pane);
-                pane.close();
-                if (group.panes().isEmpty()) {
+                if (!group.contains(pane)) return;
+                if (group.panes().size() == 1) {
                     tabs.getTabs().remove(tab);
                     return;
                 }
-                continue;
-            }
-            endPaneWithItsShell(tab, pane);
+                group.remove(pane);
+                pane.close();
+            });
         }
         TerminalView active = group.active();
         if (active != null) Platform.runLater(active::requestFocus);
@@ -2135,23 +2162,44 @@ public final class TerminalWindow {
      * prompt has none. Asking on every close regardless would be the kind of confirmation people
      * learn to dismiss without reading, which is worse than not asking.
      */
-    private boolean confirmClose(List<Tab> doomed) {
+    private void confirmCloseThen(List<Tab> doomed, Runnable close) {
         List<TerminalView> panes = new ArrayList<>();
         for (Tab tab : doomed) panes.addAll(groupOf(tab).panes());
-        return confirmCloseTerminals(panes, doomed.size());
+        confirmCloseTerminalsThen(panes, doomed.size(), close);
     }
 
-    /** The same question for a set of panes, which is what closing one pane of a split asks. */
-    private boolean confirmCloseTerminals(List<TerminalView> doomed, int tabCount) {
-        if (!settings.confirmClose()) return true;
-        List<String> running = new ArrayList<>();
-        for (TerminalView terminal : doomed) {
-            if (terminal == null || !terminal.isStarted()) continue;
-            running.addAll(RunningProgram.in(terminal.getSession().pid()));
+    /**
+     * The same question for a set of panes, which is what closing one pane of a split asks. The
+     * shells' children are read on a worker — a process table is the operating system's to answer
+     * (PERF-01) — and {@code close} runs on the FX thread when nothing is running or the answer is
+     * to close.
+     */
+    private void confirmCloseTerminalsThen(List<TerminalView> doomed, int tabCount, Runnable close) {
+        if (!settings.confirmClose()) {
+            close.run();
+            return;
         }
-        if (running.isEmpty()) return true;
-        return closeConfirmer.test(running, tabCount);
+        List<Long> pids = new ArrayList<>();
+        for (TerminalView terminal : doomed) {
+            if (terminal != null && terminal.isStarted())
+                pids.add(terminal.getSession().pid());
+        }
+        if (pids.isEmpty()) {
+            close.run();
+            return;
+        }
+        CLOSE_CHECKS.execute(() -> {
+            List<String> running = new ArrayList<>();
+            for (long pid : pids) running.addAll(RunningProgram.in(pid));
+            Platform.runLater(() -> {
+                if (running.isEmpty() || closeConfirmer.test(running, tabCount)) close.run();
+            });
+        });
     }
+
+    /** Where the close prompt reads the process table: a virtual thread each. */
+    private static final java.util.concurrent.Executor CLOSE_CHECKS =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
     /**
      * Answers the close prompt. Replaced by the capture hook, which cannot click a modal dialog —
@@ -2677,7 +2725,7 @@ public final class TerminalWindow {
      * a question nobody can act on, in a place where {@code showAndWait} may never return.
      */
     public void close() {
-        if (confirmClose(new ArrayList<>(tabs.getTabs()))) stage.close();
+        confirmCloseThen(new ArrayList<>(tabs.getTabs()), stage::close);
     }
 
     /** Teardown. Ends everything without asking, because the answer is no longer available. */

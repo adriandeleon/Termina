@@ -552,9 +552,63 @@ public final class TerminalView extends Region {
         this.launchOptions = options == null ? com.termina.pty.LaunchOptions.DEFAULTS : options;
     }
 
-    /** Starts the shell. Must be called once, after the view is in a scene. */
-    public void start() throws IOException {
-        session = new TerminalSession(display, columns, rows, scrollbackLines, launchOptions);
+    /**
+     * Starts the shell, once, after the view is in a scene. The process is started on a worker —
+     * it forks, and a login shell's PATH may be asked of a shell first (PERF-01) — and the session is
+     * built here once it runs; {@code onStarted} then runs, or {@code onFailed} with why it could
+     * not. A view closed in the meantime ends the process it is handed instead.
+     */
+    public void start(Runnable onStarted, java.util.function.Consumer<IOException> onFailed) {
+        com.termina.pty.LaunchOptions options = launchOptions;
+        java.util.function.@Nullable Supplier<String> directory = directoryFrom;
+        directoryFrom = null;
+        int startColumns = columns;
+        int startRows = rows;
+        SHELL_STARTS.execute(() -> {
+            com.termina.pty.LaunchOptions resolved =
+                    directory == null ? options : options.withWorkingDirectory(directory.get());
+            com.pty4j.PtyProcess process;
+            try {
+                process = com.termina.pty.ShellLauncher.start(startColumns, startRows, resolved);
+            } catch (IOException | RuntimeException e) {
+                IOException failure = e instanceof IOException io ? io : new IOException(e.getMessage(), e);
+                Platform.runLater(() -> {
+                    if (!viewClosed) onFailed.accept(failure);
+                });
+                return;
+            }
+            Platform.runLater(() -> {
+                if (viewClosed) {
+                    process.destroy();
+                    return;
+                }
+                launchOptions = resolved;
+                attach(process, startColumns, startRows);
+                onStarted.run();
+            });
+        });
+    }
+
+    /** Where shells are started: a virtual thread each. */
+    private static final java.util.concurrent.Executor SHELL_STARTS =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * Where the shell should start, worked out when it starts rather than now: the directory a new
+     * tab inherits is read from the other tab's process, which is the operating system's to answer
+     * (PERF-01), so it is asked on the worker that starts the shell. Used once.
+     */
+    private java.util.function.@Nullable Supplier<String> directoryFrom;
+
+    void setDirectoryFrom(java.util.function.@Nullable Supplier<String> directory) {
+        this.directoryFrom = directory;
+    }
+
+    /** Builds the session over a started process, at the size it was started at. */
+    private void attach(com.pty4j.PtyProcess process, int startColumns, int startRows) {
+        TerminalSession session =
+                new TerminalSession(display, startColumns, startRows, scrollbackLines, launchOptions, process);
+        this.session = session;
         buffer = session.getTextBuffer();
         // Both fire on the emulator thread for every buffer mutation — cheap by design. The
         // changes listener sees what moved; the model listener is where the view catches up.
@@ -589,6 +643,8 @@ public final class TerminalView extends Region {
                     display.setProgram(program);
                     programPredicts = com.termina.term.TypeAheadModel.predictsFor(program);
                 });
+        // Laid out again while the process started: the shell is told the size it has now.
+        if (columns != startColumns || rows != startRows) session.resize(columns, rows);
         markDirty();
     }
 
@@ -1707,7 +1763,8 @@ public final class TerminalView extends Region {
         Hover previous = hover;
         // The remembered answer lasts for one hover gesture: a file created since is found on the
         // next press of the modifier.
-        if (!modifierDown) statPath = null;
+        if (!modifierDown) existence.clear();
+        hoverModifier = modifierDown;
         hover = modifierDown ? linkAt(x, y) : null;
         setCursor(hover == null ? javafx.scene.Cursor.DEFAULT : javafx.scene.Cursor.HAND);
         if (!sameHover(previous, hover)) {
@@ -1770,8 +1827,14 @@ public final class TerminalView extends Region {
         LinkCandidate candidate = linkCandidateAt(x, y);
         if (candidate == null) return null;
         java.nio.file.Path file = candidate.file();
-        if (file != null && !existsRemembered(file)) file = null;
+        // Not known yet counts as not there: it is being asked, and the hover and the menu are
+        // brought up to date when the answer comes (onExistenceKnown).
+        if (file != null && !Boolean.TRUE.equals(exists(file))) file = null;
         if (candidate.needsFile() && file == null) return null;
+        return hoverOf(candidate, file);
+    }
+
+    private static Hover hoverOf(LinkCandidate candidate, java.nio.file.@Nullable Path file) {
         return new Hover(
                 candidate.match(),
                 file,
@@ -1781,18 +1844,87 @@ public final class TerminalView extends Region {
                 candidate.epoch());
     }
 
-    /** The path {@link #existsRemembered} last asked about, and the answer. FX thread only. */
-    private java.nio.file.@Nullable Path statPath;
+    /**
+     * Whether files exist, as asked off the FX thread (PERF-01): a hung network mount under the
+     * pointer would otherwise freeze the window. Kept for one hover gesture — a file created since
+     * is found on the next press of the modifier — and for the right-click menu and the commands
+     * that asked. FX thread only.
+     */
+    private final java.util.Map<java.nio.file.Path, Boolean> existence = new java.util.HashMap<>();
 
-    private boolean statExists;
+    /** The question in flight: one at a time, the latest wins. */
+    private final com.termina.work.LatestOnly existenceCheck =
+            new com.termina.work.LatestOnly(LINK_CHECKS, Platform::runLater);
 
-    /** {@code Files.exists}, asked once per target for as long as the hover lasts. */
-    private boolean existsRemembered(java.nio.file.Path file) {
-        if (!file.equals(statPath)) {
-            statExists = java.nio.file.Files.exists(file);
-            statPath = file;
+    private java.nio.file.@Nullable Path asking;
+
+    /** Whether the hover was last computed with the link modifier held. */
+    private boolean hoverModifier;
+
+    /**
+     * Where the filesystem is asked. A virtual thread each: a check stuck on a hung mount must not
+     * hold up the next one, which an interrupt cannot unstick.
+     */
+    private static final java.util.concurrent.Executor LINK_CHECKS =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
+    /** Whether {@code file} exists: true or false when known, null when not yet — and then asked. */
+    private @Nullable Boolean exists(java.nio.file.Path file) {
+        Boolean known = existence.get(file);
+        if (known != null || file.equals(asking)) return known;
+        asking = file;
+        existenceCheck.submit(() -> java.nio.file.Files.exists(file), found -> {
+            asking = null;
+            existence.put(file, found);
+            onExistenceKnown();
+        });
+        return null;
+    }
+
+    /** An answer came: the hover and an open right-click menu look again. */
+    private void onExistenceKnown() {
+        if (hoverModifier && lastMouseX >= 0) {
+            Hover previous = hover;
+            hover = linkAt(lastMouseX, lastMouseY);
+            setCursor(hover == null ? javafx.scene.Cursor.DEFAULT : javafx.scene.Cursor.HAND);
+            if (!sameHover(previous, hover)) {
+                showLinkTarget(hover);
+                markDirty();
+            }
         }
-        return statExists;
+        ContextItems items = contextItems;
+        if (items != null && items.menu().isShowing() && menuLink == null) {
+            menuLink = linkAt(menuX, menuY);
+            showLinkItems(items, menuLink != null);
+        }
+    }
+
+    /**
+     * Acts on the link at a point once it is known to be one, and says whether there is one to act
+     * on there: what a modifier-click and the two link commands do. A file not yet asked about is
+     * asked about first, and {@code act} runs when the answer is that it exists.
+     */
+    private boolean actOnLink(double x, double y, java.util.function.Consumer<Hover> act) {
+        LinkCandidate candidate = linkCandidateAt(x, y);
+        if (candidate == null) return false;
+        java.nio.file.Path file = candidate.file();
+        if (file == null) {
+            if (candidate.needsFile()) return false;
+            act.accept(hoverOf(candidate, null));
+            return true;
+        }
+        Boolean known = existence.get(file);
+        if (known != null) {
+            if (known) act.accept(hoverOf(candidate, file));
+            else if (!candidate.needsFile()) act.accept(hoverOf(candidate, null));
+            return known || !candidate.needsFile();
+        }
+        existenceCheck.submit(() -> java.nio.file.Files.exists(file), found -> {
+            existence.put(file, found);
+            if (found) act.accept(hoverOf(candidate, file));
+            else if (!candidate.needsFile()) act.accept(hoverOf(candidate, null));
+        });
+        return true;
     }
 
     /** The buffer half of {@link #linkAt}: everything but the filesystem's answer. Takes the lock. */
@@ -1936,23 +2068,32 @@ public final class TerminalView extends Region {
      * the pointer is not over this view. What Open Link and Copy Link Address act on as commands
      * (KBD-01): the right-click menu's rows, reachable from a chord and the palette.
      */
-    private @Nullable Hover linkUnderPointer() {
-        return lastMouseX < 0 ? null : linkAt(lastMouseX, lastMouseY);
+    /**
+     * Whether there may be a link under the pointer: text that is one, and for a path, a file not
+     * known to be missing. Asks nothing of the filesystem; the command asks when it runs.
+     */
+    private boolean mayHaveLinkUnderPointer() {
+        if (lastMouseX < 0) return false;
+        LinkCandidate candidate = linkCandidateAt(lastMouseX, lastMouseY);
+        if (candidate == null) return false;
+        java.nio.file.Path file = candidate.file();
+        if (file == null) return !candidate.needsFile();
+        return !candidate.needsFile() || !Boolean.FALSE.equals(existence.get(file));
     }
 
     /** Whether there is a link under the pointer: the two link commands' gate. */
     boolean hasLinkUnderPointer() {
-        return linkUnderPointer() != null;
+        return mayHaveLinkUnderPointer();
     }
 
     /** Opens the link under the pointer, as the right-click menu's Open Link does. */
     void openLinkUnderPointer() {
-        openLink(linkUnderPointer());
+        if (lastMouseX >= 0) actOnLink(lastMouseX, lastMouseY, this::openLink);
     }
 
     /** Copies the address of the link under the pointer, as Copy Link Address does. */
     void copyLinkUnderPointer() {
-        copyLinkAddress(linkUnderPointer());
+        if (lastMouseX >= 0) actOnLink(lastMouseX, lastMouseY, this::copyLinkAddress);
     }
 
     private void copyLinkAddress(@Nullable Hover target) {
@@ -2045,7 +2186,29 @@ public final class TerminalView extends Region {
      * honest check is against a real one.
      */
     public String hoverLinkForCapture(double x, double y) {
-        updateHover(x, y, true);
+        // The one place the answer is waited for: a capture's report is read the moment this
+        // returns, so the hover it describes has to be the settled one. A development hook, never a
+        // path a user's gesture takes.
+        LinkCandidate candidate = linkCandidateAt(x, y);
+        java.nio.file.Path file = candidate == null ? null : candidate.file();
+        if (file != null && !existence.containsKey(file)) {
+            try {
+                existence.put(
+                        file,
+                        java.util.concurrent.CompletableFuture.supplyAsync(
+                                        () -> java.nio.file.Files.exists(file), LINK_CHECKS)
+                                .get(5, java.util.concurrent.TimeUnit.SECONDS));
+            } catch (Exception e) {
+                existence.put(file, false);
+            }
+        }
+        hoverModifier = true;
+        Hover previous = hover;
+        hover = linkAt(x, y);
+        if (!sameHover(previous, hover)) {
+            showLinkTarget(hover);
+            markDirty();
+        }
         Hover target = hover;
         if (target == null) return "none at " + x + "," + y;
         LinkMatch match = target.match();
@@ -2208,16 +2371,26 @@ public final class TerminalView extends Region {
         // The link items are the menu's answer to a gesture nobody was told about: they need no
         // modifier and they say what is there. Computed for the right-clicked cell, not the last
         // hovered one — the menu can be raised from the keyboard, and the pointer may be elsewhere.
-        menuLink = linkAt(e.getX(), e.getY());
-        boolean onLink = menuLink != null;
-        items.openLink().setVisible(onLink);
-        items.copyLink().setVisible(onLink);
-        items.linkSeparator().setVisible(onLink);
+        menuX = e.getX();
+        menuY = e.getY();
+        menuLink = linkAt(menuX, menuY);
+        showLinkItems(items, menuLink != null);
         CheckMenuItem menuBarItem = items.menuBar();
         if (menuBarItem != null && menuBarShown != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
         if (zoomRow != null) zoomRow.refresh();
         items.menu().show(this, e.getScreenX(), e.getScreenY());
         e.consume();
+    }
+
+    /** Where the right-click menu was raised, in the view: its link is the one there. */
+    private double menuX;
+
+    private double menuY;
+
+    private static void showLinkItems(ContextItems items, boolean onLink) {
+        items.openLink().setVisible(onLink);
+        items.copyLink().setVisible(onLink);
+        items.linkSeparator().setVisible(onLink);
     }
 
     /** The right-click menu as built, for the test that fires its items. */
@@ -2459,9 +2632,9 @@ public final class TerminalView extends Region {
         // one is the terminal's". Only when something is actually under the pointer, so the
         // modifier is not taken away from the program the rest of the time.
         if (e.getButton() == MouseButton.PRIMARY && LinkGesture.opensLink(MAC, e.isMetaDown(), e.isControlDown())) {
-            Hover target = linkAt(e.getX(), e.getY());
-            if (target != null) {
-                openLink(target);
+            // A path not yet asked about is asked about, and opened when it is found: the press is
+            // the terminal's either way, since text that names a file is what was clicked.
+            if (actOnLink(e.getX(), e.getY(), this::openLink)) {
                 e.consume();
                 return;
             }
@@ -3426,6 +3599,7 @@ public final class TerminalView extends Region {
         searchRefresh.stop();
         searchTyping.stop();
         searchQueryPending = false;
+        searchWork.cancel();
         search = SearchState.NONE;
         if (searchBar != null) searchBar.setVisible(false);
         markDirty();
@@ -3468,10 +3642,18 @@ public final class TerminalView extends Region {
      * @param reveal scroll the current match into view
      */
     private void runSearch(boolean keepPlace, boolean reveal) {
+        runSearch(keepPlace, reveal, null);
+    }
+
+    /**
+     * {@link #runSearch(boolean, boolean)}, then {@code then} once the matches are in: the scan runs
+     * on a worker (PERF-01), and only the latest one's matches are kept.
+     */
+    private void runSearch(boolean keepPlace, boolean reveal, @Nullable Runnable then) {
         if (searchBar == null || buffer == null) return;
         long started = System.nanoTime();
-        java.util.regex.Pattern pattern = ScrollbackSearch.compile(searchBar.query(), searchBar.isRegex());
-        boolean valid = pattern != null || searchBar.query().isEmpty();
+        String query = searchBar.query();
+        boolean regex = searchBar.isRegex();
         int firstLine;
         int endLine;
         long scrolledAt;
@@ -3491,23 +3673,46 @@ public final class TerminalView extends Region {
         } finally {
             buffer.unlock();
         }
-        List<ScrollbackSearch.Match> matches = ScrollbackSearch.find(
-                firstLine,
-                endLine,
-                (from, to) -> searchRows(from, to, scrolledAt, epoch),
-                pattern,
-                ScrollbackSearch.CHUNK_ROWS);
-        int current = keep == null ? -1 : ScrollbackSearch.indexAt(matches, keep[0], keep[1]);
-        if (current < 0) current = ScrollbackSearch.initial(matches, scrollOrigin + rows - 1);
-        search = new SearchState(matches, current, scrolledAt, epoch);
-        searchBar.showCount(current, matches.size(), valid);
-        if (reveal) revealMatch();
-        markDirty();
-        double tookMs = (System.nanoTime() - started) / 1e6;
-        if (searchRefresh.getStatus() != javafx.animation.Animation.Status.RUNNING) {
-            searchRefresh.setDuration(Duration.millis(Math.max(SEARCH_REFRESH_MS, 4 * tookMs)));
-        }
+        int[] kept = keep;
+        searchWork.submit(
+                () -> {
+                    java.util.regex.Pattern pattern = ScrollbackSearch.compile(query, regex);
+                    List<ScrollbackSearch.Match> found = ScrollbackSearch.find(
+                            firstLine,
+                            endLine,
+                            (from, to) -> searchRows(from, to, scrolledAt, epoch),
+                            pattern,
+                            ScrollbackSearch.CHUNK_ROWS);
+                    return new Found(found, pattern != null || query.isEmpty());
+                },
+                found -> {
+                    SearchBar bar = searchBar;
+                    if (!searchOpen || bar == null) return;
+                    List<ScrollbackSearch.Match> matches = found.matches();
+                    int current = kept == null ? -1 : ScrollbackSearch.indexAt(matches, kept[0], kept[1]);
+                    if (current < 0) current = ScrollbackSearch.initial(matches, scrollOrigin + rows - 1);
+                    search = new SearchState(matches, current, scrolledAt, epoch);
+                    bar.showCount(current, matches.size(), found.valid());
+                    if (reveal) revealMatch();
+                    markDirty();
+                    double tookMs = (System.nanoTime() - started) / 1e6;
+                    if (searchRefresh.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+                        searchRefresh.setDuration(Duration.millis(Math.max(SEARCH_REFRESH_MS, 4 * tookMs)));
+                    }
+                    if (then != null) then.run();
+                });
     }
+
+    /** A scan's matches, and whether the query was one (a regular expression may not compile). */
+    private record Found(List<ScrollbackSearch.Match> matches, boolean valid) {}
+
+    /** The scan in flight: a new query or a refresh supersedes it. */
+    private final com.termina.work.LatestOnly searchWork =
+            new com.termina.work.LatestOnly(SEARCHES, Platform::runLater);
+
+    /** Where scans run: a virtual thread each, interrupted when superseded. */
+    private static final java.util.concurrent.Executor SEARCHES =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
 
     /**
      * Rows {@code [from, to)} as they were numbered when the search began, copied under the lock.
@@ -3536,11 +3741,23 @@ public final class TerminalView extends Region {
     }
 
     private void stepSearch(boolean older) {
-        flushPendingQuery();
+        // A query still held back by the typing pause, or results the output has overtaken: the
+        // step waits for the scan, so it acts on the matches as they are now.
+        if (searchQueryPending) {
+            searchQueryPending = false;
+            searchTyping.stop();
+            runSearch(false, true, () -> applyStep(older));
+            return;
+        }
         if (searchOutdated || search.epoch() != layoutEpoch) {
             searchOutdated = false;
-            runSearch(true, false);
+            runSearch(true, false, () -> applyStep(older));
+            return;
         }
+        applyStep(older);
+    }
+
+    private void applyStep(boolean older) {
         SearchState state = search;
         int next = ScrollbackSearch.step(state.current(), state.matches().size(), older);
         search = new SearchState(state.matches(), next, state.scrolledAt(), state.epoch());
