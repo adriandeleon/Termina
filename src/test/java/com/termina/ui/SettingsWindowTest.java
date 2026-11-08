@@ -18,14 +18,11 @@ class SettingsWindowTest {
     void arrowKeysSkipTheGroupHeaders() {
         // Items: header, Appearance, Terminal, Profiles, header, Advanced.
         java.util.function.IntPredicate selectable = i -> i != 0 && i != 4;
-        assertEquals(
-                1, SettingsWindow.nextSelectable(-1, 1, 6, selectable), "Down from nothing lands on the first page");
-        assertEquals(
-                5, SettingsWindow.nextSelectable(3, 1, 6, selectable), "Down from Profiles jumps the SYSTEM header");
-        assertEquals(3, SettingsWindow.nextSelectable(5, -1, 6, selectable), "and Up jumps back over it");
-        assertEquals(-1, SettingsWindow.nextSelectable(5, 1, 6, selectable), "nothing below the last page");
-        assertEquals(
-                -1, SettingsWindow.nextSelectable(1, -1, 6, selectable), "the header above the first is not a stop");
+        assertEquals(1, WindowRules.nextSelectable(-1, 1, 6, selectable), "Down from nothing lands on the first page");
+        assertEquals(5, WindowRules.nextSelectable(3, 1, 6, selectable), "Down from Profiles jumps the SYSTEM header");
+        assertEquals(3, WindowRules.nextSelectable(5, -1, 6, selectable), "and Up jumps back over it");
+        assertEquals(-1, WindowRules.nextSelectable(5, 1, 6, selectable), "nothing below the last page");
+        assertEquals(-1, WindowRules.nextSelectable(1, -1, 6, selectable), "the header above the first is not a stop");
     }
 
     // ---------------------------------------------------------------- spinners
@@ -46,19 +43,18 @@ class SettingsWindowTest {
 
     @Test
     void theWindowReloadsOnlyWhileShownAndNeverFromInsideAReload() {
-        assertTrue(SettingsWindow.shouldReload(true, false, false));
+        assertTrue(WindowRules.shouldReload(true, false, false));
         assertFalse(
-                SettingsWindow.shouldReload(false, false, false),
-                "nothing to refresh when hidden; show() reloads anyway");
-        assertFalse(SettingsWindow.shouldReload(true, true, false), "the re-entrancy guard");
+                WindowRules.shouldReload(false, false, false), "nothing to refresh when hidden; show() reloads anyway");
+        assertFalse(WindowRules.shouldReload(true, true, false), "the re-entrancy guard");
     }
 
     @Test
     void theWindowDoesNotReloadForAChangeItIsMakingItself() {
         // A spinner tick re-set thirty controls, resolved every key binding and rebuilt the profile
         // list and the preview, for a value the spinner was already showing.
-        assertFalse(SettingsWindow.shouldReload(true, false, true));
-        assertTrue(SettingsWindow.shouldReload(true, false, false), "a change from elsewhere still reloads");
+        assertFalse(WindowRules.shouldReload(true, false, true));
+        assertTrue(WindowRules.shouldReload(true, false, false), "a change from elsewhere still reloads");
     }
 
     // ---------------------------------------------------------------- validation

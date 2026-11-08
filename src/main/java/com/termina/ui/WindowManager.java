@@ -219,7 +219,12 @@ public final class WindowManager {
             double width = stage.getScene() != null ? stage.getScene().getWidth() : origin.getWidth();
             double height = stage.getScene() != null ? stage.getScene().getHeight() : origin.getHeight();
             double[] at = WindowPlacement.offsetWithin(
-                    origin.getX(), origin.getY(), CASCADE_OFFSET, width, height, SecondaryWindows.screenOf(origin));
+                    origin.getX(),
+                    origin.getY(),
+                    CASCADE_OFFSET,
+                    width,
+                    height,
+                    SecondaryWindows.bounds(SecondaryWindows.screenOf(origin)));
             stage.setX(at[0]);
             stage.setY(at[1]);
         }

@@ -232,6 +232,18 @@ Addressed on 2026-11-08, branch `small-partials`:
   - SET-03: `ui.SettingsSearch`, Editora's scoring; headings and page names are searched
     (`SettingsSearchTest`).
 
+Addressed on 2026-11-08, branch `pauta-guards`:
+
+- **Now met:**
+  - PERF-03: `work.LatestOnly`, Editora's verbatim with its test, guards the theme import, the
+    configuration import's scan, the gh sign-in check behind Sync and the update check.
+  - QUAL-05: the window's pure rules moved to `ui.WindowRules`; `PaletteKeys` lost its JavaFX half
+    to `PaletteNav`; `MouseEncoding` and `WindowPlacement` take plain values. `PureDecisionsTest`
+    fails a listed decision class that imports JavaFX or whose test needs the toolkit.
+  - REL-15: the release checks `TeamIdentifier=8JKSF797L8` before notarizing, and runs
+    `smoke-test.sh` on the notarized app inside the dmg after `spctl`; `WorkflowRulesTest` holds
+    the order. Unrun until the next tag.
+
 Everything else below stands.
 
 ## Totals

@@ -1571,8 +1571,9 @@ public final class TerminalView extends Region {
     /** @param bypass Shift's escape hatch; false for the rest of a press the program already has */
     private boolean reportMouse(MouseEvent e, com.jediterm.core.input.MouseEvent.Type type, boolean bypass) {
         if (session == null || bypass) return false;
-        int code = MouseEncoding.buttonCode(e.getButton());
-        var event = new com.jediterm.core.input.MouseEvent(type, code, MouseEncoding.modifierFlags(e));
+        int code = MouseEncoding.buttonCode(e.getButton().name());
+        var event = new com.jediterm.core.input.MouseEvent(
+                type, code, MouseEncoding.modifierFlags(e.isControlDown(), e.isShiftDown(), e.isMetaDown()));
         return session.getTerminal().onMouseEvent(column(e), visibleRow(e), event, mouseSettings());
     }
 
@@ -1580,7 +1581,9 @@ public final class TerminalView extends Region {
         if (session == null || e.isShiftDown()) return false;
         int code = MouseEncoding.wheelButtonCode(e.getDeltaY());
         var event = new com.jediterm.core.input.MouseWheelEvent(
-                code, MouseEncoding.modifierFlags(e), MouseEncoding.unitsToScroll(e.getDeltaY(), lineHeight));
+                code,
+                MouseEncoding.modifierFlags(e.isControlDown(), e.isShiftDown(), e.isMetaDown()),
+                MouseEncoding.unitsToScroll(e.getDeltaY(), lineHeight));
         int column = Math.max(0, Math.min(columns - 1, (int) Math.floor(textX(e.getX()) / charWidth)));
         int row = Math.max(0, Math.min(rows - 1, (int) Math.floor(textY(e.getY()) / lineHeight)));
         return session.getTerminal().onMouseEvent(column, row, event, mouseSettings());

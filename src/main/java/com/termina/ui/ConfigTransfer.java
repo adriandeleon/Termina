@@ -24,6 +24,7 @@ import javafx.stage.Window;
 import com.termina.config.ConfigArchive;
 import com.termina.config.ConfigArchive.Part;
 import com.termina.config.Settings;
+import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
 
@@ -78,23 +79,36 @@ final class ConfigTransfer {
      * development capture, which cannot drive a native one.
      */
     void importZip(Path zip, Reporter report, java.util.function.Function<ConfigArchive.Scan, Set<Part>> choose) {
-        background("termina-config-scan", () -> {
-            ConfigArchive.Scan scan;
-            try {
-                scan = ConfigArchive.scan(zip);
-            } catch (ConfigArchive.Refused e) {
-                Platform.runLater(() -> report.error(tr("config.import.refused", zip.getFileName(), refusal(e))));
-                return;
-            } catch (Exception e) {
-                Platform.runLater(() -> report.error(tr("config.import.failed", reason(e))));
-                return;
-            }
-            Platform.runLater(() -> {
-                Set<Part> ticked = choose.apply(scan);
-                if (!ticked.isEmpty()) apply(scan, ticked, report);
-            });
-        });
+        // A second import while the first zip is still being read replaces it (PERF-03): the dialog
+        // that opens is for the zip chosen last.
+        scans.submit(
+                () -> {
+                    try {
+                        return new ScanResult(ConfigArchive.scan(zip), null);
+                    } catch (ConfigArchive.Refused e) {
+                        return new ScanResult(null, tr("config.import.refused", zip.getFileName(), refusal(e)));
+                    } catch (Exception e) {
+                        return new ScanResult(null, tr("config.import.failed", reason(e)));
+                    }
+                },
+                result -> {
+                    ConfigArchive.Scan scan = result.scan();
+                    String error = result.error();
+                    if (scan == null) {
+                        report.error(error == null ? tr("config.import.failed", zip) : error);
+                        return;
+                    }
+                    Set<Part> ticked = choose.apply(scan);
+                    if (!ticked.isEmpty()) apply(scan, ticked, report);
+                });
     }
+
+    /** A zip read, or why it could not be. */
+    private record ScanResult(
+            ConfigArchive.@Nullable Scan scan, @Nullable String error) {}
+
+    private final com.termina.work.LatestOnly scans =
+            new com.termina.work.LatestOnly(task -> background("termina-config-scan", task), Platform::runLater);
 
     private void apply(ConfigArchive.Scan scan, Set<Part> ticked, Reporter report) {
         background("termina-config-import", () -> {

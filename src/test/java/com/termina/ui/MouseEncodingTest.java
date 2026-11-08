@@ -1,8 +1,5 @@
 package com.termina.ui;
 
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-
 import com.jediterm.terminal.emulator.mouse.MouseButtonCodes;
 import com.jediterm.terminal.emulator.mouse.MouseButtonModifierFlags;
 import org.junit.jupiter.api.Test;
@@ -12,37 +9,15 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The JavaFX-to-JediTerm mouse mapping. */
+/** The mouse mapping onto JediTerm's codes: a plain test, no toolkit (QUAL-05). */
 class MouseEncodingTest {
-
-    private static MouseEvent event(boolean control, boolean shift, boolean meta) {
-        return new MouseEvent(
-                MouseEvent.MOUSE_PRESSED,
-                0,
-                0,
-                0,
-                0,
-                MouseButton.PRIMARY,
-                1,
-                shift,
-                control,
-                false,
-                meta,
-                true,
-                false,
-                false,
-                false,
-                false,
-                false,
-                null);
-    }
 
     @Test
     void buttonsMapToTheProtocolCodes() {
-        assertEquals(MouseButtonCodes.LEFT, MouseEncoding.buttonCode(MouseButton.PRIMARY));
-        assertEquals(MouseButtonCodes.MIDDLE, MouseEncoding.buttonCode(MouseButton.MIDDLE));
-        assertEquals(MouseButtonCodes.RIGHT, MouseEncoding.buttonCode(MouseButton.SECONDARY));
-        assertEquals(MouseButtonCodes.NONE, MouseEncoding.buttonCode(MouseButton.NONE));
+        assertEquals(MouseButtonCodes.LEFT, MouseEncoding.buttonCode("PRIMARY"));
+        assertEquals(MouseButtonCodes.MIDDLE, MouseEncoding.buttonCode("MIDDLE"));
+        assertEquals(MouseButtonCodes.RIGHT, MouseEncoding.buttonCode("SECONDARY"));
+        assertEquals(MouseButtonCodes.NONE, MouseEncoding.buttonCode("NONE"));
     }
 
     @Test
@@ -56,27 +31,21 @@ class MouseEncodingTest {
 
     @Test
     void modifierBitsMatchTheProtocolFlags() {
-        assertEquals(0, MouseEncoding.modifierFlags(event(false, false, false)));
-        assertEquals(
-                MouseButtonModifierFlags.MOUSE_BUTTON_CTRL_FLAG,
-                MouseEncoding.modifierFlags(event(true, false, false)));
-        assertEquals(
-                MouseButtonModifierFlags.MOUSE_BUTTON_SHIFT_FLAG,
-                MouseEncoding.modifierFlags(event(false, true, false)));
-        assertEquals(
-                MouseButtonModifierFlags.MOUSE_BUTTON_META_FLAG,
-                MouseEncoding.modifierFlags(event(false, false, true)));
+        assertEquals(0, MouseEncoding.modifierFlags(false, false, false));
+        assertEquals(MouseButtonModifierFlags.MOUSE_BUTTON_CTRL_FLAG, MouseEncoding.modifierFlags(true, false, false));
+        assertEquals(MouseButtonModifierFlags.MOUSE_BUTTON_SHIFT_FLAG, MouseEncoding.modifierFlags(false, true, false));
+        assertEquals(MouseButtonModifierFlags.MOUSE_BUTTON_META_FLAG, MouseEncoding.modifierFlags(false, false, true));
         assertEquals(
                 MouseButtonModifierFlags.MOUSE_BUTTON_CTRL_FLAG
                         | MouseButtonModifierFlags.MOUSE_BUTTON_SHIFT_FLAG
                         | MouseButtonModifierFlags.MOUSE_BUTTON_META_FLAG,
-                MouseEncoding.modifierFlags(event(true, true, true)));
+                MouseEncoding.modifierFlags(true, true, true));
     }
 
     @Test
     void motionFlagIsNeverSetHereBecauseTheEncoderDerivesIt() {
         // Setting it too would flip the bit back and report a drag as an unrelated button.
-        int all = MouseEncoding.modifierFlags(event(true, true, true));
+        int all = MouseEncoding.modifierFlags(true, true, true);
         assertEquals(0, all & MouseButtonModifierFlags.MOUSE_BUTTON_MOTION_FLAG);
         assertEquals(0, all & MouseButtonModifierFlags.MOUSE_BUTTON_SCROLL_FLAG);
     }

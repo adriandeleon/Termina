@@ -196,13 +196,13 @@ final class CommandPalette {
     }
 
     private void onKey(KeyEvent e) {
-        PaletteKeys.Action action = PaletteKeys.action(e, true);
+        PaletteKeys.Action action = PaletteNav.action(e, true);
         switch (action) {
             case CANCEL -> hide();
             case ACCEPT -> runSelected();
             default -> {
                 // The cursor only ever rests on an enabled command; greyed-out ones are stepped over.
-                if (!PaletteKeys.navigate(list, action, this::isEnabled)) return; // typing: reaches the field
+                if (!PaletteNav.navigate(list, action, this::isEnabled)) return; // typing: reaches the field
             }
         }
         e.consume();

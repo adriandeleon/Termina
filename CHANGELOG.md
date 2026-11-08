@@ -60,6 +60,11 @@ done.
 
 ### Changed
 
+- **A release checks the macOS app is signed by Termina's team and launches the notarized app**
+  from its dmg, as well as the image before it was wrapped.
+- **A slow answer can no longer overwrite a newer one**: importing a theme or a configuration
+  twice, the GitHub check behind Settings ▸ Sync and the update check each apply only the latest
+  request's result.
 - **The Menu key and Shift+F10 open the terminal's menu**, under the cursor, as GNOME Terminal's
   do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
   current tab's own menu.
