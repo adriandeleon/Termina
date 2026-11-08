@@ -369,8 +369,10 @@ Recounted on 2026-11-08, after `pauta-small-items`, `menu-rows`, `readme-landing
 - **Still failed (1):** ABOUT-07, which names the edition the app meets, and so cannot pass while
   any MUST is short of met.
 - **Partly met (2):** PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path
-  has never run) and KBD-09 (JSON keymaps; Emacs/CUA left out for the shell's chords, which goes to
-  Pauta as a request).
+  has never run) and KBD-09 (JSON keymaps; Emacs/CUA left out for the shell's chords, asked of
+  Pauta in [adl-desktop-apps-guidelines#18](https://github.com/adriandeleon/adl-desktop-apps-guidelines/issues/18)).
+  PLAT-11 is met by its own check without TestFX; making TestFX optional is asked in
+  [adl-desktop-apps-guidelines#19](https://github.com/adriandeleon/adl-desktop-apps-guidelines/issues/19).
 - **Met:** the other 56, MENU-02 since `menu-rows`, REPO-01, DOCS-19 and DOCS-14 since
   `readme-landing`, and PERF-01 since `fx-thread-reads`.
 
