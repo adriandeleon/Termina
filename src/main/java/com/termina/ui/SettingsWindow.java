@@ -240,6 +240,11 @@ public final class SettingsWindow {
     }
 
     /** The window's scene, for the development capture hook. */
+    /** Every page as built, for the test that exercises their controls. */
+    java.util.Collection<Region> pagesForTest() {
+        return pages.values();
+    }
+
     public Scene scene() {
         return stage.getScene();
     }

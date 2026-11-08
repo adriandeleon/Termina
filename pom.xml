@@ -38,9 +38,9 @@
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
         <!-- The whole-build coverage floors (jacoco-check); os-windows lowers them. -->
-        <coverage.bundle.line>0.52</coverage.bundle.line>
-        <coverage.bundle.method>0.55</coverage.bundle.method>
-        <coverage.bundle.branch>0.49</coverage.bundle.branch>
+        <coverage.bundle.line>0.60</coverage.bundle.line>
+        <coverage.bundle.method>0.61</coverage.bundle.method>
+        <coverage.bundle.branch>0.52</coverage.bundle.branch>
         <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
              has; opening it elsewhere warns on every launch. The os-mac profile sets the real
              option; elsewhere this repeats an export already given, which is harmless, because an
@@ -331,11 +331,12 @@
                             <rules>
                                 <!--
                                   The whole build (PLAT-12, Pauta 2.0.2, whose target is 0.90 lines and
-                                  methods). For now a net three points under what CI measured on
-                                  2026-11-08, raised as the UI tests land: macOS and Linux 54.9% lines,
-                                  57.4% methods, 51.7% branches; Windows, which skips the PTY and
-                                  window-lifecycle tests, 42.8%, 44.5%, 46.0% — so the os-windows
-                                  profile lowers the floors rather than one number failing one side.
+                                  methods). For now a net a few points under what is measured, raised
+                                  as the UI tests land. With SettingsWindowFxTest, Linux measures 62.9%
+                                  lines, 63.6% methods, 54.9% branches. Windows skips the PTY and
+                                  window-lifecycle tests and measured twelve points lower before it
+                                  (42.8%, 44.5%, 46.0%), so the os-windows profile lowers the floors
+                                  rather than one number failing one side.
                                 -->
                                 <rule>
                                     <element>BUNDLE</element>
@@ -595,9 +596,9 @@
             <properties>
                 <prism.pipeline>d3d,es2,sw</prism.pipeline>
                 <!-- No PTY or window-lifecycle tests here; see jacoco-check. -->
-                <coverage.bundle.line>0.40</coverage.bundle.line>
-                <coverage.bundle.method>0.42</coverage.bundle.method>
-                <coverage.bundle.branch>0.43</coverage.bundle.branch>
+                <coverage.bundle.line>0.45</coverage.bundle.line>
+                <coverage.bundle.method>0.47</coverage.bundle.method>
+                <coverage.bundle.branch>0.45</coverage.bundle.branch>
                 <jpackage.icon>${project.basedir}/branding/termina.ico</jpackage.icon>
             </properties>
         </profile>
