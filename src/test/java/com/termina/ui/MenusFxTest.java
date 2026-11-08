@@ -180,4 +180,56 @@ class MenusFxTest {
         });
         return result.get(30, TimeUnit.SECONDS);
     }
+
+    @Test
+    void aMenuNamesAndGreysItsItemsAsTheRegistrySaysWhenItOpens() throws Exception {
+        // MENU-01 (Pauta 2.0.2): the bar holds no rule of its own; opening a menu asks the registry.
+        Settings settings = new Settings(dir.resolve("registry.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        settings.setShowStatusBar(true);
+        settings.setConfirmClose(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        onFx(() -> windows.openWindow(window));
+        waitFor(() -> started(window), "the shell");
+
+        assertTrue(onFx(() -> itemOpened(window, "reopenClosedTab").isDisable()), "nothing closed yet: greyed");
+        onFx(() -> {
+            window.openTab();
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if ("closeTab".equals(row.id())) row.action().run();
+            }
+            return null;
+        });
+        assertTrue(onFx(() -> !itemOpened(window, "reopenClosedTab").isDisable()), "a tab closed: available");
+
+        String before = onFx(() -> itemOpened(window, "pinTab").getText());
+        onFx(() -> {
+            itemOpened(window, "pinTab").fire();
+            return null;
+        });
+        String after = onFx(() -> itemOpened(window, "pinTab").getText());
+        assertTrue(!before.equals(after), "Pin Tab says which way it will go: " + before + " then " + after);
+        // The palette names it the same, from the same place.
+        assertEquals(after, onFx(() -> {
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if ("pinTab".equals(row.id())) return row.label();
+            }
+            return null;
+        }));
+    }
+
+    /** The bar's item for command {@code id}, after its menu has opened. */
+    private static MenuItem itemOpened(TerminalWindow window, String id) {
+        for (Menu menu : window.menuBarForTest().getMenus()) {
+            for (MenuItem item : menu.getItems()) {
+                if (id.equals(item.getUserData())) {
+                    javafx.event.Event.fireEvent(menu, new javafx.event.Event(Menu.ON_SHOWING));
+                    return item;
+                }
+            }
+        }
+        throw new AssertionError("no item for " + id);
+    }
 }

@@ -20,6 +20,7 @@ class PureDecisionsTest {
     /** Each decision class, and the plain test that covers it. */
     private static final List<String[]> DECISIONS = List.of(
             new String[] {"WindowRules", "WindowRulesPureTest"},
+            new String[] {"CommandRegistry", "CommandRegistryTest"},
             new String[] {"PaletteKeys", "PaletteKeysTest"},
             new String[] {"MouseEncoding", "MouseEncodingTest"},
             new String[] {"TabRanges", "TabRangesTest"},

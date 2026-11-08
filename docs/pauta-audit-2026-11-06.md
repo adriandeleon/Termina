@@ -277,6 +277,19 @@ Addressed on 2026-11-08, branches `coverage-net` to `coverage-final`:
 - **Not met on Windows**, where the shell tests are skipped because the shell path has never run
   there; the `os-windows` profile lowers the floors (0.45 / 0.47 / 0.45).
 
+Addressed on 2026-11-08, branch `command-registry`:
+
+- **Now met:** MENU-01. `ui.CommandRegistry` holds every command by id with its action, its label
+  now and its gate now. Menu items run their id through it, and every menu names and greys its items
+  from it as it opens; the three hand-written `onShowing` patches (File, Edit, Window) and View's
+  label handler are gone. The palette's rows and reasons and the key bindings' dispatch go through
+  the same registry, so a command reads and greys the same everywhere. `CommandRegistryTest` (no
+  toolkit), and `MenusFxTest` opens a menu and finds Reopen Closed Tab greyed, then not, and Pin Tab
+  relabelled the same as the palette's row.
+- **Partly:** the bar's model is still built from the actions as they are registered rather than from
+  a list of ids; each row runs through the registry by id, which is what the rule's failure is about.
+- **To check on macOS:** the screen menu bar's menus open through the same `ON_SHOWING`.
+
 Everything else below stands.
 
 ## Totals
