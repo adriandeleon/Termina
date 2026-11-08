@@ -222,6 +222,11 @@ public final class TerminalSession {
         return terminal;
     }
 
+    /** The number of this session's thread pool, as its thread names carry it. */
+    public int threadPoolId() {
+        return executors.id();
+    }
+
     public boolean isRunning() {
         return !closed && process.isAlive();
     }
