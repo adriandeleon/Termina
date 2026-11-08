@@ -108,6 +108,11 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # bar has no use for leaks past it (captureSelectionAtEnd)
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
   -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open
+  -Dtermina.captureImportConfig=/x.zip;KEY_BINDINGS,THEMES
+                                       # import a configuration zip ticking those parts, skipping
+                                       # the file chooser and the dialog, and print the settings
+                                       # and theme list after; pair with -Duser.home=<scratch> for
+                                       # an export from the palette (capturePalette + enter)
   -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
                                        # the guard takes it back
   -Dtermina.captureSearch=error        # open the find bar and type the query, reporting the count,

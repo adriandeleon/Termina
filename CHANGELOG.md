@@ -17,6 +17,12 @@ done.
   touches the ones in daily use. `--config-dir` and `TERMINA_CONFIG_DIR` still take precedence.
 - **The Debug Log can be exported** to a file, and the previous session's log is kept beside this
   one's as `termina-session.prev.log`.
+- **Export and Import Configuration.** Settings ▸ Advanced and the palette save a timestamped
+  `.zip` of your settings, key bindings, shell profiles and imported themes to your home folder, and
+  restore from one. The import lists the parts the zip holds and replaces only the ones you leave
+  ticked; window positions and the settings-sync connection stay as they are. Your current
+  configuration is copied to `backups/` in the config folder first. A zip that is not an export, or
+  that a newer Termina wrote, is refused before anything changes.
 - **One Termina per config folder.** Launching it again opens a new window in the running Termina,
   with that launch's `-d`, `-e` and `-T`, in the directory it was launched from; the second process
   exits as soon as the first has the request. `--new-instance` starts a separate one.
