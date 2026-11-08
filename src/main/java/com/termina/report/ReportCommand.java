@@ -21,9 +21,12 @@ public final class ReportCommand {
 
     private ReportCommand() {}
 
-    /** @return the process's exit status */
-    public static int run(String configDir, PrintStream out) {
-        Settings settings = new Settings(Settings.defaultFile(configDir));
+    /**
+     * @param settingsFile the settings file the launch resolved, which names the folder to report on
+     * @return the process's exit status
+     */
+    public static int run(Path settingsFile, PrintStream out) {
+        Settings settings = new Settings(settingsFile);
         settings.load();
         ProblemReport report = ProblemReport.build(
                 AppInfo.details(), settings.values(), lastSessionLog(settings.directory()), Redactor.forThisMachine());

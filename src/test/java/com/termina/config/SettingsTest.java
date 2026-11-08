@@ -550,4 +550,19 @@ class SettingsTest {
         read.setSyncIntervalMinutes(1_000_000);
         assertEquals(Settings.MAX_SYNC_INTERVAL, read.syncIntervalMinutes());
     }
+
+    @Test
+    void devUsesItsOwnFolderAndAnExplicitFolderStillWins() {
+        // SET-07 (Pauta 2.0.2): --config-dir, then TERMINA_CONFIG_DIR, then the standard folder.
+        Path explicit = Settings.defaultFile("/tmp/x", true);
+        assertEquals(Path.of("/tmp/x", Settings.SETTINGS_FILE), explicit);
+        if (System.getenv("TERMINA_CONFIG_DIR") == null) {
+            assertEquals(
+                    Path.of(System.getProperty("user.home"), ".termina-dev", Settings.SETTINGS_FILE),
+                    Settings.defaultFile("", true));
+            assertEquals(
+                    Path.of(System.getProperty("user.home"), ".termina", Settings.SETTINGS_FILE),
+                    Settings.defaultFile("", false));
+        }
+    }
 }

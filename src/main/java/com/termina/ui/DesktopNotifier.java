@@ -158,7 +158,10 @@ final class DesktopNotifier {
                 process.getOutputStream().close();
                 if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) process.destroyForcibly();
             } catch (Exception e) {
-                // No daemon, no tool, a sandbox that refuses the bus: the tab is still marked.
+                // No daemon, no tool, a sandbox that refuses the bus: the tab is still marked, and
+                // the Debug Log says why the desktop did not show it (TRAY-09, Pauta 2.0.2).
+                java.util.logging.Logger.getLogger(DesktopNotifier.class.getName())
+                        .log(java.util.logging.Level.WARNING, "desktop notification not shown: " + e, e);
             }
         });
     }

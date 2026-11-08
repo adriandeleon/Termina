@@ -58,7 +58,7 @@ jackson-core jar's META-INF directory.
 
 SLF4J — https://www.slf4j.org
 Copyright (c) 2004-2023 QOS.ch.
-Licensed under the MIT License. slf4j-api and slf4j-simple, unmodified.
+Licensed under the MIT License. slf4j-api and slf4j-jdk14, unmodified.
 
 The Apache License 2.0 is at https://www.apache.org/licenses/LICENSE-2.0, the
 GNU GPL version 2 with the Classpath Exception at

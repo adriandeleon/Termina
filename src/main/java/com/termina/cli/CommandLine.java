@@ -22,6 +22,7 @@ public record CommandLine(
         boolean version,
         boolean report,
         boolean newInstance,
+        boolean dev,
         String workingDirectory,
         List<String> command,
         String configDir,
@@ -43,6 +44,7 @@ public record CommandLine(
         boolean version = false;
         boolean report = false;
         boolean newInstance = false;
+        boolean dev = false;
         String workingDirectory = "";
         String configDir = "";
         String title = "";
@@ -71,6 +73,7 @@ public record CommandLine(
                 case "-v", "-V", "--version" -> version = true;
                 case "--report" -> report = true;
                 case "--new-instance" -> newInstance = true;
+                case "--dev" -> dev = true;
                 case "-d", "--working-directory" -> {
                     if (i + 1 >= args.length) return error(arg + " needs a directory");
                     workingDirectory = args[++i];
@@ -101,7 +104,16 @@ public record CommandLine(
             }
         }
         return new CommandLine(
-                help, version, report, newInstance, workingDirectory, List.copyOf(command), configDir, title, null);
+                help,
+                version,
+                report,
+                newInstance,
+                dev,
+                workingDirectory,
+                List.copyOf(command),
+                configDir,
+                title,
+                null);
     }
 
     private static String value(String arg) {
@@ -109,7 +121,7 @@ public record CommandLine(
     }
 
     private static CommandLine error(String message) {
-        return new CommandLine(false, false, false, false, "", List.of(), "", "", message);
+        return new CommandLine(false, false, false, false, false, "", List.of(), "", "", message);
     }
 
     /** The text {@code --help} prints. */
@@ -124,6 +136,7 @@ public record CommandLine(
                   -v, --version                  Show the version and exit
                       --report                   Print a problem report, open a GitHub issue for it, and exit
       --new-instance             Start a Termina of its own, not a window in the running one
+      --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
                   -d, --working-directory=DIR    Start the shell in DIR
                   -T, --title=TITLE              Name the first tab TITLE
                   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

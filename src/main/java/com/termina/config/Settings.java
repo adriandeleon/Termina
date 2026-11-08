@@ -249,17 +249,26 @@ public final class Settings {
      *     variable, which in turn takes precedence over the standard location
      */
     public static Path defaultFile(String override) {
+        return defaultFile(override, false);
+    }
+
+    /**
+     * The one resolver (SET-07, Pauta 2.0.2): {@code --config-dir}, then {@code TERMINA_CONFIG_DIR},
+     * then the standard folder, which {@code --dev} makes {@code ~/.termina-dev} so a build being
+     * worked on never touches the settings of the Termina in daily use.
+     */
+    public static Path defaultFile(String override, boolean dev) {
         if (override != null && !override.isBlank()) {
             return Path.of(override.trim()).resolve(SETTINGS_FILE);
         }
-        return defaultFileFromEnvironment();
+        return defaultFileFromEnvironment(dev);
     }
 
-    private static Path defaultFileFromEnvironment() {
+    private static Path defaultFileFromEnvironment(boolean dev) {
         String override = System.getenv("TERMINA_CONFIG_DIR");
         Path dir = override != null && !override.isBlank()
                 ? Path.of(override)
-                : Path.of(System.getProperty("user.home"), ".termina");
+                : Path.of(System.getProperty("user.home"), dev ? ".termina-dev" : ".termina");
         return dir.resolve(SETTINGS_FILE);
     }
 

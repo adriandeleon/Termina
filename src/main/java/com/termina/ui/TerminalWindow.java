@@ -2289,7 +2289,11 @@ public final class TerminalWindow {
         alert.getButtonTypes().setAll(cancel, close);
         // Cancel is the default, so dismissing the dialog by any route keeps the program alive.
         ((javafx.scene.control.Button) alert.getDialogPane().lookupButton(cancel)).setDefaultButton(true);
-        ((javafx.scene.control.Button) alert.getDialogPane().lookupButton(close)).setDefaultButton(false);
+        javafx.scene.control.Button closeButton =
+                (javafx.scene.control.Button) alert.getDialogPane().lookupButton(close);
+        closeButton.setDefaultButton(false);
+        // It ends a running program: the danger style (CONF-03, Pauta 2.0.2), as Confirm gives its buttons.
+        closeButton.getStyleClass().add(atlantafx.base.theme.Styles.DANGER);
         return alert.showAndWait().orElse(cancel) == close;
     }
 
