@@ -330,3 +330,11 @@ is broken.
 - **The close prompt is modal, and a capture run that reaches it hangs.** A fresh shell often has a
   child for a moment (a prompt framework's helper), so closing a pane or tab in a capture asks —
   pass `-Dtermina.captureCloseAnswer=close`, which `capturePanes` and `captureCloseTabs` both read.
+- **A tab is there before its shell is.** The shell starts on a worker (it forks, and may wait on a
+  login shell for `PATH`) and the session is built back on the FX thread, so for a moment after
+  `openTab` the view `isStarted()` false and has no session. Everything that sends to the shell
+  checks first; a test waits for `isStarted()` rather than calling `getSession()` straight after
+  opening a tab. The close prompt is the same shape: the shells' children are read off the FX
+  thread and the question comes a little later, so a test that answers it waits for the answer
+  (`DialogAnswers.answered()`) before queueing another — a newer answer cancels an older one, and
+  the prompt then sits unanswered and catches the next test's.

@@ -298,8 +298,12 @@ class MenusFxTest {
             Thread.sleep(200);
             found = onFx(() -> {
                 for (double y = 2; y < 200; y += 4) {
-                    javafx.event.Event.fireEvent(view, moved(20, y));
-                    if (view.hasLinkUnderPointer()) return true;
+                    // The URL's row, not the prompt's: a path there is a link candidate too.
+                    if (!view.hoverLinkForCapture(20, y).contains("termina-link")) continue;
+                    // A fired event's coordinates are the scene's; the view's start below the menus.
+                    javafx.geometry.Point2D scene = view.localToScene(20, y);
+                    javafx.event.Event.fireEvent(view, moved(scene.getX(), scene.getY()));
+                    return view.hasLinkUnderPointer();
                 }
                 return false;
             });
@@ -313,9 +317,17 @@ class MenusFxTest {
             }
             return null;
         });
-        assertEquals(
-                "https://example.com/termina-link",
-                onFx(() -> javafx.scene.input.Clipboard.getSystemClipboard().getString()));
+        waitFor(
+                () -> {
+                    try {
+                        return "https://example.com/termina-link"
+                                .equals(onFx(() -> javafx.scene.input.Clipboard.getSystemClipboard()
+                                        .getString()));
+                    } catch (Exception e) {
+                        return false;
+                    }
+                },
+                "the link's address on the clipboard");
 
         onFx(() -> {
             javafx.event.Event.fireEvent(

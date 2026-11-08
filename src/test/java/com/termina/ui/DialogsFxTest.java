@@ -115,11 +115,14 @@ class DialogsFxTest {
         });
         Thread.sleep(800);
         int tabs = onFx(() -> window.tabsForTest().size());
+        int answered = DialogAnswers.answered();
         onFx(() -> {
             DialogAnswers.next(false, null);
             row(window, "closeTab").action().run();
             return null;
         });
+        // The prompt comes once the process table has been read, off the FX thread.
+        waitFor(() -> DialogAnswers.answered() > answered, "the close prompt, answered");
         assertEquals(tabs, onFx(() -> window.tabsForTest().size()), "Cancel kept the tab");
 
         // With the status bar off, a report is a dialog.

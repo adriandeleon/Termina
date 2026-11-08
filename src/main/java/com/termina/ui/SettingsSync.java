@@ -139,11 +139,24 @@ final class SettingsSync {
     private @Nullable String keybindingsSeen;
 
     /** Held for the life of the process once this one is the syncing instance. */
-    private @Nullable FileChannel lockChannel;
+    private volatile @Nullable FileChannel lockChannel;
 
-    private @Nullable FileLock lock;
-    /** Another process holds the lock. Asked once: see the class comment. */
-    private boolean secondary;
+    private volatile @Nullable FileLock lock;
+    /**
+     * Where the instance lock stands. Asked once, on the worker — a file lock is I/O and the FX thread
+     * does none (PERF-01) — and never again after a refusal: see the class comment. FX thread only.
+     */
+    private Claim claim = Claim.UNASKED;
+
+    private enum Claim {
+        UNASKED,
+        ASKING,
+        PRIMARY,
+        SECONDARY
+    }
+
+    /** What waited for the lock's answer: a Sync Now pressed in the moment it was being asked. */
+    private final List<Runnable> afterClaim = new ArrayList<>();
 
     private volatile String machine = "";
 
@@ -203,13 +216,31 @@ final class SettingsSync {
     }
 
     /**
-     * Takes the instance lock the first time it is needed. Never retried after a refusal: the process
-     * that holds it may let go later, but this one's settings are its own in-memory copy from launch,
-     * and syncing those would undo whatever the other one changed.
+     * Whether this process holds the instance lock. The first time it is needed it is asked for on the
+     * worker, and this answers false until the answer is back; then the timers and the state are
+     * brought up to date as for a settings change. Never retried after a refusal: the process that
+     * holds it may let go later, but this one's settings are its own in-memory copy from launch, and
+     * syncing those would undo whatever the other one changed.
      */
     private boolean primary() {
-        if (lock != null) return true;
-        if (secondary) return false;
+        if (claim == Claim.UNASKED) {
+            claim = Claim.ASKING;
+            worker.execute(() -> {
+                boolean held = takeLock();
+                Platform.runLater(() -> {
+                    claim = held ? Claim.PRIMARY : Claim.SECONDARY;
+                    settingsChanged();
+                    List<Runnable> waited = List.copyOf(afterClaim);
+                    afterClaim.clear();
+                    waited.forEach(Runnable::run);
+                });
+            });
+        }
+        return claim == Claim.PRIMARY;
+    }
+
+    /** Takes the lock, on the worker. */
+    private boolean takeLock() {
         try {
             Files.createDirectories(syncDir());
             lockChannel = FileChannel.open(
@@ -218,10 +249,7 @@ final class SettingsSync {
         } catch (IOException | OverlappingFileLockException e) {
             lock = null;
         }
-        if (lock == null) {
-            secondary = true;
-            closeQuietly();
-        }
+        if (lock == null) closeQuietly();
         return lock != null;
     }
 
@@ -294,6 +322,13 @@ final class SettingsSync {
      * @param label how a command id is named to the user, for a conflict
      */
     void syncNow(Reporter report, Function<String, String> label) {
+        // Asked in the moment the lock is being taken: answered once it is, rather than "another
+        // Termina is syncing", which is not yet known.
+        if (configured() && claim == Claim.UNASKED) primary();
+        if (configured() && claim == Claim.ASKING) {
+            afterClaim.add(() -> syncNow(report, label));
+            return;
+        }
         String unavailable = unavailableText();
         if (unavailable != null) {
             report.report(MessageLog.Severity.WARNING, unavailable);
@@ -715,7 +750,7 @@ final class SettingsSync {
         // Without these a hand-edited URL read "Not connected." beside a Disconnect button.
         String unavailable = unavailableKey(settings.syncEnabled(), settings.syncRepository(), configured(), true);
         if (unavailable != null) return tr(unavailable);
-        if (configured() && secondary) return tr("sync.state.secondary");
+        if (configured() && claim == Claim.SECONDARY) return tr("sync.state.secondary");
         SyncReport report = state.report();
         LocalTime at = state.at();
         return switch (state.phase()) {

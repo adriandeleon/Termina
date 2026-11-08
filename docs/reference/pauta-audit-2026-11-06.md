@@ -341,25 +341,43 @@ Addressed on 2026-11-08, branch `readme-landing`:
     audit beside the guides, and every relative link in the Markdown resolving.
 - **Totals:** 1 MUST fails (ABOUT-07) and 5 are partly met.
 
+Addressed on 2026-11-08, branch `fx-thread-reads`:
+
+- **Now met:** PERF-01, the six reads that were left on the FX thread, and two the list missed.
+  - The shell starts on a worker and the session is built on the FX thread (`TerminalView.start`
+    with callbacks); a view closed meanwhile ends the process it is handed. The login shell's `PATH`
+    probe, which ran inside the start, goes with it.
+  - The directory a new tab inherits is read from the other shell's process on that same worker.
+  - The close prompt reads the shells' children on a worker and asks once they are known; every
+    close path goes through `confirmCloseThen`.
+  - The scrollback search runs on a worker through `LatestOnly`; a newer query interrupts the scan.
+  - A link's file check runs on a virtual thread with its answers kept for the gesture; the hover,
+    the right-click menu, a modifier-click and the link commands act when the answer comes.
+  - The sync instance lock is taken on the sync worker.
+  - The settings, the first window's fonts, the log file, the catalogue and the imported themes are
+    read in `Application.init`, on the launcher thread — PERF-16 met as well.
+  - `ShellStartFxTest` checks the inherited directory and a tab closed before its shell started.
+- **Totals:** 1 MUST fails (ABOUT-07) and 4 are partly met.
+
 Everything else below stands, except the totals, which are recounted.
 
 ## Totals
 
-Recounted on 2026-11-08, after `pauta-small-items`, `menu-rows` and `readme-landing`. Of the 59
-failed MUSTs:
+Recounted on 2026-11-08, after `pauta-small-items`, `menu-rows`, `readme-landing` and
+`fx-thread-reads`. Of the 59 failed MUSTs:
 
 - **Still failed (1):** ABOUT-07, which names the edition the app meets, and so cannot pass while
   any MUST is short of met.
-- **Partly met (3):** PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path
-  has never run), PERF-01 (the remaining FX-thread reads are left on purpose, on measurements) and
-  KBD-09 (JSON keymaps; Emacs/CUA left out for the shell's chords).
-- **Met:** the other 55, MENU-02 since `menu-rows`, and REPO-01, DOCS-19 and DOCS-14 since
-  `readme-landing`.
+- **Partly met (2):** PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path
+  has never run) and KBD-09 (JSON keymaps; Emacs/CUA left out for the shell's chords, which goes to
+  Pauta as a request).
+- **Met:** the other 56, MENU-02 since `menu-rows`, REPO-01, DOCS-19 and DOCS-14 since
+  `readme-landing`, and PERF-01 since `fx-thread-reads`.
 
 Of the 34 partly met: PLAT-11 (no TestFX; headless glass in surefire instead) and ABOUT-01 (About in
 the macOS application menu, unrun on macOS) remain partly met; the other 32 are met.
 
-So: **1 MUST fails and 5 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
+So: **1 MUST fails and 4 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
 judged from this repository. Under Pauta's rule a failed MUST blocks a release, so Termina still
 cannot claim 2.0.2 compliance. Several "met" items rest on code that has never run on Windows, or
 on macOS paths unchecked by hand (REL-15 until the next tag, the screen menu bar's ON_SHOWING).

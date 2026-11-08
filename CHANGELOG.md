@@ -62,6 +62,10 @@ done.
 
 ### Changed
 
+- **Nothing that touches the disk or the process table runs on the window's thread any more**, so a
+  slow disk or a hung network mount cannot freeze the window. A new tab appears at once and its
+  shell a moment later; the close prompt, the scrollback search and the check behind a hovered
+  file path wait off to the side; and the settings and fonts are read before the window is built.
 - **The menu bar's shortcuts line up in a column**, with each command's icon beside it where the
   right-click menus have one. On macOS the shortcut follows the title in the screen menu bar. The
   menus no longer use accelerators, so a shortcut is only ever run by Termina's own key handling.

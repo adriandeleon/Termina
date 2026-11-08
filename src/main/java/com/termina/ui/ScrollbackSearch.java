@@ -161,6 +161,8 @@ final class ScrollbackSearch {
         List<Boolean> carriedWrapped = List.of();
         int end = endLine;
         while (count < MAX_MATCHES && end > firstLine) {
+            // Superseded by a newer query: the scan nobody wants stops here (LatestOnly interrupts).
+            if (Thread.currentThread().isInterrupted()) break;
             int from = Math.max(firstLine, end - Math.max(1, chunkRows));
             Chunk chunk = source.read(from, end);
             if (chunk == null) break;
