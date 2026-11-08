@@ -13,6 +13,8 @@ done.
 
 ### Added
 
+- **Help ▸ Documentation and Help ▸ What's New** open the user documentation and this version's
+  release notes.
 - **Export and Import Configuration.** Settings ▸ Advanced and the palette save a timestamped
   `.zip` of your settings, key bindings, shell profiles and imported themes to your home folder, and
   restore from one. The import lists the parts the zip holds and replaces only the ones you leave
@@ -54,6 +56,8 @@ done.
 
 ### Changed
 
+- **A release's notes are its section of this changelog**, under the install instructions, rather
+  than a list of commit subjects. A tag whose version has no section here fails before building.
 - **The multi-line paste prompt can no longer be switched off from Settings.** A setting that only
   makes Termina less safe is a `settings.json` key instead: `"input.confirmPaste": false`.
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug

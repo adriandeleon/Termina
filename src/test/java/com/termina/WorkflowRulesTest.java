@@ -101,6 +101,17 @@ class WorkflowRulesTest {
     }
 
     @Test
+    void aReleasesNotesAreItsChangelogSectionWrittenBeforePublishing() throws IOException {
+        // DOCS-05, REL-04 (Pauta 2.0.2): what a user reads on a release page was written for users.
+        String release = read(Path.of(".github/workflows/release.yml"));
+        int written = release.indexOf(
+                "scripts/release-notes.sh \"${{ needs.build.outputs.version }}\" > out/release-notes.md");
+        assertTrue(written > 0, "the publish job no longer writes the notes from CHANGELOG.md");
+        assertTrue(written < release.indexOf("- name: Publish release"), "the notes are written before publishing");
+        assertTrue(read(Path.of("jreleaser.yml")).contains("external: out/release-notes.md"));
+    }
+
+    @Test
     void dependabotUpdatesActionsAndMavenWeekly() throws IOException {
         String config = read(Path.of(".github/dependabot.yml"));
         for (String ecosystem : List.of("github-actions", "maven")) {

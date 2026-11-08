@@ -19,8 +19,3 @@ Verify a download against `checksums_sha256.txt`. Each Linux download is also si
 `gpg --verify <file>.asc <file>`. The RPM carries its signature inside as well, which
 `rpm --import termina-signing-key.asc` lets `rpm -K` and `dnf` check.
 
-## Changes
-
-{{changelogChanges}}
-
-{{changelogContributors}}
