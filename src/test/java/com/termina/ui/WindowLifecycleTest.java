@@ -52,6 +52,8 @@ class WindowLifecycleTest {
         settings.load();
         settings.setUpdateCheck(false);
 
+        // Pools alive before: other tests in this JVM may have shells of their own running.
+        java.util.Set<String> before = sessionPools();
         WindowManager windows = onFx(() -> new WindowManager(settings));
         TerminalWindow first = onFx(() -> windows.openWindow(null));
         TerminalWindow second = onFx(() -> windows.openWindow(first));
@@ -67,8 +69,8 @@ class WindowLifecycleTest {
         TerminalSession closing = sessionOf(first);
         sessionOf(second);
         // Each session runs its emulator on a pool of its own, termina-worker-N and termina-sched-N.
-        waitFor(() -> sessionPools().size() >= 2, "both sessions' threads to start");
-        java.util.Set<String> withBoth = sessionPools();
+        waitFor(() -> mine(before).size() >= 2, "both sessions' threads to start");
+        java.util.Set<String> withBoth = mine(before);
 
         onFx(() -> {
             first.stage().hide(); // the route every way out of a window takes: WINDOW_HIDDEN
@@ -76,7 +78,9 @@ class WindowLifecycleTest {
         });
 
         waitFor(() -> !closing.isRunning(), "the closed window's shell to end");
-        waitFor(() -> sessionPools().size() < withBoth.size(), "its session's threads to end");
+        String pool = String.valueOf(closing.threadPoolId());
+        assertTrue(withBoth.contains(pool), "its pool was running: " + pool + " in " + withBoth);
+        waitFor(() -> !sessionPools().contains(pool), "its session's threads to end");
         assertTrue(sessionOf(second).isRunning(), "the other window's shell is untouched");
         assertFalse(onFx(() -> windows.windows().contains(first)), "the manager let go of the window");
 
@@ -105,6 +109,13 @@ class WindowLifecycleTest {
     }
 
     /** The session thread pools alive now, by number: termina-worker-3 and termina-sched-3 are pool 3. */
+    /** The session pools started since {@code before}: this test's own. */
+    private static java.util.Set<String> mine(java.util.Set<String> before) {
+        java.util.Set<String> pools = sessionPools();
+        pools.removeAll(before);
+        return pools;
+    }
+
     private static java.util.Set<String> sessionPools() {
         java.util.Set<String> pools = new java.util.TreeSet<>();
         for (Thread t : Thread.getAllStackTraces().keySet()) {

@@ -3096,6 +3096,14 @@ public final class TerminalWindow {
         return missing;
     }
 
+    /** Every palette row that can run now, for the test that runs them all. */
+    List<MenuAction> runnablePaletteRowsForTest() {
+        java.util.Map<MenuAction, String> unavailable = new java.util.IdentityHashMap<>();
+        List<MenuAction> rows = paletteRows(unavailable);
+        rows.removeIf(unavailable::containsKey);
+        return rows;
+    }
+
     /** Whether the palette has been built yet: for the test that the first frame does not pay for it. */
     boolean paletteBuilt() {
         return palette != null;

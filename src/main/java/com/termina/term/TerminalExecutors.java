@@ -19,11 +19,12 @@ public final class TerminalExecutors implements TerminalExecutorServiceManager {
 
     private static final AtomicInteger POOL_ID = new AtomicInteger();
 
+    private final int id;
     private final ScheduledExecutorService scheduled;
     private final ExecutorService unbounded;
 
     public TerminalExecutors() {
-        int id = POOL_ID.incrementAndGet();
+        id = POOL_ID.incrementAndGet();
         scheduled = Executors.newSingleThreadScheduledExecutor(daemon("termina-sched-" + id));
         unbounded = Executors.newCachedThreadPool(daemon("termina-worker-" + id));
     }
@@ -34,6 +35,11 @@ public final class TerminalExecutors implements TerminalExecutorServiceManager {
             t.setDaemon(true);
             return t;
         };
+    }
+
+    /** The number in this pool's thread names: termina-worker-N, termina-sched-N. */
+    public int id() {
+        return id;
     }
 
     @Override
