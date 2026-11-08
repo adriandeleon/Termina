@@ -330,4 +330,19 @@ class ShellDiscoveryTest {
     private static Profile byId(List<Profile> profiles, String id) {
         return profiles.stream().filter(p -> p.id().equals(id)).findFirst().orElse(null);
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.condition.DisabledOnOs(
+            value = org.junit.jupiter.api.condition.OS.WINDOWS,
+            disabledReason = "drives sh, which a Windows runner need not have")
+    void theProbeRunnerReturnsWhatACommandPrintedAndNothingForOneThatWillNotStart() {
+        // The runner the Windows probes (reg.exe, wsl.exe) go through, on a command every Unix has.
+        ShellDiscovery.CommandResult ran = ShellDiscovery.run(new ProcessBuilder("sh", "-c", "printf found; exit 3"));
+        org.junit.jupiter.api.Assertions.assertNotNull(ran);
+        org.junit.jupiter.api.Assertions.assertEquals(3, ran.exitCode());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "found", new String(ran.output(), java.nio.charset.StandardCharsets.UTF_8));
+        org.junit.jupiter.api.Assertions.assertNull(
+                ShellDiscovery.run(new ProcessBuilder("/no/such/command-termina")), "a start that fails is no answer");
+    }
 }
