@@ -33,6 +33,10 @@ class MessageLogTest {
         assertEquals(
                 List.of("m4", "m3", "m2"),
                 log.entries().stream().map(MessageLog.Entry::text).toList());
+        // PERF-11: what was cut is counted, for the window to say, until the log is cleared.
+        assertEquals(2, log.cut());
+        log.clear();
+        assertEquals(0, log.cut());
     }
 
     @Test

@@ -30,6 +30,8 @@ public final class MessageLog {
     private final Deque<Entry> entries = new ArrayDeque<>();
     private final List<Runnable> listeners = new ArrayList<>();
     private int unreadErrors;
+    /** How many of the oldest messages were dropped to stay under the cap (PERF-11). */
+    private int cut;
 
     MessageLog() {
         this(MAX);
@@ -48,7 +50,10 @@ public final class MessageLog {
         entries.addFirst(entry);
         // An evicted error still counts (MLOG-07): the count is of errors nobody has looked at,
         // and dropping the oldest entry is not the user looking at it.
-        while (entries.size() > max) entries.removeLast();
+        while (entries.size() > max) {
+            entries.removeLast();
+            cut++;
+        }
         if (entry.severity() == Severity.ERROR) unreadErrors++;
         changed();
     }
@@ -62,6 +67,11 @@ public final class MessageLog {
     @org.jspecify.annotations.Nullable
     Entry latest() {
         return entries.peekFirst();
+    }
+
+    /** How many older messages the cap has dropped since the log was last cleared. */
+    int cut() {
+        return cut;
     }
 
     int unreadErrors() {
@@ -78,6 +88,7 @@ public final class MessageLog {
     void clear() {
         entries.clear();
         unreadErrors = 0;
+        cut = 0;
         changed();
     }
 

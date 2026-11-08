@@ -52,8 +52,10 @@ print(os.pathsep.join(os.path.join(deps, j) for j in keep))
 EOF
 )"
 
+# Only macOS's JavaFX has com.sun.glass.ui.mac (ui.MacAppMenu); opening it elsewhere warns.
+MAC_OPENS=--add-exports=javafx.graphics/com.sun.glass.ui=com.termina
 case "$(uname -s)" in
-    Darwin) PRISM=mtl,es2,sw ;;
+    Darwin) PRISM=mtl,es2,sw; MAC_OPENS=--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.termina ;;
     Linux)  PRISM=es2,sw ;;
     *)      PRISM=d3d,es2,sw ;;
 esac
@@ -62,6 +64,8 @@ exec java \
     --module-path "$MODULE_PATH:target/classes" \
     --add-modules com.termina \
     --enable-native-access=javafx.graphics,com.sun.jna \
+    --add-exports=javafx.graphics/com.sun.glass.ui=com.termina \
+    $MAC_OPENS \
     "-Dprism.order=$PRISM" \
     "$@" \
     -m com.termina/com.termina.App

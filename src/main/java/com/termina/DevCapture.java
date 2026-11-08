@@ -460,6 +460,22 @@ final class DevCapture {
         String tokens = System.getProperty("termina.capturePaletteKeys");
         if (tokens == null || tokens.isBlank()) return;
         System.out.println("[capture] palette keys " + window.firePaletteKeysForCapture(tokens));
+        // A command run from the palette may leave a menu up (Tab Menu): which, and where.
+        List<String> menus = new ArrayList<>();
+        for (javafx.stage.Window w : javafx.stage.Window.getWindows()) {
+            if (w instanceof javafx.scene.control.ContextMenu menu && menu.isShowing()) {
+                javafx.scene.Node owner = menu.getOwnerNode();
+                String ownerName = owner == null ? "?" : String.join(".", owner.getStyleClass());
+                menus.add(String.format(
+                        java.util.Locale.ROOT,
+                        "%d items under %s at %.0f,%.0f",
+                        menu.getItems().size(),
+                        ownerName,
+                        menu.getAnchorX() - window.stage().getX(),
+                        menu.getAnchorY() - window.stage().getY()));
+            }
+        }
+        if (!menus.isEmpty()) System.out.println("[capture] palette left menus " + menus);
     }
 
     /**

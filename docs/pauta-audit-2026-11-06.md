@@ -212,6 +212,26 @@ Addressed on 2026-11-07, branch `config-archive`:
   import; `ConfigTransferTest` covers the dialog. Driven headless with the new
   `-Dtermina.captureImportConfig`.
 
+Addressed on 2026-11-08, branch `small-partials`:
+
+- **Now met:**
+  - TBAR-03: the find bar's arrows and the zoom row's buttons show the chord in force,
+    `IconNames.withChord`, rebuilt each time they open (`ChordTooltipsTest`).
+  - ICON-08: the scrim and the two shadows are `.root` tokens; `AppCssColorsTest` fails a literal
+    colour in any other rule.
+  - ABOUT-01's macOS half: `ui.MacAppMenu` puts About at the top of the application menu through
+    Glass, with the export and a macOS-only opens on every launcher (`MacAppMenuTest`). Unrun on
+    macOS. The command id stays `about`: Termina's ids are not namespaced, and renaming one is not
+    the fix.
+  - PERF-11: the session log is cut to its newest 4 MB past 8 MB under a note, and both in-memory
+    logs count what they dropped (`DebugLogTest`, `MessageLogTest`).
+  - PERF-12: paste is judged by length before it is copied: past 64K characters the preview stops,
+    past 1M it always asks, past 16M or the free heap it is refused (`PasteSafetyTest`).
+  - MENU-09: the Menu key and Shift+F10 open the terminal's menu under the cursor (`ViewKeysTest`;
+    driven with `captureKeystrokes`), and Tab Menu opens the tab's (driven from the palette).
+  - SET-03: `ui.SettingsSearch`, Editora's scoring; headings and page names are searched
+    (`SettingsSearchTest`).
+
 Everything else below stands.
 
 ## Totals

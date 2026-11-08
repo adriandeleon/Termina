@@ -37,7 +37,15 @@ final class ZoomMenuRow {
         void toggleFullScreen();
 
         int percent();
+
+        /** The chord command {@code id} is on now, for the buttons' tooltips; null for none. */
+        default javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination chordOf(String id) {
+            return null;
+        }
     }
+
+    /** Each button's tooltip, by the command id whose chord it shows; rebuilt by {@link #refresh}. */
+    private final java.util.Map<String, javafx.beans.property.StringProperty> tips = new java.util.LinkedHashMap<>();
 
     /** Separates full screen from the zoom trio. The row's own spacing is 4. */
     private static final double FULL_SCREEN_GAP = 10;
@@ -52,12 +60,12 @@ final class ZoomMenuRow {
         Region spacer = new Region();
         HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
 
-        Button out = button("−", tr("menu.zoomOut"), actions::zoomOut);
-        Button in = button("+", tr("menu.zoomIn"), actions::zoomIn);
+        Button out = button("−", "zoomOut", actions::zoomOut);
+        Button in = button("+", "zoomIn", actions::zoomIn);
 
         // Not a Label: the percentage is the reset control, and a reader who does not know that
         // still gets the number. Styled flat so it reads as a value rather than a third button.
-        Button reset = button("", tr("menu.actualSize"), actions::reset);
+        Button reset = button("", "actualSize", actions::reset);
         reset.getStyleClass().add("zoom-value");
         reset.setGraphic(percent);
 
@@ -65,7 +73,7 @@ final class ZoomMenuRow {
         // you do two or three times to find the right size; going full screen is done once, and a
         // menu left sitting over the newly full-screen window reads as nothing having happened —
         // the menu being the thing you are looking at. Firefox's panel behaves the same way.
-        Button fullScreen = button("⤢", tr("menu.fullScreen"), () -> {
+        Button fullScreen = button("⤢", "fullScreen", () -> {
             actions.toggleFullScreen();
             if (item != null && item.getParentPopup() != null)
                 item.getParentPopup().hide();
@@ -87,11 +95,14 @@ final class ZoomMenuRow {
         refresh();
     }
 
-    private Button button(String text, String tip, Runnable action) {
+    /** @param id the command the button runs, whose title and chord name it */
+    private Button button(String text, String id, Runnable action) {
         Button button = new Button(text);
         button.getStyleClass().add("zoom-button");
         button.setFocusTraversable(false);
         // Its text is a symbol ("−", "+", "⤢"), which a screen reader would read as itself.
+        javafx.beans.property.StringProperty tip = new javafx.beans.property.SimpleStringProperty(tr("menu." + id));
+        tips.put(id, tip);
         IconNames.name(button, tip);
         button.setOnAction(e -> {
             action.run();
@@ -110,6 +121,15 @@ final class ZoomMenuRow {
      */
     void refresh() {
         percent.setText(actions.percent() + "%");
+        // On every open, so a chord moved on the Keyboard page shows the next time the row does.
+        tips.forEach((id, tip) -> tip.set(IconNames.withChord(tr("menu." + id), actions.chordOf(id))));
+    }
+
+    /** What each button's tooltip says now, by command id: for tests. */
+    java.util.Map<String, String> tooltips() {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        tips.forEach((id, tip) -> out.put(id, tip.get()));
+        return out;
     }
 
     CustomMenuItem item() {

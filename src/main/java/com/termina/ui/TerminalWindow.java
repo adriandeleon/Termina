@@ -1069,7 +1069,9 @@ public final class TerminalWindow {
             });
         }
         terminal.setOnOpenSettings(() -> windows.showSettings(stage));
+        terminal.setChordLookup(this::chordOf);
         terminal.setPasteConfirmer(this::confirmPaste);
+        terminal.setOnPasteRefused(length -> report(MessageLog.Severity.ERROR, tr("paste.refused", length)));
         terminal.setOnNewTab(this::openTab);
         terminal.setOnNewWindow(() -> windows.openWindow(this));
         terminal.setOnShowPalette(this::showPalette);
@@ -1410,6 +1412,34 @@ public final class TerminalWindow {
      * index would sometimes hand the gesture the wrong tab and reorder something the user was not
      * dragging — rarely enough to look random.
      */
+    /**
+     * Opens the current tab's menu under its header, or under the window's top-left corner while
+     * the strip is hidden for a single tab — the keyboard's way to it (MENU-09, Pauta 2.0.2).
+     */
+    private void showTabMenu() {
+        Tab tab = tabs.getSelectionModel().getSelectedItem();
+        ContextMenu menu = tab == null ? null : tab.getContextMenu();
+        if (tab == null || menu == null) return;
+        javafx.scene.Node header = headerOf(tab);
+        double[] at = tabMenuAnchor(header);
+        javafx.scene.Node owner = header != null && header.getScene() != null ? header : tabs;
+        menu.show(owner, at[0], at[1]);
+    }
+
+    /** Screen coordinates under {@code header}'s left edge, or the tab pane's when it has no place. */
+    private double[] tabMenuAnchor(javafx.scene.@Nullable Node header) {
+        // The header keeps its own height while the strip is collapsed, so ask the strip.
+        boolean stripShown = !tabs.getStyleClass().contains(HIDE_TAB_BAR);
+        if (stripShown && header != null && header.isVisible() && header.getScene() != null) {
+            javafx.geometry.Bounds b = header.localToScreen(header.getBoundsInLocal());
+            if (b != null && b.getHeight() > 0) return new double[] {b.getMinX(), b.getMaxY()};
+        }
+        // The strip is hidden for a single tab: the top-left of the terminal, where the strip would be.
+        javafx.scene.Node terminal = activeTerminal();
+        javafx.geometry.Bounds b = terminal == null ? null : terminal.localToScreen(terminal.getBoundsInLocal());
+        return b == null ? new double[] {stage.getX(), stage.getY()} : new double[] {b.getMinX(), b.getMinY()};
+    }
+
     private static javafx.scene.@Nullable Node headerOf(Tab tab) {
         javafx.scene.Node node = tab.getGraphic();
         while (node != null && !node.getStyleClass().contains("tab")) {
@@ -2231,8 +2261,10 @@ public final class TerminalWindow {
      * most multi-line pastes are meant, and the dialog's job is to show the text, not to stall it.
      * Replaced by the capture hook, which cannot click a modal dialog.
      */
+    /** A large paste asks whatever the setting says (PERF-12); the setting is about line breaks. */
     private boolean confirmPaste(String text) {
-        if (!settings.confirmPaste()) return true;
+        boolean large = text.length() > PasteSafety.LARGE_CHARS;
+        if (!large && !settings.confirmPaste()) return true;
         return pasteConfirmer.test(text);
     }
 
@@ -2261,11 +2293,13 @@ public final class TerminalWindow {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.initOwner(stage);
         alert.setTitle(com.termina.AppInfo.NAME);
-        alert.setHeaderText(tr("dialog.pasteMultiline", lineCount(text)));
-        alert.setContentText(tr("dialog.pasteMultilineDetail"));
+        boolean large = text.length() > PasteSafety.LARGE_CHARS;
+        alert.setHeaderText(
+                large ? tr("dialog.pasteLarge", text.length()) : tr("dialog.pasteMultiline", lineCount(text)));
+        alert.setContentText(large ? tr("dialog.pasteLargeDetail") : tr("dialog.pasteMultilineDetail"));
         // The text itself, so the decision is made on what will actually be sent rather than on
         // a count. Monospace and bounded: a thousand-line paste must not become a screen-high box.
-        javafx.scene.control.TextArea preview = new javafx.scene.control.TextArea(text);
+        javafx.scene.control.TextArea preview = new javafx.scene.control.TextArea(PasteSafety.preview(text));
         preview.setEditable(false);
         preview.setWrapText(false);
         preview.getStyleClass().add("paste-preview");
@@ -3015,6 +3049,10 @@ public final class TerminalWindow {
         // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
         // which is the "?" key under the usual modifier: keymap.json.
         MenuAction shortcutsRef = registerIn(tr("menu.help"), item("menu.keyboardShortcuts", this::showShortcuts));
+        // MENU-09 (Pauta 2.0.2): the current tab's own menu, from the keyboard. Palette and Keyboard
+        // page only; every item on it is also a command of its own.
+        MenuAction tabMenu = registerIn(tr("menu.window"), item("menu.tabMenu", this::showTabMenu));
+        commands.add(tabMenu.withKeywords(tr("menu.window")));
         commands.add(documentation.withKeywords(tr("menu.help")));
         commands.add(whatsNew.withKeywords(tr("menu.help")));
         commands.add(shortcutsRef.withKeywords(tr("menu.help")));
@@ -3501,6 +3539,11 @@ public final class TerminalWindow {
             @Override
             public int percent() {
                 return ZoomLevels.percent(settings.fontZoom());
+            }
+
+            @Override
+            public @Nullable KeyCombination chordOf(String id) {
+                return TerminalWindow.this.chordOf(id);
             }
         };
     }

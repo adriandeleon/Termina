@@ -98,7 +98,9 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.capturePalette=reo         # open the command palette with that query, listing the rows
   -Dtermina.capturePaletteKeys=C-n,C-p # fire chords at the open palette by Emacs token, reporting
                                        # the highlighted row after each — the only check of the
-                                       # navigation that goes through the real filters
+                                       # navigation that goes through the real filters; enter
+                                       # runs the row, and any menu it leaves open is listed with
+                                       # its anchor (Tab Menu)
   -Dtermina.captureMenuItem='Zoom In'  # click a context-menu item, reporting the setting it moved
   -Dtermina.captureTypeAtFocus=hello   # type at whatever owns the keyboard, and report whether the
                                        # shell received it — the only input option that goes through
@@ -126,7 +128,9 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.capturePredict='git status' # draw a type-ahead prediction at the cursor
   -Dtermina.captureKeystrokes=C-a,S-enter,escape,key:SHIFT
                                        # fire whole keystrokes (press, typed, release) at the
-                                       # terminal; pair with a program that prints what it reads
+                                       # terminal; pair with a program that prints what it reads.
+                                       # Reports the context menu and where it opened if one is up
+                                       # (S-f10, key:CONTEXT_MENU)
   -Dtermina.capturePanes=right,down,left,close
                                        # split, move between and close panes, printing the tree
                                        # after each step: H[0, V[1*, 2]], * on the active pane;
