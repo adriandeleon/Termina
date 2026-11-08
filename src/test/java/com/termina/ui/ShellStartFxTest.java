@@ -46,7 +46,9 @@ class ShellStartFxTest {
 
     @Test
     void aNewTabStartsInTheDirectoryTheCurrentShellIsIn() throws Exception {
-        Path place = Files.createDirectories(dir.resolve("work place"));
+        // Resolved: the OS reports a shell's directory with its links followed, and on macOS the
+        // temporary folder is under /var, a link to /private/var.
+        Path place = Files.createDirectories(dir.resolve("work place")).toRealPath();
         Settings settings = new Settings(dir.resolve("settings.json"));
         settings.load();
         settings.setUpdateCheck(false);
