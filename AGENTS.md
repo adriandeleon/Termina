@@ -53,13 +53,16 @@ branch switches and commits cannot interfere.
 ## Change checklist
 
 - Read the nearby code and its tests first, and follow their patterns.
-- **A user action is a command**: a `MenuAction` with an id in `TerminalWindow.table`, titled by
+- **A user action is a command**: a `MenuAction` with an id in `TerminalWindow.menuCommands`, placed
+  in a menu by `ui.MenuBarModel` (as a row, or as unlisted: palette and chord only), titled by
   `menu.<id>` with a `menu.<id>.desc`, in all six `messages*.properties`. Its default chord, if it
   has one, goes in `src/main/resources/com/termina/keymaps/keymap.json` and `keymap.mac.json`, not
   in the code (`KeymapTest` checks both). Anything that shows a chord asks `chordOf(id)`, never the
   action's default. What it is called *now* and whether it can run now go in
   `TerminalWindow.currentLabel` and `unavailableNow`, which feed the `CommandRegistry` that the menus,
-  the palette and the key bindings all ask (MENU-01) — never in one menu's `onShowing`.
+  the palette and the key bindings all ask (MENU-01) — never in one menu's `onShowing`. A command
+  the model leaves out stops the window from opening, loudly. A question before acting goes through
+  `ui.Confirm`, with `Confirm.Options` for how it differs from a removal's.
 - **Application chords are `Ctrl+Shift+key` off macOS**, never plain `Ctrl+key`, which is the
   shell's.
 - **Nothing blocks the JavaFX thread** — no file or network I/O, no process start or wait, no

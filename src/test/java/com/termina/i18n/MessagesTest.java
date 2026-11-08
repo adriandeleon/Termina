@@ -77,9 +77,7 @@ class MessagesTest {
             "menu.newTabProfile",
             "menu.updateAvailable",
             "menu.hideStatusBar",
-            "menu.unpinTab",
-            "menu.openLink",
-            "menu.copyLinkAddress");
+            "menu.unpinTab");
 
     @Test
     void everyCommandTitleHasADescription() throws Exception {

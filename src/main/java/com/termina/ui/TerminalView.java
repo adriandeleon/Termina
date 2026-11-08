@@ -1931,6 +1931,37 @@ public final class TerminalView extends Region {
         }
     }
 
+    /**
+     * The link under the pointer, with or without the modifier held, or null when there is none or
+     * the pointer is not over this view. What Open Link and Copy Link Address act on as commands
+     * (KBD-01): the right-click menu's rows, reachable from a chord and the palette.
+     */
+    private @Nullable Hover linkUnderPointer() {
+        return lastMouseX < 0 ? null : linkAt(lastMouseX, lastMouseY);
+    }
+
+    /** Whether there is a link under the pointer: the two link commands' gate. */
+    boolean hasLinkUnderPointer() {
+        return linkUnderPointer() != null;
+    }
+
+    /** Opens the link under the pointer, as the right-click menu's Open Link does. */
+    void openLinkUnderPointer() {
+        openLink(linkUnderPointer());
+    }
+
+    /** Copies the address of the link under the pointer, as Copy Link Address does. */
+    void copyLinkUnderPointer() {
+        copyLinkAddress(linkUnderPointer());
+    }
+
+    private void copyLinkAddress(@Nullable Hover target) {
+        if (target == null) return;
+        ClipboardContent content = new ClipboardContent();
+        content.putString(linkAddress(target));
+        Clipboard.getSystemClipboard().setContent(content);
+    }
+
     /** What the link points at, for the clipboard: the URL, or the resolved file. */
     private String linkAddress(@Nullable Hover target) {
         if (target == null) return "";
@@ -2072,38 +2103,23 @@ public final class TerminalView extends Region {
             @Nullable CheckMenuItem menuBar) {}
 
     private @Nullable ContextItems contextItems;
-    private Runnable onOpenSettings = () -> {};
-    private Runnable onNewTab = () -> {};
-    private Runnable onNewWindow = () -> {};
-    private Runnable onShowPalette = () -> {};
-    private Runnable onShowAbout = () -> {};
+    /**
+     * Runs a window command by id through the window's registry (KBD-01): the right-click menu's
+     * New Tab, New Window, Command Palette, Settings and About are those commands, not copies.
+     */
+    private java.util.function.Consumer<String> runCommand = id -> {};
+
     private ZoomMenuRow.@Nullable Actions zoomActions;
     private @Nullable ZoomMenuRow zoomRow;
     private @Nullable BooleanSupplier menuBarShown;
     private @Nullable Runnable onToggleMenuBar;
 
     /**
-     * Menu actions the view cannot perform itself. A terminal knows nothing about tabs, windows or
-     * preferences — those belong to the window that owns it — so they arrive as callbacks.
+     * What runs the window's commands. A terminal knows nothing about tabs, windows or preferences
+     * — those belong to the window that owns it — so its menu names them by id.
      */
-    public void setOnOpenSettings(Runnable onOpenSettings) {
-        this.onOpenSettings = onOpenSettings == null ? () -> {} : onOpenSettings;
-    }
-
-    public void setOnNewTab(Runnable onNewTab) {
-        this.onNewTab = onNewTab == null ? () -> {} : onNewTab;
-    }
-
-    public void setOnNewWindow(Runnable onNewWindow) {
-        this.onNewWindow = onNewWindow == null ? () -> {} : onNewWindow;
-    }
-
-    public void setOnShowPalette(Runnable onShowPalette) {
-        this.onShowPalette = onShowPalette == null ? () -> {} : onShowPalette;
-    }
-
-    public void setOnShowAbout(Runnable onShowAbout) {
-        this.onShowAbout = onShowAbout == null ? () -> {} : onShowAbout;
+    public void setCommandRunner(java.util.function.Consumer<String> runCommand) {
+        this.runCommand = runCommand;
     }
 
     /** Zoom is the window's, not the view's: it writes through the settings, which every tab shares. */
@@ -2287,11 +2303,9 @@ public final class TerminalView extends Region {
         MenuItem copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
         MenuItem pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
         MenuItem openLinkItem = item(tr("menu.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
-        MenuItem copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> {
-            ClipboardContent content = new ClipboardContent();
-            content.putString(linkAddress(menuLink));
-            Clipboard.getSystemClipboard().setContent(content);
-        });
+        // The right-clicked link, not the one under the pointer now: the menu can be raised from
+        // the keyboard. The commands of the same names act on the pointer's.
+        MenuItem copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> copyLinkAddress(menuLink));
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.
@@ -2301,8 +2315,8 @@ public final class TerminalView extends Region {
                 openLinkItem,
                 copyLinkItem,
                 linkSeparator,
-                item(tr("menu.newTab"), MenuIcons.newTab(), () -> onNewTab.run()),
-                item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> onNewWindow.run()),
+                item(tr("menu.newTab"), MenuIcons.newTab(), () -> runCommand.accept("newTab")),
+                item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
@@ -2335,9 +2349,11 @@ public final class TerminalView extends Region {
         }
 
         items.add(new SeparatorMenuItem());
-        items.add(item(tr("menu.commandPalette"), MenuIcons.commandPalette(), () -> onShowPalette.run()));
-        items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> onOpenSettings.run()));
-        items.add(item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> onShowAbout.run()));
+        items.add(
+                item(tr("menu.commandPalette"), MenuIcons.commandPalette(), () -> runCommand.accept("commandPalette")));
+        items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> runCommand.accept("settings")));
+        items.add(
+                item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> runCommand.accept("about")));
 
         ContextMenu menu = OneMenu.install(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);
