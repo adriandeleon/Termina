@@ -60,6 +60,12 @@ done.
 
 ### Changed
 
+- **The palette lists every command.** Go to Tab and New Tab With Profile are listed for every
+  number with a shortcut, greyed with the reason when there is no such tab or profile, and the
+  palette lists itself. At an equal match a command that can run comes before one that cannot.
+- **One right-click menu at a time.** Opening a tab's menu, a pane's or the profile list closes any
+  other that is open, however it was opened.
+- **The command palette is built the first time it opens**, not with every window.
 - **The Menu key and Shift+F10 open the terminal's menu**, under the cursor, as GNOME Terminal's
   do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
   current tab's own menu.
