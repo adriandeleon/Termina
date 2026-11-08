@@ -74,6 +74,15 @@ class WindowCommandsFxTest {
         settings.setUpdateCheck(false);
         settings.setShowStatusBar(true);
         settings.setConfirmClose(false);
+        // Paste runs: with several lines on the clipboard (a CI runner's, say) it would ask first, and
+        // the prompt is modal. One line on the clipboard, and the prompt off besides.
+        settings.setConfirmPaste(false);
+        onFx(() -> {
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString("echo pasted");
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+            return null;
+        });
 
         WindowManager windows = onFx(() -> new WindowManager(settings));
         TerminalWindow window = onFx(() -> windows.openWindow(null));
