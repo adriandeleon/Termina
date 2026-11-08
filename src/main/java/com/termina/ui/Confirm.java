@@ -42,10 +42,15 @@ final class Confirm {
         if (alert.getDialogPane().lookupButton(go) instanceof Button button) {
             button.getStyleClass().add(atlantafx.base.theme.Styles.DANGER);
         }
-        var css = Confirm.class.getResource("/com/termina/styles/app.css");
-        if (css != null) alert.getDialogPane().getStylesheets().add(css.toExternalForm());
-        var font = Confirm.class.getResource("/com/termina/styles/ui-font.css");
-        if (font != null) alert.getDialogPane().getStylesheets().add(font.toExternalForm());
+        style(alert.getDialogPane());
         return alert.showAndWait().orElse(cancel) == go;
+    }
+
+    /** The app's stylesheet and UI font on a dialog of our own, so it matches the windows. */
+    static void style(javafx.scene.control.DialogPane pane) {
+        var css = Confirm.class.getResource("/com/termina/styles/app.css");
+        if (css != null) pane.getStylesheets().add(css.toExternalForm());
+        var font = Confirm.class.getResource("/com/termina/styles/ui-font.css");
+        if (font != null) pane.getStylesheets().add(font.toExternalForm());
     }
 }

@@ -3018,6 +3018,15 @@ public final class TerminalWindow {
         commands.add(messageLog.withKeywords(tr("menu.help")));
         commands.add(debugLog.withKeywords(tr("menu.help")));
         commands.add(reportProblem.withKeywords(tr("menu.help")));
+        // Palette and Settings ▸ Advanced only (SET-12, Pauta 2.0.2): occasional, and a File menu
+        // row each would crowd the commands people use daily.
+        MenuAction exportConfig = registerIn(
+                tr("menu.file"), item("menu.exportConfiguration", () -> windows.exportConfiguration(this::report)));
+        MenuAction importConfig = registerIn(
+                tr("menu.file"),
+                item("menu.importConfiguration", () -> windows.importConfiguration(stage, this::report)));
+        commands.add(exportConfig.withKeywords(tr("menu.file")));
+        commands.add(importConfig.withKeywords(tr("menu.file")));
         commands.add(about.withKeywords(tr("menu.help")));
         // Pauta's order (DOCS-07), less what Termina does not have yet: the reference, the update
         // check, the two logs, then About last.
