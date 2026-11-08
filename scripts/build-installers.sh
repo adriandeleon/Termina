@@ -95,7 +95,12 @@ appimage_tool() {
     # read" to stdout for a missing file despite --status, and the first build on a fresh cache ran
     # that line as the tool.
     if [ ! -f "$file" ] || [ "$(sha256_of "$file")" != "$sum" ]; then
-        curl --fail --silent --show-error --location --output "$file.part" "$url" >&2
+        # Retried: GitHub's release downloads answer 504 often enough to fail a build now and then.
+        # Said as a download failure, too — run in a command substitution, a failed curl does not end
+        # the function, and the hash check below then blamed a file that never arrived.
+        curl --fail --silent --show-error --location --retry 5 --retry-all-errors --retry-delay 5 \
+            --output "$file.part" "$url" >&2 ||
+            { echo "::error::[installers] could not download $name from $url" >&2; return 1; }
         [ "$(sha256_of "$file.part")" = "$sum" ] ||
             { echo "::error::[installers] $name from $url does not match its pinned hash" >&2; return 1; }
         mv "$file.part" "$file"
