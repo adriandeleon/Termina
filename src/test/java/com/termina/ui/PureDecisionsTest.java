@@ -21,6 +21,7 @@ class PureDecisionsTest {
     private static final List<String[]> DECISIONS = List.of(
             new String[] {"WindowRules", "WindowRulesPureTest"},
             new String[] {"CommandRegistry", "CommandRegistryTest"},
+            new String[] {"MenuBarModel", "MenuBarModelTest"},
             new String[] {"PaletteKeys", "PaletteKeysTest"},
             new String[] {"MouseEncoding", "MouseEncodingTest"},
             new String[] {"TabRanges", "TabRangesTest"},

@@ -25,6 +25,8 @@ done.
   ticked; window positions and the settings-sync connection stay as they are. Your current
   configuration is copied to `backups/` in the config folder first. A zip that is not an export, or
   that a newer Termina wrote, is refused before anything changes.
+- **Open Link and Copy Link Address are commands**, for the link under the pointer: in the palette,
+  and bindable on the Keyboard page, as well as on the right-click menu.
 - **One Termina per config folder.** Launching it again opens a new window in the running Termina,
   with that launch's `-d`, `-e` and `-T`, in the directory it was launched from; the second process
   exits as soon as the first has the request. `--new-instance` starts a separate one.
@@ -60,6 +62,9 @@ done.
 
 ### Changed
 
+- **The multi-line paste and close-a-running-program questions look like the rest**: the app's own
+  fonts and colours, as the Settings window's questions already had. Resetting a key binding that
+  takes its chord from another command says so with a danger-styled Reset.
 - **Every setting is in the palette.** Type part of a setting's name: a switch says which way it
   will go ("Show a scrollbar: turn off"), a choice lists its options ("Cursor shape: Bar"), and a
   value ("Scrollback lines…") asks for a new one. Each is named and described as its Settings row is.

@@ -220,6 +220,153 @@ class MenusFxTest {
         }));
     }
 
+    @Test
+    void theBarIsTheModelRowForRow() throws Exception {
+        // MENU-01's check: the bar's model lists ids only, and every row runs its id through the
+        // registry. Here the bar as built is laid against MenuBarModel, row for row.
+        Settings settings = new Settings(dir.resolve("model.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        onFx(() -> windows.openWindow(window));
+
+        List<String> mismatches = onFx(() -> {
+            List<String> out = new ArrayList<>();
+            List<MenuBarModel.Menu> model = MenuBarModel.menus(
+                    WindowRules.showsZoomRow(TerminalWindow.SYSTEM_MENU_BAR),
+                    WindowRules.offersMenuBarToggle(TerminalWindow.SYSTEM_MENU_BAR));
+            List<Menu> bar = window.menuBarForTest().getMenus();
+            assertEquals(model.size(), bar.size());
+            Set<String> commands = new java.util.HashSet<>();
+            for (Keybindings.Command command : window.keyboardCommands()) commands.add(command.id());
+            for (int m = 0; m < model.size(); m++) {
+                MenuBarModel.Menu spec = model.get(m);
+                List<MenuItem> items = bar.get(m).getItems();
+                assertEquals(Messages.tr(spec.titleKey()), bar.get(m).getText());
+                if (spec.rows().size() != items.size()) {
+                    out.add(spec.titleKey() + ": " + spec.rows().size() + " rows, " + items.size() + " items");
+                    continue;
+                }
+                for (int r = 0; r < items.size(); r++) {
+                    String row = spec.rows().get(r);
+                    MenuItem item = items.get(r);
+                    boolean matches = switch (row) {
+                        case MenuBarModel.SEPARATOR -> item instanceof SeparatorMenuItem;
+                        case MenuBarModel.PROFILE_SUBMENU -> item instanceof Menu;
+                        case MenuBarModel.ZOOM_ROW -> item instanceof CustomMenuItem;
+                        default -> row.equals(item.getUserData()) && commands.contains(row);
+                    };
+                    if (!matches) out.add(spec.titleKey() + " row " + r + ": " + row + " vs " + item.getText());
+                }
+            }
+            // And nothing registered that the model does not name.
+            Set<String> named = new java.util.HashSet<>(MenuBarModel.commandIds(model));
+            for (String id : commands) if (!named.contains(id)) out.add("registered, not in the model: " + id);
+            return out;
+        });
+        assertEquals(List.of(), mismatches);
+    }
+
+    @Test
+    void theLinkCommandsActOnTheLinkUnderThePointer() throws Exception {
+        // KBD-01: the right-click menu's link rows are commands too, gated on there being a link.
+        Settings settings = new Settings(dir.resolve("links.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        settings.setShowStatusBar(true);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        onFx(() -> windows.openWindow(window));
+        waitFor(() -> started(window), "the shell");
+        TerminalView view = onFx(window::activeTerminal);
+        assertTrue(unavailable(window, "copyLinkAddress"), "no pointer over the terminal: greyed");
+
+        onFx(() -> {
+            view.getSession().sendString("clear; printf 'https://example.com/termina-link\\n'\r");
+            return null;
+        });
+        // Down the first column until the pointer is on the link: the row it is printed on depends
+        // on the prompt, and the cell size on the font.
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        boolean found = false;
+        while (!found && System.nanoTime() < deadline) {
+            Thread.sleep(200);
+            found = onFx(() -> {
+                for (double y = 2; y < 200; y += 4) {
+                    javafx.event.Event.fireEvent(view, moved(20, y));
+                    if (view.hasLinkUnderPointer()) return true;
+                }
+                return false;
+            });
+        }
+        assertTrue(found, "a link under the pointer");
+        assertTrue(!unavailable(window, "copyLinkAddress"), "available over the link");
+        onFx(() -> {
+            javafx.scene.input.Clipboard.getSystemClipboard().clear();
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if ("copyLinkAddress".equals(row.id())) row.action().run();
+            }
+            return null;
+        });
+        assertEquals(
+                "https://example.com/termina-link",
+                onFx(() -> javafx.scene.input.Clipboard.getSystemClipboard().getString()));
+
+        onFx(() -> {
+            javafx.event.Event.fireEvent(
+                    view,
+                    new javafx.scene.input.MouseEvent(
+                            javafx.scene.input.MouseEvent.MOUSE_EXITED,
+                            -5,
+                            -5,
+                            -5,
+                            -5,
+                            javafx.scene.input.MouseButton.NONE,
+                            0,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            null));
+            return null;
+        });
+        assertTrue(unavailable(window, "openLink"), "the pointer gone: greyed again");
+    }
+
+    private static javafx.scene.input.MouseEvent moved(double x, double y) {
+        return new javafx.scene.input.MouseEvent(
+                javafx.scene.input.MouseEvent.MOUSE_MOVED,
+                x,
+                y,
+                x,
+                y,
+                javafx.scene.input.MouseButton.NONE,
+                0,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                null);
+    }
+
+    /** Whether command {@code id} is greyed in the palette now. */
+    private static boolean unavailable(TerminalWindow window, String id) throws Exception {
+        return onFx(() -> window.runnablePaletteRowsForTest().stream().noneMatch(row -> id.equals(row.id())));
+    }
+
     /** The bar's item for command {@code id}, after its menu has opened. */
     private static MenuItem itemOpened(TerminalWindow window, String id) {
         for (Menu menu : window.menuBarForTest().getMenus()) {

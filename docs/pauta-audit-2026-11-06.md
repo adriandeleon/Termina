@@ -290,14 +290,54 @@ Addressed on 2026-11-08, branch `command-registry`:
   a list of ids; each row runs through the registry by id, which is what the rule's failure is about.
 - **To check on macOS:** the screen menu bar's menus open through the same `ON_SHOWING`.
 
-Everything else below stands.
+Addressed on 2026-11-08, branch `pauta-small-items`:
+
+- **Now met:**
+  - MENU-01, the rest: `ui.MenuBarModel` is the bar as ids — each menu's rows in order, rules,
+    and two placeholders for what is not a command (the profile submenu, the zoom row) — plus each
+    menu's palette-and-chord-only commands. `TerminalWindow.menuCommands` defines every command by
+    id, and the bar is assembled from the model; a defined command the model leaves out stops the
+    window opening. `MenuBarModelTest` (no toolkit) checks the shape on all four platform
+    combinations; `MenusFxTest` lays the built bar against the model row for row. Check for Updates
+    became one command whose label and action follow the update check, rather than a relabelled item.
+  - KBD-01: Open Link and Copy Link Address are commands on the link under the pointer, greyed with a
+    reason when there is none, and the terminal's right-click menu runs New Tab, New Window, the
+    palette, Settings and About by id through the window's registry. Its Copy, Paste, Select All and
+    Clear Scrollback act on the pane right-clicked, as the commands of the same names do on the
+    active one; a tab's menu likewise acts on its own tab.
+  - WIN-05 / CONF-01: the paste prompt, the close-a-running-program prompt and Reset of a key whose
+    chord another command holds go through `ui.Confirm`, with `Confirm.Options` for the two that
+    differ from a removal (the paste has a preview and no danger style; closing defaults to Cancel).
+    The import dialog keeps its own `Alert` for the parts it lists, in Confirm's shape and styles.
+  - ICON-21 / TBAR-01 / KBD-17: `IconOnlyButtonsFxTest` walks the real window (tab strip, find bar,
+    both zoom rows), Settings and About, and fails on an icon-only button — no letters or digits in
+    its text — or a tab's close button without an accessible text, or whose tooltip says otherwise.
+- **Recounted:** the totals below, against everything addressed since the audit.
+
+Everything else below stands, except the totals, which are recounted.
 
 ## Totals
 
-MUSTs: **59 fail, 34 are partly met**, and 2 (DOCS-01/02, the website's docs) cannot be judged
-from this repository. Under Pauta's rule, any failed MUST blocks a release, so
-Termina cannot claim even 2.0.2 compliance yet. Most of the rest pass or are N/A: there is no tray,
-no tool panels, no toolbar, no Welcome page, no quick-open picker, and no documents.
+Recounted on 2026-11-08, after `pauta-small-items`. Of the 59 failed MUSTs:
+
+- **Still failed (4):** REPO-01 and DOCS-19 (the README's feature catalogue, waiting on the
+  website), MENU-02 (accelerators kept for the macOS screen menu bar; a decision for Pauta), and
+  ABOUT-07, which cannot pass while any MUST fails.
+- **Partly met (4):** DOCS-14 (the long catalogue is `docs/gotchas.md`, not `docs/reference/`),
+  PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path has never run),
+  PERF-01 (the remaining FX-thread reads are left on purpose, on measurements) and KBD-09 (JSON
+  keymaps; Emacs/CUA left out for the shell's chords).
+- **Met:** the other 51.
+
+Of the 34 partly met: PLAT-11 (no TestFX; headless glass in surefire instead) and ABOUT-01 (About in
+the macOS application menu, unrun on macOS) remain partly met; the other 32 are met.
+
+So: **4 MUSTs fail and 6 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
+judged from this repository. Under Pauta's rule a failed MUST blocks a release, so Termina still
+cannot claim 2.0.2 compliance. Several "met" items rest on code that has never run on Windows, or
+on macOS paths unchecked by hand (REL-15 until the next tag, the screen menu bar's ON_SHOWING).
+Most of the rest pass or are N/A: there is no tray, no tool panels, no toolbar, no Welcome page, no
+quick-open picker, and no documents.
 
 ## The site's gaps page against this audit
 

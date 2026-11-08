@@ -14,10 +14,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -1401,15 +1398,15 @@ public final class SettingsWindow {
         KeyCombination home = keyDefaults.get(id);
         // taken() names a holder only for a command that has a default chord to take back.
         if (holder != null && home != null) {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-            confirm.initOwner(stage);
-            confirm.setTitle(tr("settings.keys.reset"));
-            confirm.setHeaderText(tr("settings.keys.resetTaken.title", home.getDisplayText()));
-            confirm.setContentText(tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)));
-            ButtonType take = new ButtonType(tr("settings.keys.reset"), ButtonBar.ButtonData.OK_DONE);
-            ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-            confirm.getButtonTypes().setAll(take, cancel);
-            if (confirm.showAndWait().orElse(cancel) != take) return;
+            // It takes the chord from another command, which is left with none (CONF-01).
+            if (!Confirm.ask(
+                    stage,
+                    tr("settings.keys.reset"),
+                    tr("settings.keys.resetTaken.title", home.getDisplayText()),
+                    tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)),
+                    tr("settings.keys.reset"))) {
+                return;
+            }
         }
         writeKeys(KeybindingEdits.reset(keyDefaults, stored, id, Keybindings.MAC));
     }
