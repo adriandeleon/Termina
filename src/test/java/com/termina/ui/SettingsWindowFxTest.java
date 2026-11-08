@@ -153,4 +153,110 @@ class SettingsWindowFxTest {
         });
         return result.get(60, TimeUnit.SECONDS);
     }
+
+    /** The buttons that do their work at once — no confirmation, no file chooser, no dialog. */
+    private static final java.util.Set<String> SAFE_BUTTONS = java.util.Set.of(
+            "settings.keys.reset",
+            "settings.profileAdd",
+            "settings.debugLog.button",
+            "settings.exportConfig.button",
+            "settings.sync.now",
+            "settings.sync.anyway");
+
+    @Test
+    @org.junit.jupiter.api.condition.DisabledOnOs(
+            value = org.junit.jupiter.api.condition.OS.WINDOWS,
+            disabledReason = "connects to a git repository, as SyncEngineTest's whole syncs")
+    void theButtonsThatActAtOnceAndAConnectionToARealRepository() throws Exception {
+        Path bare = dir.resolve("remote.git");
+        java.nio.file.Files.createDirectories(bare);
+        assertEquals(
+                0,
+                new ProcessBuilder("git", "init", "--quiet", "--bare", bare.toString())
+                        .start()
+                        .waitFor());
+        Path home = dir.resolve("home");
+        java.nio.file.Files.createDirectories(home);
+        Settings settings = new Settings(dir.resolve("config/settings.json"));
+        settings.load();
+        settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+        ShellProfiles profiles = new ShellProfiles(settings, "System shell");
+        List<Keybindings.Command> commands =
+                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+
+        String was = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString()); // Export writes there
+        try {
+            SettingsSync sync = onFx(() -> new SettingsSync(settings, () -> true));
+            int pressed = onFx(() -> {
+                Stage owner = new Stage();
+                owner.setScene(new Scene(new StackPane(), 400, 300));
+                owner.show();
+                SettingsWindow window = new SettingsWindow(settings, profiles, commands, sync);
+                window.show(owner);
+                // A theme file read through the import row, as the file chooser would hand it over.
+                Path theme = dir.resolve("night.properties");
+                StringBuilder colours = new StringBuilder("name=Night\nbackground=#101010\nforeground=#f0f0f0\n");
+                for (int i = 0; i < 16; i++) colours.append("ansi.").append(i).append("=#202020\n");
+                java.nio.file.Files.writeString(theme, colours);
+                window.importTheme(theme);
+                // Connect: the repository typed into its field, then the button.
+                for (Region page : window.pagesForTest()) {
+                    for (TextField field : find(page, TextField.class)) {
+                        if (com.termina.i18n.Messages.tr("settings.sync.repository.prompt")
+                                .equals(field.getPromptText())) {
+                            field.setText(bare.toString());
+                        }
+                    }
+                }
+                int count = 0;
+                for (Region page : window.pagesForTest()) {
+                    for (javafx.scene.control.Button button : find(page, javafx.scene.control.Button.class)) {
+                        String text = button.getText();
+                        boolean safe = SAFE_BUTTONS.stream()
+                                .anyMatch(
+                                        key -> com.termina.i18n.Messages.tr(key).equals(text));
+                        boolean connect = com.termina.i18n.Messages.tr("settings.sync.connect")
+                                .equals(text);
+                        if ((safe || connect) && !button.isDisabled() && shown(button)) {
+                            button.fire();
+                            count++;
+                        }
+                    }
+                    // Add Profile opened an editor: its fields commit like the rest.
+                    exercise(page, new int[5]);
+                }
+                return count;
+            });
+            assertTrue(pressed >= 4, "buttons pressed: " + pressed);
+            assertTrue(settings.syncEnabled(), "Connect connected");
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+            while (onFx(() -> sync.state().phase()) == SettingsSync.Phase.SYNCING && System.nanoTime() < deadline) {
+                Thread.sleep(100);
+            }
+        } finally {
+            System.setProperty("user.home", was);
+        }
+    }
+
+    /** Every node of {@code type} under {@code node}, into scroll panes too. */
+    private static <T extends Node> List<T> find(Node node, Class<T> type) {
+        List<T> out = new ArrayList<>();
+        if (type.isInstance(node)) out.add(type.cast(node));
+        if (node instanceof javafx.scene.control.ScrollPane scroll && scroll.getContent() != null) {
+            out.addAll(find(scroll.getContent(), type));
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : new ArrayList<>(parent.getChildrenUnmodifiable())) out.addAll(find(child, type));
+        }
+        return out;
+    }
+
+    /** Whether a hand could reach it: it and every parent visible. */
+    private static boolean shown(Node node) {
+        for (Node n = node; n != null; n = n.getParent()) {
+            if (!n.isVisible()) return false;
+        }
+        return true;
+    }
 }

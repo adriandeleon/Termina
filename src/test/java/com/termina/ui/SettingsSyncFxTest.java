@@ -1,0 +1,158 @@
+package com.termina.ui;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+
+import javafx.application.Platform;
+
+import com.termina.config.Settings;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Settings sync as the app runs it — connected, run from the menu, a binding changed and run again,
+ * disconnected — against a real bare repository in a temporary folder. The engine has its own tests
+ * ({@code SyncEngineTest}); these are the scheduling, the state the Sync page shows and the reports
+ * Sync Now gives. Not on Windows, where the engine's own whole-sync tests are off too.
+ */
+@Tag("fx")
+@DisabledOnOs(value = OS.WINDOWS, disabledReason = "as SyncEngineTest's whole syncs")
+class SettingsSyncFxTest {
+
+    @TempDir
+    Path dir;
+
+    @BeforeAll
+    static void startToolkit() {
+        System.setProperty("glass.platform", "Headless");
+        try {
+            Platform.startup(() -> {});
+        } catch (IllegalStateException alreadyRunning) {
+            // Another test in the same JVM got there first, which is the same outcome.
+        }
+        Platform.setImplicitExit(false);
+    }
+
+    @Test
+    void aConnectedSyncPushesTheBindingsAndSaysHowItWent() throws Exception {
+        Path bare = dir.resolve("remote.git");
+        Files.createDirectories(bare);
+        Process init = new ProcessBuilder("git", "init", "--quiet", "--bare", bare.toString())
+                .redirectErrorStream(true)
+                .start();
+        assertEquals(0, init.waitFor(), "git init --bare");
+
+        Settings settings = new Settings(dir.resolve("config/settings.json"));
+        settings.load();
+        settings.setSyncRepository(bare.toString());
+        settings.setSyncBranch(Settings.DEFAULT_SYNC_BRANCH);
+        settings.setSyncEnabled(true);
+        settings.setSyncAuto(true);
+        settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+Y"));
+
+        List<String> reports = new CopyOnWriteArrayList<>();
+        Reporter report = (severity, message) -> reports.add(severity + " " + message);
+        SettingsSync sync = onFx(() -> new SettingsSync(settings, () -> true));
+        onFx(() -> {
+            sync.connected();
+            sync.syncNow(report, id -> id);
+            return null;
+        });
+        waitFor(() -> reports.size() >= 2, "Sync Now to report its start and its end: " + reports);
+        waitFor(() -> phase(sync) == SettingsSync.Phase.IDLE, "the sync to settle");
+        assertTrue(reports.get(reports.size() - 1).startsWith("INFO"), reports.toString());
+
+        // A changed binding goes up on the next run.
+        onFx(() -> {
+            settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+U"));
+            sync.syncNow();
+            return null;
+        });
+        waitFor(() -> pushedBindings(bare).contains("Shift+U"), "the changed binding to be pushed");
+
+        // What the Sync page asks, and the buttons it offers, with a run settled.
+        onFx(() -> {
+            sync.checkGitHub();
+            assertFalse(sync.cancel(), "nothing to cancel between runs");
+            sync.syncAllowingLargeRemoval();
+            return null;
+        });
+        waitFor(() -> phase(sync) == SettingsSync.Phase.IDLE, "the forced run to settle");
+
+        onFx(() -> {
+            // Auto off first, so no timer starts a run after the test; then let a run in flight end.
+            settings.setSyncAuto(false);
+            settings.setSyncEnabled(false);
+            sync.disconnected();
+            return null;
+        });
+        assertEquals(SettingsSync.Phase.OFF, phase(sync));
+        onFx(() -> {
+            sync.syncNow(report, id -> id); // disconnected: says why at once
+            return null;
+        });
+        assertTrue(reports.get(reports.size() - 1).startsWith("WARNING"), reports.toString());
+        // Nothing left writing into the folder JUnit is about to delete: the worker runs one job at a
+        // time, so a job queued now runs after any it was still finishing.
+        java.util.concurrent.CountDownLatch drained = new java.util.concurrent.CountDownLatch(1);
+        sync.afterQueuedWorkForTest(drained::countDown);
+        assertTrue(drained.await(30, TimeUnit.SECONDS), "the sync worker finished");
+    }
+
+    private static SettingsSync.Phase phase(SettingsSync sync) {
+        try {
+            return onFx(() -> sync.state().phase());
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    /** Every file on the remote branch, as one string. */
+    private static String pushedBindings(Path bare) {
+        try {
+            Process show = new ProcessBuilder(
+                            "git", "--git-dir", bare.toString(), "log", "-p", "--all", "--format=", "--", "keybindings")
+                    .redirectErrorStream(true)
+                    .start();
+            String out = new String(show.getInputStream().readAllBytes());
+            show.waitFor();
+            return out;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static void waitFor(BooleanSupplier condition, String what) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
+            Thread.sleep(100);
+        }
+    }
+
+    private static <T> T onFx(java.util.concurrent.Callable<T> work) throws Exception {
+        CompletableFuture<T> result = new CompletableFuture<>();
+        Platform.runLater(() -> {
+            try {
+                result.complete(work.call());
+            } catch (Throwable e) {
+                result.completeExceptionally(e);
+            }
+        });
+        return result.get(30, TimeUnit.SECONDS);
+    }
+}

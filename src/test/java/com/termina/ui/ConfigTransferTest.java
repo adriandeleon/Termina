@@ -88,4 +88,66 @@ class ConfigTransferTest {
         });
         return result.get(10, TimeUnit.SECONDS);
     }
+
+    @Test
+    void anExportReadsBackThroughTheImportWithOnlyTheTickedParts(@org.junit.jupiter.api.io.TempDir Path dir)
+            throws Exception {
+        java.nio.file.Path home = dir.resolve("home");
+        java.nio.file.Files.createDirectories(home);
+        com.termina.config.Settings settings = new com.termina.config.Settings(dir.resolve("config/settings.json"));
+        settings.load();
+        settings.setThemeId("editora-light");
+        settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+Y"));
+        settings.flush();
+        ConfigTransfer transfer = new ConfigTransfer(settings);
+        java.util.List<String> reports = new java.util.concurrent.CopyOnWriteArrayList<>();
+        Reporter report = (severity, message) -> reports.add(severity + " " + message);
+
+        String was = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString());
+        try {
+            onFx(() -> {
+                transfer.export(report);
+                return null;
+            });
+            waitFor(() -> !reports.isEmpty());
+        } finally {
+            System.setProperty("user.home", was);
+        }
+        assertTrue(reports.get(0).startsWith("INFO"), reports.toString());
+        java.nio.file.Path zip;
+        try (var files = java.nio.file.Files.list(home)) {
+            zip = files.filter(f -> f.toString().endsWith(".zip")).findFirst().orElseThrow();
+        }
+
+        // Changed here since the export; the import brings the bindings back and leaves the theme.
+        settings.setThemeId("editora-dark");
+        settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+U"));
+        onFx(() -> {
+            transfer.importZip(zip, report, scan -> java.util.EnumSet.of(Part.KEY_BINDINGS));
+            return null;
+        });
+        waitFor(() -> reports.size() >= 2);
+        assertTrue(reports.get(1).startsWith("INFO"), reports.toString());
+        assertEquals("Shortcut+Shift+Y", settings.values().get("keys.newTab"));
+        assertEquals("editora-dark", settings.themeId());
+
+        // Not a zip: refused, with the reason.
+        java.nio.file.Path notZip = dir.resolve("notes.zip");
+        java.nio.file.Files.writeString(notZip, "text");
+        onFx(() -> {
+            transfer.importZip(notZip, report, scan -> java.util.EnumSet.allOf(Part.class));
+            return null;
+        });
+        waitFor(() -> reports.size() >= 3);
+        assertTrue(reports.get(2).startsWith("ERROR"), reports.toString());
+    }
+
+    private static void waitFor(java.util.function.BooleanSupplier condition) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) throw new AssertionError("timed out");
+            Thread.sleep(50);
+        }
+    }
 }

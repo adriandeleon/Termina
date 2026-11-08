@@ -393,6 +393,11 @@ final class SettingsSync {
         });
     }
 
+    /** Runs {@code then} on the worker after whatever it has queued: for a test that must see it idle. */
+    void afterQueuedWorkForTest(Runnable then) {
+        worker.execute(then);
+    }
+
     /** Sync was just switched on: runs the first sync now. */
     void connected() {
         startupDone = true; // the run below is the startup run

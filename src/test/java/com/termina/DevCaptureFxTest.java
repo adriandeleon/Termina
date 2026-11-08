@@ -123,6 +123,67 @@ class DevCaptureFxTest {
         runs.put("the shortcut reference", Map.of("termina.captureShortcuts", "true"));
         runs.put("the about window", Map.of("termina.captureAbout", "true"));
         runs.put(
+                "what programs say: prompt marks, links, notifications, the clipboard",
+                Map.of(
+                        // OSC 133 around a command and its output, an OSC 8 link, OSC 9 and 777
+                        // notifications, an OSC 52 clipboard write and OSC 7's directory.
+                        "termina.captureCommand",
+                        "printf '\\033]133;A\\007$ \\033]133;B\\007echo hi\\n\\033]133;C\\007hi\\n"
+                                + "\\033]133;D;0\\007\\033]8;;https://example.com\\007LINK\\033]8;;\\007\\n"
+                                + "\\033]9;hello\\007\\033]777;notify;title;body\\007"
+                                + "\\033]52;c;aGVsbG8=\\007\\033]7;file://localhost/tmp\\007done\\n'",
+                        "termina.captureMarks",
+                        "true",
+                        "termina.captureJumpPrompt",
+                        "prev,next,prev",
+                        "termina.captureSelectLastOutput",
+                        "true",
+                        "termina.captureLinkAt",
+                        "10,20;30,40;30,60;30,80;60,100",
+                        "termina.captureScreenText",
+                        "true"));
+        runs.put(
+                "a full-screen program that reports the mouse",
+                Map.of(
+                        // The alternate screen and SGR mouse reporting, as vim or htop would ask.
+                        "termina.captureCommand", "printf '\\033[?1049h\\033[?1000h\\033[?1006hfull\\n'",
+                        "termina.captureClick", "60,55,1",
+                        "termina.captureScroll", "400,200,-120",
+                        "termina.captureDrag", "10,30,200,90",
+                        "termina.captureMenu", "300,300,true",
+                        "termina.captureKeystrokes", "up,down,S-pageup,escape"));
+        runs.put(
+                "dragging past the edge, the scroll bar and a block",
+                Map.of(
+                        "termina.captureCommand", "seq 1 400",
+                        "termina.captureDragPath", "10,300;10,-60",
+                        "termina.captureDragHoldMs", "400",
+                        "termina.captureDragAlt", "true",
+                        "termina.captureDragScrollBar", "40,300",
+                        "termina.captureMenuDismiss", "escape",
+                        "termina.captureSelectTabLater", "1,200",
+                        "termina.captureRenameTab", "build"));
+        runs.put(
+                "panes, profiles and pins",
+                Map.of(
+                        "termina.captureTabs", "2",
+                        "termina.capturePanes", "right,down,up,right!,down!,styles,move:1,profile:1,closeTab,reopen",
+                        "termina.capturePinTab", "1,others",
+                        "termina.captureCloseAnswer", "close"));
+        runs.put(
+                "a link under the pointer, opened",
+                Map.of(
+                        // The screen cleared first, so the address is on the top row under the pointer;
+                        // then an OSC 8 link on the row below.
+                        "termina.captureCommand",
+                        "clear; echo https://example.com/page; printf '\\033]8;;https://example.com/b\\007LINK\\033]8;;\\007\\n'",
+                        "termina.captureLinkAt",
+                        "12,12;40,12;20,30",
+                        "termina.captureOpenLink",
+                        "true",
+                        "termina.captureMenu",
+                        "40,12,false"));
+        runs.put(
                 "closing tabs",
                 Map.of(
                         "termina.captureTabs", "2",
@@ -153,7 +214,12 @@ class DevCaptureFxTest {
             settings.load();
             settings.setUpdateCheck(false);
             settings.setShowStatusBar(true); // a report is then a line, not a modal dialog
+            settings.setNotifications(false); // an OSC 9 marks the tab; it never reaches the desktop
             WindowManager windows = onFx(() -> new WindowManager(settings));
+            onFx(() -> {
+                windows.setLinkOpener(url -> System.out.println("[test] would open " + url));
+                return null;
+            });
             TerminalWindow window = onFx(() -> windows.openWindow(null));
             // Kept open throughout, so a run that closes its windows never ends the application.
             TerminalWindow keeper = onFx(() -> windows.openWindow(null));
