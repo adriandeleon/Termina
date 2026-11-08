@@ -43,6 +43,14 @@ writes results into the live `Settings`; one process per config folder syncs, by
 config) and hands git a credential helper that asks `gh auth token --user` for that one, so switching
 the active account does not lock sync out.
 
+**Export and Import Configuration are `config.ConfigArchive`, after Editora's.** An export zips the
+config folder less what belongs to the run (locks, logs, the socket, `sync/`, `backups/`). An import
+is scanned before anything is written, backed up to `<config>/backups/`, and applied by part: theme
+files are replaced in `themes/`, and the settings parts are merged key by key
+(`ConfigArchive.merge`) into the live `Settings` through `replaceStored`, never by writing over
+`settings.json`, so memory and file cannot disagree. `ui.ConfigTransfer` is the FX side: the
+worker threads, the chooser and the parts dialog.
+
 `com.termina.term.TerminalSession` wires them together and owns the read loop.
 `com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); each tab is a `PaneGroup`
 of one or more `TerminalView`s. `WindowManager` owns the window set and what they share — settings,

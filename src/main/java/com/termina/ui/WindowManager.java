@@ -23,6 +23,7 @@ import static com.termina.i18n.Messages.tr;
 public final class WindowManager {
 
     private final Settings settings;
+    private final ConfigTransfer configTransfer;
     private final List<TerminalWindow> windows = new ArrayList<>();
     private @Nullable SettingsWindow settingsWindow;
     private @Nullable AboutWindow aboutWindow;
@@ -67,6 +68,7 @@ public final class WindowManager {
 
     public WindowManager(Settings settings) {
         this.settings = settings;
+        this.configTransfer = new ConfigTransfer(settings);
         this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
         // Nothing to do when it finishes: every menu that lists profiles is built when it is shown,
         // so the next one to open picks up whatever discovery found. The callback exists because a
@@ -510,6 +512,28 @@ public final class WindowManager {
      */
     public void showSettings(Window from) {
         settingsWindow().show(from);
+    }
+
+    /** Export Configuration (SET-12): a zip of the config folder in the home folder. */
+    void exportConfiguration(Reporter report) {
+        configTransfer.export(report);
+    }
+
+    /** Import Configuration (SET-12): asks for a zip and replaces the parts the user ticks. */
+    void importConfiguration(Window from, Reporter report) {
+        configTransfer.importFrom(from, report);
+    }
+
+    /**
+     * Import Configuration without the file chooser or the dialog, ticking {@code parts}: for the
+     * development capture, which can drive neither.
+     */
+    public void importConfigurationForCapture(
+            java.nio.file.Path zip, java.util.Set<com.termina.config.ConfigArchive.Part> parts, Reporter report) {
+        configTransfer.importZip(zip, report, scan -> {
+            System.out.println("[capture] import offers " + scan.parts());
+            return parts;
+        });
     }
 
     /** The settings window, on its Profiles page. */

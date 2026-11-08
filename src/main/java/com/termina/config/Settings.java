@@ -1171,6 +1171,20 @@ public final class Settings {
         fireChange();
     }
 
+    /**
+     * Makes the stored settings exactly {@code next}, as an import does ({@link ConfigArchive#merge}):
+     * a key it lacks is removed, the rest set. Saved and announced like any other change, so the
+     * file is written by the usual path and every window re-applies at once.
+     */
+    public void replaceStored(Map<String, String> next) {
+        for (String key : properties.stringPropertyNames()) {
+            if (!next.containsKey(key)) properties.remove(key);
+        }
+        next.forEach(properties::setProperty);
+        requestSave();
+        fireChange();
+    }
+
     /** Which of the stored keys a reset removes: everything but the profiles, their two keys and sync. */
     public static Set<String> keysToReset(Set<String> stored) {
         Set<String> reset = new LinkedHashSet<>();

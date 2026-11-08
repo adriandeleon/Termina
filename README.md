@@ -557,6 +557,15 @@ files on the first launch and kept as `settings.properties.migrated`. More than 
 on one config folder: each save writes only the keys that process changed, under a lock, on top of
 whatever the file holds by then.
 
+**Export and Import.** Settings ▸ Advanced, or the palette's Export Configuration, writes
+`termina-config-<date>-<time>.zip` of the config folder to your home folder; locks, logs, the
+instance socket and the sync clone are left out. Import Configuration reads one back and lists what
+it holds — preferences, key bindings, shell profiles, imported themes — each ticked; only the ticked
+parts are replaced, each as a whole. Window positions and the settings-sync connection belong to the
+computer and are never imported. The current configuration is copied to
+`backups/termina-config.before-import-<date>-<time>.zip` first, so an import can be undone by
+importing that.
+
 A setting that only makes Termina less safe has no row in Settings; it is a key in `settings.json`
 for anyone who means it. There is one: `"input.confirmPaste": false` pastes several lines without
 first showing them, where by default a paste with a line break asks.

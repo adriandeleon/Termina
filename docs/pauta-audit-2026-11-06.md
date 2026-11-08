@@ -180,6 +180,18 @@ Addressed on 2026-11-07, branch `single-instance`:
   - CLI-03: `--new-instance`.
 - **Not done:** macOS `openFiles` Apple Events. Termina opens no files.
 
+Addressed on 2026-11-07, branch `config-archive`:
+
+- **Now met:** SET-12. `config.ConfigArchive` exports the config folder, less locks, logs, the
+  socket, temporaries, `sync/` and `backups/`, to `termina-config-<stamp>.zip` in the home folder.
+  It scans an import before writing anything: not a zip, no `settings.json`, an unsafe path, over
+  the size limits counted while inflating, or a newer schema are each refused. It backs up to
+  `backups/`, then replaces only the ticked parts (preferences, key bindings, profiles, themes).
+  The settings parts go key by key through `Settings.replaceStored`, so the running app applies
+  them at once. `ConfigArchiveTest` covers the zip's name and contents and a ticked-parts-only
+  import; `ConfigTransferTest` covers the dialog. Driven headless with the new
+  `-Dtermina.captureImportConfig`.
+
 Everything else below stands.
 
 ## Totals
