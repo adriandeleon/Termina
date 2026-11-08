@@ -60,17 +60,20 @@ done.
 
 ### Changed
 
-- **A release checks the macOS app is signed by Termina's team and launches the notarized app**
-  from its dmg, as well as the image before it was wrapped.
-- **A slow answer can no longer overwrite a newer one**: importing a theme or a configuration
-  twice, the GitHub check behind Settings ▸ Sync and the update check each apply only the latest
-  request's result.
+- **Every setting is in the palette.** Type part of a setting's name: a switch says which way it
+  will go ("Show a scrollbar: turn off"), a choice lists its options ("Cursor shape: Bar"), and a
+  value ("Scrollback lines…") asks for a new one. Each is named and described as its Settings row is.
 - **The palette lists every command.** Go to Tab and New Tab With Profile are listed for every
   number with a shortcut, greyed with the reason when there is no such tab or profile, and the
   palette lists itself. At an equal match a command that can run comes before one that cannot.
 - **One right-click menu at a time.** Opening a tab's menu, a pane's or the profile list closes any
   other that is open, however it was opened.
 - **The command palette is built the first time it opens**, not with every window.
+- **A release checks the macOS app is signed by Termina's team and launches the notarized app**
+  from its dmg, as well as the image before it was wrapped.
+- **A slow answer can no longer overwrite a newer one**: importing a theme or a configuration
+  twice, the GitHub check behind Settings ▸ Sync and the update check each apply only the latest
+  request's result.
 - **The Menu key and Shift+F10 open the terminal's menu**, under the cursor, as GNOME Terminal's
   do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
   current tab's own menu.

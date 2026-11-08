@@ -232,18 +232,6 @@ Addressed on 2026-11-08, branch `small-partials`:
   - SET-03: `ui.SettingsSearch`, Editora's scoring; headings and page names are searched
     (`SettingsSearchTest`).
 
-Addressed on 2026-11-08, branch `pauta-guards`:
-
-- **Now met:**
-  - PERF-03: `work.LatestOnly`, Editora's verbatim with its test, guards the theme import, the
-    configuration import's scan, the gh sign-in check behind Sync and the update check.
-  - QUAL-05: the window's pure rules moved to `ui.WindowRules`; `PaletteKeys` lost its JavaFX half
-    to `PaletteNav`; `MouseEncoding` and `WindowPlacement` take plain values. `PureDecisionsTest`
-    fails a listed decision class that imports JavaFX or whose test needs the toolkit.
-  - REL-15: the release checks `TeamIdentifier=8JKSF797L8` before notarizing, and runs
-    `smoke-test.sh` on the notarized app inside the dmg after `spctl`; `WorkflowRulesTest` holds
-    the order. Unrun until the next tag.
-
 Addressed on 2026-11-08, branch `pauta-tests`:
 
 - **Now met:**
@@ -257,6 +245,26 @@ Addressed on 2026-11-08, branch `pauta-tests`:
     and profile chords included, greyed with a reason when there is nothing behind the number. The
     same test fails on a registered command the palette does not list. Descriptions were already
     checked by `MessagesTest` (QUAL-12).
+
+Addressed on 2026-11-08, branch `pauta-guards`:
+
+- **Now met:**
+  - PERF-03: `work.LatestOnly`, Editora's verbatim with its test, guards the theme import, the
+    configuration import's scan, the gh sign-in check behind Sync and the update check.
+  - QUAL-05: the window's pure rules moved to `ui.WindowRules`; `PaletteKeys` lost its JavaFX half
+    to `PaletteNav`; `MouseEncoding` and `WindowPlacement` take plain values. `PureDecisionsTest`
+    fails a listed decision class that imports JavaFX or whose test needs the toolkit.
+  - REL-15: the release checks `TeamIdentifier=8JKSF797L8` before notarizing, and runs
+    `smoke-test.sh` on the notarized app inside the dmg after `spctl`; `WorkflowRulesTest` holds
+    the order. Unrun until the next tag.
+
+Addressed on 2026-11-08, branch `settings-commands`:
+
+- **Now met:** SET-06. `ui.SettingCommands` makes a palette row for every setting from its
+  Settings row: switches flip, choices list their options, values ask through a dialog. Rows with
+  no command of their own are in `COVERED_ELSEWHERE` with the reason (a command elsewhere, an
+  action, or nothing to set). `SettingCommandsTest` parses the Settings window's rows and fails on
+  one in neither place.
 
 Everything else below stands.
 
