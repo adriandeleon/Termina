@@ -114,7 +114,7 @@ public final class SettingsWindow {
      * One searchable control row. The title is kept apart from the rest of the text because a hit
      * in it outranks a hit in the description — see {@link #matchRank}.
      */
-    private record Row(Category category, Node node, String title, String keywords, VBox section) {}
+    private record Row(Category category, Node node, String title, String description, String keywords, VBox section) {}
 
     private final Settings settings;
     private final Stage stage = new Stage();
@@ -497,39 +497,10 @@ public final class SettingsWindow {
 
     // ---------------------------------------------------------------- search
 
-    /**
-     * How well a row answers a query: 2 for a hit in its title, 1 for a hit anywhere else, 0 for
-     * none. A blank query is 1 for everything.
-     *
-     * <p>Titles outrank the rest because the rest is where the noise is. "scrollback" is in the
-     * description of "Show a scrollbar" and in the title of "Scrollback lines"; ranked by page
-     * order the search landed on the former, which is on an earlier page.
-     */
-    static int matchRank(String query, String title, String rest) {
-        if (query == null || query.isBlank()) return 1;
-        String needle = query.trim().toLowerCase(Locale.ROOT);
-        if (title != null && title.toLowerCase(Locale.ROOT).contains(needle)) return 2;
-        return rest != null && rest.toLowerCase(Locale.ROOT).contains(needle) ? 1 : 0;
-    }
-
-    /**
-     * A matching row's rank, raised above any title hit when the query also names its page. Typing
-     * "sync" means the Sync page; ranked by row alone it landed on the Keyboard page, whose Sync
-     * Settings Now row says the word in its title while the Sync page's own rows are "Repository" and
-     * "Branch". Only the landing changes: a row that did not match stays hidden.
-     */
-    static int landingRank(int rank, String query, String pageTitle) {
-        if (rank == 0 || query == null || query.isBlank() || pageTitle == null) return rank;
-        return pageTitle.toLowerCase(Locale.ROOT).contains(query.trim().toLowerCase(Locale.ROOT)) ? 3 : rank;
-    }
-
-    /** The index of the best rank, the first of them on a tie, or -1 when nothing matched. */
-    static int bestOf(int[] ranks) {
-        int best = -1;
-        for (int i = 0; i < ranks.length; i++) {
-            if (ranks[i] > 0 && (best < 0 || ranks[i] > ranks[best])) best = i;
-        }
-        return best;
+    /** A section's heading text: the label every {@link #section} starts with. */
+    private static String headingOf(@Nullable VBox section) {
+        if (section == null || section.getChildren().isEmpty()) return "";
+        return section.getChildren().get(0) instanceof Label heading ? heading.getText() : "";
     }
 
     private void filter(String query) {
@@ -539,10 +510,12 @@ public final class SettingsWindow {
         int[] ranks = new int[rows.size()];
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
-            ranks[i] = landingRank(
-                    matchRank(query, row.title(), row.keywords()),
-                    query,
-                    row.category().title());
+            // The heading and the page name are searched as one (SET-03): both say where the row is.
+            String headings = headingOf(row.section()) + " " + row.category().title();
+            SettingsSearch.Texts texts =
+                    new SettingsSearch.Texts(row.title(), row.description(), headings, row.keywords());
+            ranks[i] = SettingsSearch.landing(
+                    SettingsSearch.score(query, texts), query, row.category().title());
             boolean visible = ranks[i] > 0;
             row.node().setVisible(visible);
             row.node().setManaged(visible);
@@ -565,7 +538,7 @@ public final class SettingsWindow {
 
         // A typed query lands on the page of its best match; clearing it leaves the user where
         // they were.
-        int best = query == null || query.isBlank() ? -1 : bestOf(ranks);
+        int best = query == null || query.isBlank() ? -1 : SettingsSearch.bestOf(ranks);
         if (best >= 0) {
             sidebar.getSelectionModel().select(rows.get(best).category());
             return;
@@ -653,7 +626,7 @@ public final class SettingsWindow {
         line.setAlignment(Pos.CENTER_LEFT);
         line.getStyleClass().add("settings-row");
         section.getChildren().add(line);
-        rows.add(new Row(category, line, title, description + " " + keywords, section));
+        rows.add(new Row(category, line, title, description == null ? "" : description, keywords, section));
         return line;
     }
 
@@ -1094,6 +1067,7 @@ public final class SettingsWindow {
                 Category.APPEARANCE,
                 preview.node(),
                 tr("settings.section.preview"),
+                "",
                 "preview sample colours font",
                 previewSection));
     }
@@ -1685,6 +1659,7 @@ public final class SettingsWindow {
                 Category.PROFILES,
                 editor,
                 tr("settings.section.profiles"),
+                "",
                 "profile shell command wsl powershell cmd bash zsh fish add remove",
                 list));
 

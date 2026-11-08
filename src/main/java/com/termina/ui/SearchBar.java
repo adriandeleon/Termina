@@ -64,8 +64,8 @@ final class SearchBar extends HBox {
         IconNames.name(regex, tr("search.regex"));
         regex.selectedProperty().addListener((o, was, now) -> fireQuery());
 
-        Button older = button(MenuIcons.arrowUp(), tr("search.older"), () -> listener.step(true));
-        Button newer = button(MenuIcons.arrowDown(), tr("search.newer"), () -> listener.step(false));
+        Button older = button(MenuIcons.arrowUp(), olderTip, () -> listener.step(true));
+        Button newer = button(MenuIcons.arrowDown(), newerTip, () -> listener.step(false));
         Button close = button(MenuIcons.close(), tr("search.close"), this::close);
 
         getChildren().addAll(MenuIcons.search(), field, count, regex, older, newer, close);
@@ -76,7 +76,32 @@ final class SearchBar extends HBox {
     /** Keeps the buttons from shuffling sideways as the count grows a digit. */
     private static final double COUNT_MIN_WIDTH = 64;
 
+    /** The arrows run Find Previous and Find Next, so they show those commands' chords (TBAR-03). */
+    private final javafx.beans.property.StringProperty olderTip =
+            new javafx.beans.property.SimpleStringProperty(tr("search.older"));
+
+    private final javafx.beans.property.StringProperty newerTip =
+            new javafx.beans.property.SimpleStringProperty(tr("search.newer"));
+
+    /** Re-reads the arrows' chords; called each time the bar opens, so a moved chord shows. */
+    void showChords(
+            java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
+                    chordOf) {
+        olderTip.set(IconNames.withChord(tr("search.older"), chordOf.apply("findPrevious")));
+        newerTip.set(IconNames.withChord(tr("search.newer"), chordOf.apply("findNext")));
+    }
+
+    /** The arrows' tooltips, older first: for tests. */
+    java.util.List<String> arrowTooltips() {
+        return java.util.List.of(olderTip.get(), newerTip.get());
+    }
+
     private static Button button(javafx.scene.Node icon, String tip, Runnable action) {
+        return button(icon, new javafx.beans.property.SimpleStringProperty(tip), action);
+    }
+
+    private static Button button(
+            javafx.scene.Node icon, javafx.beans.value.ObservableValue<String> tip, Runnable action) {
         Button button = new Button(null, icon);
         button.getStyleClass().add("search-button");
         button.setFocusTraversable(false);

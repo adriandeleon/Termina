@@ -44,6 +44,18 @@ public final class DebugLog {
     /** Enough to hold a session's worth of trouble without holding a session's worth of memory. */
     private static final int MAX_ENTRIES = 2000;
 
+    /**
+     * The file's ceiling, and what it is cut back to (PERF-11, Pauta 2.0.2): a session that logs a
+     * warning per keystroke for a week otherwise fills the disk. Cut to the newest half, so a cut
+     * happens once per few megabytes rather than once per line, under a note of what went.
+     */
+    static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
+
+    static final long KEEP_FILE_BYTES = MAX_FILE_BYTES / 2;
+
+    /** How many of this session's entries the window's buffer has dropped, oldest first. */
+    private static long droppedEntries;
+
     public static final String FILE_NAME = "termina-session.log";
 
     /** The session before this one's log, kept when this one's starts (DIAG-02). */
@@ -190,7 +202,10 @@ public final class DebugLog {
     static void append(String line) {
         synchronized (DebugLog.class) {
             ENTRIES.addLast(line);
-            while (ENTRIES.size() > MAX_ENTRIES) ENTRIES.removeFirst();
+            while (ENTRIES.size() > MAX_ENTRIES) {
+                ENTRIES.removeFirst();
+                droppedEntries++;
+            }
             if (channel == null) return;
         }
         // A thread already inside this class's lock writes for itself: the writer needs that lock,
@@ -228,18 +243,56 @@ public final class DebugLog {
             ByteBuffer bytes = ByteBuffer.wrap((line + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
             channel.position(channel.size());
             while (bytes.hasRemaining()) channel.write(bytes);
+            trimIfOver(channel, MAX_FILE_BYTES, KEEP_FILE_BYTES);
         } catch (IOException ignored) {
             // Same again: the in-memory copy is still there.
         }
     }
 
-    /** Everything captured this session, oldest first. */
+    /**
+     * Cuts a file over {@code max} bytes back to its newest {@code keep}, from the start of a line,
+     * under one line saying how much went. Through the channel that holds the lock, which on
+     * Windows bars any other handle. Returns the bytes cut, 0 when under the ceiling.
+     */
+    static long trimIfOver(FileChannel file, long max, long keep) throws IOException {
+        long size = file.size();
+        if (size <= max) return 0;
+        ByteBuffer tail = ByteBuffer.allocate((int) Math.min(keep, size));
+        long from = size - tail.capacity();
+        while (tail.hasRemaining()) {
+            if (file.read(tail, from + tail.position()) < 0) break;
+        }
+        tail.flip();
+        // From the first whole line, so the note is not followed by the back half of one.
+        while (tail.hasRemaining() && tail.get() != '\n') {
+            // skipping
+        }
+        long cut = from + tail.position();
+        ByteBuffer note = ByteBuffer.wrap(cutNote(cut).getBytes(StandardCharsets.UTF_8));
+        file.truncate(0);
+        file.position(0);
+        while (note.hasRemaining()) file.write(note);
+        while (tail.hasRemaining()) file.write(tail);
+        return cut;
+    }
+
+    /** The line that replaces what a cut removed. */
+    static String cutNote(long bytes) {
+        return "[" + bytes + " bytes of earlier log cut to keep the file under " + (MAX_FILE_BYTES >> 20) + " MB]"
+                + System.lineSeparator();
+    }
+
+    /** Everything captured this session, oldest first, under a note of what was dropped. */
     public static synchronized String text() {
-        return String.join(System.lineSeparator(), ENTRIES);
+        String text = String.join(System.lineSeparator(), ENTRIES);
+        if (droppedEntries == 0) return text;
+        return "[" + droppedEntries + " earlier entries dropped; the file beside the settings has more]"
+                + System.lineSeparator() + text;
     }
 
     public static synchronized void clear() {
         ENTRIES.clear();
+        droppedEntries = 0;
     }
 
     /** The file being mirrored to, or null when there is none. */

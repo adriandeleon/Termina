@@ -1395,6 +1395,7 @@ public final class TerminalView extends Region {
             }
             case PASTE -> paste();
             case COPY -> copySelection();
+            case MENU -> showContextMenuAtCursor();
             default ->
                 moveOrigin(origin -> ViewKeys.scrolledOrigin(action, origin, rows, buffer().getHistoryLinesCount()));
         }
@@ -2145,7 +2146,35 @@ public final class TerminalView extends Region {
         return mode == MouseMode.MOUSE_REPORTING_NONE;
     }
 
+    /**
+     * The context menu, raised from the keyboard, under the cursor's cell — or the view's top-left
+     * when the cursor is scrolled out of sight (MENU-09). Through the same handler a right-click
+     * takes, so the menu is refreshed the same way.
+     */
+    private void showContextMenuAtCursor() {
+        int row = display.getCursorY() - 1 - scrollOrigin;
+        double x = textPadding;
+        double y = textPadding;
+        if (row >= 0 && row < rows) {
+            int slot = display.getCursorX();
+            x += CursorDraw.cell(lineTextAt(display.getCursorY() - 1), slot, columns)
+                            .column()
+                    * charWidth;
+            y += (row + 1) * lineHeight;
+        }
+        javafx.geometry.Point2D screen = localToScreen(x, y);
+        if (screen == null) return;
+        onContextMenuRequested(new ContextMenuEvent(
+                ContextMenuEvent.CONTEXT_MENU_REQUESTED, x, y, screen.getX(), screen.getY(), true, null));
+    }
+
     private void onContextMenuRequested(ContextMenuEvent e) {
+        // A platform that raises its own request for the Menu key would move the menu just opened
+        // at the cursor to wherever it guessed; one keyboard request is answered once.
+        if (e.isKeyboardTrigger() && shownContextMenu() != null) {
+            e.consume();
+            return;
+        }
         // ContextMenuEvent carries no modifier state — only coordinates and whether a key raised
         // it — so shift is read from the press that triggered it.
         if (!shouldShowMenu(display.getMouseMode(), shiftOnLastPress, e.isKeyboardTrigger())) return;
@@ -2232,7 +2261,9 @@ public final class TerminalView extends Region {
     private static boolean fireButtonIn(javafx.scene.Node node, String label) {
         if (node instanceof javafx.scene.control.Button button
                 && button.getTooltip() != null
-                && label.equals(button.getTooltip().getText())) {
+                && (label.equals(button.getTooltip().getText())
+                        // A tooltip names the chord after the title (TBAR-03): "Zoom In (Ctrl+=)".
+                        || button.getTooltip().getText().startsWith(label + " ("))) {
             button.fire();
             return true;
         }
@@ -2803,6 +2834,13 @@ public final class TerminalView extends Region {
      * Supplies the question asked before a multi-line paste — the dialog, and the setting that
      * turns it off. Returns true to go ahead. See {@link PasteSafety}.
      */
+    /** Told the length of a paste refused for its size, to say so where the user will see it. */
+    private java.util.function.IntConsumer onPasteRefused = length -> {};
+
+    void setOnPasteRefused(java.util.function.IntConsumer listener) {
+        onPasteRefused = listener;
+    }
+
     public void setPasteConfirmer(Predicate<String> confirmer) {
         this.pasteConfirmer = confirmer == null ? text -> true : confirmer;
     }
@@ -2818,10 +2856,18 @@ public final class TerminalView extends Region {
     }
 
     /** Pastes text from wherever it came — the clipboard, or PRIMARY on a middle-click. */
-    private void pasteText(String raw) {
+    private void pasteText(@Nullable String raw) {
+        if (raw == null || raw.isEmpty() || session == null) return;
+        // By length first, before sanitising copies it (PERF-12).
+        PasteSafety.Size size = PasteSafety.bySize(raw.length(), PasteSafety.freeHeap());
+        if (size == PasteSafety.Size.REFUSED) {
+            onPasteRefused.accept(raw.length());
+            return;
+        }
         String text = KeyEncoding.sanitise(raw);
-        if (text.isEmpty() || session == null) return;
-        if (PasteSafety.needsConfirmation(text) && !pasteConfirmer.test(text)) return;
+        if (text.isEmpty()) return;
+        boolean ask = size == PasteSafety.Size.LARGE || PasteSafety.needsConfirmation(text);
+        if (ask && !pasteConfirmer.test(text)) return;
         snapToLive();
         session.send(KeyEncoding.encodePaste(text, display.isBracketedPaste()));
     }
@@ -3199,6 +3245,18 @@ public final class TerminalView extends Region {
                     this, new KeyEvent(KeyEvent.KEY_RELEASED, "", text, code, false, false, false, false));
             out.append(token).append(' ');
         }
+        ContextMenu menu = shownContextMenu();
+        if (menu != null) {
+            // Where it opened, against the view: a keyboard menu is meant to sit under the cursor.
+            javafx.geometry.Point2D local = screenToLocal(menu.getAnchorX(), menu.getAnchorY());
+            out.append(String.format(
+                    java.util.Locale.ROOT,
+                    "contextMenu=showing at %.0f,%.0f cursor=%d,%d ",
+                    local == null ? -1 : local.getX(),
+                    local == null ? -1 : local.getY(),
+                    display.getCursorX(),
+                    display.getCursorY()));
+        }
         return out.toString().trim();
     }
 
@@ -3285,6 +3343,13 @@ public final class TerminalView extends Region {
         runSearch(false, true);
     }
 
+    /** Where the find bar's tooltips read the chords in force: the window's table (TBAR-03). */
+    private java.util.function.Function<String, javafx.scene.input.@Nullable KeyCombination> chordLookup = id -> null;
+
+    void setChordLookup(java.util.function.Function<String, javafx.scene.input.@Nullable KeyCombination> lookup) {
+        chordLookup = lookup;
+    }
+
     /**
      * Opens the find bar, or puts the caret back in it.
      *
@@ -3325,6 +3390,7 @@ public final class TerminalView extends Region {
         } else if (!wasOpen) {
             runSearch(false, true);
         }
+        searchBar.showChords(chordLookup);
         searchBar.focusField();
     }
 

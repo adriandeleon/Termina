@@ -74,7 +74,8 @@ final class MessageLogWindow {
         close.setDefaultButton(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox buttons = new HBox(8, copy, clear, spacer, close);
+        cutNote.getStyleClass().add("settings-row-description");
+        HBox buttons = new HBox(8, copy, clear, cutNote, spacer, close);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
         VBox root = new VBox(10, list, buttons);
@@ -113,8 +114,12 @@ final class MessageLogWindow {
         return stage.isShowing();
     }
 
+    /** Says the oldest messages are gone, when they are (PERF-11): a log that stops short says nothing. */
+    private final Label cutNote = new Label();
+
     private void refresh() {
         list.getItems().setAll(log.entries());
+        cutNote.setText(log.cut() == 0 ? "" : tr("messagelog.cut", log.cut()));
         // Seen now, so the status bar's count goes (MLOG-06).
         log.removeListener(refresh);
         log.markRead();

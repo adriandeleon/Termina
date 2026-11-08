@@ -37,6 +37,11 @@
              windows=d3d,es2,sw (keep Direct3D), linux=es2,sw. This default covers
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
+        <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
+             has; opening it elsewhere warns on every launch. The os-mac profile sets the real
+             option; elsewhere this repeats an export already given, which is harmless, because an
+             empty launcher option is not. -->
+        <glass.mac.opens>--add-exports=javafx.graphics/com.sun.glass.ui=com.termina</glass.mac.opens>
         <!-- Overridden per-OS below; jpackage wants .icns on macOS, .ico on Windows, .png on Linux. -->
         <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
         <skip.mac.version.fix>true</skip.mac.version.fix>
@@ -521,6 +526,10 @@
                              in a future release. ALL-UNNAMED is needed because this plugin puts the
                              non-required jars on the classpath rather than the module path. -->
                         <option>--enable-native-access=javafx.graphics,ALL-UNNAMED</option>
+                        <!-- The About item in the macOS application menu, which JavaFX has no API
+                             for (ui.MacAppMenu). Without them that item is missing, nothing else. -->
+                        <option>--add-exports=javafx.graphics/com.sun.glass.ui=com.termina</option>
+                        <option>${glass.mac.opens}</option>
                         <option>-Dprism.order=${prism.pipeline}</option>
                                 <!-- $APPDIR is the app directory of the installed image, so this
                                      survives being moved. Under the default AOTMode=auto a missing
@@ -542,6 +551,7 @@
             <activation><os><family>mac</family></os></activation>
             <properties>
                 <prism.pipeline>mtl,es2,sw</prism.pipeline>
+                <glass.mac.opens>--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.termina</glass.mac.opens>
                 <jpackage.icon>${project.basedir}/branding/termina.icns</jpackage.icon>
                 <skip.mac.version.fix>false</skip.mac.version.fix>
                 <jpackage.imageName>Termina.app</jpackage.imageName>
@@ -795,6 +805,9 @@
                                     </addModules>
                                     <javaOptions>
                                         <javaOption>--enable-native-access=javafx.graphics,com.sun.jna</javaOption>
+                                        <!-- ui.MacAppMenu: About in the macOS application menu. -->
+                                        <javaOption>--add-exports=javafx.graphics/com.sun.glass.ui=com.termina</javaOption>
+                                        <javaOption>${glass.mac.opens}</javaOption>
                                         <javaOption>-Dprism.order=${prism.pipeline}</javaOption>
                                         <!-- $APPDIR is the installed image's app directory, so this
                                              survives the bundle being moved. Under the default

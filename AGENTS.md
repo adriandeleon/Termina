@@ -138,6 +138,7 @@ touching its area.
 - JediTerm reads any `CSI … u` as SCORC, restore cursor, and ignores the private marker.
 - What the emulator reads is a chain, built in one place.
 - Keys fired at a program right after it starts can race its startup.
+- An `--add-opens` for a package only one platform has warns on every launch elsewhere.
 - The close prompt is modal, and a capture run that reaches it hangs.
 
 ## Where things are

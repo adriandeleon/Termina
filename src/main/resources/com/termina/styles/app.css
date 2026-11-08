@@ -17,6 +17,13 @@
     -state-red: -color-danger-fg;
     -state-amber: -color-warning-fg;
     -state-green: -color-success-fg;
+
+    /* What sits behind and under a floating surface (ICON-08): a scrim over the window while the
+       palette is open, and the shadows of the palette and the find bar. Black in every theme —
+       a shadow is the absence of light, not a hue — so named here rather than per theme. */
+    -scrim: rgba(0, 0, 0, 0.32);
+    -shadow-overlay: rgba(0, 0, 0, 0.45);
+    -shadow-floating: rgba(0, 0, 0, 0.35);
 }
 
 /* A status line saying something failed or was refused, and one asking for attention. */
@@ -369,7 +376,7 @@
  * and a centred card sits exactly where the output being consulted is.
  */
 .palette-backdrop {
-    -fx-background-color: rgba(0, 0, 0, 0.32);
+    -fx-background-color: -scrim;
 }
 
 .command-palette {
@@ -381,7 +388,7 @@
     -fx-padding: 6;
     /* The kit layers a tight contact shadow and a wide ambient one; JavaFX takes a single
        dropshadow, so this is the wide one with a short offset, and the 1px border is the edge. */
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 44, 0.16, 0, 18);
+    -fx-effect: dropshadow(gaussian, -shadow-overlay, 44, 0.16, 0, 18);
     /* Clear of the tab strip, so the tabs stay readable while choosing. */
     -fx-translate-y: 64;
 }
@@ -540,7 +547,7 @@
     -fx-border-radius: 8;
     -fx-padding: 3 4 3 8;
     -fx-pref-width: 380;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 18, 0.12, 0, 6);
+    -fx-effect: dropshadow(gaussian, -shadow-floating, 18, 0.12, 0, 6);
 }
 
 /* The query is the card's own text, not a boxed field inside it. */

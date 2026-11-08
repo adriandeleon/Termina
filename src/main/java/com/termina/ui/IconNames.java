@@ -38,6 +38,15 @@ final class IconNames {
         return tip;
     }
 
+    /**
+     * A command's tooltip: its title and the chord it is on now, "Zoom In (Ctrl+Shift+=)", or the
+     * title alone when it has none (TBAR-03, Pauta 2.0.2). The chord is whatever the keymap holds,
+     * never written into the string.
+     */
+    static String withChord(String title, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination chord) {
+        return chord == null ? title : com.termina.i18n.Messages.tr("tooltip.withChord", title, chord.getDisplayText());
+    }
+
     /** Names {@code node} with a fixed text. */
     static Tooltip name(Node node, String text) {
         return name(node, new SimpleStringProperty(text));

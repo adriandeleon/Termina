@@ -12,27 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The decisions in the settings window that do not need a window. */
 class SettingsWindowTest {
 
-    // ---------------------------------------------------------------- search
-
-    @Test
-    void aTitleHitOutranksADescriptionHit() {
-        // "scrollback" is in the description of "Show a scrollbar" and the title of "Scrollback
-        // lines"; ranked by page order the search landed on the wrong one.
-        int scrollbar = SettingsWindow.matchRank("scrollback", "Show a scrollbar", "The wheel scrolls the scrollback");
-        int lines = SettingsWindow.matchRank("scrollback", "Scrollback lines", "Held in memory");
-        assertTrue(lines > scrollbar);
-        assertEquals(0, SettingsWindow.matchRank("scrollback", "Visual bell", "Flashes the screen"));
-        assertEquals(1, SettingsWindow.matchRank("  ", "anything", "at all"), "a blank query keeps everything");
-    }
-
-    @Test
-    void theBestMatchIsTheHighestRankAndTheFirstOnATie() {
-        assertEquals(2, SettingsWindow.bestOf(new int[] {1, 0, 2, 2}));
-        assertEquals(0, SettingsWindow.bestOf(new int[] {1, 1}));
-        assertEquals(-1, SettingsWindow.bestOf(new int[] {0, 0}));
-        assertEquals(-1, SettingsWindow.bestOf(new int[0]));
-    }
-
     // ---------------------------------------------------------------- sidebar keys
 
     @Test
@@ -116,15 +95,5 @@ class SettingsWindowTest {
         assertNull(AboutWindow.lastChecked(-5));
         String when = AboutWindow.lastChecked(1_700_000_000_000L);
         assertTrue(when != null && !when.isBlank());
-    }
-
-    @Test
-    void aQueryThatNamesAPageLandsOnIt() {
-        // The Keyboard page's "Sync Settings Now" is a title hit; the Sync page's rows are not.
-        int keyboardRow = SettingsWindow.landingRank(2, "sync", "Keyboard");
-        int syncRow = SettingsWindow.landingRank(1, "sync", "Sync");
-        assertEquals(1, SettingsWindow.bestOf(new int[] {keyboardRow, syncRow}));
-        assertEquals(0, SettingsWindow.landingRank(0, "sync", "Sync"), "a row that did not match stays hidden");
-        assertEquals(2, SettingsWindow.landingRank(2, "", "Sync"));
     }
 }

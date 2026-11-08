@@ -312,6 +312,14 @@ is broken.
   for the kitty protocol as it starts and turns it on when answered; a capture that typed into it
   within its first seconds saw Escape ignored, and the same keys after a longer
   `captureAfterCommandMs` worked. Settle before concluding a key is broken.
+- **An `--add-opens` for a package only one platform has warns on every launch elsewhere.**
+  `ui.MacAppMenu` reaches the macOS application menu through `com.sun.glass.ui.mac`, which exists
+  only in macOS's JavaFX; opened on Linux the JVM prints `WARNING: package com.sun.glass.ui.mac not
+  in javafx.graphics` at every start. So it is a property the `os-mac` profile sets
+  (`glass.mac.opens`) and a `uname` test in the two scripts, defaulting to a repeat of the
+  `com.sun.glass.ui` export — harmless, where an empty launcher option is not. `MacAppMenuTest`
+  checks every launcher. The item itself has only ever run as far as Glass's proxy: Headless and
+  GTK have no application menu, so a Mac is the only test of it.
 - **The close prompt is modal, and a capture run that reaches it hangs.** A fresh shell often has a
   child for a moment (a prompt framework's helper), so closing a pane or tab in a capture asks —
   pass `-Dtermina.captureCloseAnswer=close`, which `capturePanes` and `captureCloseTabs` both read.

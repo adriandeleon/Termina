@@ -60,6 +60,20 @@ done.
 
 ### Changed
 
+- **The Menu key and Shift+F10 open the terminal's menu**, under the cursor, as GNOME Terminal's
+  do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
+  current tab's own menu.
+- **About Termina is in the macOS application menu** as well as in Help.
+- **Tooltips name the shortcut in force**: the find bar's arrows and the zoom row's buttons say
+  "Zoom In (Ctrl+=)", and follow a chord moved on the Keyboard page.
+- **Settings search ranks what it finds**: a title above a description above a section heading
+  above a keyword, and a whole word above part of one. Section headings and page names are
+  searched, and every word typed has to be found.
+- **A very large paste asks first and shows only its start.** Past a million characters it asks
+  whether or not it has line breaks; past sixteen million, or more than memory can hold on the way
+  out, it is refused with a message. The prompt's preview stops at 64K characters.
+- **The session log stays under 8 MB**, cut back to its newest half with a line saying what went,
+  and the Debug Log and Message Log say how many older entries they have dropped.
 - **The Debug Log keeps everything logged, not just warnings and errors**, including what JediTerm
   and pty4j log, which used to go to a stderr nobody saw in an installed app. A desktop
   notification that could not be shown now says why in it.
