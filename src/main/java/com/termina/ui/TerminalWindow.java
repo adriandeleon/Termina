@@ -1866,10 +1866,10 @@ public final class TerminalWindow {
         java.util.Set<KeyCombination> listed = new java.util.HashSet<>();
         for (Menu menu : menuBar.getMenus()) {
             for (MenuItem item : menu.getItems()) {
-                if (item.getAccelerator() == null || item.getText() == null) continue;
-                out.add(new ShortcutReference.Shortcut(
-                        menu.getText(), item.getText(), item.getAccelerator().getDisplayText()));
-                listed.add(item.getAccelerator());
+                KeyCombination chord = item.getUserData() instanceof String id ? chordOf(id) : null;
+                if (chord == null) continue;
+                out.add(new ShortcutReference.Shortcut(menu.getText(), MenuRows.titleOf(item), chord.getDisplayText()));
+                listed.add(chord);
             }
         }
         int profiles = windows.profiles().all().size();
@@ -2243,6 +2243,24 @@ public final class TerminalWindow {
     }
 
     /** The clicked tab's menu, for the development capture hook. */
+    /**
+     * Opens the bar's menu titled {@code title} and returns its popup's scene, or null when there is
+     * no such menu or it did not open. For the capture hook: a menu is a popup, so the window's own
+     * snapshot does not show it.
+     */
+    public javafx.scene.@Nullable Scene showBarMenuForCapture(String title) {
+        for (Menu menu : menuBar.getMenus()) {
+            if (!title.equals(menu.getText())) continue;
+            menu.show();
+            javafx.stage.Window shown = null;
+            for (javafx.stage.Window open : javafx.stage.Window.getWindows()) {
+                if (open instanceof javafx.stage.PopupWindow && open.isShowing()) shown = open;
+            }
+            return shown == null ? null : shown.getScene();
+        }
+        return null;
+    }
+
     public javafx.scene.@Nullable Scene showTabMenuForCapture(int index, double screenX, double screenY) {
         if (index < 0 || index >= tabs.getTabs().size()) return null;
         ContextMenu menu = tabs.getTabs().get(index).getContextMenu();
@@ -2345,6 +2363,7 @@ public final class TerminalWindow {
      */
     private static String labelOf(MenuItem item) {
         if (item instanceof SeparatorMenuItem) return "-";
+        if (MenuRows.isRow(item)) return MenuRows.titleOf(item);
         if (item.getText() != null) return item.getText();
         if (item instanceof javafx.scene.control.CustomMenuItem custom && custom.getContent() != null) {
             return "<" + String.join(" ", custom.getContent().getStyleClass()) + ">";
@@ -2789,12 +2808,37 @@ public final class TerminalWindow {
      * there than "New Tab with Profile 3".
      */
     private Menu profileSubmenu() {
-        Menu newTabAs = new Menu(tr("menu.newTabProfile"), MenuIcons.newTab());
+        Menu newTabAs = MenuRows.submenu(tr("menu.newTabProfile"), MenuIcons.newTab(), SYSTEM_MENU_BAR);
         // A Menu with no items renders as a dead entry with no arrow, and the items are only known
         // at show time — so it is seeded with one that is replaced before it is ever drawn.
         newTabAs.getItems().add(new MenuItem(""));
-        newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
+        newTabAs.setOnShowing(e -> {
+            newTabAs.getItems().setAll(profileBarRows());
+            MenuRows.alignChords(newTabAs.getItems());
+        });
         return newTabAs;
+    }
+
+    /**
+     * The profiles as the bar's rows (MENU-02): the chord drawn by the row rather than an
+     * accelerator, and on the macOS screen menu bar, no icon. The right-click menus keep
+     * {@link #profileMenuItems}.
+     */
+    private List<MenuItem> profileBarRows() {
+        List<MenuItem> rows = new ArrayList<>();
+        List<com.termina.shell.Profile> all = windows.profiles().all();
+        String defaultId = windows.profiles().defaultProfileId();
+        for (int index = 0; index < all.size(); index++) {
+            com.termina.shell.Profile profile = all.get(index);
+            int number = index + 1;
+            boolean isDefault = profile.id().equals(defaultId) || (defaultId.isBlank() && number == 1);
+            MenuItem row = MenuRows.row(profile.name(), profileGraphic(profile, isDefault), SYSTEM_MENU_BAR);
+            if (number <= TAB_CHORD_COUNT) MenuRows.setChord(row, chordOf(PROFILE_CHORD_ID + number));
+            if (isDefault) row.getProperties().put(DEFAULT_PROFILE_ITEM, Boolean.TRUE);
+            row.setOnAction(e -> openTab(profile));
+            rows.add(row);
+        }
+        return rows;
     }
 
     /**
@@ -2976,9 +3020,7 @@ public final class TerminalWindow {
         }
         itemsById.forEach((id, items) -> {
             KeyCombination chord = chords.get(id);
-            for (MenuItem item : items) {
-                if (!java.util.Objects.equals(item.getAccelerator(), chord)) item.setAccelerator(chord);
-            }
+            for (MenuItem item : items) MenuRows.setChord(item, chord);
         });
         if (palette != null) palette.setOpener(chordOf(paletteAction.id()));
         newTabTipText.set(withChord("menu.newTab", "tooltip.newTab", chordOf("newTab")));
@@ -3070,7 +3112,7 @@ public final class TerminalWindow {
      * a screen menu bar may draw its items before any ON_SHOWING reaches them.
      */
     private void refreshUpdateItem() {
-        for (MenuItem item : itemsFor("checkForUpdates")) item.setText(registry.label("checkForUpdates"));
+        for (MenuItem item : itemsFor("checkForUpdates")) MenuRows.setTitle(item, registry.label("checkForUpdates"));
     }
 
     /** Check for Updates, or once one is known, its release page. */
@@ -3243,9 +3285,43 @@ public final class TerminalWindow {
     private void refreshItems(Menu menu) {
         for (MenuItem item : menu.getItems()) {
             if (!(item.getUserData() instanceof String id) || !registry.contains(id)) continue;
-            item.setText(registry.label(id));
+            MenuRows.setTitle(item, registry.label(id));
             item.setDisable(registry.unavailable(id) != null);
         }
+        // After the titles: a relabelled row (Pin Tab, Unpin Tab) can be the menu's widest.
+        MenuRows.alignChords(menu.getItems());
+    }
+
+    /**
+     * A bar row's glyph, the right-click menus' for the same command, or null for an empty column.
+     * Never drawn on the macOS screen menu bar.
+     */
+    private static javafx.scene.@Nullable Node barIcon(@Nullable String id) {
+        if (id == null) return null;
+        return switch (id) {
+            case "newTab" -> MenuIcons.newTab();
+            case "newWindow" -> MenuIcons.newWindow();
+            case "closeTab" -> MenuIcons.close();
+            case "closeOtherTabs" -> MenuIcons.closeOthers();
+            case "closeTabsToTheLeft" -> MenuIcons.closeLeft();
+            case "closeTabsToTheRight" -> MenuIcons.closeRight();
+            case "settings" -> MenuIcons.settings();
+            case "syncNow" -> MenuIcons.sync();
+            case "configureProfiles" -> MenuIcons.profiles();
+            case "copy" -> MenuIcons.copy();
+            case "paste" -> MenuIcons.paste();
+            case "selectAll" -> MenuIcons.selectAll();
+            case "clearScrollback" -> MenuIcons.clear();
+            case "find" -> MenuIcons.search();
+            case "commandPalette" -> MenuIcons.commandPalette();
+            case "moveTabLeft" -> MenuIcons.arrowLeft();
+            case "moveTabRight" -> MenuIcons.arrowRight();
+            case "renameTab" -> MenuIcons.rename();
+            case "duplicateTab" -> MenuIcons.duplicate();
+            case "pinTab" -> MenuIcons.pin();
+            case "about" -> MenuIcons.about();
+            default -> null;
+        };
     }
 
     /**
@@ -3276,11 +3352,16 @@ public final class TerminalWindow {
         return id == null ? List.of() : itemsById.getOrDefault(id, List.of());
     }
 
-    /** The menu item for {@code action}, remembered so its accelerator can follow the command. */
+    /**
+     * The bar's row for {@code action}, remembered so its chord and title can follow the command. No
+     * accelerator (MENU-02): the row draws its chord, and the window's key filter runs it.
+     */
     private MenuItem menuItem(MenuAction action) {
-        MenuItem item = action.toMenuItem();
+        MenuItem item = MenuRows.row(action.label(), barIcon(action.id()), SYSTEM_MENU_BAR);
         String id = action.id();
-        if (id != null) {
+        if (id == null) {
+            item.setOnAction(e -> action.action().run());
+        } else {
             itemsById.computeIfAbsent(id, key -> new ArrayList<>()).add(item);
             item.setUserData(id);
             // Through the registry by id, as every row of the bar (MENU-01).

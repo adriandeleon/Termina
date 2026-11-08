@@ -59,18 +59,18 @@ class MenuActionTest {
     }
 
     @Test
-    void theMenuItemAdvertisesExactlyTheChordTheFilterMatches() {
+    void theChordShownIsTheOneTheFilterMatches() {
         // The reason MenuAction exists: the menu item and the key binding come from one value, so
         // the menu cannot advertise a shortcut that nothing implements.
         MenuAction action = MenuAction.of("New Tab", MenuAction.appChord(KeyCode.T), () -> {});
-        assertEquals(action.accelerator(), action.toMenuItem().getAccelerator());
+        assertEquals(MenuAction.appChord(KeyCode.T), action.accelerator());
         assertTrue(action.matches(shortcutPress(KeyCode.T, !MAC)));
     }
 
     @Test
     void anActionWithoutAChordIsMenuOnly() {
         MenuAction action = MenuAction.of("Something", () -> {});
-        assertNull(action.toMenuItem().getAccelerator());
+        assertNull(action.accelerator());
         assertFalse(action.matches(shortcutPress(KeyCode.T, false)));
     }
 
@@ -82,10 +82,10 @@ class MenuActionTest {
     }
 
     @Test
-    void theMenuItemRunsTheActionItWasGiven() {
+    void theActionRunsWhatItWasGiven() {
         int[] calls = {0};
         MenuAction action = MenuAction.of("X", MenuAction.appChord(KeyCode.X), () -> calls[0]++);
-        action.toMenuItem().fire();
+        action.action().run();
         assertEquals(1, calls[0]);
     }
 

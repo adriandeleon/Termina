@@ -63,3 +63,24 @@ split of a muted periwinkle framing glyph against a teal focal element — with 
 place of a letterform. Two shapes only: an earlier draft added the input line beneath the cursor,
 and below 32px it stopped reading as a line and became noise next to the block, which is the size
 an app icon has to work hardest at.
+
+## What the app-image build does that is easy to miss
+
+The build trains an AOT cache by starting the packaged app (`scripts/aot-train.sh`), so a window
+appears for a few seconds. It runs against a configuration folder of its own, created and removed
+by the script, so it never runs settings sync or writes to your own settings.
+
+Four dependencies (`jediterm-core`, `pty4j`, `jna`, `jna-platform`) are **automatic modules**, and
+jlink refuses to link those. moditect injects real descriptors; an antrun step then overlays the
+patched jars over the plain ones so exactly one copy of each is on the module path.
+
+Two things about this build are worth knowing because neither announces itself:
+
+- **The slf4j binding has to be named explicitly.** It is reached only through `ServiceLoader`, so
+  nothing `requires` it and jlink leaves it out. The image builds, launches, and silently drops
+  every log line from pty4j and JediTerm — in the one build where a native library failing to load
+  is hardest to diagnose.
+- **pty4j's native libraries survive by luck, not design.** JPMS encapsulates resources whose
+  directory maps to a valid package name. `resources/com/pty4j/native/…` does not, because `native`
+  is a reserved word, so it stays readable. The same accident covers JNA (`darwin-aarch64` contains
+  a hyphen). Neither would work if those directories were named differently.

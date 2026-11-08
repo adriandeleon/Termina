@@ -25,10 +25,6 @@ the short version for a person.
 
 ## Reference and history
 
-- [pauta-audit-2026-11-06.md](pauta-audit-2026-11-06.md) — Termina against the Pauta 2.0.2
-  guidelines: what is met, what is not, and where the two disagree.
-- [jediterm-capabilities.md](jediterm-capabilities.md) — what JediTerm already handles and what each
-  missing capability would cost.
-- [competitive-landscape.md](competitive-landscape.md) — how other terminals compare.
-- Reviews: [2026-10-20](review-2026-10-20.md), [2026-10-27](review-2026-10-27.md),
-  [2026-11-06](review-2026-11-06.md) — findings, and what was done about each.
+[reference/](reference/README.md) holds the long catalogues and the history: every feature as built
+(what used to be the README's body), installing in detail, JediTerm's capabilities, the competitive
+landscape, the Pauta audit and the reviews.

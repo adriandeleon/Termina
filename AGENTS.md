@@ -12,7 +12,7 @@ it, and fix the documentation in the same change.
 
 This app is built to Pauta 2.0.2. Its rules: https://pauta-project.dev/2.0.2/llms.txt (every rule
 in one file: https://pauta-project.dev/2.0.2/llms-full.txt). What it does not meet yet is in
-`docs/pauta-audit-2026-11-06.md`.
+`docs/reference/pauta-audit-2026-11-06.md`.
 
 - Before building a feature, read the rules on its page and copy from the code each rule's
   Reference names (Editora, usually checked out beside this repository).
@@ -94,7 +94,8 @@ touching its area.
 - AWT is forced headless in `App.main`, as the first statement.
 - Special keys go through JediTerm's encoder
 - Application chords are `Ctrl+Shift+key` off macOS, never `Ctrl+key`.
-- Key bindings are a scene-level filter, not menu accelerators.
+- Key bindings are a scene-level filter, not menu accelerators; the bar's rows draw their chords
+  (`MenuRows`) and carry no accelerator.
 - Tab headers are the skin's, and rebuilt.
 - Nothing in the chrome may be focus-traversable.
 - Driving input in a capture run mostly goes *around* focus.
