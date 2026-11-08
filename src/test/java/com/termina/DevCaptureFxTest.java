@@ -144,6 +144,9 @@ class DevCaptureFxTest {
         set.put("termina.capture", picture.toString());
         set.put("termina.captureSettleMs", "700");
         set.put("termina.captureAfterCommandMs", "700");
+        // A middle-click or a paste with several lines on the clipboard (a CI runner's) would ask
+        // first, and the prompt is modal: answered up front, as captureCloseAnswer answers closing.
+        set.putIfAbsent("termina.capturePasteAnswer", "cancel");
         set.forEach(System::setProperty);
         try {
             Settings settings = new Settings(dir.resolve("settings.json"));
