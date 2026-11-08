@@ -95,6 +95,79 @@ class WindowManagerFxTest {
             return null;
         });
         assertTrue(onFx(() -> windows.windows().size()) > afterClose, "the closed window came back");
+
+        // The update check from the menu and at startup, against a server of the test's own.
+        try (java.net.ServerSocket server =
+                new java.net.ServerSocket(0, 50, java.net.InetAddress.getLoopbackAddress())) {
+            Thread accept = new Thread(() -> serveRelease(server));
+            accept.setDaemon(true);
+            accept.start();
+            List<String> said = new CopyOnWriteArrayList<>();
+            onFx(() -> {
+                windows.useUpdateServiceForTest(new UpdateService(
+                        "http://127.0.0.1:" + server.getLocalPort() + "/latest", java.time.Duration.ofSeconds(5)));
+                windows.checkForUpdatesNow((severity, message) -> said.add(message));
+                return null;
+            });
+            waitFor(() -> said.size() >= 2, "the check to say it started and what it found");
+            onFx(() -> {
+                settings.setUpdateCheck(true);
+                settings.setLastUpdateCheck(0);
+                windows.maybeCheckForUpdates();
+                settings.setUpdateCheck(false);
+                return null;
+            });
+        }
+
+        // The first window as App opens it, on the stage it is given; with a command line and a title.
+        onFx(() -> {
+            windows.openFirstWindow(new javafx.stage.Stage());
+            windows.openFirstWindow(new javafx.stage.Stage(), new LaunchOptions("", dir.toString(), List.of()));
+            windows.openFirstWindow(new javafx.stage.Stage(), LaunchOptions.DEFAULTS, "titled");
+            return null;
+        });
+
+        // Export and Import from the palette's path, into a home folder of the test's own.
+        Path home = dir.resolve("home");
+        java.nio.file.Files.createDirectories(home);
+        String was = System.getProperty("user.home");
+        System.setProperty("user.home", home.toString());
+        List<String> reports = new CopyOnWriteArrayList<>();
+        try {
+            onFx(() -> {
+                windows.exportConfiguration((severity, message) -> reports.add(message));
+                return null;
+            });
+            waitFor(() -> !reports.isEmpty(), "the export");
+        } finally {
+            System.setProperty("user.home", was);
+        }
+        Path zip;
+        try (var files = java.nio.file.Files.list(home)) {
+            zip = files.filter(f -> f.toString().endsWith(".zip")).findFirst().orElseThrow();
+        }
+        onFx(() -> {
+            windows.importConfigurationForCapture(
+                    zip,
+                    java.util.EnumSet.of(com.termina.config.ConfigArchive.Part.KEY_BINDINGS),
+                    (severity, message) -> reports.add(message));
+            return null;
+        });
+        waitFor(() -> reports.size() >= 2, "the import");
+
+        // The status bar off and on from the View menu's command; then a window closed by asking.
+        onFx(() -> {
+            for (MenuAction row : keeper.runnablePaletteRowsForTest()) {
+                if ("showStatusBar".equals(row.id())) {
+                    row.action().run();
+                    row.action().run();
+                }
+            }
+            settings.setConfirmClose(true);
+            DialogAnswers.next(true, null);
+            keeper.close();
+            return null;
+        });
     }
 
     private static boolean started(TerminalWindow window) {
@@ -126,5 +199,27 @@ class WindowManagerFxTest {
             }
         });
         return result.get(30, TimeUnit.SECONDS);
+    }
+
+    /** Answers every request with a release newer than any build. */
+    private static void serveRelease(java.net.ServerSocket server) {
+        byte[] body = "{\"tag_name\": \"v99.0.0\", \"html_url\": \"https://example.com/r\"}"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        while (!server.isClosed()) {
+            try (java.net.Socket socket = server.accept()) {
+                java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(
+                        socket.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
+                for (String line = in.readLine(); line != null && !line.isEmpty(); line = in.readLine()) {
+                    // headers; the answer does not depend on them
+                }
+                java.io.OutputStream out = socket.getOutputStream();
+                out.write(("HTTP/1.1 200 OK\r\nContent-Length: " + body.length + "\r\nConnection: close\r\n\r\n")
+                        .getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                out.write(body);
+                out.flush();
+            } catch (java.io.IOException e) {
+                return;
+            }
+        }
     }
 }

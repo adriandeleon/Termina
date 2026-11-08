@@ -34,14 +34,25 @@ Measure from a clean target — `jacoco.exec` accumulates across runs, so a seco
 Coverage floors are a regression net rather than a target — each sits well below what is actually
 measured, so they catch tests being deleted, not a few lines of drift. `com.termina.sync`'s floor is
 set from what it measures without the five tests disabled on Windows (83%, against 92% on Unix).
-The whole build is gated too (PLAT-12, Pauta 2.0.2): lines, methods and branches, a few points
-under what CI measured, per platform — Windows skips the PTY and window-lifecycle tests and measures
-twelve points lower, so the `os-windows` profile lowers the `coverage.bundle.*` properties. The
-rule's target is 0.90 lines and methods; the floors rise as the headless suite reaches further into
-`com.termina.ui` — the Settings window, the terminal window's commands, the view's input and drawing
-— which a headless run can reach after all (`WindowLifecycleTest` opens real windows on real
-shells). Pulling decisions out into pure classes remains the first move; driving the window is the
-second, not a reason to lower the bar. `./mvnw clean -Pdist -DskipTests package` produces a native app image
+The whole build is gated too (PLAT-12, Pauta 2.0.2): 0.90 lines and 0.90 methods on macOS and Linux,
+and branches as a net under what is measured. Most of it comes from headless tests that drive the
+real windows on real shells — `WindowCommandsFxTest` runs every palette command, `MenusFxTest` fires
+every menu item, `DevCaptureFxTest` runs the capture harness, `DialogsFxTest` answers every question
+the app asks. Windows skips those, because its shell path has never run, and measures far lower; the
+`os-windows` profile lowers the `coverage.bundle.*` properties, which is the rule not yet met there.
+
+Three things these tests have to get right, all learnt the hard way:
+
+- **A modal dialog is answered from inside it.** `showAndWait` runs a nested event loop, so
+  `DialogAnswers.next` queues an answer just before the call that shows the dialog; it presses the
+  button once the dialog is up. Only the latest queued answer acts — one left over from a button that
+  opened nothing would otherwise answer the next dialog.
+- **Closing a manager's last window ends the toolkit for every later test.** `WindowManager` calls
+  `Platform.exit()` when its list empties. Every window test keeps a second window open, and none
+  calls `closeAll`.
+- **The toolkit is shared.** A test that walks `Window.getWindows()` sees every other test's windows;
+  take the set before opening anything and touch only what is new. Imported themes go where
+  `Themes.useDirectory` says, which only the window manager sets — a test without one sets it. `./mvnw clean -Pdist -DskipTests package` produces a native app image
 under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
 built on that platform, which is what the CI matrix is for.
 

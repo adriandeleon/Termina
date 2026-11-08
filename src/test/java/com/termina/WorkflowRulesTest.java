@@ -138,4 +138,14 @@ class WorkflowRulesTest {
             assertTrue(block.contains("interval: weekly"), ecosystem + " is not weekly");
         }
     }
+
+    @Test
+    void theWholeBuildIsGatedAtTheRulesCoverage() throws IOException {
+        // PLAT-12 (Pauta 2.0.2): a BUNDLE rule at 0.90 lines and methods, checked at verify.
+        String pom = read(Path.of("pom.xml"));
+        assertTrue(pom.contains("<coverage.bundle.line>0.90</coverage.bundle.line>"), "line floor");
+        assertTrue(pom.contains("<coverage.bundle.method>0.90</coverage.bundle.method>"), "method floor");
+        assertTrue(pom.contains("<element>BUNDLE</element>"), "a whole-build rule");
+        assertTrue(pom.contains("<minimum>${coverage.bundle.line}</minimum>"), "the rule reads the floor");
+    }
 }

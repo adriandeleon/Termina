@@ -38,9 +38,9 @@
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
         <!-- The whole-build coverage floors (jacoco-check); os-windows lowers them. -->
-        <coverage.bundle.line>0.84</coverage.bundle.line>
-        <coverage.bundle.method>0.83</coverage.bundle.method>
-        <coverage.bundle.branch>0.69</coverage.bundle.branch>
+        <coverage.bundle.line>0.90</coverage.bundle.line>
+        <coverage.bundle.method>0.90</coverage.bundle.method>
+        <coverage.bundle.branch>0.73</coverage.bundle.branch>
         <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
              has; opening it elsewhere warns on every launch. The os-mac profile sets the real
              option; elsewhere this repeats an export already given, which is harmless, because an
@@ -330,13 +330,13 @@
                             <haltOnFailure>true</haltOnFailure>
                             <rules>
                                 <!--
-                                  The whole build (PLAT-12, Pauta 2.0.2, whose target is 0.90 lines and
-                                  methods). For now a net a few points under what is measured, raised
-                                  as the UI tests land. With the window, menu, dialog, sync and capture
-                                  tests, Linux measures 86.2% lines, 85.6% methods, 72.1% branches. Windows skips the PTY and
-                                  window-lifecycle tests and measured twelve points lower before it
-                                  (42.8%, 44.5%, 46.0%), so the os-windows profile lowers the floors
-                                  rather than one number failing one side.
+                                  The whole build (PLAT-12, Pauta 2.0.2): 0.90 lines and 0.90 methods, as
+                                  the rule asks, and branches as a net under what is measured. Linux
+                                  measures 90.2% lines, 91.1% methods and 74.6% branches, most of it
+                                  from headless tests that drive the real windows on real shells.
+                                  Windows skips those (its shell path has never run), measures far
+                                  lower, and so the os-windows profile lowers the floors rather than one
+                                  number failing one side; that is the rule not yet met there.
                                 -->
                                 <rule>
                                     <element>BUNDLE</element>

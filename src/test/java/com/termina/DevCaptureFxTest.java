@@ -113,7 +113,7 @@ class DevCaptureFxTest {
                         Map.entry("termina.captureMenuItem", "Zoom In"),
                         Map.entry("termina.captureTheme", "editora-light"),
                         Map.entry("termina.capturePalette", "reo"),
-                        Map.entry("termina.capturePaletteKeys", "C-n,C-p,down,up"),
+                        Map.entry("termina.capturePaletteKeys", "C-n,C-p,down,up,pagedown,pageup,M-<,M->"),
                         Map.entry("termina.captureProfiles", "true"),
                         Map.entry("termina.captureLogProbe", "true"),
                         Map.entry("termina.captureResizeTo", "900,600")));
@@ -184,6 +184,19 @@ class DevCaptureFxTest {
                         "termina.captureMenu",
                         "40,12,false"));
         runs.put(
+                "a program that names the window and asks the terminal",
+                Map.of(
+                        // OSC 2 sets the title; the kitty protocol's push, query and pop; DA1 and DA2.
+                        "termina.captureCommand",
+                        "printf '\\033]2;my title\\007\\033[>1u\\033[?u\\033[=1;1u\\033[<u\\033[c\\033[>c'",
+                        "termina.captureKeystrokes",
+                        "a,C-a,escape,up",
+                        "termina.captureScreenText",
+                        "true"));
+        runs.put(
+                "a shell that will not start",
+                Map.of("termina.captureFailShellStarts", "1", "termina.captureTabs", "1"));
+        runs.put(
                 "closing tabs",
                 Map.of(
                         "termina.captureTabs", "2",
@@ -196,10 +209,38 @@ class DevCaptureFxTest {
         return runs().keySet().stream();
     }
 
+    /** The runs that need a file made first: a theme to import and a configuration to restore. */
+    @org.junit.jupiter.api.Test
+    void importingAThemeAndAConfiguration() throws Exception {
+        Path theme = dir.resolve("night.conf");
+        StringBuilder colours = new StringBuilder("foreground #f0f0f0\nbackground #101010\n");
+        for (int i = 0; i < 16; i++)
+            colours.append("color").append(i).append(" #2").append(i % 10).append("2020\n");
+        Files.writeString(theme, colours);
+        Path config = dir.resolve("exported-config");
+        Files.createDirectories(config);
+        Files.writeString(
+                config.resolve("settings.json"),
+                "{\n  \"schemaVersion\" : 1,\n  \"settings\" : {\n    \"keys.newTab\" : \"Shortcut+Shift+Y\"\n  }\n}\n");
+        Path zip = dir.resolve("config.zip");
+        com.termina.config.ConfigArchive.export(config, zip);
+        runCapture(
+                "imports",
+                Map.of(
+                        "termina.captureImportTheme", theme.toString(),
+                        "termina.captureImportConfig", zip + ";KEY_BINDINGS",
+                        "termina.captureSyncNow", "true",
+                        "termina.capturePressKeyAfter", "ls ",
+                        "termina.capturePressKey", "TAB,false"));
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("names")
     void aCaptureRunCompletesAndWritesItsPicture(String name) throws Exception {
-        Map<String, String> options = runs().get(name);
+        runCapture(name, runs().get(name));
+    }
+
+    private void runCapture(String name, Map<String, String> options) throws Exception {
         Path picture = dir.resolve("capture.png");
         Map<String, String> set = new LinkedHashMap<>(options);
         set.put("termina.capture", picture.toString());

@@ -266,6 +266,17 @@ Addressed on 2026-11-08, branch `settings-commands`:
   action, or nothing to set). `SettingCommandsTest` parses the Settings window's rows and fails on
   one in neither place.
 
+Addressed on 2026-11-08, branches `coverage-net` to `coverage-final`:
+
+- **Now met on macOS and Linux:** PLAT-12. A `BUNDLE` rule at 0.90 lines and 0.90 methods, and
+  branches at 0.73 as a net (Linux measures 90.2%, 91.1%, 74.6%). Reached with headless tests that
+  drive the real windows: every palette command, every menu item, every Settings control and button,
+  the capture harness's runs, every question the app asks answered both ways, sync against a real
+  bare repository, the update check against a local server, and the application's own start.
+  `WorkflowRulesTest` keeps the floor at 0.90.
+- **Not met on Windows**, where the shell tests are skipped because the shell path has never run
+  there; the `os-windows` profile lowers the floors (0.45 / 0.47 / 0.45).
+
 Everything else below stands.
 
 ## Totals

@@ -28,7 +28,12 @@ public final class WindowManager {
     private @Nullable SettingsWindow settingsWindow;
     private @Nullable AboutWindow aboutWindow;
 
-    private final com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
+    private com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
+
+    /** Asks {@code service} for updates instead of GitHub: for a test with its own server. */
+    void useUpdateServiceForTest(com.termina.update.UpdateService service) {
+        updates = service;
+    }
 
     /**
      * The newer release the menus advertise, or null. Held app-wide so every window's Help menu
