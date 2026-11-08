@@ -275,8 +275,9 @@ public final class TerminalWindow {
         // setting reaches this window only if it was on when the window was made. Settings says so
         // on its row rather than appearing to do nothing.
         boolean extendedWindows = Platform.isSupported(ConditionalFeature.EXTENDED_WINDOW);
-        headerBar =
-                usesHeaderBar(SYSTEM_MENU_BAR, settings.menuBarInTitleBar(), extendedWindows) ? buildHeaderBar() : null;
+        headerBar = WindowRules.usesHeaderBar(SYSTEM_MENU_BAR, settings.menuBarInTitleBar(), extendedWindows)
+                ? buildHeaderBar()
+                : null;
         if (headerBar != null && !stage.isShowing()) stage.initStyle(StageStyle.EXTENDED);
         root.setTop(headerBar != null ? headerBar : menuBar);
         // Full screen has no title bar, and the header bar is one: left in place it kept the title
@@ -305,7 +306,7 @@ public final class TerminalWindow {
                     var screens = javafx.stage.Screen.getScreensForRectangle(x, y, width, height);
                     javafx.geometry.Rectangle2D bounds =
                             screens.isEmpty() ? screen : screens.get(0).getVisualBounds();
-                    double[] at = WindowPlacement.offsetWithin(x, y, 0, width, height, bounds);
+                    double[] at = WindowPlacement.offsetWithin(x, y, 0, width, height, SecondaryWindows.bounds(bounds));
                     stage.setX(at[0]);
                     stage.setY(at[1]);
                 }));
@@ -505,72 +506,6 @@ public final class TerminalWindow {
     }
 
     /**
-     * Whether the window draws its own title bar, with the menus in it.
-     *
-     * <p>That is JavaFX 27's extended stage style: the platform keeps its window buttons but gives
-     * up the title bar, and a {@link HeaderBar} at the top of the scene takes its place. Three
-     * things have to agree. The setting, obviously. The menus have to be in the window — under a
-     * screen menu bar there is nothing to merge, and an extended window there would be a bare strip
-     * under the traffic lights. And the platform has to support the style at all; JavaFX downgrades
-     * an unsupported {@code EXTENDED} to {@code DECORATED} silently, which would leave the header
-     * bar drawn <em>under</em> a native title bar as a second row.
-     */
-    static boolean usesHeaderBar(boolean systemMenuBar, boolean menuBarInTitleBar, boolean extendedWindowsSupported) {
-        return !systemMenuBar && menuBarInTitleBar && extendedWindowsSupported;
-    }
-
-    /**
-     * Whether to offer the title-bar option in Settings. The checkbox is disabled with the reason
-     * on its row where it could do nothing, which is the same rule as the menu-bar toggle's.
-     */
-    static boolean offersHeaderBarOption(boolean systemMenuBar, boolean extendedWindowsSupported) {
-        return !systemMenuBar && extendedWindowsSupported;
-    }
-
-    /**
-     * Whether the menu bar should take up a row in the window.
-     *
-     * <p>False on macOS whatever the setting says: the menus are in the screen menu bar, and the
-     * node only remains in the scene graph because that is what JavaFX forwards from. Leaving it
-     * measurable there costs a band of empty chrome above the terminal.
-     */
-    static boolean menuBarOccupiesSpace(boolean systemMenuBar, boolean showMenuBar) {
-        return !systemMenuBar && showMenuBar;
-    }
-
-    /**
-     * Whether the View menu shows zoom as one row of buttons rather than as plain items.
-     *
-     * <p>False under a system menu bar, and that is not a matter of taste. The row is a {@link
-     * javafx.scene.control.CustomMenuItem}, and macOS's menus are drawn by AppKit, which cannot
-     * render a JavaFX node — so {@code MenuBarSkin} refuses {@code useSystemMenuBar} for the
-     * <em>whole</em> bar if any menu anywhere in it holds one, printing "MenuBar ignored property
-     * useSystemMenuBar because menus contain CustomMenuItem" to stderr and falling back to the
-     * in-window bar. Which this window collapses to zero height on macOS, on the assumption that
-     * the screen bar has the menus. The two together left a Mac with no menus at all: nothing in
-     * the screen bar, nothing in the window, and the only ways to any of it were the chords, the
-     * palette and the right-click menu.
-     *
-     * <p>The row survives everywhere it can actually be drawn. The right-click menu keeps it on
-     * every platform — it is a window popup JavaFX draws itself, not a screen menu.
-     */
-    static boolean showsZoomRow(boolean systemMenuBar) {
-        return !systemMenuBar;
-    }
-
-    /**
-     * Whether to offer showing and hiding the menu bar at all.
-     *
-     * <p>Two menus ask this — the View menu, for its Hide item, and the right-click menu, for its
-     * checkbox — and they must agree: an app that offers the toggle in one place and not the other
-     * reads as a bug in whichever place you looked first. Under a system menu bar there is nothing
-     * in the window to hide, and an entry that does nothing when clicked is worse than no entry.
-     */
-    static boolean offersMenuBarToggle(boolean systemMenuBar) {
-        return !systemMenuBar;
-    }
-
-    /**
      * Whether JavaFX will really hand these menus to the screen bar, rather than what we asked for.
      *
      * <p>{@code MenuBarSkin} silently declines {@code useSystemMenuBar} — a warning on stderr, no
@@ -611,7 +546,7 @@ public final class TerminalWindow {
     private void applyMenuBarVisibility() {
         if (menuBar == null) return;
         boolean systemBar = SYSTEM_MENU_BAR && menusFitASystemMenuBar(menuBar.getMenus());
-        boolean occupies = menuBarOccupiesSpace(systemBar, settings.showMenuBar());
+        boolean occupies = WindowRules.menuBarOccupiesSpace(systemBar, settings.showMenuBar());
         // The style class is touched only when it changes: this runs on every settings write, and
         // a remove-then-add of the same class restyles the bar for nothing.
         boolean collapsed = menuBar.getStyleClass().contains(COLLAPSED_MENU_BAR);
@@ -646,11 +581,6 @@ public final class TerminalWindow {
         HeaderBar.setSystemButtonHeight(stage, fullScreen ? 0 : HeaderBar.USE_DEFAULT_SIZE);
     }
 
-    /** Whether the tab strip is worth its row of chrome. */
-    static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
-        return !hideWhenSingle || tabCount > 1;
-    }
-
     /**
      * Shows or collapses the tab strip.
      *
@@ -658,7 +588,7 @@ public final class TerminalWindow {
      * the PTY — the shell learns about it the same way it learns about a window resize.
      */
     private void applyTabBarVisibility() {
-        boolean show = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        boolean show = WindowRules.shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
         boolean hidden = tabs.getStyleClass().contains(HIDE_TAB_BAR);
         if (show && hidden) tabs.getStyleClass().remove(HIDE_TAB_BAR);
         if (!show && !hidden) tabs.getStyleClass().add(HIDE_TAB_BAR);
@@ -711,7 +641,7 @@ public final class TerminalWindow {
         // A missing header means the skin is still building it — but only while the strip is
         // shown. Hidden for a single tab, no header exists and none is coming, so retrying to the
         // budget every time would be twenty passes spent on a header nobody can see.
-        boolean stripShown = shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        boolean stripShown = WindowRules.shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
         if (stripShown && found < tabs.getTabs().size() && attempt < DECORATE_ATTEMPTS) {
             Platform.runLater(() -> decorateHeaders(attempt + 1));
         }
@@ -980,12 +910,12 @@ public final class TerminalWindow {
             // a window to fix it from, and the only way back was editing the settings file.
             failingTabs.add(tab);
             int remaining = tabs.getTabs().size() - failingTabs.size();
-            boolean fallBack = shouldFallBackToDefaultShell(remaining + 1, !options.hasCommand());
+            boolean fallBack = WindowRules.shouldFallBackToDefaultShell(remaining + 1, !options.hasCommand());
             reportShellFailure(options, e, fallBack);
             if (fallBack) {
                 openTab(com.termina.pty.LaunchOptions.ofShell(settings.shell())
                         .withWorkingDirectory(options.workingDirectory()));
-            } else if (keepsWindowOpenEmpty(remaining, fallBack)) {
+            } else if (WindowRules.keepsWindowOpenEmpty(remaining, fallBack)) {
                 // Nothing left to fall back to: the default shell itself would not start. Closing
                 // the window took the dialog with it — owned by the window — and, for the last
                 // window, the application: it exited with nothing on screen to say why. The window
@@ -1085,7 +1015,7 @@ public final class TerminalWindow {
         // applies to the next link without every open tab having to be re-wired.
         terminal.setLinkActions(new LinkOpener(windows::openLink, settings::linkOpenCommand, this::reportOpenFailed));
         // Left unwired under a system menu bar, which is how the item stays out of the menu there.
-        if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
+        if (WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR)) {
             terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
         }
         terminal.setOnBellRung(() -> {
@@ -1949,7 +1879,7 @@ public final class TerminalWindow {
         int profiles = windows.profiles().all().size();
         for (MenuAction binding : bindings) {
             KeyCombination chord = binding.accelerator();
-            if (!listsProfileChord(binding.id(), profiles)) continue;
+            if (!WindowRules.listsProfileChord(binding.id(), profiles)) continue;
             if (chord == null || !listed.add(chord)) continue;
             out.add(new ShortcutReference.Shortcut(
                     bindingGroups.getOrDefault(binding.id(), tr("menu.window")),
@@ -1975,20 +1905,6 @@ public final class TerminalWindow {
         out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.selectionBypass"), tr("shortcuts.shiftDrag")));
         out.add(new ShortcutReference.Shortcut(terminal, tr("shortcuts.renameTab"), tr("shortcuts.doubleClick")));
         return out;
-    }
-
-    /**
-     * Whether the reference lists a binding, as far as profiles go: the profile chords only for
-     * profiles that exist. Nine "New Tab With Profile" rows on a machine with one profile is eight
-     * rows of chords that do nothing.
-     */
-    static boolean listsProfileChord(@Nullable String id, int profileCount) {
-        if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return true;
-        try {
-            return Integer.parseInt(id.substring(PROFILE_CHORD_ID.length())) <= profileCount;
-        } catch (NumberFormatException notANumberedChord) {
-            return true;
-        }
     }
 
     private static String shifted(KeyCode code) {
@@ -2276,20 +2192,9 @@ public final class TerminalWindow {
     /** @param answer what the paste prompt should return, for the capture hook */
     public void setPasteAnswerForCapture(boolean answer) {
         pasteConfirmer = text -> {
-            System.out.println("[capture] paste prompt for " + lineCount(text) + " lines -> " + answer);
+            System.out.println("[capture] paste prompt for " + WindowRules.lineCount(text) + " lines -> " + answer);
             return answer;
         };
-    }
-
-    /** Lines a paste holds, as the dialog counts them: a trailing break still ends a line. */
-    static int lineCount(String text) {
-        if (text == null || text.isEmpty()) return 0;
-        int count = 1;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c == '\n' || (c == '\r' && (i + 1 >= text.length() || text.charAt(i + 1) != '\n'))) count++;
-        }
-        return count;
     }
 
     private boolean askBeforePasting(String text) {
@@ -2298,7 +2203,9 @@ public final class TerminalWindow {
         alert.setTitle(com.termina.AppInfo.NAME);
         boolean large = text.length() > PasteSafety.LARGE_CHARS;
         alert.setHeaderText(
-                large ? tr("dialog.pasteLarge", text.length()) : tr("dialog.pasteMultiline", lineCount(text)));
+                large
+                        ? tr("dialog.pasteLarge", text.length())
+                        : tr("dialog.pasteMultiline", WindowRules.lineCount(text)));
         alert.setContentText(large ? tr("dialog.pasteLargeDetail") : tr("dialog.pasteMultilineDetail"));
         // The text itself, so the decision is made on what will actually be sent rather than on
         // a count. Monospace and bounded: a thousand-line paste must not become a screen-high box.
@@ -2306,7 +2213,7 @@ public final class TerminalWindow {
         preview.setEditable(false);
         preview.setWrapText(false);
         preview.getStyleClass().add("paste-preview");
-        preview.setPrefRowCount(Math.min(12, Math.max(3, lineCount(text))));
+        preview.setPrefRowCount(Math.min(12, Math.max(3, WindowRules.lineCount(text))));
         alert.getDialogPane().setExpandableContent(preview);
         alert.getDialogPane().setExpanded(true);
         ButtonType paste = new ButtonType(tr("dialog.paste"), ButtonBar.ButtonData.OK_DONE);
@@ -2722,35 +2629,26 @@ public final class TerminalWindow {
         // launch. Measured: set to 700, saved as 728.
         Scene scene = stage.getScene();
         scene.widthProperty().addListener((o, was, now) -> {
-            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredWidth = now.doubleValue();
+            if (WindowRules.isRestoredGeometry(stage.isMaximized(), stage.isFullScreen()))
+                restoredWidth = now.doubleValue();
         });
         scene.heightProperty().addListener((o, was, now) -> {
-            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredHeight = now.doubleValue();
+            if (WindowRules.isRestoredGeometry(stage.isMaximized(), stage.isFullScreen()))
+                restoredHeight = now.doubleValue();
         });
         // The position as well, on the same terms: a maximized window reports the screen's corner.
         stage.xProperty().addListener((o, was, now) -> {
-            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredX = now.doubleValue();
+            if (WindowRules.isRestoredGeometry(stage.isMaximized(), stage.isFullScreen()))
+                restoredX = now.doubleValue();
         });
         stage.yProperty().addListener((o, was, now) -> {
-            if (isRestoredGeometry(stage.isMaximized(), stage.isFullScreen())) restoredY = now.doubleValue();
+            if (WindowRules.isRestoredGeometry(stage.isMaximized(), stage.isFullScreen()))
+                restoredY = now.doubleValue();
         });
         // Hiding, not hidden: WindowManager's own onHidden handler ends the app when the last
         // window goes, and the write has to have happened by then.
         stage.setOnHiding(e ->
                 settings.setWindowGeometry(restoredX, restoredY, restoredWidth, restoredHeight, stage.isMaximized()));
-    }
-
-    /**
-     * Whether the size and place the window has now are its own, to be remembered for next time.
-     *
-     * <p>Not while maximized, and not in full screen either: both report the screen's, and storing
-     * that made the next launch open a screen-sized window at the corner — full screen was the case
-     * missed, so closing a full-screen window did it. {@code Stage.setFullScreen} sets the property
-     * before the platform resizes the window, so the resize that follows is already excluded, and
-     * the one on the way out arrives after it is cleared, at the size being restored.
-     */
-    static boolean isRestoredGeometry(boolean maximized, boolean fullScreen) {
-        return !maximized && !fullScreen;
     }
 
     public void show() {
@@ -2912,7 +2810,7 @@ public final class TerminalWindow {
         List<MenuAction> viewActions = List.of(zoomIn, zoomOut, actualSize, fullScreen);
         // Only the row's actions need recording here. As items they reach the palette the ordinary
         // way, by being in a menu, and recording them twice would list each of them twice.
-        if (showsZoomRow(SYSTEM_MENU_BAR)) {
+        if (WindowRules.showsZoomRow(SYSTEM_MENU_BAR)) {
             viewActions.forEach(action -> {
                 bindingGroups.put(action.id(), tr("menu.view"));
                 command(action);
@@ -2922,7 +2820,7 @@ public final class TerminalWindow {
         }
 
         List<@Nullable MenuAction> viewItems = new java.util.ArrayList<>();
-        if (!showsZoomRow(SYSTEM_MENU_BAR)) {
+        if (!WindowRules.showsZoomRow(SYSTEM_MENU_BAR)) {
             // Full Screen last and on its own, which is where macOS's own View menus put it.
             viewItems.add(zoomIn);
             viewItems.add(zoomOut);
@@ -2935,7 +2833,7 @@ public final class TerminalWindow {
         // because it has room to explain itself; a menu item has none, and one that does nothing
         // when clicked is worse than one that is not there. Skipping it also leaves Shift+Cmd+M
         // free rather than bound to a no-op.
-        if (offersMenuBarToggle(SYSTEM_MENU_BAR)) {
+        if (WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR)) {
             viewItems.add(null);
             // "Hide", not a checkbox: this menu is inside the bar, so it can only ever be
             // opened while the bar is showing, and a checkbox you can only see when it is
@@ -2956,7 +2854,7 @@ public final class TerminalWindow {
         view.addEventHandler(Menu.ON_SHOWING, e -> {
             for (MenuItem item : itemsFor(statusBarAction.id())) item.setText(statusBarLabel());
         });
-        if (showsZoomRow(SYSTEM_MENU_BAR)) {
+        if (WindowRules.showsZoomRow(SYSTEM_MENU_BAR)) {
             ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
             view.getItems().add(0, zoomRow.item());
             // The level can have moved since the row was last shown — from a chord, the other menu,
@@ -3126,10 +3024,10 @@ public final class TerminalWindow {
     }
 
     /** The id prefix of the nine profile chords: {@code newTabProfile1} opens the first profile. */
-    static final String PROFILE_CHORD_ID = "newTabProfile";
+    static final String PROFILE_CHORD_ID = WindowRules.PROFILE_CHORD_ID;
 
     /** The id prefix of the nine tab chords: {@code goToTab9} is the last tab. */
-    static final String TAB_CHORD_ID = "goToTab";
+    static final String TAB_CHORD_ID = WindowRules.TAB_CHORD_ID;
 
     /**
      * Puts every command on the chord the user's key bindings give it: the filter's table, each
@@ -3330,44 +3228,19 @@ public final class TerminalWindow {
         report(severity, message);
     }
 
-    /**
-     * The tab a number selects, or -1 when there is none.
-     *
-     * <p>The last digit means the <em>last</em> tab rather than the ninth, which is the convention
-     * every browser and terminal follows: with four tabs open, Alt+9 goes to the fourth. A number
-     * past the end selects nothing rather than the nearest, because silently landing somewhere else
-     * is worse than not moving.
-     */
-    static int tabIndexFor(int number, int tabCount) {
-        if (tabCount <= 0 || number < 1 || number > TAB_CHORD_COUNT) return -1;
-        if (number == TAB_CHORD_COUNT) return tabCount - 1;
-        return number <= tabCount ? number - 1 : -1;
-    }
-
     /** 1 through 9, the range every terminal binds. */
-    static final int TAB_CHORD_COUNT = 9;
+    static final int TAB_CHORD_COUNT = WindowRules.TAB_CHORD_COUNT;
 
     /** The View menu's hide/show entry, relabelled for the palette to say which one it is. */
     private @Nullable MenuAction menuBarToggle;
 
-    /**
-     * The number whose chord selects a tab, or 0 when none does — the inverse of {@link
-     * #tabIndexFor}. The last tab answers to 9 whatever its index; a tab past the eighth that is
-     * not last has no chord.
-     */
-    static int tabNumberFor(int index, int tabCount) {
-        if (index < 0 || index >= tabCount) return 0;
-        if (index == tabCount - 1) return TAB_CHORD_COUNT;
-        return index < TAB_CHORD_COUNT - 1 ? index + 1 : 0;
-    }
-
     private @Nullable KeyCombination tabChordFor(int index, int tabCount) {
-        int number = tabNumberFor(index, tabCount);
+        int number = WindowRules.tabNumberFor(index, tabCount);
         return number == 0 ? null : chordOf(TAB_CHORD_ID + number);
     }
 
     private void selectTabByNumber(int number) {
-        int index = tabIndexFor(number, tabs.getTabs().size());
+        int index = WindowRules.tabIndexFor(number, tabs.getTabs().size());
         if (index >= 0) tabs.getSelectionModel().select(index);
     }
 
@@ -3453,7 +3326,7 @@ public final class TerminalWindow {
             if (binding.matches(e)) {
                 // Not consumed, so the field gets it: Cmd+C in the find bar copies the query. And if
                 // the field has no use for it, onUnclaimedKeyPressed stops it at the scene.
-                if (inTextField && yieldsToTextField(binding.id())) return;
+                if (inTextField && WindowRules.yieldsToTextField(binding.id())) return;
                 e.consume();
                 // Before the action, not after it: an action that shows a modal returns once the
                 // modal is gone, and the KEY_TYPED this is for went to the modal meanwhile. Set
@@ -3510,21 +3383,6 @@ public final class TerminalWindow {
         accelerators.addListener((javafx.collections.MapChangeListener<KeyCombination, Runnable>) change -> {
             if (change.wasAdded()) accelerators.remove(change.getKey());
         });
-    }
-
-    /**
-     * Whether a command steps aside while a text field in the window has the keyboard.
-     *
-     * <p>The commands whose default chords are a text field's own editing keys on macOS — Cmd+C,
-     * Cmd+V, Cmd+A, and Cmd+Z for Reopen Closed Tab — and the same commands elsewhere, where
-     * Ctrl+Shift+Z is a field's redo. In the find bar they act on the query; acting on the terminal
-     * behind it instead would copy a selection nobody can see and paste into the shell.
-     */
-    static boolean yieldsToTextField(@Nullable String id) {
-        return switch (id == null ? "" : id) {
-            case "copy", "paste", "selectAll", "reopenClosedTab" -> true;
-            default -> false;
-        };
     }
 
     /**
@@ -3893,35 +3751,6 @@ public final class TerminalWindow {
             out.append(t).append(" -> ").append(fired ? palette().selectedForCapture() : "?");
         }
         return out.toString();
-    }
-
-    /**
-     * Whether a tab that failed to start should be replaced by one running the default shell.
-     *
-     * <p>Only when the window would otherwise be left empty — an empty window closes itself, and
-     * the last one closing quits — and only when what failed was not the default shell already,
-     * since retrying the same command would fail the same way and loop.
-     *
-     * @param tabCount tabs in the window, the failed one still among them
-     * @param failedWasDefaultShell whether the failed launch was already the plain shell
-     */
-    static boolean shouldFallBackToDefaultShell(int tabCount, boolean failedWasDefaultShell) {
-        return tabCount <= 1 && !failedWasDefaultShell;
-    }
-
-    /**
-     * Whether a window whose tab failed to start stays open with no tabs, rather than closing.
-     *
-     * <p>When nothing else is left in it and nothing is being opened in its place. An empty window
-     * otherwise closes itself, and the last one closing quits — which for a default shell that will
-     * not start was the application vanishing, its error dialog with it. Kept open, it shows what
-     * failed, and the menus and chords still reach Settings and New Tab.
-     *
-     * @param remainingTabs tabs that will be left once the failed one is gone
-     * @param fallingBack whether the default shell is being opened instead
-     */
-    static boolean keepsWindowOpenEmpty(int remainingTabs, boolean fallingBack) {
-        return remainingTabs <= 0 && !fallingBack;
     }
 
     /**

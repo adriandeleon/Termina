@@ -268,7 +268,7 @@ public final class SettingsWindow {
     }
 
     private void onSettingsChanged() {
-        if (shouldReload(stage.isShowing(), reloading, writing)) reload();
+        if (WindowRules.shouldReload(stage.isShowing(), reloading, writing)) reload();
     }
 
     /** Runs a write-through from one of this window's controls, marked as this window's own. */
@@ -285,18 +285,6 @@ public final class SettingsWindow {
     /** Sets a field's text unless the user is in it, the way {@code reloadKeys} leaves a recording field alone. */
     private static void setUnlessEditing(TextField field, String text) {
         if (!field.isFocused()) field.setText(text);
-    }
-
-    /**
-     * Whether a settings change should refresh the controls: only while the window can be seen,
-     * never from inside the refresh itself, and never for a change this window is making. The second
-     * half is the re-entrancy guard — a reload sets every control under {@code loading}, so none of
-     * them writes back, but a reload started by a reload would still be a loop waiting for one that
-     * does. The third is the cost: a reload re-sets some thirty controls, resolves every key binding
-     * and rebuilds the profile list and the preview, which a spinner tick is not worth.
-     */
-    static boolean shouldReload(boolean showing, boolean reloading, boolean writing) {
-        return showing && !reloading && !writing;
     }
 
     // ---------------------------------------------------------------- shell
@@ -331,7 +319,7 @@ public final class SettingsWindow {
             int step = e.getCode() == KeyCode.DOWN ? 1 : e.getCode() == KeyCode.UP ? -1 : 0;
             if (step == 0) return;
             List<Object> items = sidebar.getItems();
-            int target = nextSelectable(
+            int target = WindowRules.nextSelectable(
                     sidebar.getSelectionModel().getSelectedIndex(),
                     step,
                     items.size(),
@@ -405,17 +393,6 @@ public final class SettingsWindow {
         // One reload, here: the write's own broadcast is not taken as a reason for another.
         write(settings::resetToDefaults);
         reload();
-    }
-
-    /**
-     * The index the arrow keys should land on from {@code from}, stepping by {@code step} past
-     * anything that is not selectable, or -1 when there is nothing further that way.
-     */
-    static int nextSelectable(int from, int step, int size, java.util.function.IntPredicate selectable) {
-        for (int i = from + step; i >= 0 && i < size; i += step) {
-            if (selectable.test(i)) return i;
-        }
-        return -1;
     }
 
     private List<Object> sidebarItems() {
@@ -772,36 +749,49 @@ public final class SettingsWindow {
     void importTheme(java.nio.file.Path file) {
         Object name = file.getFileName() == null ? file : file.getFileName();
         themeImportResult.setText(tr("settings.importTheme.working", name));
-        Thread worker = new Thread(
+        // A second import while the first is still reading replaces it on the row (PERF-03): the row
+        // describes the file last chosen, never an earlier one that happened to finish later.
+        themeImport.submit(
                 () -> {
-                    List<ThemeEntry> added;
                     try {
-                        added = Themes.importFile(file);
+                        return new ThemeImport(Themes.importFile(file), null);
                     } catch (Throwable e) {
                         String reason = e.getMessage() == null || e.getMessage().isBlank()
                                 ? e.getClass().getSimpleName()
                                 : e.getMessage();
-                        javafx.application.Platform.runLater(
-                                () -> themeImportResult.setText(tr("settings.importTheme.failed", name, reason)));
+                        return new ThemeImport(List.of(), reason);
+                    }
+                },
+                result -> {
+                    String failure = result.failure();
+                    if (failure != null) {
+                        themeImportResult.setText(tr("settings.importTheme.failed", name, failure));
                         return;
                     }
-                    javafx.application.Platform.runLater(() -> {
-                        themeImportResult.setText(tr(
-                                "settings.importTheme.done",
-                                String.join(
-                                        ", ",
-                                        added.stream()
-                                                .map(ThemeEntry::displayName)
-                                                .toList())));
-                        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-                        if (!added.isEmpty())
-                            settings.setThemeId(added.getFirst().id());
-                    });
-                },
-                "termina-theme-import");
-        worker.setDaemon(true);
-        worker.start();
+                    themeImportResult.setText(tr(
+                            "settings.importTheme.done",
+                            String.join(
+                                    ", ",
+                                    result.added().stream()
+                                            .map(ThemeEntry::displayName)
+                                            .toList())));
+                    themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+                    if (!result.added().isEmpty())
+                        settings.setThemeId(result.added().getFirst().id());
+                });
     }
+
+    /** What reading a theme file gave: the schemes added, or why none were. */
+    private record ThemeImport(
+            List<ThemeEntry> added, @Nullable String failure) {}
+
+    private final com.termina.work.LatestOnly themeImport = new com.termina.work.LatestOnly(
+            task -> {
+                Thread worker = new Thread(task, "termina-theme-import");
+                worker.setDaemon(true);
+                worker.start();
+            },
+            javafx.application.Platform::runLater);
 
     private void removeChosenTheme() {
         ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
@@ -961,7 +951,7 @@ public final class SettingsWindow {
                 javafx.application.Platform.isSupported(javafx.application.ConditionalFeature.EXTENDED_WINDOW);
         // Same policy as the row above: disabled with the reason, never silently inert. Two
         // reasons here, and the row says whichever applies.
-        menuBarInTitleBar.setDisable(!TerminalWindow.offersHeaderBarOption(mac, extendedWindows));
+        menuBarInTitleBar.setDisable(!WindowRules.offersHeaderBarOption(mac, extendedWindows));
         String titleBarReason = mac
                 ? tr("settings.menuBarInTitleBar.mac")
                 : !extendedWindows

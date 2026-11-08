@@ -101,6 +101,22 @@ class WorkflowRulesTest {
     }
 
     @Test
+    void theMacAppIsCheckedForOurTeamThenNotarizedThenLaunched() throws IOException {
+        // REL-15 (Pauta 2.0.2): team 8JKSF797L8, notarytool, staple, spctl, and then the notarized
+        // app itself is launched once — after the ticket, not only before the dmg was made.
+        String release = read(Path.of(".github/workflows/release.yml"));
+        int team = release.indexOf("^TeamIdentifier=8JKSF797L8$");
+        int notarize = release.indexOf("xcrun notarytool submit");
+        int staple = release.indexOf("xcrun stapler staple");
+        int assess = release.indexOf("spctl --assess --type execute");
+        int launch = release.indexOf("scripts/smoke-test.sh \"$app/Contents/MacOS/Termina\"");
+        assertTrue(team > 0, "the team check is gone");
+        assertTrue(notarize > team, "the team is checked before anything goes to Apple");
+        assertTrue(staple > notarize && assess > staple, "notarize, staple, then assess");
+        assertTrue(launch > assess, "the notarized app is launched after it is assessed");
+    }
+
+    @Test
     void aReleasesNotesAreItsChangelogSectionWrittenBeforePublishing() throws IOException {
         // DOCS-05, REL-04 (Pauta 2.0.2): what a user reads on a release page was written for users.
         String release = read(Path.of(".github/workflows/release.yml"));

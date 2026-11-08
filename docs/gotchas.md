@@ -100,7 +100,7 @@ is broken.
   useSystemMenuBar because menus contain CustomMenuItem` on stderr; there is no API to ask, and a
   packaged app has no stderr anyone reads. Together with the collapse above, the zoom row left macOS
   with **no menus anywhere** — none in the screen bar, and the window's at zero height. So the row
-  is built only where it can be drawn (`TerminalWindow.showsZoomRow`), and the collapse now asks
+  is built only where it can be drawn (`WindowRules.showsZoomRow`), and the collapse now asks
   `menusFitASystemMenuBar` first, which mirrors JavaFX's rule — including that `SeparatorMenuItem`
   extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
   rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on
@@ -187,7 +187,7 @@ is broken.
   quietly distorted. Slice path strings at a fixed width, never wrap them on whitespace.
 - **The menu bar can live in the title bar, and three things about that are invisible.** It is
   JavaFX 27's `StageStyle.EXTENDED` with a `HeaderBar` at the top of the scene, chosen per window
-  before it is shown (`TerminalWindow.usesHeaderBar`) and never changed after. `HeaderBar` ships
+  before it is shown (`WindowRules.usesHeaderBar`) and never changed after. `HeaderBar` ships
   with **no style class** — add `header-bar` yourself or every rule for it matches nothing. The
   window buttons are an overlay JavaFX draws outside the scene graph on Linux and Windows, so a
   scene snapshot (`-Dtermina.capture`) **never shows them**; `layoutReport` prints the system insets
@@ -244,8 +244,11 @@ is broken.
   `PaletteKeys`, `TextInputKeys` and `MatchText` are Editora's `search.FuzzyMatch`, `ui.PickerKeys`,
   `command.TextInputKeymap` and `ui.MatchText` with the keymap manager replaced by a fixed Emacs
   table in `KeyChord` tokens (`C-n`, `M-S-.`). A ranking or navigation change belongs in both
-  projects, or the two palettes stop agreeing. The chord that opens it is an ordinary key binding
-  (`keys.commandPalette`), which is the line it had when it was the only chord that could change.
+  projects, or the two palettes stop agreeing. One place differs on purpose: `PickerKeys`'
+  JavaFX half (the event, the `ListView`) is `PaletteNav` here, so `PaletteKeys` imports no JavaFX
+  type (QUAL-05); worth porting back. The chord that opens it is an ordinary
+  key binding (`keys.commandPalette`), which is the line it had when it was the only chord that
+  could change.
 - **Every binding has two lists: the defaults and the chords in force.** `TerminalWindow.table`
   holds each command on its default chord, by a stable id (`newTab` — the catalogue key without
   `menu.`), and `register` still throws on two *defaults* on one chord. `bindings`, which the key

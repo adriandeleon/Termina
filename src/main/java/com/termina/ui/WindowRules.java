@@ -1,0 +1,223 @@
+package com.termina.ui;
+
+import org.jspecify.annotations.Nullable;
+
+/**
+ * The window's rules, as pure decisions (QUAL-05, Pauta 2.0.2): what shows, what is offered, which
+ * tab a number means. No JavaFX type in sight, so each is tested without the toolkit
+ * ({@code WindowRulesPureTest}); {@code TerminalWindow} and {@code SettingsWindow} ask and apply.
+ */
+final class WindowRules {
+
+    /** The first part of a profile chord's command id: {@code newTabProfile3}. */
+    static final String PROFILE_CHORD_ID = "newTabProfile";
+
+    /** The first part of a tab chord's command id: {@code goToTab3}. */
+    static final String TAB_CHORD_ID = "goToTab";
+
+    /** Tab and profile chords run 1 to 9; 9 is the last tab, however many there are. */
+    static final int TAB_CHORD_COUNT = 9;
+
+    private WindowRules() {}
+
+    /**
+     * Whether the window draws its own title bar, with the menus in it.
+     *
+     * <p>That is JavaFX 27's extended stage style: the platform keeps its window buttons but gives
+     * up the title bar, and a {@code HeaderBar} at the top of the scene takes its place. Three
+     * things have to agree. The setting, obviously. The menus have to be in the window — under a
+     * screen menu bar there is nothing to merge, and an extended window there would be a bare strip
+     * under the traffic lights. And the platform has to support the style at all; JavaFX downgrades
+     * an unsupported {@code EXTENDED} to {@code DECORATED} silently, which would leave the header
+     * bar drawn <em>under</em> a native title bar as a second row.
+     */
+    static boolean usesHeaderBar(boolean systemMenuBar, boolean menuBarInTitleBar, boolean extendedWindowsSupported) {
+        return !systemMenuBar && menuBarInTitleBar && extendedWindowsSupported;
+    }
+
+    /**
+     * Whether to offer the title-bar option in Settings. The checkbox is disabled with the reason
+     * on its row where it could do nothing, which is the same rule as the menu-bar toggle's.
+     */
+    static boolean offersHeaderBarOption(boolean systemMenuBar, boolean extendedWindowsSupported) {
+        return !systemMenuBar && extendedWindowsSupported;
+    }
+
+    /**
+     * Whether the menu bar should take up a row in the window.
+     *
+     * <p>False on macOS whatever the setting says: the menus are in the screen menu bar, and the
+     * node only remains in the scene graph because that is what JavaFX forwards from. Leaving it
+     * measurable there costs a band of empty chrome above the terminal.
+     */
+    static boolean menuBarOccupiesSpace(boolean systemMenuBar, boolean showMenuBar) {
+        return !systemMenuBar && showMenuBar;
+    }
+
+    /**
+     * Whether the View menu shows zoom as one row of buttons rather than as plain items.
+     *
+     * <p>False under a system menu bar, and that is not a matter of taste. The row is a {@code
+     * CustomMenuItem}, and macOS's menus are drawn by AppKit, which cannot
+     * render a JavaFX node — so {@code MenuBarSkin} refuses {@code useSystemMenuBar} for the
+     * <em>whole</em> bar if any menu anywhere in it holds one, printing "MenuBar ignored property
+     * useSystemMenuBar because menus contain CustomMenuItem" to stderr and falling back to the
+     * in-window bar. Which this window collapses to zero height on macOS, on the assumption that
+     * the screen bar has the menus. The two together left a Mac with no menus at all: nothing in
+     * the screen bar, nothing in the window, and the only ways to any of it were the chords, the
+     * palette and the right-click menu.
+     *
+     * <p>The row survives everywhere it can actually be drawn. The right-click menu keeps it on
+     * every platform — it is a window popup JavaFX draws itself, not a screen menu.
+     */
+    static boolean showsZoomRow(boolean systemMenuBar) {
+        return !systemMenuBar;
+    }
+
+    /**
+     * Whether to offer showing and hiding the menu bar at all.
+     *
+     * <p>Two menus ask this — the View menu, for its Hide item, and the right-click menu, for its
+     * checkbox — and they must agree: an app that offers the toggle in one place and not the other
+     * reads as a bug in whichever place you looked first. Under a system menu bar there is nothing
+     * in the window to hide, and an entry that does nothing when clicked is worse than no entry.
+     */
+    static boolean offersMenuBarToggle(boolean systemMenuBar) {
+        return !systemMenuBar;
+    }
+
+    /** Whether the tab strip is worth its row of chrome. */
+    static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
+        return !hideWhenSingle || tabCount > 1;
+    }
+
+    /**
+     * Whether the reference lists a binding, as far as profiles go: the profile chords only for
+     * profiles that exist. Nine "New Tab With Profile" rows on a machine with one profile is eight
+     * rows of chords that do nothing.
+     */
+    static boolean listsProfileChord(@Nullable String id, int profileCount) {
+        if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return true;
+        try {
+            return Integer.parseInt(id.substring(PROFILE_CHORD_ID.length())) <= profileCount;
+        } catch (NumberFormatException notANumberedChord) {
+            return true;
+        }
+    }
+
+    /**
+     * Whether the size and place the window has now are its own, to be remembered for next time.
+     *
+     * <p>Not while maximized, and not in full screen either: both report the screen's, and storing
+     * that made the next launch open a screen-sized window at the corner — full screen was the case
+     * missed, so closing a full-screen window did it. {@code Stage.setFullScreen} sets the property
+     * before the platform resizes the window, so the resize that follows is already excluded, and
+     * the one on the way out arrives after it is cleared, at the size being restored.
+     */
+    static boolean isRestoredGeometry(boolean maximized, boolean fullScreen) {
+        return !maximized && !fullScreen;
+    }
+
+    /**
+     * The tab a number selects, or -1 when there is none.
+     *
+     * <p>The last digit means the <em>last</em> tab rather than the ninth, which is the convention
+     * every browser and terminal follows: with four tabs open, Alt+9 goes to the fourth. A number
+     * past the end selects nothing rather than the nearest, because silently landing somewhere else
+     * is worse than not moving.
+     */
+    static int tabIndexFor(int number, int tabCount) {
+        if (tabCount <= 0 || number < 1 || number > TAB_CHORD_COUNT) return -1;
+        if (number == TAB_CHORD_COUNT) return tabCount - 1;
+        return number <= tabCount ? number - 1 : -1;
+    }
+
+    /**
+     * The number whose chord selects a tab, or 0 when none does — the inverse of {@link
+     * #tabIndexFor}. The last tab answers to 9 whatever its index; a tab past the eighth that is
+     * not last has no chord.
+     */
+    static int tabNumberFor(int index, int tabCount) {
+        if (index < 0 || index >= tabCount) return 0;
+        if (index == tabCount - 1) return TAB_CHORD_COUNT;
+        return index < TAB_CHORD_COUNT - 1 ? index + 1 : 0;
+    }
+
+    /**
+     * Whether a command steps aside while a text field in the window has the keyboard.
+     *
+     * <p>The commands whose default chords are a text field's own editing keys on macOS — Cmd+C,
+     * Cmd+V, Cmd+A, and Cmd+Z for Reopen Closed Tab — and the same commands elsewhere, where
+     * Ctrl+Shift+Z is a field's redo. In the find bar they act on the query; acting on the terminal
+     * behind it instead would copy a selection nobody can see and paste into the shell.
+     */
+    static boolean yieldsToTextField(@Nullable String id) {
+        return switch (id == null ? "" : id) {
+            case "copy", "paste", "selectAll", "reopenClosedTab" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Whether a tab that failed to start should be replaced by one running the default shell.
+     *
+     * <p>Only when the window would otherwise be left empty — an empty window closes itself, and
+     * the last one closing quits — and only when what failed was not the default shell already,
+     * since retrying the same command would fail the same way and loop.
+     *
+     * @param tabCount tabs in the window, the failed one still among them
+     * @param failedWasDefaultShell whether the failed launch was already the plain shell
+     */
+    static boolean shouldFallBackToDefaultShell(int tabCount, boolean failedWasDefaultShell) {
+        return tabCount <= 1 && !failedWasDefaultShell;
+    }
+
+    /**
+     * Whether a window whose tab failed to start stays open with no tabs, rather than closing.
+     *
+     * <p>When nothing else is left in it and nothing is being opened in its place. An empty window
+     * otherwise closes itself, and the last one closing quits — which for a default shell that will
+     * not start was the application vanishing, its error dialog with it. Kept open, it shows what
+     * failed, and the menus and chords still reach Settings and New Tab.
+     *
+     * @param remainingTabs tabs that will be left once the failed one is gone
+     * @param fallingBack whether the default shell is being opened instead
+     */
+    static boolean keepsWindowOpenEmpty(int remainingTabs, boolean fallingBack) {
+        return remainingTabs <= 0 && !fallingBack;
+    }
+
+    /** Lines a paste holds, as the dialog counts them: a trailing break still ends a line. */
+    static int lineCount(String text) {
+        if (text == null || text.isEmpty()) return 0;
+        int count = 1;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || (c == '\r' && (i + 1 >= text.length() || text.charAt(i + 1) != '\n'))) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Whether a settings change should refresh the controls: only while the window can be seen,
+     * never from inside the refresh itself, and never for a change this window is making. The second
+     * half is the re-entrancy guard — a reload sets every control under {@code loading}, so none of
+     * them writes back, but a reload started by a reload would still be a loop waiting for one that
+     * does. The third is the cost: a reload re-sets some thirty controls, resolves every key binding
+     * and rebuilds the profile list and the preview, which a spinner tick is not worth.
+     */
+    static boolean shouldReload(boolean showing, boolean reloading, boolean writing) {
+        return showing && !reloading && !writing;
+    }
+
+    /**
+     * The index the arrow keys should land on from {@code from}, stepping by {@code step} past
+     * anything that is not selectable, or -1 when there is nothing further that way.
+     */
+    static int nextSelectable(int from, int step, int size, java.util.function.IntPredicate selectable) {
+        for (int i = from + step; i >= 0 && i < size; i += step) {
+            if (selectable.test(i)) return i;
+        }
+        return -1;
+    }
+}
