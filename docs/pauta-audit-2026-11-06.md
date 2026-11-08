@@ -192,6 +192,14 @@ Addressed on 2026-11-07, branch `small-musts`:
     NOTICE in both the jar and the image.
   - CONF-03: the close prompt's button has the danger style; `Confirm` already gave it to the rest.
 
+Addressed on 2026-11-07, branch `help-docs`:
+
+- **Now met:**
+  - DOCS-06: Help → Documentation, first in Help, a command, so it is in the palette and bindable.
+  - DOCS-05 and REL-04: release notes are the version's CHANGELOG section (`scripts/release-notes.sh`,
+    JReleaser `changelog.external`), and Help → What's New opens them. There is no Welcome page.
+- **Still open:** DOCS-03, versioned docs URLs, which depends on the website.
+
 Addressed on 2026-11-07, branch `config-archive`:
 
 - **Now met:** SET-12. `config.ConfigArchive` exports the config folder, less locks, logs, the

@@ -17,6 +17,8 @@ done.
   touches the ones in daily use. `--config-dir` and `TERMINA_CONFIG_DIR` still take precedence.
 - **The Debug Log can be exported** to a file, and the previous session's log is kept beside this
   one's as `termina-session.prev.log`.
+- **Help ▸ Documentation and Help ▸ What's New** open the user documentation and this version's
+  release notes.
 - **Export and Import Configuration.** Settings ▸ Advanced and the palette save a timestamped
   `.zip` of your settings, key bindings, shell profiles and imported themes to your home folder, and
   restore from one. The import lists the parts the zip holds and replaces only the ones you leave
@@ -62,6 +64,8 @@ done.
   and pty4j log, which used to go to a stderr nobody saw in an installed app. A desktop
   notification that could not be shown now says why in it.
 - **Closing a tab with a program still running shows its Close button in the danger style.**
+- **A release's notes are its section of this changelog**, under the install instructions, rather
+  than a list of commit subjects. A tag whose version has no section here fails before building.
 - **The multi-line paste prompt can no longer be switched off from Settings.** A setting that only
   makes Termina less safe is a `settings.json` key instead: `"input.confirmPaste": false`.
 - **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug

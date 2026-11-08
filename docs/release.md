@@ -5,8 +5,11 @@ it publishes is [building-and-packaging.md](building-and-packaging.md).
 
 ## Cutting a release
 
-To cut a release: set `<version>` in `pom.xml` to the release version (drop `-SNAPSHOT`), commit,
-then push a `vX.Y.Z` tag. The workflow refuses to build if the tag and the pom disagree, or if the
+To cut a release: rename `CHANGELOG.md`'s `## [Unreleased]` to `## [X.Y.Z] - <date>` (with a fresh
+empty `## [Unreleased]` above it and the compare link at the bottom), set `<version>` in `pom.xml`
+to the release version (drop `-SNAPSHOT`), commit, then push a `vX.Y.Z` tag. The release notes are
+that section, under the install instructions in `.github/release-notes-install.md`
+(`scripts/release-notes.sh`); a tag whose version has no section fails before anything is built. The workflow refuses to build if the tag and the pom disagree, or if the
 pom still carries `-SNAPSHOT` — artifacts labelled with a version they were not built from are worse
 than no artifacts. A tag with a suffix (`v1.0.0-rc1`) publishes as a pre-release.
 

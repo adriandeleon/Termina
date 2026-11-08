@@ -3002,6 +3002,11 @@ public final class TerminalWindow {
                 tr("menu.help"), item("menu.checkForUpdates", () -> windows.checkForUpdatesNow(this::report)));
         updateItem = menuItem(checkForUpdates);
         Menu help = new Menu(tr("menu.help"));
+        // Documentation first (DOCS-06): Termina's Help has no Command Palette row to come after.
+        MenuAction documentation = registerIn(
+                tr("menu.help"), item("menu.documentation", () -> windows.openLink(com.termina.AppInfo.DOCUMENTATION)));
+        MenuAction whatsNew = registerIn(
+                tr("menu.help"), item("menu.whatsNew", () -> windows.openLink(com.termina.AppInfo.releaseNotesUrl())));
         MenuAction messageLog =
                 registerIn(tr("menu.help"), item("menu.messageLog", () -> windows.showMessageLog(stage)));
         MenuAction debugLog = registerIn(tr("menu.help"), item("menu.debugLog", () -> windows.showDebugLog(stage)));
@@ -3010,6 +3015,8 @@ public final class TerminalWindow {
         // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/ elsewhere,
         // which is the "?" key under the usual modifier: keymap.json.
         MenuAction shortcutsRef = registerIn(tr("menu.help"), item("menu.keyboardShortcuts", this::showShortcuts));
+        commands.add(documentation.withKeywords(tr("menu.help")));
+        commands.add(whatsNew.withKeywords(tr("menu.help")));
         commands.add(shortcutsRef.withKeywords(tr("menu.help")));
         commands.add(checkForUpdates.withKeywords(tr("menu.help")));
         commands.add(messageLog.withKeywords(tr("menu.help")));
@@ -3029,6 +3036,8 @@ public final class TerminalWindow {
         // check, the two logs, then About last.
         help.getItems()
                 .addAll(
+                        menuItem(documentation),
+                        menuItem(whatsNew),
                         menuItem(shortcutsRef),
                         new SeparatorMenuItem(),
                         updateItem,

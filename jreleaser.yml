@@ -51,14 +51,11 @@ release:
     prerelease:
       pattern: .*-.*
     changelog:
-      formatted: ALWAYS
-      preset: conventional-commits
-      contributors:
-        enabled: false
-      # Install instructions ahead of the commit list. Somebody arriving at a release page wants to
-      # know how to run the thing, not what changed since a version they never had — and the first
-      # release has no previous version to have changed from.
-      contentTemplate: .github/release-notes.tpl
+      # The notes are written, not generated (DOCS-05, REL-04, Pauta 2.0.2): the install
+      # instructions, then the version's own CHANGELOG.md section, which the release workflow puts
+      # here with scripts/release-notes.sh. Somebody arriving at a release page wants to know how to
+      # run the thing and what changed for them, not a list of commit subjects.
+      external: out/release-notes.md
 
 checksum:
   individual: false
