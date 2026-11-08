@@ -81,6 +81,21 @@ final class DevCapture {
     }
 
     static void schedule(WindowManager windows, TerminalWindow window, com.termina.config.@Nullable Settings settings) {
+        schedule(windows, window, settings, () -> {
+            windows.closeAll();
+            Platform.exit();
+        });
+    }
+
+    /**
+     * As above, with {@code finish} run once the capture is written and reported instead of closing
+     * every window and exiting: the test that drives the harness keeps its toolkit for the tests after it.
+     */
+    static void schedule(
+            WindowManager windows,
+            TerminalWindow window,
+            com.termina.config.@Nullable Settings settings,
+            Runnable finish) {
         String target = System.getProperty(CAPTURE_PROPERTY);
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
@@ -192,8 +207,7 @@ final class DevCapture {
                                         .replace("\n", "\\n") + "\"");
                     }
                     report(windows);
-                    windows.closeAll();
-                    Platform.exit();
+                    finish.run();
                 });
                 settleFrame.play();
             });
