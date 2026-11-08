@@ -2541,6 +2541,16 @@ public final class TerminalWindow {
 
     private MenuBar menuBar;
 
+    /** The window's tabs, for the test that fires each one's menu. */
+    List<Tab> tabsForTest() {
+        return tabs.getTabs();
+    }
+
+    /** The menu bar as built, for the test that fires its items. */
+    MenuBar menuBarForTest() {
+        return menuBar;
+    }
+
     /** The window's own title bar, holding the menu bar; null when the platform draws one. */
     private final @Nullable HeaderBar headerBar;
 

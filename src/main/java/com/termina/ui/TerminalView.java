@@ -2204,6 +2204,11 @@ public final class TerminalView extends Region {
         e.consume();
     }
 
+    /** The right-click menu as built, for the test that fires its items. */
+    ContextMenu contextMenuForTest() {
+        return contextItems().menu();
+    }
+
     private ContextItems contextItems() {
         ContextItems items = contextItems;
         if (items == null) contextItems = items = buildContextMenu();

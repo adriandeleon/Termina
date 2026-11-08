@@ -364,7 +364,7 @@ public final class WindowManager {
         };
     }
 
-    private void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
+    void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
         lastAnswer = outcome;
         if (aboutWindow != null) aboutWindow.setUpdate(knownUpdate, outcome);
         com.termina.update.ReleaseInfo latest = outcome.latest();
