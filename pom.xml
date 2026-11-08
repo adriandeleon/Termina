@@ -543,6 +543,10 @@
                     <systemPropertyVariables>
                         <glass.platform>Headless</glass.platform>
                         <prism.order>sw</prism.order>
+                        <!-- Headless has no screen menu bar, so on a Mac the window's menus have nowhere
+                             to go but the window: the same bar, items and toggle the other platforms
+                             test. The screen menu bar itself is checked on a Mac, by hand. -->
+                        <termina.forceInWindowMenuBar>true</termina.forceInWindowMenuBar>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
