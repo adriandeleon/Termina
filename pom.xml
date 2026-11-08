@@ -37,6 +37,10 @@
              windows=d3d,es2,sw (keep Direct3D), linux=es2,sw. This default covers
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
+        <!-- The whole-build coverage floors (jacoco-check); os-windows lowers them. -->
+        <coverage.bundle.line>0.52</coverage.bundle.line>
+        <coverage.bundle.method>0.55</coverage.bundle.method>
+        <coverage.bundle.branch>0.49</coverage.bundle.branch>
         <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
              has; opening it elsewhere warns on every launch. The os-mac profile sets the real
              option; elsewhere this repeats an export already given, which is harmless, because an
@@ -325,6 +329,34 @@
                         <configuration>
                             <haltOnFailure>true</haltOnFailure>
                             <rules>
+                                <!--
+                                  The whole build (PLAT-12, Pauta 2.0.2, whose target is 0.90 lines and
+                                  methods). For now a net three points under what CI measured on
+                                  2026-11-08, raised as the UI tests land: macOS and Linux 54.9% lines,
+                                  57.4% methods, 51.7% branches; Windows, which skips the PTY and
+                                  window-lifecycle tests, 42.8%, 44.5%, 46.0% — so the os-windows
+                                  profile lowers the floors rather than one number failing one side.
+                                -->
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.bundle.line}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>METHOD</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.bundle.method}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.bundle.branch}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
                                 <!-- The command line: pure parsing, fully covered (100%). -->
                                 <rule>
                                     <element>PACKAGE</element>
@@ -562,6 +594,10 @@
             <activation><os><family>windows</family></os></activation>
             <properties>
                 <prism.pipeline>d3d,es2,sw</prism.pipeline>
+                <!-- No PTY or window-lifecycle tests here; see jacoco-check. -->
+                <coverage.bundle.line>0.40</coverage.bundle.line>
+                <coverage.bundle.method>0.42</coverage.bundle.method>
+                <coverage.bundle.branch>0.43</coverage.bundle.branch>
                 <jpackage.icon>${project.basedir}/branding/termina.ico</jpackage.icon>
             </properties>
         </profile>

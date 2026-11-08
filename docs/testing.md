@@ -34,10 +34,14 @@ Measure from a clean target — `jacoco.exec` accumulates across runs, so a seco
 Coverage floors are a regression net rather than a target — each sits well below what is actually
 measured, so they catch tests being deleted, not a few lines of drift. `com.termina.sync`'s floor is
 set from what it measures without the five tests disabled on Windows (83%, against 92% on Unix).
-`com.termina.ui` is deliberately ungated: most of its 7,600 lines are the renderer, the window and
-the settings sheet, which a headless suite cannot reach, so a package number there says nothing about
-whether the tested parts are still tested. The way to raise it is to keep pulling decisions out into pure classes, not
-to lower the bar until it passes. `./mvnw clean -Pdist -DskipTests package` produces a native app image
+The whole build is gated too (PLAT-12, Pauta 2.0.2): lines, methods and branches, a few points
+under what CI measured, per platform — Windows skips the PTY and window-lifecycle tests and measures
+twelve points lower, so the `os-windows` profile lowers the `coverage.bundle.*` properties. The
+rule's target is 0.90 lines and methods; the floors rise as the headless suite reaches further into
+`com.termina.ui` — the Settings window, the terminal window's commands, the view's input and drawing
+— which a headless run can reach after all (`WindowLifecycleTest` opens real windows on real
+shells). Pulling decisions out into pure classes remains the first move; driving the window is the
+second, not a reason to lower the bar. `./mvnw clean -Pdist -DskipTests package` produces a native app image
 under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
 built on that platform, which is what the CI matrix is for.
 
