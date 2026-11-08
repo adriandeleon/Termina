@@ -80,9 +80,11 @@ and Torrenta.
   build) nothing changes.
 - The **smoke test** runs that signed app, so a real shell on a real pty is proven to work under the
   hardened runtime before anything is uploaded.
-- **Notarize the dmg (macOS)** checks the app inside the dmg still verifies, runs
-  `notarytool submit --wait` with the App Store Connect API key, prints Apple's log, staples, and
-  checks the dmg and its app with `spctl` the way Gatekeeper will.
+- **Notarize the dmg (macOS)** checks the app inside the dmg still verifies and is signed by team
+  `8JKSF797L8`, runs `notarytool submit --wait` with the App Store Connect API key, prints Apple's
+  log, staples, checks the dmg and its app with `spctl` the way Gatekeeper will, and then runs the
+  smoke test once more on the notarized app inside the dmg (REL-15, Pauta 2.0.2).
+  `WorkflowRulesTest` holds that order.
 
 Repository secrets, the same values as Editora's and Torrenta's: `MACOS_CERT_P12` (base64 of a
 `.p12` with the certificate, its key and Apple's Developer ID G2 intermediate, exported with

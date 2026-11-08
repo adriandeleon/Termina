@@ -189,8 +189,8 @@ jobs:
       # Apple scans the signed dmg and, if it passes, issues a ticket; stapling attaches it so Gatekeeper
       # accepts the dmg offline too. A rejection prints Apple's log, which names each offending file. The
       # checks at the end are what Gatekeeper does on a user's Mac: the dmg and the app inside it must both
-      # be accepted as notarized Developer ID code. (The smoke test above already ran this same signed app
-      # under the hardened runtime: a real shell on a real pty.)
+      # be accepted as notarized Developer ID code, by our team, and the notarized app must launch and run
+      # a shell — the smoke test above ran the image before the dmg wrap and the ticket.
       - name: Notarize the dmg (macOS)
         if: steps.macsign.outputs.enabled == 'true'
         shell: bash
@@ -234,6 +234,14 @@ jobs:
             echo "::error title=dmg app not Developer ID signed::the app inside $(basename "$dmg") lost its Developer ID signature during the dmg wrap"
             exit 1
           fi
+          # Signed by our team and nobody else's (REL-15, Pauta 2.0.2): a certificate swapped in the
+          # secrets would otherwise sign, notarize and ship under someone else's name.
+          if ! codesign -dv --verbose=2 "$pre"/*.app 2>&1 | grep -q '^TeamIdentifier=8JKSF797L8$'; then
+            codesign -dv --verbose=2 "$pre"/*.app 2>&1 | grep '^TeamIdentifier' || true
+            hdiutil detach "$pre" > /dev/null || true
+            echo "::error title=Wrong signing team::the app inside $(basename "$dmg") is not signed by team 8JKSF797L8"
+            exit 1
+          fi
           if ! codesign --verify --deep --strict --verbose=4 "$pre"/*.app; then
             hdiutil detach "$pre" > /dev/null || true
             echo "::error title=dmg app signature broken::the app inside $(basename "$dmg") no longer verifies; the codesign output above names what changed"
@@ -269,7 +277,11 @@ jobs:
           app="$(ls -d "$mnt"/*.app | head -1)"
           codesign --verify --deep --strict --verbose=2 "$app"
           spctl --assess --type execute --verbose=2 "$app"
-          echo "- ✅ ${{ matrix.target }}: signed, notarized and stapled" >> "$GITHUB_STEP_SUMMARY"
+          # Then launch the notarized app itself, from the dmg a user will open, and see a shell run in
+          # it (REL-15): the image's smoke test above ran before the wrap and the ticket, and either can
+          # break a launch the earlier one cannot see.
+          bash scripts/smoke-test.sh "$app/Contents/MacOS/Termina" "$RUNNER_TEMP/smoke-notarized"
+          echo "- ✅ ${{ matrix.target }}: signed, notarized, stapled and launched" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check the Linux packages
         if: runner.os == 'Linux'

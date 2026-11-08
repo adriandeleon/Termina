@@ -12,25 +12,25 @@ class TabBarVisibilityTest {
 
     @Test
     void aLoneTabDoesNotNeedAStrip() {
-        assertFalse(TerminalWindow.shouldShowTabBar(1, true));
+        assertFalse(WindowRules.shouldShowTabBar(1, true));
     }
 
     @ParameterizedTest
     @ValueSource(ints = {2, 3, 12})
     void moreThanOneTabAlwaysShowsTheStrip(int tabs) {
-        assertTrue(TerminalWindow.shouldShowTabBar(tabs, true));
+        assertTrue(WindowRules.shouldShowTabBar(tabs, true));
     }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 5})
     void withTheSettingOffTheStripIsAlwaysShown(int tabs) {
-        assertTrue(TerminalWindow.shouldShowTabBar(tabs, false));
+        assertTrue(WindowRules.shouldShowTabBar(tabs, false));
     }
 
     @Test
     void anEmptyWindowIsTreatedLikeALoneTab() {
         // Reachable for one pulse while the last tab is being removed, before the window closes.
         // Showing an empty strip there would flash a bare row on the way out.
-        assertFalse(TerminalWindow.shouldShowTabBar(0, true));
+        assertFalse(WindowRules.shouldShowTabBar(0, true));
     }
 }

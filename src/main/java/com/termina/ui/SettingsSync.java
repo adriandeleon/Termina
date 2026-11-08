@@ -370,15 +370,15 @@ final class SettingsSync {
 
     /** Asks gh whether it is signed in, off the FX thread; listeners run when the answer changes. */
     void checkGitHub() {
-        worker.execute(() -> {
-            boolean available = GitHubRepo.signedIn(ghCommand());
-            Platform.runLater(() -> {
-                if (available == gitHubAvailable) return;
-                gitHubAvailable = available;
-                for (Runnable listener : List.copyOf(listeners)) listener.run();
-            });
+        // The newest answer only (PERF-03): the window asks each time it shows, and gh can be slow.
+        gitHubCheck.submit(() -> GitHubRepo.signedIn(ghCommand()), available -> {
+            if (available == gitHubAvailable) return;
+            gitHubAvailable = available;
+            for (Runnable listener : List.copyOf(listeners)) listener.run();
         });
     }
+
+    private final com.termina.work.LatestOnly gitHubCheck = new com.termina.work.LatestOnly(worker, Platform::runLater);
 
     /**
      * Makes a private repository called {@code name} with gh, off the FX thread, and hands back the URL

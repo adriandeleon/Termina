@@ -270,7 +270,7 @@ Not offered on macOS, where the menus are in the screen menu bar and there is no
 to merge, nor where `Platform.isSupported(EXTENDED_WINDOW)` says no — JavaFX would downgrade the
 style to `DECORATED` silently and leave the header as a second row under the native one. In both
 cases the checkbox is disabled with the reason on its row. The decision is
-`TerminalWindow.usesHeaderBar`, tested in `MenuBarVisibilityTest`.
+`WindowRules.usesHeaderBar`, tested in `MenuBarVisibilityTest`.
 
 One thing a capture cannot show: the window buttons are an overlay JavaFX draws outside the scene
 graph, so a scene snapshot has the menus and the title but a blank where the buttons are. The

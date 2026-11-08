@@ -10,8 +10,10 @@ checklist in [`AGENTS.md`](../AGENTS.md) is the one agents work through.
   not per character. Do not add per-keystroke or per-pulse work that is not coalesced.
 - **Extract the decision, then test it.** Anything with a rule in it — which chord, who owns
   right-click, when the tab bar shows, whether a colour is legible — becomes a static method with
-  its own tests. `MouseEncoding`, `MenuAction.appChord`, `TerminalWindow.shouldShowMenu`,
-  `shouldShowTabBar`.
+  its own tests, in a class that imports no JavaFX type, tested without the toolkit (QUAL-05,
+  Pauta 2.0.2): `WindowRules` (`shouldShowTabBar`, `usesHeaderBar`, …), `MouseEncoding`,
+  `PaletteKeys`, `SettingsSearch`. The JavaFX half that reads the event and applies the answer sits
+  beside it (`PaletteNav`). `PureDecisionsTest` keeps the list honest.
 - **Verify by driving it.** Terminal bugs are visual and none of them throw. `DevCapture` renders
   the real window, types into the real shell, fires real mouse and key events, and writes a PNG.
   Reasoning about JavaFX dispatch order is not evidence — fire the chord. See [testing.md](testing.md#development-capture)

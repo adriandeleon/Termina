@@ -8,6 +8,8 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * What the Settings, About and Debug Log windows have in common.
  *
@@ -33,7 +35,7 @@ final class SecondaryWindows {
         double height = stage.getHeight() > 0
                 ? stage.getHeight()
                 : stage.getScene() != null ? stage.getScene().getHeight() : 0;
-        double[] at = WindowPlacement.offsetWithin(from.getX(), from.getY(), OFFSET, width, height, screen);
+        double[] at = WindowPlacement.offsetWithin(from.getX(), from.getY(), OFFSET, width, height, bounds(screen));
         stage.setX(at[0]);
         stage.setY(at[1]);
     }
@@ -57,5 +59,10 @@ final class SecondaryWindows {
                 e.consume();
             }
         });
+    }
+
+    /** A JavaFX rectangle as {@link WindowPlacement}'s bounds; null for null. */
+    static WindowPlacement.@Nullable Bounds bounds(javafx.geometry.@Nullable Rectangle2D r) {
+        return r == null ? null : new WindowPlacement.Bounds(r.getMinX(), r.getMinY(), r.getMaxX(), r.getMaxY());
     }
 }

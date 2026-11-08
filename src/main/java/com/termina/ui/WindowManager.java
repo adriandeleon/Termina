@@ -219,7 +219,12 @@ public final class WindowManager {
             double width = stage.getScene() != null ? stage.getScene().getWidth() : origin.getWidth();
             double height = stage.getScene() != null ? stage.getScene().getHeight() : origin.getHeight();
             double[] at = WindowPlacement.offsetWithin(
-                    origin.getX(), origin.getY(), CASCADE_OFFSET, width, height, SecondaryWindows.screenOf(origin));
+                    origin.getX(),
+                    origin.getY(),
+                    CASCADE_OFFSET,
+                    width,
+                    height,
+                    SecondaryWindows.bounds(SecondaryWindows.screenOf(origin)));
             stage.setX(at[0]);
             stage.setY(at[1]);
         }
@@ -556,6 +561,11 @@ public final class WindowManager {
     /** Whether the settings window has been made yet: for the first-frame test (PERF-14). */
     boolean settingsWindowBuilt() {
         return settingsWindow != null;
+    }
+
+    /** The application's settings sync, for the palette's sync commands. */
+    SettingsSync settingsSync() {
+        return sync;
     }
 
     /** The settings window, made on first use. */

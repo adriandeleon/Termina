@@ -5,9 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
-import javafx.scene.control.ListView;
-import javafx.scene.input.KeyEvent;
-
 import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
@@ -41,7 +38,7 @@ final class PaletteKeys {
     }
 
     /** Rows moved by PageUp/PageDown when the list cannot say how many it shows. */
-    private static final int DEFAULT_PAGE = 8;
+    static final int DEFAULT_PAGE = 8;
 
     private static final String SEPARATOR = "  ·  ";
 
@@ -58,15 +55,8 @@ final class PaletteKeys {
     private PaletteKeys() {}
 
     /**
-     * The action for a key press. {@code queryField} says whether a text field has the focus: then
-     * plain Home/End stay with its caret.
-     */
-    static Action action(KeyEvent e, boolean queryField) {
-        return resolve(KeyChord.of(e), queryField);
-    }
-
-    /**
-     * The pure decision behind {@link #action}: the fixed keys first, then the Emacs table. Plain
+     * The action for a key, by {@link KeyChord} token ({@link PaletteNav#action} reads it off the
+     * event): the fixed keys first, then the Emacs table. Plain
      * Home/End move the query field's caret when there is one (as in every search box); Ctrl/Cmd+Home
      * and Ctrl/Cmd+End always jump to the first/last row.
      */
@@ -117,24 +107,14 @@ final class PaletteKeys {
         };
     }
 
-    /** How many rows a page moves: one less than the list shows, so a row of context remains. */
-    static int page(ListView<?> list) {
-        double cell = list.getFixedCellSize();
-        if (cell > 0 && list.getHeight() > cell) return Math.max(1, (int) (list.getHeight() / cell) - 1);
-        return DEFAULT_PAGE;
-    }
-
     /**
-     * Applies a navigation action to {@code list}, landing only on rows {@code selectable} accepts
-     * (so the cursor steps over greyed-out rows). Up/Down wrap; a page or first/last jump lands on
-     * the nearest selectable row at or beyond its target, else the nearest before it. Returns false —
-     * leaving the event for someone else — only when {@code action} is not navigation.
+     * The row a navigation action lands on, among rows {@code selectable} accepts (so the cursor
+     * steps over greyed-out rows), or -1 when none will do. Up/Down wrap; a page or first/last jump
+     * lands on the nearest selectable row at or beyond its target, else the nearest before it.
+     * {@link PaletteNav#navigate} applies it to the list. Pure.
      */
-    static <T> boolean navigate(ListView<T> list, Action action, Predicate<? super T> selectable) {
-        if (!isNavigation(action)) return false;
-        List<T> items = list.getItems();
+    static <T> int landing(List<T> items, int current, Action action, int page, Predicate<? super T> selectable) {
         int size = items.size();
-        int current = list.getSelectionModel().getSelectedIndex();
         int idx = -1;
         if (action == Action.UP || action == Action.DOWN) {
             int dir = action == Action.DOWN ? 1 : -1;
@@ -144,16 +124,12 @@ final class PaletteKeys {
                 idx = selectable.test(items.get(i)) ? i : -1;
             }
         } else if (size > 0) {
-            int target = target(action, current, size, page(list));
+            int target = target(action, current, size, page);
             int dir = action == Action.PAGE_DOWN || action == Action.FIRST ? 1 : -1;
             idx = seek(items, target, dir, selectable);
             if (idx < 0) idx = seek(items, target, -dir, selectable);
         }
-        if (idx >= 0) {
-            list.getSelectionModel().select(idx);
-            list.scrollTo(idx);
-        }
-        return true;
+        return idx;
     }
 
     private static <T> int seek(List<T> items, int from, int dir, Predicate<? super T> selectable) {
