@@ -23,7 +23,7 @@
              One number, filtered into build-info.properties: About, the version option, AGENTS.md and the
              README badge all name it. Moving to a newer edition is its own change — read that
              edition's changelog for new MUSTs, meet them, then change this, AGENTS.md and the
-             README together. docs/pauta-audit-*.md records what is still unmet. -->
+             README together. docs/reference/pauta-audit-*.md records what is still unmet. -->
         <pauta.version>2.0.2</pauta.version>
 
         <javafx.version>27.0.1</javafx.version>

@@ -12,7 +12,7 @@ it, and fix the documentation in the same change.
 
 This app is built to Pauta 2.0.2. Its rules: https://pauta-project.dev/2.0.2/llms.txt (every rule
 in one file: https://pauta-project.dev/2.0.2/llms-full.txt). What it does not meet yet is in
-`docs/pauta-audit-2026-11-06.md`.
+`docs/reference/pauta-audit-2026-11-06.md`.
 
 - Before building a feature, read the rules on its page and copy from the code each rule's
   Reference names (Editora, usually checked out beside this repository).

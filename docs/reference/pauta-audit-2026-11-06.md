@@ -327,24 +327,39 @@ Addressed on 2026-11-08, branch `menu-rows`:
   unrun on macOS.
 - **Totals:** 3 MUSTs fail (REPO-01, DOCS-19, ABOUT-07) and 6 are partly met.
 
+Addressed on 2026-11-08, branch `readme-landing`:
+
+- **Now met:**
+  - REPO-01 / DOCS-19: the README is a 152-line landing page — logo, badges, pitch, hero, ten
+    highlights each linking its page on termina-project.dev, install, build, command line, the
+    config folder, contributing and license. The catalogue it carried is
+    `docs/reference/features.md`, the install detail `docs/reference/installing.md`, and the
+    app-image notes a section of `docs/building-and-packaging.md`.
+  - DOCS-14: `docs/reference/` holds the long catalogues and the history (this audit, the reviews,
+    JediTerm's capabilities, the competitive landscape), with its own index; the guides stay in
+    `docs/`. `RepositoryDocsTest` keeps the README under 250 lines with its parts, no review or
+    audit beside the guides, and every relative link in the Markdown resolving.
+- **Totals:** 1 MUST fails (ABOUT-07) and 5 are partly met.
+
 Everything else below stands, except the totals, which are recounted.
 
 ## Totals
 
-Recounted on 2026-11-08, after `pauta-small-items` and `menu-rows`. Of the 59 failed MUSTs:
+Recounted on 2026-11-08, after `pauta-small-items`, `menu-rows` and `readme-landing`. Of the 59
+failed MUSTs:
 
-- **Still failed (3):** REPO-01 and DOCS-19 (the README's feature catalogue, waiting on the
-  website), and ABOUT-07, which cannot pass while any MUST fails. MENU-02 is met since `menu-rows`.
-- **Partly met (4):** DOCS-14 (the long catalogue is `docs/gotchas.md`, not `docs/reference/`),
-  PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path has never run),
-  PERF-01 (the remaining FX-thread reads are left on purpose, on measurements) and KBD-09 (JSON
-  keymaps; Emacs/CUA left out for the shell's chords).
-- **Met:** the other 52.
+- **Still failed (1):** ABOUT-07, which names the edition the app meets, and so cannot pass while
+  any MUST is short of met.
+- **Partly met (3):** PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path
+  has never run), PERF-01 (the remaining FX-thread reads are left on purpose, on measurements) and
+  KBD-09 (JSON keymaps; Emacs/CUA left out for the shell's chords).
+- **Met:** the other 55, MENU-02 since `menu-rows`, and REPO-01, DOCS-19 and DOCS-14 since
+  `readme-landing`.
 
 Of the 34 partly met: PLAT-11 (no TestFX; headless glass in surefire instead) and ABOUT-01 (About in
 the macOS application menu, unrun on macOS) remain partly met; the other 32 are met.
 
-So: **3 MUSTs fail and 6 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
+So: **1 MUST fails and 5 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
 judged from this repository. Under Pauta's rule a failed MUST blocks a release, so Termina still
 cannot claim 2.0.2 compliance. Several "met" items rest on code that has never run on Windows, or
 on macOS paths unchecked by hand (REL-15 until the next tag, the screen menu bar's ON_SHOWING).

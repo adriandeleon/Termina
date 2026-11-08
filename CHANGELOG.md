@@ -7,7 +7,7 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
-The quick fixes from the [2026-11-06 performance review](docs/review-2026-11-06.md) and its
+The quick fixes from the [2026-11-06 performance review](docs/reference/review-2026-11-06.md) and its
 settings-layer items; the larger ones there (damage tracking, the theme stylesheets' size) are not
 done.
 
@@ -240,7 +240,7 @@ the minor number moves.
 
 ## [0.13.0] - 2026-10-27
 
-Everything from the [2026-10-27 review](docs/review-2026-10-27.md): padding, a hollow cursor in
+Everything from the [2026-10-27 review](docs/reference/review-2026-10-27.md): padding, a hollow cursor in
 unfocused panes, `-T` for the first tab's title, Reopen for panes and windows, and Linux packages
 that install on Debian 12 and Ubuntu 22.04 again. New user-visible behaviour, so the minor number
 moves.
