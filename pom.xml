@@ -38,9 +38,9 @@
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
         <!-- The whole-build coverage floors (jacoco-check); os-windows lowers them. -->
-        <coverage.bundle.line>0.66</coverage.bundle.line>
-        <coverage.bundle.method>0.67</coverage.bundle.method>
-        <coverage.bundle.branch>0.55</coverage.bundle.branch>
+        <coverage.bundle.line>0.77</coverage.bundle.line>
+        <coverage.bundle.method>0.76</coverage.bundle.method>
+        <coverage.bundle.branch>0.64</coverage.bundle.branch>
         <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
              has; opening it elsewhere warns on every launch. The os-mac profile sets the real
              option; elsewhere this repeats an export already given, which is harmless, because an
@@ -332,8 +332,9 @@
                                 <!--
                                   The whole build (PLAT-12, Pauta 2.0.2, whose target is 0.90 lines and
                                   methods). For now a net a few points under what is measured, raised
-                                  as the UI tests land. With SettingsWindowFxTest and WindowCommandsFxTest,
-                                  Linux measures 69.5% lines, 70.6% methods, 58.8% branches. Windows skips the PTY and
+                                  as the UI tests land. With SettingsWindowFxTest, WindowCommandsFxTest and
+                                  DevCaptureFxTest, Linux measures 80.2% lines, 79.6% methods, 67.0%
+                                  branches. Windows skips the PTY and
                                   window-lifecycle tests and measured twelve points lower before it
                                   (42.8%, 44.5%, 46.0%), so the os-windows profile lowers the floors
                                   rather than one number failing one side.
