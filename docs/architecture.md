@@ -51,6 +51,11 @@ files are replaced in `themes/`, and the settings parts are merged key by key
 `settings.json`, so memory and file cannot disagree. `ui.ConfigTransfer` is the FX side: the
 worker threads, the chooser and the parts dialog.
 
+**Commands are by id, in `ui.CommandRegistry`.** Each window registers every command with its
+action, its label now and its gate now (`TerminalWindow.currentLabel`, `unavailableNow`). Menu items,
+the palette and the key bindings all run and name a command through it, and a menu refreshes its
+items from it as it opens (MENU-01, Pauta 2.0.2).
+
 `com.termina.term.TerminalSession` wires them together and owns the read loop.
 `com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); each tab is a `PaneGroup`
 of one or more `TerminalView`s. `WindowManager` owns the window set and what they share — settings,

@@ -79,6 +79,12 @@ public final class TerminalWindow {
     /** The menu items showing each command's chord, which follow it when it moves. */
     private final Map<String, List<MenuItem>> itemsById = new java.util.HashMap<>();
 
+    /**
+     * Every command by id, with its label and its gate, which the menu bar, the palette and the key
+     * bindings all ask (MENU-01, Pauta 2.0.2). Filled by {@link #register}.
+     */
+    private final CommandRegistry registry = new CommandRegistry();
+
     private final javafx.beans.property.StringProperty newTabTipText = new javafx.beans.property.SimpleStringProperty();
     private final javafx.beans.property.StringProperty closeTabTipText =
             new javafx.beans.property.SimpleStringProperty();
@@ -2755,16 +2761,6 @@ public final class TerminalWindow {
         // Greyed when there is nothing to bring back — an item that does nothing when clicked is
         // worse than one that says it cannot.
         // By id, not by label: a label is a translation, and the one for Close Tab changes under it.
-        file.setOnShowing(e -> {
-            for (MenuItem item : itemsFor(idOf("menu.reopenClosedTab"))) item.setDisable(!canReopen());
-            for (MenuAction bulk : List.of(closeOthersAction, closeLeftAction, closeRightAction)) {
-                for (MenuItem item : itemsFor(bulk.id())) item.setDisable(bulkCloseUnavailable(bulk) != null);
-            }
-            // Says what its chord will do: in a split tab that is the active pane, not the tab.
-            for (MenuItem item : itemsFor(idOf("menu.closeTab"))) {
-                item.setText(activeTabIsSplit() ? tr("menu.closePane") : tr("menu.closeTab"));
-            }
-        });
 
         // The chords the submenu advertises. They have to be registered here because the menu's own
         // accelerators never fire in this window — TerminalView consumes Ctrl+<key> first, which is
@@ -2799,12 +2795,6 @@ public final class TerminalWindow {
                 register(previousPromptAction),
                 register(nextPromptAction),
                 selectOutputAction);
-        edit.setOnShowing(e -> {
-            boolean marked = promptMarksAvailable();
-            for (MenuAction action : List.of(previousPromptAction, nextPromptAction, selectOutputAction)) {
-                for (MenuItem item : itemsFor(action.id())) item.setDisable(!marked);
-            }
-        });
 
         // The four view actions, built once and shown one of two ways. Where the row can be drawn
         // the View menu shows it instead of four items, and these keep their chords and their place
@@ -2860,10 +2850,6 @@ public final class TerminalWindow {
         register(paletteAction);
         viewItems.add(paletteAction);
         Menu view = menu(tr("menu.view"), viewItems.toArray(MenuAction[]::new));
-        // Says which way it will go. An event handler, not setOnShowing, which the zoom row uses.
-        view.addEventHandler(Menu.ON_SHOWING, e -> {
-            for (MenuItem item : itemsFor(statusBarAction.id())) item.setText(statusBarLabel());
-        });
         if (WindowRules.showsZoomRow(SYSTEM_MENU_BAR)) {
             ZoomMenuRow zoomRow = new ZoomMenuRow(zoomActions());
             view.getItems().add(0, zoomRow.item());
@@ -2901,11 +2887,6 @@ public final class TerminalWindow {
                     TerminalView pane = tab == null ? null : groupOf(tab).active();
                     if (pane != null) movePaneToNewTab(pane);
                 })));
-        // Says what it will do to the selected tab.
-        window.setOnShowing(e -> {
-            Tab selected = tabs.getSelectionModel().getSelectedItem();
-            for (MenuItem item : itemsFor(pinAction.id())) item.setText(pinLabel(selected));
-        });
 
         // Moving between panes: chords and palette entries, no menu items — four of them would be
         // most of the Window menu. iTerm2's Cmd+Option+arrows on macOS; the same with Shift added
@@ -3008,6 +2989,10 @@ public final class TerminalWindow {
         applyKeybindings();
 
         bar.getMenus().addAll(file, edit, view, window, help);
+        // Every menu, as it opens, names and greys its items as the registry says (MENU-01): the
+        // bar holds no rule of its own about what can run. A handler, not setOnShowing, which the
+        // View menu's zoom row and the File menu's profile submenu use.
+        for (Menu menu : bar.getMenus()) menu.addEventHandler(Menu.ON_SHOWING, e -> refreshItems(menu));
         return bar;
     }
 
@@ -3276,6 +3261,46 @@ public final class TerminalWindow {
     }
 
     /**
+     * What command {@code id} is called right now: the ones whose name says which way they will go,
+     * and Close Tab, which in a split tab closes the active pane. One answer for the menu and the
+     * palette.
+     */
+    private String currentLabel(String id, String standing) {
+        if (id.equals(pinAction.id())) return pinLabel(tabs.getSelectionModel().getSelectedItem());
+        if (id.equals(statusBarAction.id())) return statusBarLabel();
+        MenuAction toggle = menuBarToggle;
+        if (toggle != null && id.equals(toggle.id())) {
+            return tr(settings.showMenuBar() ? "menu.hideMenuBar" : "menu.showMenuBar");
+        }
+        if ("closeTab".equals(id) && activeTabIsSplit()) return tr("menu.closePane");
+        return standing;
+    }
+
+    /**
+     * Why command {@code id} cannot run now, or null when it can: one answer for the menu's greying
+     * and the palette's reason.
+     */
+    private @Nullable String unavailableNow(String id) {
+        if (id.equals(reopenAction.id()) && !canReopen()) return tr("palette.disabled.nothingToReopen");
+        for (MenuAction marked : List.of(previousPromptAction, nextPromptAction, selectOutputAction)) {
+            if (id.equals(marked.id()) && !promptMarksAvailable()) return tr("palette.disabled.noPromptMarks");
+        }
+        for (MenuAction bulk : List.of(closeOthersAction, closeLeftAction, closeRightAction)) {
+            if (id.equals(bulk.id())) return bulkCloseUnavailable(bulk);
+        }
+        return null;
+    }
+
+    /** Every menu item of {@code menu} named and greyed as the registry says now. */
+    private void refreshItems(Menu menu) {
+        for (MenuItem item : menu.getItems()) {
+            if (!(item.getUserData() instanceof String id) || !registry.contains(id)) continue;
+            item.setText(registry.label(id));
+            item.setDisable(registry.unavailable(id) != null);
+        }
+    }
+
+    /**
      * Enters a command in the table, on its default chord. Idempotent by id, because a menu's
      * actions arrive here twice — once as they are built, once from {@link #menu}.
      */
@@ -3283,6 +3308,7 @@ public final class TerminalWindow {
         String id = action.requireId();
         if (table.stream().anyMatch(a -> id.equals(a.id()))) return action;
         table.add(action);
+        registry.register(id, action.action(), () -> currentLabel(id, action.label()), () -> unavailableNow(id));
         // Loud, because the quiet form already shipped: a second binding on a chord is never
         // reached, while its menu item and palette row go on advertising it. The user's own
         // bindings cannot do this — Keybindings.resolve places them — but two defaults can.
@@ -3305,8 +3331,16 @@ public final class TerminalWindow {
     /** The menu item for {@code action}, remembered so its accelerator can follow the command. */
     private MenuItem menuItem(MenuAction action) {
         MenuItem item = action.toMenuItem();
-        if (action.id() != null)
-            itemsById.computeIfAbsent(action.id(), id -> new ArrayList<>()).add(item);
+        String id = action.id();
+        if (id != null) {
+            itemsById.computeIfAbsent(id, key -> new ArrayList<>()).add(item);
+            item.setUserData(id);
+            // Through the registry by id, as every row of the bar (MENU-01).
+            item.setOnAction(e -> {
+                if (registry.contains(id)) registry.run(id);
+                else action.action().run();
+            });
+        }
         return item;
     }
 
@@ -3351,7 +3385,10 @@ public final class TerminalWindow {
                 // afterwards, it waited for the next character typed here and ate that instead.
                 // The focus listener in the constructor clears it if the action took the focus.
                 swallowNextTyped = true;
-                binding.action().run();
+                // By id through the registry, as the menu items run (MENU-01).
+                String id = binding.id();
+                if (id != null && registry.contains(id)) registry.run(id);
+                else binding.action().run();
                 return;
             }
         }
@@ -3540,26 +3577,9 @@ public final class TerminalWindow {
     private void showPalette() {
         java.util.Map<MenuAction, String> unavailable = new java.util.IdentityHashMap<>();
         List<MenuAction> all = paletteRows(unavailable);
-        // Reopen Closed Tab is listed greyed, not dropped, while there is nothing to reopen: a
-        // command that is simply missing reads as the palette not knowing it. The prompt commands
-        // likewise, until the shell has marked a prompt — with the reason, since the fix is in the
-        // shell's configuration and nothing on screen would suggest it.
-        boolean marked = promptMarksAvailable();
-        palette()
-                .show(
-                        all,
-                        action -> !unavailable.containsKey(action)
-                                && !(action.sameActionAs(reopenAction) && !canReopen())
-                                && !(needsPromptMarks(action) && !marked)
-                                && !(isBulkClose(action) && bulkCloseUnavailable(action) != null),
-                        action -> {
-                            String numbered = unavailable.get(action);
-                            if (numbered != null) return numbered;
-                            if (action.sameActionAs(reopenAction)) return tr("palette.disabled.nothingToReopen");
-                            if (needsPromptMarks(action)) return tr("palette.disabled.noPromptMarks");
-                            if (isBulkClose(action)) return bulkCloseUnavailable(action);
-                            return null;
-                        });
+        // A command that cannot run is listed greyed with its reason, not dropped: a missing command
+        // reads as the palette not knowing it. The reasons are the registry's, the menus' own.
+        palette().show(all, action -> !unavailable.containsKey(action), unavailable::get);
     }
 
     /**
@@ -3570,65 +3590,24 @@ public final class TerminalWindow {
      */
     private List<MenuAction> paletteRows(java.util.Map<MenuAction, String> unavailable) {
         List<MenuAction> all = new ArrayList<>();
+        // Every registered command, named and gated as the registry says — the same answer the menus
+        // give (MENU-01). Close Tab in a split and the menu-bar switch also change their description.
         for (MenuAction command : commands) {
             MenuAction row = bound(command);
-            // Pin or Unpin, as the Window menu says, for the tab it would act on.
-            if (row.sameActionAs(pinAction)) {
+            String id = row.id();
+            if (id != null && registry.contains(id)) {
+                String description = row.description();
+                MenuAction toggle = menuBarToggle;
+                if ("closeTab".equals(id) && activeTabIsSplit()) description = description("menu.closePane");
+                if (toggle != null && id.equals(toggle.id())) {
+                    description = description(settings.showMenuBar() ? "menu.hideMenuBar" : "menu.showMenuBar");
+                }
                 row = new MenuAction(
-                        pinLabel(tabs.getSelectionModel().getSelectedItem()),
-                        row.accelerator(),
-                        row.action(),
-                        row.description(),
-                        row.keywords(),
-                        row.id());
+                        registry.label(id), row.accelerator(), row.action(), description, row.keywords(), id);
+                String reason = registry.unavailable(id);
+                if (reason != null) unavailable.put(row, reason);
             }
             all.add(row);
-        }
-        // The View menu's item can only say "Hide", since the menu is inside the bar; the palette
-        // is reachable either way, so its row has to name the move that is actually available.
-        if (menuBarToggle != null) {
-            for (int at = 0; at < all.size(); at++) {
-                if (!all.get(at).sameActionAs(menuBarToggle)) continue;
-                String key = settings.showMenuBar() ? "menu.hideMenuBar" : "menu.showMenuBar";
-                all.set(
-                        at,
-                        new MenuAction(
-                                tr(key),
-                                chordOf(menuBarToggle.id()),
-                                menuBarToggle.action(),
-                                description(key),
-                                all.get(at).keywords(),
-                                menuBarToggle.id()));
-            }
-        }
-        for (int at = 0; at < all.size(); at++) {
-            MenuAction row = all.get(at);
-            if (!row.sameActionAs(statusBarAction)) continue;
-            all.set(
-                    at,
-                    new MenuAction(
-                            statusBarLabel(),
-                            row.accelerator(),
-                            row.action(),
-                            row.description(),
-                            row.keywords(),
-                            row.id()));
-        }
-        // Close Tab closes the active pane of a split tab, and the row says so.
-        if (activeTabIsSplit()) {
-            for (int at = 0; at < all.size(); at++) {
-                MenuAction row = all.get(at);
-                if (!"closeTab".equals(row.id())) continue;
-                all.set(
-                        at,
-                        new MenuAction(
-                                tr("menu.closePane"),
-                                row.accelerator(),
-                                row.action(),
-                                description("menu.closePane"),
-                                row.keywords(),
-                                row.id()));
-            }
         }
         // The tabs that exist, by title, each with the chord that reaches it; each is its numbered
         // command, Go to Tab N, under a name worth searching for. The numbers with no tab behind
@@ -3739,18 +3718,6 @@ public final class TerminalWindow {
             if (id.equals(action.id())) return action;
         }
         throw new IllegalStateException("no command " + id);
-    }
-
-    private boolean isBulkClose(MenuAction action) {
-        return action.sameActionAs(closeOthersAction)
-                || action.sameActionAs(closeLeftAction)
-                || action.sameActionAs(closeRightAction);
-    }
-
-    private boolean needsPromptMarks(MenuAction action) {
-        return action.sameActionAs(previousPromptAction)
-                || action.sameActionAs(nextPromptAction)
-                || action.sameActionAs(selectOutputAction);
     }
 
     private boolean promptMarksAvailable() {

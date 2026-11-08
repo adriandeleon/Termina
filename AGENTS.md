@@ -57,7 +57,9 @@ branch switches and commits cannot interfere.
   `menu.<id>` with a `menu.<id>.desc`, in all six `messages*.properties`. Its default chord, if it
   has one, goes in `src/main/resources/com/termina/keymaps/keymap.json` and `keymap.mac.json`, not
   in the code (`KeymapTest` checks both). Anything that shows a chord asks `chordOf(id)`, never the
-  action's default.
+  action's default. What it is called *now* and whether it can run now go in
+  `TerminalWindow.currentLabel` and `unavailableNow`, which feed the `CommandRegistry` that the menus,
+  the palette and the key bindings all ask (MENU-01) — never in one menu's `onShowing`.
 - **Application chords are `Ctrl+Shift+key` off macOS**, never plain `Ctrl+key`, which is the
   shell's.
 - **Nothing blocks the JavaFX thread** — no file or network I/O, no process start or wait, no
