@@ -258,10 +258,15 @@ class SettingsWindowFxTest {
                 return null;
             });
             assertFalse(settings.syncEnabled(), "Disconnect disconnected");
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-            while (onFx(() -> sync.state().phase()) == SettingsSync.Phase.SYNCING && System.nanoTime() < deadline) {
-                Thread.sleep(100);
-            }
+            // Nothing left writing into the folder JUnit deletes next: auto-sync off, so no timer starts
+            // a run, then a job queued behind whatever the worker was still finishing.
+            onFx(() -> {
+                settings.setSyncAuto(false);
+                return null;
+            });
+            java.util.concurrent.CountDownLatch drained = new java.util.concurrent.CountDownLatch(1);
+            sync.afterQueuedWorkForTest(drained::countDown);
+            assertTrue(drained.await(30, TimeUnit.SECONDS), "the sync worker finished");
         } finally {
             System.setProperty("user.home", was);
         }
