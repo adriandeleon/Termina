@@ -219,7 +219,7 @@ final class CommandPalette {
 
     private void filter(String query) {
         currentQuery = query == null ? "" : query.trim();
-        items.setAll(orderedMatches(commands, currentQuery));
+        items.setAll(orderedMatches(commands, currentQuery, enabled));
         selectFirstEnabled();
     }
 
@@ -230,6 +230,17 @@ final class CommandPalette {
      * shuffle under the cursor.
      */
     static List<MenuAction> orderedMatches(Collection<MenuAction> commands, String query) {
+        return orderedMatches(commands, query, a -> true);
+    }
+
+    /**
+     * As above, with a row that can run ahead of an equally scored one that cannot. Every command is
+     * listed, greyed while it cannot run (PAL-02), and "Go to Tab 6" with three tabs open is shorter
+     * than "Go to Tab 1: ~" — without this the greyed rows came first. Termina's own tier: Editora's
+     * palette has no such step yet.
+     */
+    static List<MenuAction> orderedMatches(
+            Collection<MenuAction> commands, String query, Predicate<MenuAction> enabled) {
         String q = query == null ? "" : query.trim();
         if (q.isEmpty()) return new ArrayList<>(commands);
         record Scored(MenuAction command, int score) {}
@@ -241,6 +252,7 @@ final class CommandPalette {
         }
         scored.sort(Comparator.comparingInt(Scored::score)
                 .reversed()
+                .thenComparing((Scored s) -> !enabled.test(s.command()))
                 .thenComparingInt((Scored s) -> s.command().label().length())
                 .thenComparing(s -> s.command().label(), String.CASE_INSENSITIVE_ORDER));
         List<MenuAction> matches = new ArrayList<>(scored.size());

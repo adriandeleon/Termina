@@ -86,13 +86,17 @@ public final class TerminalWindow {
     /** Everything the palette can run, in menu order. */
     private final List<MenuAction> commands = new ArrayList<>();
 
-    private CommandPalette palette;
+    /** Built on first open (PERF-14, Pauta 2.0.2): most windows never show it. See {@link #palette()}. */
+    private @Nullable CommandPalette palette;
+
+    /** What the palette hangs from once it is built: a layer over the whole window, empty until then. */
+    private final StackPane overlay;
 
     // The actions below are made here, not in buildMenuBar where they are registered: the palette
     // and the constructor ask after them, and NullAway cannot see an assignment in a builder as
     // initialization.
 
-    /** The palette's own entry: rebound live when the setting changes, and kept out of its own list. */
+    /** The palette's own entry: rebound live when the setting changes. Listed in itself, as PAL-02 asks. */
     private final MenuAction paletteAction = item("menu.commandPalette", this::showPalette);
 
     /**
@@ -283,9 +287,7 @@ public final class TerminalWindow {
 
         // A StackPane over the whole window so the palette has somewhere to be. It is empty until
         // the palette opens, so it costs a node and nothing else.
-        StackPane overlay = new StackPane(root);
-        palette = new CommandPalette(overlay, this::focusActiveTerminal);
-        palette.setOpener(chordOf(paletteAction.id()));
+        overlay = new StackPane(root);
 
         javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
         double width = WindowGeometry.fit(settings.windowWidth(), DEFAULT_WIDTH, screen.getWidth());
@@ -877,7 +879,7 @@ public final class TerminalWindow {
     }
 
     /** Reused rather than rebuilt, so that clicking the chevron a second time closes it. */
-    private final ContextMenu profileMenu = new ContextMenu();
+    private final ContextMenu profileMenu = OneMenu.install(new ContextMenu());
 
     /** Marks the item standing for the default profile, so a capture run can say which it is. */
     private static final String DEFAULT_PROFILE_ITEM = "termina.defaultProfile";
@@ -1618,6 +1620,7 @@ public final class TerminalWindow {
                 new SeparatorMenuItem(),
                 moveLeft,
                 moveRight);
+        OneMenu.install(menu);
         // Recomputed per show: how many tabs there are, and where this one sits, both change long
         // after the menu was built.
         menu.setOnShowing(e -> {
@@ -2943,8 +2946,8 @@ public final class TerminalWindow {
         }
         viewItems.add(statusBarAction);
         // An ordinary binding since the keyboard settings arrived; keys.commandPalette is its line,
-        // as it was when this was the only chord that could be changed. showPalette keeps it out of
-        // its own list — a palette that offers to open the palette is noise in every search.
+        // as it was when this was the only chord that could be changed. The palette lists it like any
+        // other command (PAL-02, Pauta 2.0.2), where it used to leave itself out.
         viewItems.add(null);
         register(paletteAction);
         viewItems.add(paletteAction);
@@ -3167,6 +3170,37 @@ public final class TerminalWindow {
     @Nullable
     KeyCombination chordOf(@Nullable String id) {
         return id == null ? null : chords.get(id);
+    }
+
+    /** The palette, built the first time it is wanted. */
+    private CommandPalette palette() {
+        CommandPalette built = palette;
+        if (built == null) {
+            palette = built = new CommandPalette(overlay, this::focusActiveTerminal);
+            built.setOpener(chordOf(paletteAction.id()));
+        }
+        return built;
+    }
+
+    /**
+     * Registered commands the palette does not list, by id (PAL-02): anything registered but not in
+     * {@link #paletteRows} is out of the palette's reach. Empty when the rule holds.
+     */
+    List<String> commandsNotInPalette() {
+        java.util.Set<String> listed = new java.util.HashSet<>();
+        for (MenuAction row : paletteRows(new java.util.IdentityHashMap<>())) {
+            if (row.id() != null) listed.add(row.id());
+        }
+        List<String> missing = new ArrayList<>();
+        for (MenuAction action : table) {
+            if (action.id() != null && !listed.contains(action.id())) missing.add(action.id());
+        }
+        return missing;
+    }
+
+    /** Whether the palette has been built yet: for the test that the first frame does not pay for it. */
+    boolean paletteBuilt() {
+        return palette != null;
     }
 
     /** {@code action} on the chord it is on now, for a list that shows it — the palette's. */
@@ -3628,9 +3662,39 @@ public final class TerminalWindow {
      * a submenu nobody opens, while a palette is exactly where "make this one darker" belongs.
      */
     private void showPalette() {
+        java.util.Map<MenuAction, String> unavailable = new java.util.IdentityHashMap<>();
+        List<MenuAction> all = paletteRows(unavailable);
+        // Reopen Closed Tab is listed greyed, not dropped, while there is nothing to reopen: a
+        // command that is simply missing reads as the palette not knowing it. The prompt commands
+        // likewise, until the shell has marked a prompt — with the reason, since the fix is in the
+        // shell's configuration and nothing on screen would suggest it.
+        boolean marked = promptMarksAvailable();
+        palette()
+                .show(
+                        all,
+                        action -> !unavailable.containsKey(action)
+                                && !(action.sameActionAs(reopenAction) && !canReopen())
+                                && !(needsPromptMarks(action) && !marked)
+                                && !(isBulkClose(action) && bulkCloseUnavailable(action) != null),
+                        action -> {
+                            String numbered = unavailable.get(action);
+                            if (numbered != null) return numbered;
+                            if (action.sameActionAs(reopenAction)) return tr("palette.disabled.nothingToReopen");
+                            if (needsPromptMarks(action)) return tr("palette.disabled.noPromptMarks");
+                            if (isBulkClose(action)) return bulkCloseUnavailable(action);
+                            return null;
+                        });
+    }
+
+    /**
+     * Every row the palette lists (PAL-02, Pauta 2.0.2): every registered command, the palette's own
+     * included, plus the tabs, profiles and themes by name. A numbered command with nothing behind
+     * it — Go to Tab 6 with three tabs open — is listed, and put in {@code unavailable} with the
+     * reason it is greyed.
+     */
+    private List<MenuAction> paletteRows(java.util.Map<MenuAction, String> unavailable) {
         List<MenuAction> all = new ArrayList<>();
         for (MenuAction command : commands) {
-            if (command.sameActionAs(paletteAction)) continue;
             MenuAction row = bound(command);
             // Pin or Unpin, as the Window menu says, for the tab it would act on.
             if (row.sameActionAs(pinAction)) {
@@ -3690,18 +3754,26 @@ public final class TerminalWindow {
                                 row.id()));
             }
         }
-        // The tabs that exist, by title, each with the chord that reaches it — rather than nine
-        // numbered rows of which most were dead.
+        // The tabs that exist, by title, each with the chord that reaches it; each is its numbered
+        // command, Go to Tab N, under a name worth searching for. The numbers with no tab behind
+        // them are listed greyed. Nine is Go to Last Tab, registered and listed on its own.
         List<Tab> open = tabs.getTabs();
         for (int index = 0; index < open.size(); index++) {
             int selected = index;
-            all.add(MenuAction.of(
+            MenuAction row = MenuAction.of(
                             tr("palette.goToTab", index + 1, label(open.get(index))),
                             tabChordFor(index, open.size()),
                             () -> tabs.getSelectionModel().select(selected))
                     .describedAs(tr("palette.goToTab.desc"))
-                    .withKeywords(tr("palette.group.tabs")));
+                    .withKeywords(tr("palette.group.tabs"));
+            all.add(index < TAB_CHORD_COUNT - 1 ? row.withId(TAB_CHORD_ID + (index + 1)) : row);
         }
+        for (int number = open.size() + 1; number < TAB_CHORD_COUNT; number++) {
+            MenuAction row = bound(numbered(TAB_CHORD_ID + number));
+            all.add(row);
+            unavailable.put(row, tr("palette.disabled.noSuchTab", number));
+        }
+        all.add(bound(numbered(TAB_CHORD_ID + TAB_CHORD_COUNT)));
         // A split tab's active pane can go to any other tab, by name, for the reason the tab rows
         // are by name.
         Tab current = tabs.getSelectionModel().getSelectedItem();
@@ -3721,10 +3793,19 @@ public final class TerminalWindow {
         }
         // By name rather than by number. The submenu's chords are "profile 3"; here there is room to
         // say "Ubuntu (WSL)", which is the only form anybody would search for.
-        for (com.termina.shell.Profile profile : windows.profiles().all()) {
-            all.add(MenuAction.of(tr("palette.newTabProfile", profile.name()), () -> openTab(profile))
+        // Each is its numbered command too, New Tab With Profile N, counted in the menu's order.
+        List<com.termina.shell.Profile> profileList = windows.profiles().all();
+        for (int index = 0; index < profileList.size(); index++) {
+            com.termina.shell.Profile profile = profileList.get(index);
+            MenuAction row = MenuAction.of(tr("palette.newTabProfile", profile.name()), () -> openTab(profile))
                     .describedAs(tr("palette.newTabProfile.desc"))
-                    .withKeywords(tr("palette.group.profiles")));
+                    .withKeywords(tr("palette.group.profiles"));
+            all.add(index < TAB_CHORD_COUNT ? bound(row.withId(PROFILE_CHORD_ID + (index + 1))) : row);
+        }
+        for (int number = profileList.size() + 1; number <= TAB_CHORD_COUNT; number++) {
+            MenuAction row = bound(numbered(PROFILE_CHORD_ID + number));
+            all.add(row);
+            unavailable.put(row, tr("palette.disabled.noSuchProfile", number));
         }
         for (ThemeEntry theme : Themes.byDisplayName().values()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
@@ -3732,22 +3813,15 @@ public final class TerminalWindow {
                     .describedAs(tr("palette.theme.desc"))
                     .withKeywords(tr("palette.group.themes")));
         }
-        // Reopen Closed Tab is listed greyed, not dropped, while there is nothing to reopen: a
-        // command that is simply missing reads as the palette not knowing it. The prompt commands
-        // likewise, until the shell has marked a prompt — with the reason, since the fix is in the
-        // shell's configuration and nothing on screen would suggest it.
-        boolean marked = promptMarksAvailable();
-        palette.show(
-                all,
-                action -> !(action.sameActionAs(reopenAction) && !canReopen())
-                        && !(needsPromptMarks(action) && !marked)
-                        && !(isBulkClose(action) && bulkCloseUnavailable(action) != null),
-                action -> {
-                    if (action.sameActionAs(reopenAction)) return tr("palette.disabled.nothingToReopen");
-                    if (needsPromptMarks(action)) return tr("palette.disabled.noPromptMarks");
-                    if (isBulkClose(action)) return bulkCloseUnavailable(action);
-                    return null;
-                });
+        return all;
+    }
+
+    /** The registered command {@code id}; it exists for every id this is asked about. */
+    private MenuAction numbered(String id) {
+        for (MenuAction action : table) {
+            if (id.equals(action.id())) return action;
+        }
+        throw new IllegalStateException("no command " + id);
     }
 
     private boolean isBulkClose(MenuAction action) {
@@ -3795,8 +3869,8 @@ public final class TerminalWindow {
     /** Public so a capture run can open the palette without a keystroke. */
     public String showPaletteForCapture(String query) {
         showPalette();
-        if (query != null && !query.isEmpty()) palette.setQueryForCapture(query);
-        return String.join(" | ", palette.visibleCommands());
+        if (query != null && !query.isEmpty()) palette().setQueryForCapture(query);
+        return String.join(" | ", palette().visibleCommands());
     }
 
     /**
@@ -3814,9 +3888,9 @@ public final class TerminalWindow {
             // before it has a size scrolls to the wrong place.
             stage.getScene().getRoot().applyCss();
             stage.getScene().getRoot().layout();
-            boolean fired = palette.fireKeyForCapture(t);
+            boolean fired = palette().fireKeyForCapture(t);
             if (!out.isEmpty()) out.append(" | ");
-            out.append(t).append(" -> ").append(fired ? palette.selectedForCapture() : "?");
+            out.append(t).append(" -> ").append(fired ? palette().selectedForCapture() : "?");
         }
         return out.toString();
     }
