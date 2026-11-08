@@ -2334,7 +2334,7 @@ public final class TerminalView extends Region {
         items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> onOpenSettings.run()));
         items.add(item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> onShowAbout.run()));
 
-        ContextMenu menu = new ContextMenu(items.toArray(MenuItem[]::new));
+        ContextMenu menu = OneMenu.install(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);
         return new ContextItems(menu, openLinkItem, copyLinkItem, linkSeparator, copyItem, pasteItem, menuBarItem);
     }

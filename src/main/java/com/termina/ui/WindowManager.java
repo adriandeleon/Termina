@@ -558,6 +558,11 @@ public final class WindowManager {
         settingsWindow().showProfiles(from);
     }
 
+    /** Whether the settings window has been made yet: for the first-frame test (PERF-14). */
+    boolean settingsWindowBuilt() {
+        return settingsWindow != null;
+    }
+
     /** The settings window, made on first use. */
     private SettingsWindow settingsWindow() {
         SettingsWindow window = settingsWindow;

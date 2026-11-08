@@ -244,6 +244,20 @@ Addressed on 2026-11-08, branch `pauta-guards`:
     `smoke-test.sh` on the notarized app inside the dmg after `spctl`; `WorkflowRulesTest` holds
     the order. Unrun until the next tag.
 
+Addressed on 2026-11-08, branch `pauta-tests`:
+
+- **Now met:**
+  - MENU-06: `ui.OneMenu` closes any other open right-click menu as one shows. `OneMenuTest` opens
+    two (and fails without it) and checks that every `ContextMenu` in the code goes through it.
+  - PERF-13: `WindowLifecycleTest` opens two real windows, closes one, and waits for its shell to
+    end and its session's thread pool to stop. Skipped on Windows, whose shell path has never run.
+  - PERF-14: the palette is built on first open (`TerminalWindow.palette()`); the same test checks
+    that a new window has built neither it nor the settings window.
+  - PAL-02: `paletteRows` lists every registered command, the palette's own and the numbered tab
+    and profile chords included, greyed with a reason when there is nothing behind the number. The
+    same test fails on a registered command the palette does not list. Descriptions were already
+    checked by `MessagesTest` (QUAL-12).
+
 Everything else below stands.
 
 ## Totals
