@@ -197,12 +197,34 @@ class DevCaptureFxTest {
                 "a shell that will not start",
                 Map.of("termina.captureFailShellStarts", "1", "termina.captureTabs", "1"));
         runs.put(
+                "wide, combining, astral and icon characters",
+                Map.of(
+                        // Whatever the shell's prompt draws, the per-glyph path runs: CJK takes two cells,
+                        // a combining accent none, an emoji is two UTF-16 units in one cell, and Nerd Font
+                        // and Powerline icons come from the icon font. Sent as octal UTF-8 bytes, which
+                        // every shell's printf reads — macOS's bash 3.2 printf has no \\u.
+                        "termina.captureCommand",
+                        "printf '" + octal("漢字 e\u0301 \uD83D\uDE00 \uF016 \uE0B0 \u2192 done\n") + "'",
+                        "termina.captureDrag",
+                        "0,35,300,75",
+                        "termina.captureScreenText",
+                        "true"));
+        runs.put(
                 "closing tabs",
                 Map.of(
                         "termina.captureTabs", "2",
                         "termina.captureCloseAnswer", "close",
                         "termina.captureCloseTabs", "1"));
         return runs;
+    }
+
+    /** {@code text} as printf octal escapes of its UTF-8 bytes: {@code \\346\\274\\242}. */
+    private static String octal(String text) {
+        StringBuilder out = new StringBuilder();
+        for (byte b : text.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+            out.append(String.format("\\%03o", b & 0xff));
+        }
+        return out.toString();
     }
 
     static java.util.stream.Stream<String> names() {
