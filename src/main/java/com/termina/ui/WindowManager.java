@@ -563,6 +563,11 @@ public final class WindowManager {
         return settingsWindow != null;
     }
 
+    /** The application's settings sync, for the palette's sync commands. */
+    SettingsSync settingsSync() {
+        return sync;
+    }
+
     /** The settings window, made on first use. */
     private SettingsWindow settingsWindow() {
         SettingsWindow window = settingsWindow;

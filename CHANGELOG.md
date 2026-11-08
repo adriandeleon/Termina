@@ -60,6 +60,9 @@ done.
 
 ### Changed
 
+- **Every setting is in the palette.** Type part of a setting's name: a switch says which way it
+  will go ("Show a scrollbar: turn off"), a choice lists its options ("Cursor shape: Bar"), and a
+  value ("Scrollback lines…") asks for a new one. Each is named and described as its Settings row is.
 - **The palette lists every command.** Go to Tab and New Tab With Profile are listed for every
   number with a shortcut, greyed with the reason when there is no such tab or profile, and the
   palette lists itself. At an equal match a command that can run comes before one that cannot.

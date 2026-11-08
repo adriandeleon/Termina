@@ -258,6 +258,14 @@ Addressed on 2026-11-08, branch `pauta-guards`:
     `smoke-test.sh` on the notarized app inside the dmg after `spctl`; `WorkflowRulesTest` holds
     the order. Unrun until the next tag.
 
+Addressed on 2026-11-08, branch `settings-commands`:
+
+- **Now met:** SET-06. `ui.SettingCommands` makes a palette row for every setting from its
+  Settings row: switches flip, choices list their options, values ask through a dialog. Rows with
+  no command of their own are in `COVERED_ELSEWHERE` with the reason (a command elsewhere, an
+  action, or nothing to set). `SettingCommandsTest` parses the Settings window's rows and fails on
+  one in neither place.
+
 Everything else below stands.
 
 ## Totals

@@ -3665,6 +3665,12 @@ public final class TerminalWindow {
             all.add(row);
             unavailable.put(row, tr("palette.disabled.noSuchProfile", number));
         }
+        // Every setting, from its Settings row (SET-06, Pauta 2.0.2).
+        for (SettingCommands.Entry entry : SettingCommands.all(settings, settingHost)) {
+            all.add(entry.action());
+            String reason = entry.unavailable();
+            if (reason != null) unavailable.put(entry.action(), reason);
+        }
         for (ThemeEntry theme : Themes.byDisplayName().values()) {
             // Setting it is enough: Settings.onChange re-applies to every window already.
             all.add(MenuAction.of(tr("palette.theme", theme.displayName()), () -> settings.setThemeId(theme.id()))
@@ -3673,6 +3679,41 @@ public final class TerminalWindow {
         }
         return all;
     }
+
+    /** What the setting commands ask the window for: a value, a report, the profiles, sync. */
+    private final SettingCommands.Host settingHost = new SettingCommands.Host() {
+        @Override
+        public @Nullable String ask(String title, String detail, String current) {
+            javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog(current);
+            dialog.initOwner(stage);
+            dialog.setTitle(title);
+            dialog.setHeaderText(title);
+            dialog.setContentText(detail.isBlank() ? null : detail);
+            Confirm.style(dialog.getDialogPane());
+            return dialog.showAndWait().orElse(null);
+        }
+
+        @Override
+        public void report(MessageLog.Severity severity, String message) {
+            TerminalWindow.this.report(severity, message);
+        }
+
+        @Override
+        public com.termina.shell.ShellProfiles profiles() {
+            return windows.profiles();
+        }
+
+        @Override
+        public @Nullable SettingsSync sync() {
+            return windows.settingsSync();
+        }
+
+        @Override
+        public boolean offersMenuBarInTitleBar() {
+            return WindowRules.offersHeaderBarOption(
+                    SYSTEM_MENU_BAR, Platform.isSupported(ConditionalFeature.EXTENDED_WINDOW));
+        }
+    };
 
     /** The registered command {@code id}; it exists for every id this is asked about. */
     private MenuAction numbered(String id) {
