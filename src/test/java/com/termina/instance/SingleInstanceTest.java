@@ -68,4 +68,23 @@ class SingleInstanceTest {
                 shortFolder.toAbsolutePath().normalize().resolve("instance.sock"),
                 SingleInstance.socketFor(shortFolder));
     }
+
+    @org.junit.jupiter.api.Test
+    void aRequestIsReadLenientlyAndWhatIsNotOneIsSaidSo() {
+        // Fields it does not know are passed over, whatever their shape.
+        SingleInstance.Request read = SingleInstance.decode(
+                "{\"version\": 2, \"extra\": {\"a\": [1, 2]}, \"cwd\": \"/tmp\", \"args\": [\"-T\", \"x\"]}");
+        org.junit.jupiter.api.Assertions.assertEquals("/tmp", read.cwd());
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("-T", "x"), read.args());
+        for (String bad : new String[] {"[1]", "{\"args\": []}", "{not json", ""}) {
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class, () -> SingleInstance.decode(bad), bad);
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    void handingOffToAFolderNobodyListensOnIsNoAnswer(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
+        org.junit.jupiter.api.Assertions.assertFalse(SingleInstance.handOff(
+                dir, new SingleInstance.Request(dir.toString(), java.util.List.of()), java.time.Duration.ofSeconds(2)));
+    }
 }

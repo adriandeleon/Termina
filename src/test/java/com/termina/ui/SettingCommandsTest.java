@@ -174,4 +174,21 @@ class SettingCommandsTest {
             }
         }
     }
+
+    @Test
+    void everyCommandRunsWithAValueAndWithoutOne() {
+        Settings settings = settings();
+        FakeHost host = new FakeHost(settings);
+        for (String answer : new String[] {"12", "not a value"}) {
+            host.answer = answer;
+            for (boolean connected : new boolean[] {false, true}) {
+                settings.setSyncEnabled(connected);
+                if (!connected) settings.setSyncRepository(dir.resolve("repo").toString());
+                for (SettingCommands.Entry entry : SettingCommands.all(settings, host)) {
+                    entry.action().action().run();
+                }
+            }
+        }
+        assertTrue(host.reported.size() > 0, "the values that were not values were said so");
+    }
 }

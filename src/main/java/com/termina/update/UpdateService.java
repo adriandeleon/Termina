@@ -86,7 +86,8 @@ public final class UpdateService {
         this(AppInfo.LATEST_RELEASE_API, DEADLINE);
     }
 
-    UpdateService(String endpoint, Duration deadline) {
+    /** A service asking {@code endpoint}: a test's own server, never GitHub. */
+    public UpdateService(String endpoint, Duration deadline) {
         this.endpoint = endpoint;
         this.deadline = deadline;
     }

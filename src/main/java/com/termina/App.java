@@ -34,27 +34,10 @@ public final class App extends Application {
         // Parsed before anything else starts. --version is what somebody pastes into a bug report,
         // so it must not depend on a display, a config file, or the toolkit coming up at all.
         CommandLine cli = CommandLine.parse(args);
-        if (cli.error() != null) {
-            System.err.println(AppInfo.NAME + ": " + cli.error());
-            System.err.println("Try '" + LAUNCH_NAME + " --help' for the options.");
-            System.exit(2);
-        }
-        if (cli.help()) {
-            System.out.println(CommandLine.usage(LAUNCH_NAME));
-            // Not a bare return: launching an Application subclass in module mode starts the FX
-            // toolkit, whose non-daemon thread would keep the process alive after main returns.
-            System.exit(0);
-        }
-        if (cli.report()) {
-            // No window: for when the window is what will not start. CLI-05.
-            System.exit(
-                    com.termina.report.ReportCommand.run(Settings.defaultFile(cli.configDir(), cli.dev()), System.out));
-        }
-        if (cli.version()) {
-            // The first line stays "Termina <version>", which is what anything parsing it reads.
-            AppInfo.details().forEach(System.out::println);
-            System.exit(0);
-        }
+        Integer exit = earlyExit(cli, System.out, System.err);
+        // Not a bare return: launching an Application subclass in module mode starts the FX toolkit,
+        // whose non-daemon thread would keep the process alive after main returns.
+        if (exit != null) System.exit(exit);
 
         // Must be the first statement, before any AWT class can load. We require java.desktop
         // (TtyConnector's default methods reference java.awt.Dimension) but never use AWT, and on
@@ -76,7 +59,33 @@ public final class App extends Application {
      * arguments to the first, which opens a window for them, and exits here. When the holder does
      * not answer, this one starts on its own rather than not at all, and says why on stderr.
      */
-    private static void claimOrHandOff(CommandLine cli, String[] args) {
+    /**
+     * What a command line that does not open a window does — an error, {@code --help},
+     * {@code --report}, {@code --version} — and the process's exit status; null to go on and launch.
+     */
+    static @Nullable Integer earlyExit(CommandLine cli, java.io.PrintStream out, java.io.PrintStream err) {
+        if (cli.error() != null) {
+            err.println(AppInfo.NAME + ": " + cli.error());
+            err.println("Try '" + LAUNCH_NAME + " --help' for the options.");
+            return 2;
+        }
+        if (cli.help()) {
+            out.println(CommandLine.usage(LAUNCH_NAME));
+            return 0;
+        }
+        if (cli.report()) {
+            // No window: for when the window is what will not start. CLI-05.
+            return com.termina.report.ReportCommand.run(Settings.defaultFile(cli.configDir(), cli.dev()), out);
+        }
+        if (cli.version()) {
+            // The first line stays "Termina <version>", which is what anything parsing it reads.
+            AppInfo.details().forEach(out::println);
+            return 0;
+        }
+        return null;
+    }
+
+    static void claimOrHandOff(CommandLine cli, String[] args) {
         java.nio.file.Path configDir = Settings.defaultFile(cli.configDir(), cli.dev())
                 .toAbsolutePath()
                 .getParent();
@@ -115,8 +124,17 @@ public final class App extends Application {
 
     @Override
     public void start(Stage stage) {
+        start(stage, getParameters().getRaw(), url -> getHostServices().showDocument(url));
+    }
+
+    /**
+     * The start, given what {@code launch} would: the arguments and how to open a link. Apart so a
+     * test can start the real application on a stage of its own; only {@code launch} makes the
+     * parameters and the host services.
+     */
+    void start(Stage stage, java.util.List<String> args, java.util.function.Consumer<String> openLink) {
         com.termina.perf.Startup.mark("fx-start");
-        CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
+        CommandLine cli = CommandLine.parse(args.toArray(String[]::new));
         Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir(), cli.dev()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
@@ -153,7 +171,7 @@ public final class App extends Application {
         com.termina.ui.StallMonitor.installIfRequested();
         WindowManager manager = new WindowManager(settings);
         windows = manager;
-        windows.setLinkOpener(url -> getHostServices().showDocument(url));
+        windows.setLinkOpener(openLink);
         com.termina.perf.Startup.mark("pre-window");
         TerminalWindow first = windows.openFirstWindow(
                 stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()), cli.title());

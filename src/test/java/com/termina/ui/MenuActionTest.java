@@ -157,4 +157,12 @@ class MenuActionTest {
         assertTrue(MenuAction.duplicateAccelerators(java.util.List.of(w, t)).isEmpty());
         assertEquals(java.util.List.of(w), MenuAction.duplicateAccelerators(java.util.Arrays.asList(w, null, t, w, w)));
     }
+
+    @Test
+    void thePlatformsOwnChordsForTheNumberedCommandsAndClosingAWindow() {
+        // The forms the app asks for, on whatever platform this runs: each a chord with a modifier.
+        org.junit.jupiter.api.Assertions.assertNotNull(MenuAction.profileChord(javafx.scene.input.KeyCode.DIGIT1));
+        org.junit.jupiter.api.Assertions.assertNotNull(MenuAction.tabChord(javafx.scene.input.KeyCode.DIGIT2));
+        org.junit.jupiter.api.Assertions.assertNotNull(MenuAction.closeWindowChord());
+    }
 }

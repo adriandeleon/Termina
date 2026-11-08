@@ -138,10 +138,16 @@ class DialogsFxTest {
         settings.load();
         settings.setFontSize(17);
         settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+        // Close Tab on New Tab's own chord: resetting New Tab then has to ask to take it back.
+        KeyCodeHolder.taken(settings);
         ShellProfiles profiles = new ShellProfiles(settings, "System shell");
-        Path theme = dir.resolve("night.properties");
-        StringBuilder colours = new StringBuilder("name=Night\nbackground=#101010\nforeground=#f0f0f0\n");
-        for (int i = 0; i < 16; i++) colours.append("ansi.").append(i).append("=#202020\n");
+        // Where imported themes go; the window manager says so at startup, and there is none here.
+        Themes.useDirectory(dir.resolve("themes"));
+        // A kitty scheme: the importer reads other terminals' formats, not Termina's own.
+        Path theme = dir.resolve("night.conf");
+        StringBuilder colours = new StringBuilder("foreground #f0f0f0\nbackground #101010\n");
+        for (int i = 0; i < 16; i++)
+            colours.append("color").append(i).append(" #2").append(i % 10).append("2020\n");
         Files.writeString(theme, colours);
 
         SettingsWindow window = onFx(() -> {
@@ -151,7 +157,9 @@ class DialogsFxTest {
             SettingsWindow settingsWindow = new SettingsWindow(
                     settings,
                     profiles,
-                    List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab"))),
+                    List.of(
+                            new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")),
+                            new Keybindings.Command("closeTab", "File", "Close Tab", Keymap.defaultFor("closeTab"))),
                     null);
             settingsWindow.show(owner);
             settingsWindow.importTheme(theme);
@@ -159,9 +167,12 @@ class DialogsFxTest {
         });
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (!settings.themeId().contains("night") && System.nanoTime() < deadline) Thread.sleep(50);
+        assertTrue(settings.themeId().contains("night"), "the theme was imported and chosen: " + settings.themeId());
 
         // Each confirmation cancelled first (nothing changes), then confirmed.
         onFx(() -> {
+            press(window, "settings.keys.reset", false);
+            press(window, "settings.keys.reset", true);
             press(window, "settings.removeTheme.button", false);
             press(window, "settings.removeTheme.button", true);
             press(window, "settings.profileAdd", true);
@@ -170,14 +181,14 @@ class DialogsFxTest {
             press(window, "settings.keys.resetAll", false);
             return null;
         });
-        assertEquals("Shortcut+Shift+Y", settings.values().get("keys.newTab"), "Cancel kept the binding");
+        assertTrue(settings.values().containsKey("keys.closeTab"), "Cancel kept Close Tab's binding");
         onFx(() -> {
             press(window, "settings.keys.resetAll", true);
             settings.setFontSize(17);
             press(window, "settings.reset", false);
             return null;
         });
-        assertFalse(settings.values().containsKey("keys.newTab"), "Reset All cleared it");
+        assertFalse(settings.values().containsKey("keys.closeTab"), "Reset All cleared it");
         assertEquals(17, settings.fontSize(), "Cancel kept the font size");
         onFx(() -> {
             press(window, "settings.reset", true);
@@ -250,5 +261,16 @@ class DialogsFxTest {
             }
         });
         return result.get(30, TimeUnit.SECONDS);
+    }
+
+    /** A binding that puts Close Tab on New Tab's default chord. */
+    private static final class KeyCodeHolder {
+        static void taken(Settings settings) {
+            javafx.scene.input.KeyCombination home = Keymap.defaultFor("newTab");
+            if (home == null) return;
+            java.util.Map<String, String> bindings = new java.util.HashMap<>(settings.keyBindings());
+            bindings.put("closeTab", home.getName());
+            settings.replaceKeyBindings(bindings);
+        }
     }
 }

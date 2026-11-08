@@ -26,6 +26,11 @@ public final class ReportCommand {
      * @return the process's exit status
      */
     public static int run(Path settingsFile, PrintStream out) {
+        return run(settingsFile, out, ReportCommand::open);
+    }
+
+    /** As above, handing the issue's address to {@code opener}, which says whether it opened. */
+    static int run(Path settingsFile, PrintStream out, java.util.function.Predicate<String> opener) {
         Settings settings = new Settings(settingsFile);
         settings.load();
         ProblemReport report = ProblemReport.build(
@@ -38,7 +43,7 @@ public final class ReportCommand {
             out.println("It is too long to go into the link: copy it and paste it into the issue's "
                     + "\"Problem report\" field.");
         }
-        boolean opened = open(link.url());
+        boolean opened = opener.test(link.url());
         out.println(opened ? "Opening a new issue in your browser:" : "Open this address to report it:");
         out.println(link.url());
         return 0;

@@ -84,6 +84,35 @@ class SettingsSyncFxTest {
         });
         waitFor(() -> pushedBindings(bare).contains("Shift+U"), "the changed binding to be pushed");
 
+        // Another computer changes a binding and pushes it: the next run brings it here.
+        Path other = dir.resolve("other");
+        // The branch sync pushed to, which is not necessarily the bare repository's default.
+        assertEquals(
+                0,
+                git(
+                        dir,
+                        "clone",
+                        "--quiet",
+                        "--branch",
+                        Settings.DEFAULT_SYNC_BRANCH,
+                        bare.toString(),
+                        other.toString()));
+        String file = com.termina.ui.Keybindings.MAC
+                ? com.termina.sync.KeybindingsFile.MAC_PATH
+                : com.termina.sync.KeybindingsFile.OTHER_PATH;
+        Files.createDirectories(other.resolve(file).getParent());
+        Files.writeString(other.resolve(file), "newTab=Shortcut+Shift+K\n");
+        assertEquals(0, git(other, "add", file));
+        assertEquals(
+                0,
+                git(other, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "from elsewhere"));
+        assertEquals(0, git(other, "push", "--quiet"));
+        onFx(() -> {
+            sync.syncNow();
+            return null;
+        });
+        waitFor(() -> "Shortcut+Shift+K".equals(settings.values().get("keys.newTab")), "the other computer's binding");
+
         // What the Sync page asks, and the buttons it offers, with a run settled.
         onFx(() -> {
             sync.checkGitHub();
@@ -92,6 +121,17 @@ class SettingsSyncFxTest {
             return null;
         });
         waitFor(() -> phase(sync) == SettingsSync.Phase.IDLE, "the forced run to settle");
+
+        // A token typed into the address: removed from it on request, and a listener let go.
+        onFx(() -> {
+            Runnable listener = () -> {};
+            sync.addListener(listener);
+            sync.removeListener(listener);
+            settings.setSyncRepository("https://someone:secret-token@example.com/me/sync.git");
+            sync.removeCredentialsFromUrl();
+            return null;
+        });
+        assertFalse(settings.syncRepository().contains("secret-token"), settings.syncRepository());
 
         onFx(() -> {
             // Auto off first, so no timer starts a run after the test; then let a run in flight end.
@@ -154,5 +194,13 @@ class SettingsSyncFxTest {
             }
         });
         return result.get(30, TimeUnit.SECONDS);
+    }
+
+    private static int git(Path in, String... args) throws Exception {
+        java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of("git", "-C", in.toString()));
+        command.addAll(java.util.List.of(args));
+        Process p = new ProcessBuilder(command).redirectErrorStream(true).start();
+        p.getInputStream().readAllBytes();
+        return p.waitFor();
     }
 }

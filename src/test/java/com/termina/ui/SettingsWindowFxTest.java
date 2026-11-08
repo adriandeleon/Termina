@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -188,16 +189,25 @@ class SettingsWindowFxTest {
         System.setProperty("user.home", home.toString()); // Export writes there
         try {
             SettingsSync sync = onFx(() -> new SettingsSync(settings, () -> true));
+            SettingsWindow[] built = new SettingsWindow[1];
             int pressed = onFx(() -> {
                 Stage owner = new Stage();
                 owner.setScene(new Scene(new StackPane(), 400, 300));
                 owner.show();
                 SettingsWindow window = new SettingsWindow(settings, profiles, commands, sync);
+                built[0] = window;
                 window.show(owner);
                 // A theme file read through the import row, as the file chooser would hand it over.
-                Path theme = dir.resolve("night.properties");
-                StringBuilder colours = new StringBuilder("name=Night\nbackground=#101010\nforeground=#f0f0f0\n");
-                for (int i = 0; i < 16; i++) colours.append("ansi.").append(i).append("=#202020\n");
+                Themes.useDirectory(dir.resolve("themes")); // the window manager's job, and there is none
+                // A kitty scheme: the importer reads other terminals' formats, not Termina's own.
+                Path theme = dir.resolve("night.conf");
+                StringBuilder colours = new StringBuilder("foreground #f0f0f0\nbackground #101010\n");
+                for (int i = 0; i < 16; i++)
+                    colours.append("color")
+                            .append(i)
+                            .append(" #2")
+                            .append(i % 10)
+                            .append("2020\n");
                 java.nio.file.Files.writeString(theme, colours);
                 window.importTheme(theme);
                 // Connect: the repository typed into its field, then the button.
@@ -230,10 +240,33 @@ class SettingsWindowFxTest {
             });
             assertTrue(pressed >= 4, "buttons pressed: " + pressed);
             assertTrue(settings.syncEnabled(), "Connect connected");
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-            while (onFx(() -> sync.state().phase()) == SettingsSync.Phase.SYNCING && System.nanoTime() < deadline) {
-                Thread.sleep(100);
-            }
+            // The same button disconnects; the GitHub button's name prompt, cancelled before gh runs.
+            onFx(() -> {
+                // From the pages, not the scene: only the page on show is in it.
+                for (Region page : built[0].pagesForTest()) {
+                    for (javafx.scene.control.Button button : find(page, javafx.scene.control.Button.class)) {
+                        String text = button.getText();
+                        if (com.termina.i18n.Messages.tr("settings.sync.disconnect")
+                                .equals(text)) button.fire();
+                        if (com.termina.i18n.Messages.tr("settings.sync.createGithub")
+                                .equals(text)) {
+                            DialogAnswers.next(false, null);
+                            button.fire();
+                        }
+                    }
+                }
+                return null;
+            });
+            assertFalse(settings.syncEnabled(), "Disconnect disconnected");
+            // Nothing left writing into the folder JUnit deletes next: auto-sync off, so no timer starts
+            // a run, then a job queued behind whatever the worker was still finishing.
+            onFx(() -> {
+                settings.setSyncAuto(false);
+                return null;
+            });
+            java.util.concurrent.CountDownLatch drained = new java.util.concurrent.CountDownLatch(1);
+            sync.afterQueuedWorkForTest(drained::countDown);
+            assertTrue(drained.await(30, TimeUnit.SECONDS), "the sync worker finished");
         } finally {
             System.setProperty("user.home", was);
         }
