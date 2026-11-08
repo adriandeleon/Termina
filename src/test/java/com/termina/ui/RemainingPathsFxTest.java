@@ -115,7 +115,7 @@ class RemainingPathsFxTest {
                 for (javafx.scene.control.Menu menu : window.menuBarForTest().getMenus()) {
                     for (MenuItem item : new ArrayList<>(menu.getItems())) {
                         for (String key : keys) {
-                            if (com.termina.i18n.Messages.tr(key).equals(item.getText())) {
+                            if (com.termina.i18n.Messages.tr(key).equals(MenuRows.titleOf(item))) {
                                 DialogAnswers.next(true, "renamed");
                                 item.fire();
                             }

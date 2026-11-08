@@ -1036,6 +1036,13 @@ final class DevCapture {
             }
             if (popup.getScene() != null) return popup.getScene();
         }
+        // -Dtermina.captureBarMenu=File opens that menu of the in-window bar and photographs it.
+        String barMenu = System.getProperty("termina.captureBarMenu");
+        if (barMenu != null && !barMenu.isBlank()) {
+            Scene menu = window.showBarMenuForCapture(barMenu.trim());
+            System.out.println("[capture] bar menu " + barMenu.trim() + " shown=" + (menu != null));
+            if (menu != null) return menu;
+        }
         String tabMenu = System.getProperty("termina.captureTabMenu");
         if (tabMenu != null && !tabMenu.isBlank()) {
             Scene menu = window.showTabMenuForCapture(Integer.parseInt(tabMenu.trim()), 200, 120);

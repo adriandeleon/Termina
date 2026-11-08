@@ -94,7 +94,8 @@ touching its area.
 - AWT is forced headless in `App.main`, as the first statement.
 - Special keys go through JediTerm's encoder
 - Application chords are `Ctrl+Shift+key` off macOS, never `Ctrl+key`.
-- Key bindings are a scene-level filter, not menu accelerators.
+- Key bindings are a scene-level filter, not menu accelerators; the bar's rows draw their chords
+  (`MenuRows`) and carry no accelerator.
 - Tab headers are the skin's, and rebuilt.
 - Nothing in the chrome may be focus-traversable.
 - Driving input in a capture run mostly goes *around* focus.

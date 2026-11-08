@@ -21,12 +21,14 @@ is broken.
 - **Key bindings are a scene-level filter, not menu accelerators.** JavaFX fires accelerators only
   after an event bubbles unconsumed, and `TerminalView` consumes `Ctrl+<letter>` first. Filters run
   in the capturing phase, ahead of that. `MenuAction` holds the label, chord and action together so
-  the menu and the filter cannot disagree. **And the accelerators are labels only**: JavaFX copies
-  every item's into the scene and runs it for any press that bubbles up unconsumed — which is what
-  the filter lets through on purpose while the palette is open or a text field has the key, so
-  Ctrl+Shift+W in the palette closed the tab behind it. `keepAcceleratorsDisplayOnly` keeps the
-  scene's table empty, and `onUnclaimedKeyPressed` consumes a bound chord that comes back up
-  unclaimed, so nothing past the scene (macOS's screen menu bar) gets a second go at it.
+  the menu and the filter cannot disagree. **And the bar's rows have no accelerators at all**
+  (MENU-02): `MenuRows` draws each chord itself — a right-aligned column in-window, appended to the
+  title on macOS's screen menu bar. An accelerator is acted on: JavaFX copies every item's into the
+  scene and runs it for any press that bubbles up unconsumed — which is what the filter lets through
+  on purpose while the palette is open or a text field has the key, so Ctrl+Shift+W in the palette
+  closed the tab behind it. The right-click profile lists still carry accelerators as labels, so
+  `keepAcceleratorsDisplayOnly` still keeps the scene's table empty, and `onUnclaimedKeyPressed`
+  consumes a bound chord that comes back up unclaimed, so nothing past the scene gets a second go.
 - **Tab headers are the skin's, and rebuilt.** A reordered tab is removed and added, and gets a new
   header with nothing of ours on it. Everything attached to a header — drag, double-click rename,
   pane drop, close tooltip — goes on in `decorateHeaders`, after every change to the tab list.
@@ -104,7 +106,9 @@ is broken.
   `menusFitASystemMenuBar` first, which mirrors JavaFX's rule — including that `SeparatorMenuItem`
   extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
   rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on
-  every platform.
+  every platform. In-window, every command row *is* a `CustomMenuItem` (`MenuRows`, MENU-02), so
+  rows are built for the bar they are in: drawn rows where JavaFX draws the bar, plain text with the
+  chord appended under `useSystemMenuBar`.
 - **JediTerm's text-scanning hyperlink layer is deliberately unused; its OSC 8 path is used.** The
   dependency has a whole layer: a `TextProcessing` handed to `TerminalTextBuffer` runs filters over
   each line as it is written and marks the runs with a `HyperlinkStyle`. We do not use it. Links
@@ -253,7 +257,7 @@ is broken.
   holds each command on its default chord, by a stable id (`newTab` — the catalogue key without
   `menu.`), and `register` still throws on two *defaults* on one chord. `bindings`, which the key
   filter runs, is derived from it by `Keybindings.resolve` against the stored `keys.*` block on
-  every `applySettings`, along with each menu item's accelerator, the palette chip and the tab
+  every `applySettings`, along with each menu row's chord, the palette chip and the tab
   strip's tooltips. Anything new that shows a chord must ask `chordOf(id)`, not the action's
   `accelerator()` — that is the default, and showing it advertises a chord the user may have
   moved. `KeybindingEdits` is Editora's port, keyed by command rather than by chord.

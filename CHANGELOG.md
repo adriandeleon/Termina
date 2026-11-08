@@ -62,6 +62,9 @@ done.
 
 ### Changed
 
+- **The menu bar's shortcuts line up in a column**, with each command's icon beside it where the
+  right-click menus have one. On macOS the shortcut follows the title in the screen menu bar. The
+  menus no longer use accelerators, so a shortcut is only ever run by Termina's own key handling.
 - **The multi-line paste and close-a-running-program questions look like the rest**: the app's own
   fonts and colours, as the Settings window's questions already had. Resetting a key binding that
   takes its chord from another command says so with a danger-styled Reset.

@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -219,18 +218,6 @@ public record MenuAction(
         } catch (IllegalArgumentException unreadable) {
             return fallback;
         }
-    }
-
-    /**
-     * Builds the menu item. The accelerator is shown for discoverability; the filter runs it, and
-     * the window keeps JavaFX from running it a second time (see {@code
-     * TerminalWindow.keepAcceleratorsDisplayOnly}).
-     */
-    public MenuItem toMenuItem() {
-        MenuItem item = new MenuItem(label);
-        if (accelerator != null) item.setAccelerator(accelerator);
-        item.setOnAction(e -> action.run());
-        return item;
     }
 
     public boolean matches(javafx.scene.input.KeyEvent event) {

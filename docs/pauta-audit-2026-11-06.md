@@ -314,25 +314,37 @@ Addressed on 2026-11-08, branch `pauta-small-items`:
     its text — or a tab's close button without an accessible text, or whose tooltip says otherwise.
 - **Recounted:** the totals below, against everything addressed since the audit.
 
+Addressed on 2026-11-08, branch `menu-rows`:
+
+- **Now met:** MENU-02. The bar's rows carry no `KeyCombination`: `ui.MenuRows` builds each one for
+  the bar it is in. In-window, a `CustomMenuItem` of icon column, title, spacer and the chord in
+  force, with every title in a menu measured to the widest so the chords form one column; the icons
+  are the right-click menus' for the same commands. Under macOS's screen menu bar, plain text with
+  the chord after the title and no icon, which keeps `menusFitASystemMenuBar` true. `MenusFxTest`
+  finds no accelerator on any row or submenu row, every row showing the chord in force (and
+  following a rebind) and one title width per menu; `MenuRowsTest` covers the screen bar's rows.
+  Photographed headless with the new `-Dtermina.captureBarMenu`. The screen menu bar's rows are
+  unrun on macOS.
+- **Totals:** 3 MUSTs fail (REPO-01, DOCS-19, ABOUT-07) and 6 are partly met.
+
 Everything else below stands, except the totals, which are recounted.
 
 ## Totals
 
-Recounted on 2026-11-08, after `pauta-small-items`. Of the 59 failed MUSTs:
+Recounted on 2026-11-08, after `pauta-small-items` and `menu-rows`. Of the 59 failed MUSTs:
 
-- **Still failed (4):** REPO-01 and DOCS-19 (the README's feature catalogue, waiting on the
-  website), MENU-02 (accelerators kept for the macOS screen menu bar; a decision for Pauta), and
-  ABOUT-07, which cannot pass while any MUST fails.
+- **Still failed (3):** REPO-01 and DOCS-19 (the README's feature catalogue, waiting on the
+  website), and ABOUT-07, which cannot pass while any MUST fails. MENU-02 is met since `menu-rows`.
 - **Partly met (4):** DOCS-14 (the long catalogue is `docs/gotchas.md`, not `docs/reference/`),
   PLAT-12 (met on macOS and Linux, lowered floors on Windows, whose shell path has never run),
   PERF-01 (the remaining FX-thread reads are left on purpose, on measurements) and KBD-09 (JSON
   keymaps; Emacs/CUA left out for the shell's chords).
-- **Met:** the other 51.
+- **Met:** the other 52.
 
 Of the 34 partly met: PLAT-11 (no TestFX; headless glass in surefire instead) and ABOUT-01 (About in
 the macOS application menu, unrun on macOS) remain partly met; the other 32 are met.
 
-So: **4 MUSTs fail and 6 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
+So: **3 MUSTs fail and 6 are partly met**, and 2 (DOCS-01/02, the website's docs) still cannot be
 judged from this repository. Under Pauta's rule a failed MUST blocks a release, so Termina still
 cannot claim 2.0.2 compliance. Several "met" items rest on code that has never run on Windows, or
 on macOS paths unchecked by hand (REL-15 until the next tag, the screen menu bar's ON_SHOWING).
@@ -519,7 +531,8 @@ needs a decision: change Termina, or argue for a terminal-scope exemption in Pau
 
 - **MENU-02 (accelerators)**: AGENTS.md says one `CustomMenuItem` costs the whole macOS screen menu
   bar, so the accelerators are kept display-only. Pauta's own macOS branch already writes the chord
-  into the title with no icon, so Termina could follow it without a CustomMenuItem.
+  into the title with no icon, so Termina could follow it without a CustomMenuItem. *Settled: it
+  did, in `menu-rows`.*
 - **KBD-05/09 (M-x, Emacs/CUA keymaps)**: Alt+X and plain Ctrl chords belong to the shell, and the
   single keymap is a terminal-specific choice. Pauta already gives terminals their own chords for
   FIND-04 and MENU-08, but not here.

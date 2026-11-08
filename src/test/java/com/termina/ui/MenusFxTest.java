@@ -102,7 +102,7 @@ class MenusFxTest {
         for (Tab tab : onFx(() -> new ArrayList<>(window.tabsForTest()))) {
             if (tab.getContextMenu() == null) continue;
             List<MenuItem> items = new ArrayList<>(tab.getContextMenu().getItems());
-            items.removeIf(item -> item.getText() != null && item.getText().startsWith(Messages.tr("menu.closeTab")));
+            items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("menu.closeTab")));
             fired += fireAll(items, skipped, failures);
         }
         List<MenuItem> bar = new ArrayList<>();
@@ -113,8 +113,8 @@ class MenusFxTest {
             });
             bar.addAll(flatten(menu.getItems()));
         }
-        bar.sort(java.util.Comparator.comparing(item -> item.getText() != null
-                && item.getText().startsWith(Messages.tr("menu.closeTab").substring(0, 5))));
+        bar.sort(java.util.Comparator.comparing(item -> text(item) != null
+                && text(item).startsWith(Messages.tr("menu.closeTab").substring(0, 5))));
         fired += fireAll(bar, skipped, failures);
 
         assertEquals(List.of(), failures);
@@ -133,14 +133,18 @@ class MenusFxTest {
     private static int fireAll(List<MenuItem> items, Set<String> skipped, List<String> failures) throws Exception {
         int fired = 0;
         for (MenuItem item : items) {
-            if (item instanceof SeparatorMenuItem || item instanceof CustomMenuItem || item.isDisable()) continue;
-            if (item.getText() == null || skipped.contains(item.getText())) continue;
+            // The zoom row is a row of buttons, not an item to fire; the bar's command rows are
+            // CustomMenuItems too (MENU-02), and fired like any other.
+            if (item instanceof SeparatorMenuItem || item.isDisable()) continue;
+            if (item instanceof CustomMenuItem && !MenuRows.isRow(item)) continue;
+            String label = text(item);
+            if (label == null || skipped.contains(label)) continue;
             String failure = onFx(() -> {
                 try {
                     item.fire();
                     return null;
                 } catch (RuntimeException e) {
-                    return item.getText() + ": " + e;
+                    return label + ": " + e;
                 }
             });
             if (failure != null) failures.add(failure);
@@ -204,12 +208,12 @@ class MenusFxTest {
         });
         assertTrue(onFx(() -> !itemOpened(window, "reopenClosedTab").isDisable()), "a tab closed: available");
 
-        String before = onFx(() -> itemOpened(window, "pinTab").getText());
+        String before = onFx(() -> MenuRows.titleOf(itemOpened(window, "pinTab")));
         onFx(() -> {
             itemOpened(window, "pinTab").fire();
             return null;
         });
-        String after = onFx(() -> itemOpened(window, "pinTab").getText());
+        String after = onFx(() -> MenuRows.titleOf(itemOpened(window, "pinTab")));
         assertTrue(!before.equals(after), "Pin Tab says which way it will go: " + before + " then " + after);
         // The palette names it the same, from the same place.
         assertEquals(after, onFx(() -> {
@@ -257,7 +261,7 @@ class MenusFxTest {
                         case MenuBarModel.ZOOM_ROW -> item instanceof CustomMenuItem;
                         default -> row.equals(item.getUserData()) && commands.contains(row);
                     };
-                    if (!matches) out.add(spec.titleKey() + " row " + r + ": " + row + " vs " + item.getText());
+                    if (!matches) out.add(spec.titleKey() + " row " + r + ": " + row + " vs " + text(item));
                 }
             }
             // And nothing registered that the model does not name.
@@ -365,6 +369,66 @@ class MenusFxTest {
     /** Whether command {@code id} is greyed in the palette now. */
     private static boolean unavailable(TerminalWindow window, String id) throws Exception {
         return onFx(() -> window.runnablePaletteRowsForTest().stream().noneMatch(row -> id.equals(row.id())));
+    }
+
+    @Test
+    void theBarsRowsDrawTheirChordsAndCarryNoAccelerator() throws Exception {
+        // MENU-02 (Pauta 2.0.2): no KeyCombination on any row of the bar, the chord in force drawn by
+        // the row, following a rebind, and one chord column per menu.
+        Settings settings = new Settings(dir.resolve("rows.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        onFx(() -> windows.openWindow(window));
+
+        List<String> wrong = onFx(() -> {
+            List<String> out = new ArrayList<>();
+            for (Menu menu : window.menuBarForTest().getMenus()) {
+                javafx.event.Event.fireEvent(menu, new javafx.event.Event(Menu.ON_SHOWING));
+                for (MenuItem item : menu.getItems()) {
+                    if (item instanceof Menu sub) {
+                        sub.getOnShowing().handle(new javafx.event.Event(Menu.ON_SHOWING));
+                        for (MenuItem inner : sub.getItems()) {
+                            if (inner.getAccelerator() != null) out.add("accelerator on " + text(inner));
+                        }
+                    }
+                    if (item.getAccelerator() != null) out.add("accelerator on " + text(item));
+                    if (!(item.getUserData() instanceof String id)) continue;
+                    javafx.scene.input.KeyCombination chord = window.chordOf(id);
+                    String shown = MenuRows.chordText(item);
+                    if (!shown.equals(chord == null ? "" : chord.getDisplayText())) {
+                        out.add(id + " shows \"" + shown + "\", is on " + chord);
+                    }
+                }
+                java.util.Set<Double> widths = new java.util.HashSet<>();
+                for (MenuItem item : menu.getItems()) {
+                    if (item instanceof CustomMenuItem custom
+                            && MenuRows.isRow(item)
+                            && custom.getContent() instanceof javafx.scene.layout.HBox box) {
+                        widths.add(
+                                ((javafx.scene.control.Label) box.getChildren().get(1)).getPrefWidth());
+                    }
+                }
+                if (widths.size() > 1) out.add(menu.getText() + " titles of " + widths.size() + " widths");
+            }
+            return out;
+        });
+        assertEquals(List.of(), wrong);
+
+        onFx(() -> {
+            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+            return null;
+        });
+        assertEquals(
+                javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+Y").getDisplayText(),
+                onFx(() -> MenuRows.chordText(itemOpened(window, "newTab"))),
+                "the row follows a rebind");
+    }
+
+    /** What an item says: a row's title, or the text of anything else. */
+    private static @org.jspecify.annotations.Nullable String text(MenuItem item) {
+        return MenuRows.isRow(item) ? MenuRows.titleOf(item) : item.getText();
     }
 
     /** The bar's item for command {@code id}, after its menu has opened. */

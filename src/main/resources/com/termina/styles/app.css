@@ -713,3 +713,12 @@
 .password-field:focus-visible {
     -fx-background-insets: 0, 2px;
 }
+
+/* The menu bar's rows (MENU-02): a title and the chord the row draws itself, in its own column. */
+.menu-item .menu-item-title {
+    -fx-text-fill: -color-fg-default;
+}
+.menu-item .menu-item-chord {
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-size: 11px;
+}

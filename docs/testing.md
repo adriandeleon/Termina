@@ -187,6 +187,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureDuplicateTab=true   # duplicate the active tab, reporting the count
   -Dtermina.captureReopenTab=true      # reopen the last closed tab; pair with captureCloseTabs
   -Dtermina.captureTabMenu=1           # open tab N's header menu (see captureTabMenuEscape)
+  -Dtermina.captureBarMenu=File        # open that menu of the in-window bar and photograph it
   -Dtermina.captureMenuDismiss=escape  # open the context menu and dismiss it (escape|click)
   -Dtermina.captureScrollBarTo=120     # move the scrollbar as a drag would, through its listener
   -Dtermina.captureDragScrollBar=40,300 # drag the bar's thumb from y1 to y2, fired at the bar
