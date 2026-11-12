@@ -430,16 +430,51 @@ public final class WindowManager {
 
     /** The Message Log, beside whichever window asked. */
     void showMessageLog(Window from) {
+        messageLog().show(from);
+    }
+
+    /** The one Message Log window, built on first use: what its commands act on. */
+    MessageLogWindow messageLog() {
         MessageLogWindow window = messageLogWindow;
         if (window == null) messageLogWindow = window = new MessageLogWindow(messages);
-        window.show(from);
+        return window;
     }
 
     /** The Debug Log: a command now, not only a button on the Advanced page (DIAG-03). */
     void showDebugLog(Window from) {
+        debugLog(from).show();
+    }
+
+    /**
+     * The Debug Log with a query in its find bar, for the capture hook
+     * ({@code -Dtermina.captureDebugLogFind=text}); says where the search stands and returns the
+     * window's scene to photograph.
+     */
+    public javafx.scene.Scene debugLogFindForCapture(Window from, String query) {
+        DebugLogWindow window = debugLog(from);
+        window.show();
+        window.searchFor(query);
+        System.out.println("[capture] debugLogFind " + window.findReport() + " menu=" + window.menuRowsForTest());
+        return window.scene();
+    }
+
+    /**
+     * The Message Log with its filter typed into, for the capture hook
+     * ({@code -Dtermina.captureMessageLogFilter=text}).
+     */
+    public javafx.scene.Scene messageLogFilterForCapture(Window from, String typed) {
+        MessageLogWindow window = messageLog();
+        window.show(from);
+        window.filterBy(typed);
+        System.out.println("[capture] messageLogFilter " + window.report() + " menu=" + window.menuRowsForTest());
+        return window.scene();
+    }
+
+    /** The one Debug Log window, built on first use: what its commands act on. */
+    DebugLogWindow debugLog(Window from) {
         DebugLogWindow window = debugLogWindow;
         if (window == null) debugLogWindow = window = new DebugLogWindow(from, () -> showReportProblem(from));
-        window.show();
+        return window;
     }
 
     private @Nullable ReportProblemWindow reportWindow;

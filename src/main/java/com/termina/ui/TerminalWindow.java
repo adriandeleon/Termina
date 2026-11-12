@@ -2925,7 +2925,7 @@ public final class TerminalWindow {
                 item("command.paste", () -> withActiveTerminal(TerminalView::paste)),
                 item("command.selectAll", () -> withActiveTerminal(TerminalView::selectAll)),
                 item("command.clearScrollback", () -> withActiveTerminal(TerminalView::clearScrollback)),
-                item("command.find", () -> withActiveTerminal(TerminalView::showSearch)),
+                item("command.find.show", () -> withActiveTerminal(TerminalView::showSearchOrStep)),
                 // GNOME Terminal's pair off macOS, Ctrl+Shift+G and H; the system's Cmd+G and
                 // Cmd+Shift+G on it, where Cmd+H would hide the application.
                 item("command.findNext", () -> withActiveTerminal(terminal -> terminal.findNext(true))),
@@ -2999,6 +2999,15 @@ public final class TerminalWindow {
                 item("command.checkForUpdates", this::checkOrOpenUpdate),
                 item("command.view.messageLog", () -> windows.showMessageLog(stage)),
                 item("command.debugLog", () -> windows.showDebugLog(stage)),
+                // What the two log windows' buttons and right-click rows do, as commands (KBD-01,
+                // Pauta 6.0.1): no rows of their own, the windows being where they are used.
+                item("command.debugLog.find", () -> windows.debugLog(stage).find()),
+                item("command.debugLog.refresh", () -> windows.debugLog(stage).show()),
+                item("command.debugLog.copy", () -> windows.debugLog(stage).copy()),
+                item("command.debugLog.export", () -> windows.debugLog(stage).export()),
+                item("command.debugLog.clear", () -> windows.debugLog(stage).clear()),
+                item("command.messageLog.copy", () -> windows.messageLog().copy()),
+                item("command.messageLog.clear", () -> windows.messageLog().clear()),
                 item("command.reportProblem", () -> windows.showReportProblem(stage)),
                 MenuAction.of(tr("command.help.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
                         .describedAs(description("command.help.about"))

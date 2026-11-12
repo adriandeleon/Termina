@@ -26,6 +26,16 @@ done.
   ticked; window positions and the settings-sync connection stay as they are. Your current
   configuration is copied to `backups/` in the config folder first. A zip that is not an export, or
   that a newer Termina wrote, is refused before anything changes.
+- **Find in the Debug Log.** A find bar across the top of the window, opened by the Find… button,
+  Ctrl+F (Cmd+F on macOS) or the new Find in Debug Log command: it searches as you type, counts the
+  matches, steps with Enter and Shift+Enter, and closes on Escape. All lower case matches either
+  case; a capital makes it exact.
+- **A filter in the Message Log.** A field over the list narrows it to the messages that have every
+  word typed. Escape empties it, and from an empty filter goes back to the list. Ctrl+F (Cmd+F)
+  puts the keyboard in it.
+- **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
+  Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
+  bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
 - **Toggle Regular Expression is a command**: in the palette, and bindable on the Keyboard page.
   It flips the find bar's `.*` switch, opening the bar first if it is closed. The switch could only
   be clicked.
@@ -73,14 +83,17 @@ done.
 - **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
   a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
   default button, and the red action runs only from itself: a click, or Tab to it and Space.
-- **Four commands have new ids**, the ones Pauta names: `help.about` (was `about`), `palette.show`
-  (`commandPalette`), `help.documentation` (`documentation`) and `view.messageLog` (`messageLog`).
+- **Five commands have new ids**, the ones Pauta names: `help.about` (was `about`), `palette.show`
+  (`commandPalette`), `help.documentation` (`documentation`), `view.messageLog` (`messageLog`) and
+  `find.show` (`find`).
   A key binding is stored under its command's id, so `settings.json` moves to `schemaVersion` 2 and
   a `keys.commandPalette` line becomes `keys.palette.show` when the file is read; a
   `settings.properties` from before 0.15 is brought forward the same way. Settings sync reads the
   old ids as the new ones, so a repository shared with a computer on an older Termina keeps
-  working; that older Termina does not know the new ids, and puts those four commands back on
+  working; that older Termina does not know the new ids, and puts those five commands back on
   their default chords once a newer one has synced.
+- **Find, run while the find bar is open, steps to the next match** and puts the keyboard back in
+  the field. It used to only do the second.
 - **A click on the status bar opens the Message Log through its command**, like the menu row.
 - **A dialog's buttons are in the same order on every OS**: Cancel to the left of the action.
   JavaFX orders them by OS, which on Windows put the action first.

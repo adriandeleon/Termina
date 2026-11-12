@@ -124,6 +124,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # the scene — with captureSearch, whether a chord the find
                                        # bar has no use for leaks past it (captureSelectionAtEnd)
   -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
+  -Dtermina.captureDebugLogFind=warning  # open the Debug Log and search it; that window is the picture
+  -Dtermina.captureMessageLogFilter=sync # open the Message Log and type into its filter; likewise
   -Dtermina.captureUpdateAvailable=99.0.0  # a newer version, as the check would report it: the
                                        # Help row and the status bar's link (statusBar= reports it)
   -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open

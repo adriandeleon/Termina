@@ -79,7 +79,7 @@ final class MenuBarModel {
                         SEPARATOR,
                         "clearScrollback",
                         SEPARATOR,
-                        "find",
+                        "find.show",
                         "findNext",
                         "findPrevious",
                         SEPARATOR,
@@ -146,7 +146,16 @@ final class MenuBarModel {
                         "reportProblem",
                         SEPARATOR,
                         "help.about"),
-                List.of());
+                // What the two log windows' buttons and right-click rows do (KBD-01): palette and
+                // chord only, the windows themselves being where they are used.
+                List.of(
+                        "debugLog.find",
+                        "debugLog.refresh",
+                        "debugLog.copy",
+                        "debugLog.export",
+                        "debugLog.clear",
+                        "messageLog.copy",
+                        "messageLog.clear"));
 
         return List.of(file, edit, view, window, help);
     }

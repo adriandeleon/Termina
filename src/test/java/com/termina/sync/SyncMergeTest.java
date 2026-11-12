@@ -105,30 +105,30 @@ class SyncMergeTest {
                 "newTab", "Ctrl+Alt+0",
                 "copy", "Ctrl+Alt+C",
                 "paste", "Ctrl+Alt+V",
-                "find", "Ctrl+Alt+F",
+                "find.show", "Ctrl+Alt+F",
                 "zoom", "Ctrl+Alt+Z"));
         String mine = file(Map.of(
                 "newTab", "Ctrl+Alt+0",
                 "copy", "Ctrl+Alt+K",
                 "paste", "Ctrl+Alt+V",
-                "find", "Ctrl+Alt+G",
+                "find.show", "Ctrl+Alt+G",
                 "zoom", "Ctrl+Alt+1"));
-        String theirs =
-                file(Map.of("newTab", "Ctrl+Alt+N", "copy", "Ctrl+Alt+C", "find", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+2"));
+        String theirs = file(
+                Map.of("newTab", "Ctrl+Alt+N", "copy", "Ctrl+Alt+C", "find.show", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+2"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
 
         assertEquals(List.of("newTab", "paste"), r.received());
         assertEquals(List.of("copy", "zoom"), r.sent());
         assertEquals(
-                Map.of("newTab", "Ctrl+Alt+N", "copy", "Ctrl+Alt+C", "find", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+Z"),
+                Map.of("newTab", "Ctrl+Alt+N", "copy", "Ctrl+Alt+C", "find.show", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+Z"),
                 r.settled());
 
         // Merged again against the settled base after a lost race, only what is still this computer's
         // own goes out; a newer chord for newTab in the repository is simply taken.
         String applied = r.text();
-        String newer =
-                file(Map.of("newTab", "Ctrl+Alt+M", "copy", "Ctrl+Alt+C", "find", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+2"));
+        String newer = file(
+                Map.of("newTab", "Ctrl+Alt+M", "copy", "Ctrl+Alt+C", "find.show", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+2"));
         SyncMerge.FileResult again = SyncMerge.merge(PATH, file(r.settled()), applied, newer);
         assertEquals(List.of("newTab"), again.received());
         assertEquals(List.of("copy", "zoom"), again.sent());

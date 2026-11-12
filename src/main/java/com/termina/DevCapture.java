@@ -189,7 +189,8 @@ final class DevCapture {
                 probeDebugLog();
                 closeWindowIfRequested(windows);
                 TerminalWindow shown = windowToCapture(windows, window);
-                Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
+                Scene logWindow = logWindowIfRequested(windows, shown);
+                Scene captured = logWindow != null ? logWindow : sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the input, which looks exactly like input that did nothing.
@@ -493,6 +494,19 @@ final class DevCapture {
             }
         }
         if (!menus.isEmpty()) System.out.println("[capture] palette left menus " + menus);
+    }
+
+    /**
+     * {@code -Dtermina.captureDebugLogFind=text} opens the Debug Log and searches it for the text;
+     * {@code -Dtermina.captureMessageLogFilter=text} opens the Message Log and types the text into
+     * its filter. Either makes that window the photograph, and reports where it stands.
+     */
+    private static @Nullable Scene logWindowIfRequested(WindowManager windows, TerminalWindow window) {
+        String find = System.getProperty("termina.captureDebugLogFind");
+        if (find != null) return windows.debugLogFindForCapture(window.stage(), find);
+        String filter = System.getProperty("termina.captureMessageLogFilter");
+        if (filter != null) return windows.messageLogFilterForCapture(window.stage(), filter);
+        return null;
     }
 
     /**

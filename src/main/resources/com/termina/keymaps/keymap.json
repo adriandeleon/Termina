@@ -15,7 +15,7 @@
     "paste": "Shortcut+Shift+V",
     "selectAll": "Shortcut+Shift+A",
     "clearScrollback": "Shortcut+Shift+K",
-    "find": "Shortcut+Shift+F",
+    "find.show": "Shortcut+Shift+F",
     "findNext": "Shortcut+Shift+G",
     "findPrevious": "Shortcut+Shift+H",
     "zoomIn": "Shortcut+Equals",

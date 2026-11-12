@@ -237,7 +237,7 @@ public final class MenuIcons {
             case "paste" -> MenuIcons.paste();
             case "selectAll" -> MenuIcons.selectAll();
             case "clearScrollback" -> MenuIcons.clear();
-            case "find" -> MenuIcons.search();
+            case "find.show" -> MenuIcons.search();
             case "palette.show" -> MenuIcons.commandPalette();
             case "moveTabLeft" -> MenuIcons.arrowLeft();
             case "moveTabRight" -> MenuIcons.arrowRight();

@@ -24,8 +24,18 @@ class MenuBarModelTest {
     @Test
     void theCommandsPautaNamesHaveItsIds() {
         List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus(true));
-        assertTrue(ids.containsAll(List.of("help.about", "palette.show", "help.documentation", "view.messageLog")));
-        for (String old : List.of("about", "commandPalette", "documentation", "messageLog")) {
+        assertTrue(ids.containsAll(
+                List.of("help.about", "palette.show", "help.documentation", "view.messageLog", "find.show")));
+        // FIND-04: every other find bar has a command of its own, and KBD-01: so do the logs' buttons.
+        assertTrue(ids.containsAll(List.of(
+                "debugLog.find",
+                "debugLog.refresh",
+                "debugLog.copy",
+                "debugLog.export",
+                "debugLog.clear",
+                "messageLog.copy",
+                "messageLog.clear")));
+        for (String old : List.of("about", "commandPalette", "documentation", "messageLog", "find")) {
             assertFalse(ids.contains(old), old);
         }
         // About, Documentation and the Message Log are rows of the Help menu.

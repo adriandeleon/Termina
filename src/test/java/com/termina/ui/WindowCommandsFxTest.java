@@ -45,6 +45,7 @@ class WindowCommandsFxTest {
             "whatsNew", // a browser
             "exportConfiguration", // writes to the real home folder
             "importConfiguration", // a file chooser
+            "debugLog.export", // a file chooser
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
             "showStatusBar"); // turning the bar off makes every later report a modal dialog

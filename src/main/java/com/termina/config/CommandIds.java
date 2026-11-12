@@ -8,8 +8,9 @@ import java.util.TreeMap;
  * an old id still reaches its command.
  *
  * <p>A command's id is what a stored key binding is keyed by: {@code keys.<id>} in
- * {@code settings.json}, and a line of the synced key-bindings files. Pauta 6.0.1 names four
- * commands outright (ABOUT-01, PAL-01, DOCS-06, MLOG-02), and those took the names it gives. The
+ * {@code settings.json}, and a line of the synced key-bindings files. Pauta 6.0.1 names five
+ * commands outright (ABOUT-01, PAL-01, DOCS-06, MLOG-02, FIND-04), and those took the names it
+ * gives. The
  * settings file is brought forward by a migration step ({@link ConfigJson#MIGRATIONS}); the sync
  * files, which another computer on an older Termina may still be writing, are read through
  * {@link #renamed(Map)} every time.
@@ -21,7 +22,8 @@ public final class CommandIds {
             "about", "help.about",
             "commandPalette", "palette.show",
             "documentation", "help.documentation",
-            "messageLog", "view.messageLog");
+            "messageLog", "view.messageLog",
+            "find", "find.show");
 
     private CommandIds() {}
 

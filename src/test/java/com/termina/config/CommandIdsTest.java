@@ -7,17 +7,18 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * The four commands that took the ids Pauta 6.0.1 names (ABOUT-01, PAL-01, DOCS-06, MLOG-02): a
+ * The commands that took the ids Pauta 6.0.1 names (ABOUT-01, PAL-01, DOCS-06, MLOG-02, FIND-04): a
  * key binding stored or synced under the old id still reaches its command.
  */
 class CommandIdsTest {
 
     @Test
-    void theFourCommandsHaveTheIdsPautaNames() {
+    void theCommandsHaveTheIdsPautaNames() {
         assertEquals("help.about", CommandIds.current("about"));
         assertEquals("palette.show", CommandIds.current("commandPalette"));
         assertEquals("help.documentation", CommandIds.current("documentation"));
         assertEquals("view.messageLog", CommandIds.current("messageLog"));
+        assertEquals("find.show", CommandIds.current("find"));
         assertEquals("newTab", CommandIds.current("newTab"));
         assertEquals("palette.show", CommandIds.current("palette.show"));
     }

@@ -216,6 +216,12 @@ class DevCaptureFxTest {
                         "termina.captureTabs", "2",
                         "termina.captureCloseAnswer", "close",
                         "termina.captureCloseTabs", "1"));
+        runs.put(
+                "the debug log, searched",
+                Map.of("termina.captureLogProbe", "true", "termina.captureDebugLogFind", "probe"));
+        runs.put(
+                "the message log, filtered",
+                Map.of("termina.captureUpdateAvailable", "99.0.0", "termina.captureMessageLogFilter", "version"));
         return runs;
     }
 

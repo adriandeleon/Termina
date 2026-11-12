@@ -98,7 +98,9 @@ class SecondaryWindowsFxTest {
                     list.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, false, true, false, true));
                 }
                 for (ButtonBase button : find(root, ButtonBase.class)) {
-                    if (button.isDisabled() || skipped.contains(button.getText())) continue;
+                    // An icon-only button, the find bar's, has no text; Set.of refuses to be asked about null.
+                    String label = button.getText() == null ? "" : button.getText();
+                    if (button.isDisabled() || skipped.contains(label)) continue;
                     if (!(button instanceof Button) && !(button instanceof Hyperlink)) continue;
                     DialogAnswers.next(false, null);
                     button.fire();

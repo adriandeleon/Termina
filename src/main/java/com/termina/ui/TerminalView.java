@@ -3645,6 +3645,21 @@ public final class TerminalView extends Region {
         return searchOpen && searchBar != null && searchBar.isRegex();
     }
 
+    /**
+     * What the Find command does: opens the bar, and run while the bar is open steps to the next
+     * match, up the scrollback, with the keyboard back in the field (FIND-04, Pauta 6.0.1). A
+     * selection made since still becomes the query, as when the bar opens.
+     */
+    public void showSearchOrStep() {
+        String seed = selectionForSearch();
+        if (!searchOpen || searchBar == null || (seed != null && !seed.equals(searchBar.query()))) {
+            showSearch();
+            return;
+        }
+        stepSearch(true);
+        searchBar.focusField();
+    }
+
     /** Steps to the next match, opening the bar first if it is closed — what Find Next does. */
     public void findNext(boolean older) {
         if (!searchOpen) {
