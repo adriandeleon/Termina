@@ -133,6 +133,28 @@ class DialogsFxTest {
             settings.setShowStatusBar(true);
             return null;
         });
+        assertEveryDialogMeetsTheRules(6);
+    }
+
+    /**
+     * What every dialog the tests answered looked like when it was answered: the interface font on
+     * it (ICON-01), its buttons worded by the app where there are two or more (CONF-14), and Cancel
+     * the one default button wherever a button is red (CONF-13, all Pauta 6.0.1).
+     */
+    private static void assertEveryDialogMeetsTheRules(int atLeast) {
+        List<DialogAnswers.Seen> seen = DialogAnswers.seen();
+        assertTrue(seen.size() >= atLeast, "dialogs answered: " + seen);
+        for (DialogAnswers.Seen dialog : seen) {
+            assertTrue(dialog.uiFont(), "no interface font on " + dialog);
+            if (dialog.buttons().size() >= 2) {
+                assertEquals(List.of(), dialog.stock(), "stock buttons on " + dialog);
+            }
+            if (dialog.danger()) {
+                assertEquals(1, dialog.defaults(), "one default button on " + dialog);
+                assertTrue(dialog.cancelIsDefault(), "Cancel is not the default on " + dialog);
+            }
+        }
+        assertTrue(seen.stream().anyMatch(DialogAnswers.Seen::danger), "a destructive question was asked");
     }
 
     @Test
@@ -198,6 +220,7 @@ class DialogsFxTest {
             return null;
         });
         assertTrue(settings.fontSize() != 17, "Reset to Defaults reset it");
+        assertEveryDialogMeetsTheRules(8);
     }
 
     /** Presses the first visible, enabled button labelled {@code key}, answering what it asks. */

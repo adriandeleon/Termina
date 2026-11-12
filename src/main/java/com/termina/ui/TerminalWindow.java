@@ -12,7 +12,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -809,7 +808,9 @@ public final class TerminalWindow {
         }
         profileMenu.getItems().setAll(profileMenuItems());
         profileMenu.getItems().add(new SeparatorMenuItem());
-        MenuItem configure = new MenuItem(tr("menu.configureProfiles"), MenuIcons.settings());
+        // The command's own glyph, the one its File menu row wears (ICON-20, Pauta 6.0.1): the gear
+        // is Settings'.
+        MenuItem configure = new MenuItem(tr("menu.configureProfiles"), MenuIcons.forCommand("configureProfiles"));
         configure.setOnAction(e -> windows.showProfileSettings(stage));
         profileMenu.getItems().add(configure);
         profileMenu.show(profileButton, javafx.geometry.Side.BOTTOM, 0, 0);
@@ -2129,8 +2130,7 @@ public final class TerminalWindow {
         dialog.setGraphic(null);
         // The automatic title as the placeholder, so an empty field shows what clearing gives.
         dialog.getEditor().setPromptText(automatic);
-        javafx.scene.Node ok = dialog.getDialogPane().lookupButton(ButtonType.OK);
-        if (ok instanceof Button button) button.setText(tr("dialog.rename"));
+        Confirm.prompt(dialog, tr("dialog.rename"));
         return dialog.showAndWait().map(String::trim);
     }
 
@@ -3245,6 +3245,7 @@ public final class TerminalWindow {
         alert.setTitle(com.termina.AppInfo.NAME);
         alert.setHeaderText(null);
         alert.setContentText(message);
+        Confirm.style(alert.getDialogPane());
         // Dismissing it mid-sequence is allowed: the next message opens a fresh one rather than
         // updating a dialog that is no longer on screen.
         alert.setOnHidden(e -> {
@@ -3340,36 +3341,9 @@ public final class TerminalWindow {
         MenuRows.alignChords(menu.getItems());
     }
 
-    /**
-     * A bar row's glyph, the right-click menus' for the same command, or null for an empty column.
-     * Never drawn on the macOS screen menu bar.
-     */
+    /** A bar row's glyph, or null for an empty column. Never drawn on the macOS screen menu bar. */
     private static javafx.scene.@Nullable Node barIcon(@Nullable String id) {
-        if (id == null) return null;
-        return switch (id) {
-            case "newTab" -> MenuIcons.newTab();
-            case "newWindow" -> MenuIcons.newWindow();
-            case "closeTab" -> MenuIcons.close();
-            case "closeOtherTabs" -> MenuIcons.closeOthers();
-            case "closeTabsToTheLeft" -> MenuIcons.closeLeft();
-            case "closeTabsToTheRight" -> MenuIcons.closeRight();
-            case "settings" -> MenuIcons.settings();
-            case "syncNow" -> MenuIcons.sync();
-            case "configureProfiles" -> MenuIcons.profiles();
-            case "copy" -> MenuIcons.copy();
-            case "paste" -> MenuIcons.paste();
-            case "selectAll" -> MenuIcons.selectAll();
-            case "clearScrollback" -> MenuIcons.clear();
-            case "find" -> MenuIcons.search();
-            case "commandPalette" -> MenuIcons.commandPalette();
-            case "moveTabLeft" -> MenuIcons.arrowLeft();
-            case "moveTabRight" -> MenuIcons.arrowRight();
-            case "renameTab" -> MenuIcons.rename();
-            case "duplicateTab" -> MenuIcons.duplicate();
-            case "pinTab" -> MenuIcons.pin();
-            case "about" -> MenuIcons.about();
-            default -> null;
-        };
+        return MenuIcons.forCommand(id);
     }
 
     /**
@@ -3741,7 +3715,7 @@ public final class TerminalWindow {
             dialog.setTitle(title);
             dialog.setHeaderText(title);
             dialog.setContentText(detail.isBlank() ? null : detail);
-            Confirm.style(dialog.getDialogPane());
+            Confirm.prompt(dialog, tr("dialog.set"));
             return dialog.showAndWait().orElse(null);
         }
 
@@ -3877,6 +3851,7 @@ public final class TerminalWindow {
         alert.initOwner(stage);
         alert.setTitle(com.termina.AppInfo.NAME);
         alert.setHeaderText(tr("dialog.shellFailed"));
+        Confirm.style(alert.getDialogPane());
         // The command, not only pty4j's "Exec_tty error:Unknown reason": the overwhelmingly common
         // cause is a path that names nothing, and the message has to show the path to be acted on.
         String detail = tr("dialog.shellFailedDetail", commandLineOf(options), String.valueOf(e.getMessage()));

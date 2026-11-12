@@ -173,6 +173,8 @@ final class ConfigTransfer {
                         () -> button.setDisable(boxes.values().stream().noneMatch(CheckBox::isSelected));
                 boxes.values().forEach(box -> box.selectedProperty().addListener((o, was, is) -> refresh.run()));
             }
+            // It replaces what the user has, so Enter keeps it (CONF-13, Pauta 6.0.1).
+            Confirm.cancelIsDefault(alert.getDialogPane(), go, cancel);
             Confirm.style(alert.getDialogPane());
             return new PartsDialog(alert, go, boxes);
         }

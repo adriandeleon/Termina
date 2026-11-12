@@ -552,17 +552,25 @@ class SettingsTest {
     }
 
     @Test
-    void devUsesItsOwnFolderAndAnExplicitFolderStillWins() {
-        // SET-07 (Pauta 2.0.2): --config-dir, then TERMINA_CONFIG_DIR, then the standard folder.
-        Path explicit = Settings.defaultFile("/tmp/x", true);
-        assertEquals(Path.of("/tmp/x", Settings.SETTINGS_FILE), explicit);
-        if (System.getenv("TERMINA_CONFIG_DIR") == null) {
-            assertEquals(
-                    Path.of(System.getProperty("user.home"), ".termina-dev", Settings.SETTINGS_FILE),
-                    Settings.defaultFile("", true));
-            assertEquals(
-                    Path.of(System.getProperty("user.home"), ".termina", Settings.SETTINGS_FILE),
-                    Settings.defaultFile("", false));
-        }
+    void configDirThenDevThenTheVariableThenTheDefault() {
+        // SET-07 (Pauta 6.0.1): a flag wins over the variable, and --config-dir over --dev.
+        Path home = Path.of("/home/someone");
+        String h = home.toString();
+        assertEquals(Path.of("/tmp/x"), Settings.configDir("/tmp/x", true, "/tmp/env", h));
+        assertEquals(Path.of("/tmp/x"), Settings.configDir(" /tmp/x ", false, "/tmp/env", h));
+        assertEquals(home.resolve(".termina-dev"), Settings.configDir("", true, "/tmp/env", h));
+        assertEquals(home.resolve(".termina-dev"), Settings.configDir(null, true, null, h));
+        assertEquals(Path.of("/tmp/env"), Settings.configDir("", false, "/tmp/env", h));
+        assertEquals(home.resolve(".termina"), Settings.configDir("", false, null, h));
+        assertEquals(home.resolve(".termina"), Settings.configDir("", false, " ", h));
+    }
+
+    @Test
+    void theSettingsFileIsInTheFolderTheFlagsName() {
+        assertEquals(Path.of("/tmp/x", Settings.SETTINGS_FILE), Settings.defaultFile("/tmp/x", true));
+        // Whatever the environment says: --dev is ahead of the variable.
+        assertEquals(
+                Path.of(System.getProperty("user.home"), ".termina-dev", Settings.SETTINGS_FILE),
+                Settings.defaultFile("", true));
     }
 }

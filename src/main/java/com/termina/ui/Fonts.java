@@ -93,7 +93,10 @@ public final class Fonts {
      */
     public static void installUiFont(javafx.scene.Scene scene) {
         var css = Fonts.class.getResource("/com/termina/styles/ui-font.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        // Once: the window list's listener comes by every time a window is shown.
+        if (css != null && !scene.getStylesheets().contains(css.toExternalForm())) {
+            scene.getStylesheets().add(css.toExternalForm());
+        }
     }
 
     /**

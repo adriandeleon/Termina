@@ -105,7 +105,7 @@ final class ReportProblemWindow {
 
     private void openIssue() {
         copyToClipboard();
-        ProblemReport.Link link = edited().link(AppInfo.GITHUB_REPO);
+        ProblemReport.Link link = edited().link(AppInfo.GITHUB_REPO, tr("report.pasteHint"));
         openLink.accept(link.url());
         status.setText(link.pasteReport() ? tr("report.paste") : tr("report.opened"));
     }

@@ -103,6 +103,7 @@ public final class WindowManager {
                 for (Window added : change.getAddedSubList()) {
                     if (scheme == null) scheme = Themes.byId(settings.themeId()).colorScheme();
                     applyColorScheme(added, scheme);
+                    installUiFont(added);
                 }
             }
         });
@@ -124,6 +125,23 @@ public final class WindowManager {
         }
         scene.getPreferences().setColorScheme(scheme);
     }
+
+    /**
+     * The interface font on a window's scene, whoever built the window (ICON-01, Pauta 6.0.1): an
+     * alert or a prompt is a scene of its own and would otherwise draw in the platform's face. A
+     * popup takes its owner's scene stylesheets when JavaFX shows it, and needs none.
+     */
+    private static void installUiFont(Window window) {
+        if (window instanceof javafx.stage.PopupWindow) return;
+        if (window.getScene() != null) Fonts.installUiFont(window.getScene());
+        // Once per window: it joins the list each time it is shown.
+        if (window.getProperties().putIfAbsent(UI_FONT_HOOKED, Boolean.TRUE) != null) return;
+        window.sceneProperty().addListener((o, was, scene) -> {
+            if (scene != null) Fonts.installUiFont(scene);
+        });
+    }
+
+    private static final Object UI_FONT_HOOKED = new Object();
 
     private boolean anyWindowFocused() {
         for (TerminalWindow window : windows) {
@@ -574,6 +592,11 @@ public final class WindowManager {
     }
 
     /** The settings window, made on first use. */
+    /** The settings window, made if need be: for the test that presses its buttons. */
+    SettingsWindow settingsWindowForTest() {
+        return settingsWindow();
+    }
+
     private SettingsWindow settingsWindow() {
         SettingsWindow window = settingsWindow;
         if (window == null) {
@@ -583,6 +606,7 @@ public final class WindowManager {
                     profiles,
                     windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
                     sync);
+            window.openDebugLogWith(this::showDebugLog);
         }
         return window;
     }

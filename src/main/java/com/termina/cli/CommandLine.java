@@ -68,6 +68,14 @@ public record CommandLine(
                 break;
             }
 
+            // What a launcher can leave among the program's arguments is skipped with its value,
+            // never refused (CLI-12, Pauta 6.0.1).
+            int launcherOption = launcherOptionWidth(arg);
+            if (launcherOption > 0) {
+                i += launcherOption - 1;
+                continue;
+            }
+
             switch (arg) {
                 case "-h", "--help" -> help = true;
                 case "-v", "-V", "--version" -> version = true;
@@ -116,6 +124,19 @@ public record CommandLine(
                 null);
     }
 
+    /**
+     * How many arguments a JVM option left by the launcher takes up: 2 for {@code --add-exports},
+     * {@code --add-opens} and {@code -p} followed by their value, 1 for the two long ones with the
+     * value after {@code =}, 0 for anything else. By name, so a mistyped option of ours is still
+     * refused.
+     */
+    static int launcherOptionWidth(String arg) {
+        return switch (arg) {
+            case "--add-exports", "--add-opens", "-p" -> 2;
+            default -> arg.startsWith("--add-exports=") || arg.startsWith("--add-opens=") ? 1 : 0;
+        };
+    }
+
     private static String value(String arg) {
         return arg.substring(arg.indexOf('=') + 1);
     }
@@ -134,9 +155,9 @@ public record CommandLine(
                 Options:
                   -h, --help                     Show this help and exit
                   -v, --version                  Show the version and exit
-                      --report                   Print a problem report, open a GitHub issue for it, and exit
-      --new-instance             Start a Termina of its own, not a window in the running one
-      --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
+                      --report                   Write a problem report to a file, open a GitHub issue for it, and exit
+                      --new-instance             Start a Termina of its own, not a window in the running one
+                      --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
                   -d, --working-directory=DIR    Start the shell in DIR
                   -T, --title=TITLE              Name the first tab TITLE
                   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -115,6 +116,57 @@ class SecondaryWindowsFxTest {
         });
         assertTrue(pressed >= 8, "buttons and links pressed: " + pressed);
         assertTrue(!links.isEmpty(), "a link went to the opener, not a browser");
+        // ABOUT-02 (Pauta 6.0.1): the home page, and the source and releases, with no update to show.
+        assertTrue(links.contains(com.termina.AppInfo.HOMEPAGE), links::toString);
+        assertTrue(links.contains(com.termina.AppInfo.RELEASES_PAGE), links::toString);
+    }
+
+    @Test
+    void settingsOpensTheApplicationsDebugLogWithReportAProblemOnIt() throws Exception {
+        // DIAG-03 (Pauta 6.0.1): the Advanced page's button once built a log window of its own,
+        // with four of the five actions.
+        Settings settings = new Settings(dir.resolve("settings.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        List<List<String>> logs = onFx(() -> {
+            java.util.Set<Window> before = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            before.addAll(Window.getWindows());
+            WindowManager windows = new WindowManager(settings);
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 400, 300));
+            owner.show();
+            windows.showSettings(owner);
+            for (Node page : windows.settingsWindowForTest().pagesForTest()) {
+                for (Button button : find(page, Button.class)) {
+                    if (Messages.tr("settings.debugLog.button").equals(button.getText())) button.fire();
+                }
+            }
+            // The command's way in, after the button's: the same window, not a second one.
+            windows.showDebugLog(owner);
+            List<List<String>> found = new ArrayList<>();
+            for (Window window : List.copyOf(Window.getWindows())) {
+                if (before.contains(window) || !(window instanceof Stage stage)) continue;
+                if (stage.isShowing() && Messages.tr("debuglog.title").equals(stage.getTitle())) {
+                    List<String> buttons = new ArrayList<>();
+                    for (Button button : find(stage.getScene().getRoot(), Button.class)) buttons.add(button.getText());
+                    found.add(buttons);
+                }
+            }
+            for (Window window : List.copyOf(Window.getWindows())) {
+                if (!before.contains(window) && window.isShowing()) window.hide();
+            }
+            return found;
+        });
+        assertEquals(1, logs.size(), "one Debug Log window: " + logs);
+        assertTrue(
+                logs.get(0)
+                        .containsAll(List.of(
+                                Messages.tr("debuglog.refresh"),
+                                Messages.tr("debuglog.copy"),
+                                Messages.tr("debuglog.clear"),
+                                Messages.tr("debuglog.export"),
+                                Messages.tr("menu.reportProblem"))),
+                logs::toString);
     }
 
     private static <T extends Node> List<T> find(Node node, Class<T> type) {

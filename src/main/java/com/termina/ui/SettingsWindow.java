@@ -1977,10 +1977,7 @@ public final class SettingsWindow {
 
         VBox diagnostics = section(page, tr("settings.section.diagnostics"));
         Button showDebugLog = new Button(tr("settings.debugLog.button"));
-        showDebugLog.setOnAction(e -> {
-            if (debugLog == null) debugLog = new DebugLogWindow(stage);
-            debugLog.show();
-        });
+        showDebugLog.setOnAction(e -> showDebugLog());
         row(
                 Category.ADVANCED,
                 diagnostics,
@@ -1990,8 +1987,30 @@ public final class SettingsWindow {
                 "debug log diagnostics errors warnings crash trace troubleshoot");
     }
 
-    /** Built on first use: most sessions never open it. */
-    private DebugLogWindow debugLog;
+    /** Opens the application's Debug Log; null where no window manager made this window. */
+    private java.util.function.@Nullable Consumer<javafx.stage.Window> debugLogOpener;
+
+    /**
+     * How this page's button opens the Debug Log: the application's one window, the one the
+     * {@code debugLog} command opens, with Report a Problem on it (DIAG-03, Pauta 6.0.1).
+     */
+    void openDebugLogWith(java.util.function.Consumer<javafx.stage.Window> opener) {
+        this.debugLogOpener = opener;
+    }
+
+    private void showDebugLog() {
+        if (debugLogOpener != null) {
+            debugLogOpener.accept(stage);
+            return;
+        }
+        // No application around this window (a test): a log window of its own, which has nowhere
+        // to send a report from.
+        if (debugLog == null) debugLog = new DebugLogWindow(stage);
+        debugLog.show();
+    }
+
+    /** Built on first use, and only without an opener. */
+    private @Nullable DebugLogWindow debugLog;
 
     // ---------------------------------------------------------------- sync
 
@@ -2210,6 +2229,7 @@ public final class SettingsWindow {
         ask.setTitle(tr("settings.cat.sync"));
         ask.setHeaderText(tr("dialog.sync.createGithub.header"));
         ask.setContentText(tr("dialog.sync.createGithub.name"));
+        Confirm.prompt(ask, tr("dialog.create"));
         String name = ask.showAndWait().map(String::strip).orElse("");
         if (name.isEmpty()) return;
         if (!com.termina.sync.GitHubRepo.isName(name)) {

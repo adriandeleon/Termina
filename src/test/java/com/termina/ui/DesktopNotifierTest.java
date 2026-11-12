@@ -3,6 +3,7 @@ package com.termina.ui;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -68,5 +69,29 @@ class DesktopNotifierTest {
         String script = new String(Base64.getDecoder().decode(command.argv().getLast()), UTF_16LE);
         assertFalse(script.contains("rm -rf"));
         assertTrue(script.contains("$env:" + DesktopNotifier.TITLE_VARIABLE));
+    }
+
+    @Test
+    void everyWayANotificationFailsHasSomethingToLog() throws Exception {
+        // TRAY-09 (Pauta 6.0.1): no tool, the timeout and a status that is not zero are each said.
+        assertNull(DesktopNotifier.failure(true, true, 0));
+        assertEquals("no notify-send or gdbus to post it with", DesktopNotifier.failure(false, false, 0));
+        assertEquals("the tool exited with status 3", DesktopNotifier.failure(true, true, 3));
+        assertEquals(
+                "the tool did not answer in " + DesktopNotifier.TIMEOUT_SECONDS + " s and was stopped",
+                DesktopNotifier.failure(true, false, 0));
+        org.junit.jupiter.api.Assertions.assertTrue(DesktopNotifier.TIMEOUT_SECONDS <= 10);
+        // No command at all is the first of them, with nothing run.
+        assertEquals("no notify-send or gdbus to post it with", DesktopNotifier.run(null));
+    }
+
+    @Test
+    void aToolThatExitsWithAnErrorIsReported() throws Exception {
+        // This JVM is a program that is always there, and one that exits 1 for an option it lacks.
+        String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        assertEquals(
+                "the tool exited with status 1",
+                DesktopNotifier.run(new DesktopNotifier.Command(List.of(java, "--no-such-option"), Map.of())));
+        assertNull(DesktopNotifier.run(new DesktopNotifier.Command(List.of(java, "--version"), Map.of())));
     }
 }

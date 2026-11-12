@@ -117,7 +117,7 @@ termina [options] [-e command [args...]]
 
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
-      --report                   Print a problem report, open a GitHub issue for it, and exit
+      --report                   Write a problem report to a file, open a GitHub issue for it, and exit
       --new-instance             Start a Termina of its own, not a window in the running one
       --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
   -d, --working-directory=DIR    Start the shell in DIR
@@ -132,8 +132,8 @@ running one. More on the [website](https://termina-project.dev/docs/command-line
 
 ## Configuration
 
-Settings live in `~/.termina` (`~/.termina-dev` with `--dev`; `--config-dir` or
-`TERMINA_CONFIG_DIR` to choose another): `settings.json` for preferences and key bindings,
+Settings live in `~/.termina` (`~/.termina-dev` with `--dev`; `--config-dir`, or
+`TERMINA_CONFIG_DIR` where neither is given, to choose another): `settings.json` for preferences and key bindings,
 `workspace-state.json` for window places, and `themes/` for imported colour schemes. The files are
 meant to be readable and hand-edited — one flat key per line, values clamped as they are read — and
 Settings ▸ Advanced exports and imports the whole folder as a `.zip`.

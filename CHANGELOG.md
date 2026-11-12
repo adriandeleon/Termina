@@ -14,7 +14,8 @@ done.
 ### Added
 
 - **`--dev`** keeps a separate set of settings in `~/.termina-dev`, so a build being tried out never
-  touches the ones in daily use. `--config-dir` and `TERMINA_CONFIG_DIR` still take precedence.
+  touches the ones in daily use. `--config-dir` still takes precedence, and `--dev` wins over
+  `TERMINA_CONFIG_DIR`: what is typed on the command line is the more specific instruction.
 - **The Debug Log can be exported** to a file, and the previous session's log is kept beside this
   one's as `termina-session.prev.log`.
 - **Help ▸ Documentation and Help ▸ What's New** open the user documentation and this version's
@@ -34,8 +35,10 @@ done.
   the session — version, Java, OS, the settings worth knowing, the end of the Debug Log — with your
   home folder, user name, addresses, credentials and tokens taken out. It is shown for you to read
   and edit, copied to the clipboard, and opened as a GitHub issue with the bug form filled in;
-  nothing is sent until you submit it. `termina --report` does the same without the window, from
-  the last session's log.
+  nothing is sent until you submit it. A report too long for the link leaves a note in the issue's
+  report field saying to paste it. `termina --report` does the same without the window, from the
+  last session's log: it writes the report to a file in the current folder (the temp folder where
+  that one cannot be written), prints the file's path and opens the issue.
 - **An optional status bar, and a Message Log.** Settings ▸ Appearance or View ▸ Show Status Bar
   turns on a row under the terminal that says what the last command reported: red for an error,
   amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
@@ -56,12 +59,24 @@ done.
 - **About names the Pauta edition Termina is built to, and what it runs on.** A "Built to Pauta
   2.0.2" link to that edition's guidelines, the Java and JavaFX versions, and a Copy details button
   that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
-  JavaFX, OS) for a bug report.
+  JavaFX, OS) for a bug report. A "Source code and releases" link is always there, not only when
+  an update is.
 - **About and `--version` name the commit a build came from**, with `-dirty` for a build from
   uncommitted changes. A build from a source archive, with no repository, names none.
 
 ### Changed
 
+- **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
+  a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
+  default button, and the red action runs only from itself: a click, or Tab to it and Space.
+- **Settings ▸ Advanced opens the same Debug Log as Help ▸ Debug Log**, with Report a Problem on it.
+  It used to open a second window that lacked the button.
+- **Every prompt's buttons are in Termina's language**: Rename Tab's Cancel, and both buttons where
+  a command asks for a setting's value or Settings asks for a repository's name, were JavaFX's own,
+  worded in the system's language.
+- **Configure Profiles has one icon.** Its row under the new-tab chevron wore the Settings gear.
+- **`--add-exports`, `--add-opens` and `-p` on the command line are skipped with their values**, not
+  refused as unknown options: a launcher can leave them among the program's arguments.
 - **Nothing that touches the disk or the process table runs on the window's thread any more**, so a
   slow disk or a hung network mount cannot freeze the window. A new tab appears at once and its
   shell a moment later; the close prompt, the scrollback search and the check behind a hovered
@@ -178,6 +193,12 @@ done.
 
 ### Fixed
 
+- **A desktop notification that could not be shown says why in the Debug Log**: no `notify-send` or
+  `gdbus` to post it with, a tool that did not answer in five seconds, or one that exited with an
+  error. Only an exception was logged.
+- **The rename prompt, the shell-failure message and two more dialogs draw in the interface font.**
+  They were in the platform's.
+- **`--help` lines up.** The `--new-instance` and `--dev` rows sat ten columns left of the rest.
 - **A click that closes the terminal's right-click menu now also acts.** It was swallowed, so
   closing the menu cost a click; a right-click elsewhere now reopens the menu there.
 - **About no longer says "You are up to date" when nothing has checked.** It said so whenever no

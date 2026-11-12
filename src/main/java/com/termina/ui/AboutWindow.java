@@ -124,7 +124,14 @@ public final class AboutWindow {
 
         Hyperlink homepage = new Hyperlink(AppInfo.HOMEPAGE);
         homepage.setOnAction(e -> openLink.accept(AppInfo.HOMEPAGE));
-        HBox links = new HBox(4, homepage);
+        // Always there, whatever the update check said: the repository's releases page is where
+        // its source is too (ABOUT-02, Pauta 6.0.1). The link in the update row is the new
+        // version's, and shows only when there is one.
+        Hyperlink source = new Hyperlink(tr("about.source"));
+        source.setOnAction(e -> openLink.accept(AppInfo.RELEASES_PAGE));
+        // A flow, not a row: three links are wider than the window in most languages, and a row
+        // would cut each short with an ellipsis.
+        javafx.scene.layout.FlowPane links = new javafx.scene.layout.FlowPane(4, 0, homepage, source);
         links.setAlignment(Pos.CENTER_LEFT);
         // The numbered edition's page, never latest/: a newer edition may hold rules this build
         // does not meet. Absent from an unfiltered build rather than linking nowhere.
