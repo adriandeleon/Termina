@@ -25,6 +25,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -222,6 +223,75 @@ class MenusFxTest {
             }
             return null;
         }));
+
+        // FIND-16, TBAR-03 (Pauta 6.0.1): the find bar's switch is out of the Tab order, so a
+        // command flips it, opening the bar; and the bar's buttons are named for their commands,
+        // with the chords in force, following a chord moved while the bar is open.
+        TerminalView view = onFx(window::activeTerminal);
+        assertEquals(List.of(), onFx(view::searchTooltipsForTest), "no bar yet");
+        onFx(() -> {
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if ("findRegex".equals(row.id())) row.action().run();
+            }
+            return null;
+        });
+        assertTrue(onFx(view::searchIsRegex), "the command opened the bar with the switch on");
+        List<String> tips = onFx(view::searchTooltipsForTest);
+        assertEquals(
+                List.of(
+                        IconNames.withChord(Messages.tr("menu.findNext"), Keymap.defaultFor("findNext")),
+                        IconNames.withChord(Messages.tr("menu.findPrevious"), Keymap.defaultFor("findPrevious")),
+                        Messages.tr("menu.findRegex")),
+                tips);
+        assertTrue(tips.get(0).contains("("), "Find Next has a chord to show: " + tips);
+        onFx(() -> {
+            settings.replaceKeyBindings(java.util.Map.of("findRegex", "Alt+Shift+R"));
+            return null;
+        });
+        String moved = onFx(() -> view.searchTooltipsForTest().get(2));
+        assertEquals(
+                IconNames.withChord(
+                        Messages.tr("menu.findRegex"), javafx.scene.input.KeyCombination.valueOf("Alt+Shift+R")),
+                moved);
+        onFx(() -> {
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if ("findRegex".equals(row.id())) row.action().run();
+            }
+            return null;
+        });
+        assertFalse(onFx(view::searchIsRegex), "and off again");
+
+        // MENU-07 (Pauta 6.0.1): a press on the tab strip closes the tab's right-click menu, which
+        // JavaFX's own auto-hide leaves up because the strip is what it was opened on.
+        List<Boolean> menu = onFx(() -> {
+            Tab tab = window.tabsForTest().get(0);
+            javafx.scene.control.ContextMenu tabMenu = tab.getContextMenu();
+            tabMenu.show(tab.getTabPane(), 40, 40);
+            boolean shown = tabMenu.isShowing();
+            javafx.event.Event.fireEvent(
+                    tab.getTabPane(),
+                    new javafx.scene.input.MouseEvent(
+                            javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+                            200,
+                            10,
+                            200,
+                            10,
+                            javafx.scene.input.MouseButton.PRIMARY,
+                            1,
+                            false,
+                            false,
+                            false,
+                            false,
+                            true,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            null));
+            return List.of(shown, tabMenu.isShowing());
+        });
+        assertEquals(List.of(true, false), menu, "shown, then closed by the press");
     }
 
     @Test
@@ -237,9 +307,8 @@ class MenusFxTest {
 
         List<String> mismatches = onFx(() -> {
             List<String> out = new ArrayList<>();
-            List<MenuBarModel.Menu> model = MenuBarModel.menus(
-                    WindowRules.showsZoomRow(TerminalWindow.SYSTEM_MENU_BAR),
-                    WindowRules.offersMenuBarToggle(TerminalWindow.SYSTEM_MENU_BAR));
+            List<MenuBarModel.Menu> model =
+                    MenuBarModel.menus(WindowRules.showsZoomRow(TerminalWindow.SYSTEM_MENU_BAR));
             List<Menu> bar = window.menuBarForTest().getMenus();
             assertEquals(model.size(), bar.size());
             Set<String> commands = new java.util.HashSet<>();

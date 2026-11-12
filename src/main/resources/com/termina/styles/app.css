@@ -671,6 +671,13 @@
 .status-bar .status-echo.state-error { -fx-text-fill: -state-red; }
 .status-bar .status-echo.state-warning { -fx-text-fill: -state-amber; }
 
+/* The link to a newer version's release (DIAG-09): the bar's size, no padding of its own. */
+.status-bar .status-update {
+    -fx-font-size: 0.85em;
+    -fx-padding: 0;
+    -fx-border-width: 0;
+}
+
 .status-bar .status-unread {
     -fx-font-size: 0.85em;
     -fx-font-weight: bold;

@@ -2295,14 +2295,18 @@ public final class TerminalView extends Region {
      * setting the View menu does.
      *
      * <p>Both halves in one call so they cannot be wired half-way — a checkbox that toggles but
-     * never reflects, or reflects but never toggles, looks like it works. Left unwired the item is
-     * omitted entirely, which is how macOS gets no entry: the menus are in the screen menu bar and
-     * there is nothing in the window to show or hide.
+     * never reflects, or reflects but never toggles, looks like it works.
+     *
+     * @param available false where there is no bar in the window to show or hide, macOS's screen
+     *     menu bar: the row is then in the menu all the same, disabled (OS-01, Pauta 6.0.1)
      */
-    public void setMenuBarToggle(BooleanSupplier shown, Runnable toggle) {
+    public void setMenuBarToggle(BooleanSupplier shown, Runnable toggle, boolean available) {
         this.menuBarShown = shown;
         this.onToggleMenuBar = toggle;
+        this.menuBarToggleAvailable = available;
     }
+
+    private boolean menuBarToggleAvailable = true;
 
     /**
      * Decides between the context menu and the running program.
@@ -2517,6 +2521,7 @@ public final class TerminalView extends Region {
             // draws its tick in the graphic column, and an icon there either fights it or hides it.
             menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
             menuBarItem.setOnAction(e -> toggleMenuBar.run());
+            menuBarItem.setDisable(!menuBarToggleAvailable);
             items.add(new SeparatorMenuItem());
             items.add(menuBarItem);
         }
@@ -2528,7 +2533,7 @@ public final class TerminalView extends Region {
         items.add(
                 item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> runCommand.accept("about")));
 
-        ContextMenu menu = OneMenu.install(new ContextMenu(items.toArray(MenuItem[]::new)));
+        ContextMenu menu = OneMenu.installRightClick(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);
         return new ContextItems(menu, openLinkItem, copyLinkItem, linkSeparator, copyItem, pasteItem, menuBarItem);
     }
@@ -3547,6 +3552,19 @@ public final class TerminalView extends Region {
         chordLookup = lookup;
     }
 
+    /** The find bar's tooltips again, after the key bindings changed under an open bar (TBAR-03). */
+    void refreshChordTooltips() {
+        if (searchBar != null) searchBar.showChords(chordLookup);
+    }
+
+    /** The find bar's tooltips, older, newer, regular expression: for tests; empty before it opens. */
+    java.util.List<String> searchTooltipsForTest() {
+        if (searchBar == null) return java.util.List.of();
+        java.util.List<String> tips = new java.util.ArrayList<>(searchBar.arrowTooltips());
+        tips.add(searchBar.regexTooltip());
+        return tips;
+    }
+
     /**
      * Opens the find bar, or puts the caret back in it.
      *
@@ -3609,6 +3627,20 @@ public final class TerminalView extends Region {
     /** Whether the find bar's field has the keyboard — the one case the focus guard must leave alone. */
     public boolean searchHasFocus() {
         return searchOpen && searchBar != null && searchBar.fieldIsFocused();
+    }
+
+    /**
+     * Flips the find bar's regular-expression switch, opening the bar first if it is closed: the
+     * keyboard's way to a switch that is out of the Tab order (FIND-16, KBD-15, Pauta 6.0.1).
+     */
+    public void toggleSearchRegex() {
+        if (!searchOpen) showSearch();
+        if (searchBar != null) searchBar.toggleRegex();
+    }
+
+    /** Whether the find bar is open with its regular-expression switch on. */
+    public boolean searchIsRegex() {
+        return searchOpen && searchBar != null && searchBar.isRegex();
     }
 
     /** Steps to the next match, opening the bar first if it is closed — what Find Next does. */

@@ -359,7 +359,8 @@ something recent, so the search starts at the newest match and works backwards, 
 and a short selection becomes the query.
 
 Case is smart: all lower case matches either case, a capital makes it exact. `.*` switches to a
-regular expression; one that does not compile yet says so instead of reporting no matches. A word
+regular expression, as does the Toggle Regular Expression command from the palette or a chord of
+your own; one that does not compile yet says so instead of reporting no matches. A word
 that wrapped at the right edge is found as one word, double-width characters match without their
 placeholder cells, and the count stops at 1000.
 

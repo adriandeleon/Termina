@@ -405,6 +405,24 @@ public final class WindowManager {
         if (!manual) messages.add(MessageLog.Severity.INFO, tr("status.updateAvailable", latest.version()));
     }
 
+    /**
+     * A newer version, as the update check would report it at startup, for the capture hook
+     * ({@code -Dtermina.captureUpdateAvailable=99.0.0}): the Help menu's row and the status bar's
+     * link to the release (DIAG-09) are otherwise only seen on the day a release comes out.
+     */
+    public void announceUpdateForCapture(String version) {
+        onUpdateOutcome(
+                new com.termina.update.UpdateService.Outcome(
+                        true,
+                        new com.termina.update.ReleaseInfo(
+                                version,
+                                com.termina.AppInfo.RELEASES_PAGE + "/tag/v" + version,
+                                com.termina.AppInfo.NAME + " " + version),
+                        null,
+                        null),
+                false);
+    }
+
     MessageLog messages() {
         return messages;
     }

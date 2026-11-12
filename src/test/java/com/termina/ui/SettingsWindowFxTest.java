@@ -99,6 +99,113 @@ class SettingsWindowFxTest {
         assertEquals(settings.confirmClose(), reread.confirmClose());
     }
 
+    /**
+     * SET-04 (Pauta 6.0.1): a text field commits on Enter, and a value that fails its check is
+     * marked and not written: the sync repository and branch, which only Connect used to store,
+     * and the shell path, which used to be stored whatever it named.
+     */
+    @Test
+    void aTextFieldCommitsOnEnterAndOnlyAValueThatPasses() throws Exception {
+        Settings settings = new Settings(dir.resolve("settings.json"));
+        settings.load();
+        ShellProfiles profiles = new ShellProfiles(settings, "System shell");
+        List<Keybindings.Command> commands =
+                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+        Path shell = java.nio.file.Files.writeString(dir.resolve("a-shell"), "#!/bin/sh\n");
+        assertTrue(shell.toFile().setExecutable(true));
+
+        List<String> stored = onFx(() -> {
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 400, 300));
+            owner.show();
+            SettingsWindow window = new SettingsWindow(settings, profiles, commands, null);
+            window.show(owner);
+            TextField repository = field(window, com.termina.i18n.Messages.tr("settings.sync.repository.prompt"));
+            TextField branch = field(window, Settings.DEFAULT_SYNC_BRANCH);
+            TextField shellField = field(window, com.termina.i18n.Messages.tr("settings.shell.prompt"));
+            List<String> out = new ArrayList<>();
+
+            enter(repository, "git@github.com:me/settings.git");
+            out.add(settings.syncRepository());
+            enter(repository, "https://me:secret@github.com/me/settings.git");
+            out.add(settings.syncRepository());
+            enter(repository, "--upload-pack=evil");
+            out.add(settings.syncRepository());
+
+            enter(repository, "git@github.com:me/settings.git");
+            enter(branch, "trunk");
+            out.add(settings.syncBranch());
+            enter(branch, "-trunk");
+            out.add(settings.syncBranch());
+
+            // With the branch still marked, nothing is written; put right, an empty address is.
+            enter(repository, "");
+            out.add(settings.syncRepository());
+            enter(branch, "trunk");
+            out.add(settings.syncRepository());
+
+            enter(shellField, shell.toString());
+            out.add(settings.shell());
+            enter(shellField, dir.resolve("no-such-shell").toString());
+            out.add(settings.shell());
+            enter(shellField, "");
+            out.add(settings.shell());
+
+            // A profile's command and directory, the same: marked, and the profile keeps its own.
+            for (Region page : window.pagesForTest()) {
+                for (javafx.scene.control.Button button : find(page, javafx.scene.control.Button.class)) {
+                    if (com.termina.i18n.Messages.tr("settings.profileAdd").equals(button.getText())) button.fire();
+                }
+            }
+            TextField command = field(window, "wsl.exe -d Ubuntu");
+            TextField directory = field(window, com.termina.i18n.Messages.tr("settings.profileDirectory.prompt"));
+            enter(command, shell + " --login");
+            out.add(profiles.userProfiles().get(0).commandLine());
+            enter(command, dir.resolve("no-such-program") + " --login");
+            out.add(profiles.userProfiles().get(0).commandLine());
+            enter(command, shell + " --login");
+            enter(directory, dir.toString());
+            out.add(profiles.userProfiles().get(0).workingDirectory());
+            enter(directory, dir.resolve("no-such-folder").toString());
+            out.add(profiles.userProfiles().get(0).workingDirectory());
+            window.scene().getWindow().hide();
+            owner.hide();
+            return out;
+        });
+        assertEquals(
+                List.of(
+                        "git@github.com:me/settings.git",
+                        "git@github.com:me/settings.git",
+                        "git@github.com:me/settings.git",
+                        "trunk",
+                        "trunk",
+                        "git@github.com:me/settings.git",
+                        "",
+                        shell.toString(),
+                        shell.toString(),
+                        "",
+                        shell + " --login",
+                        shell + " --login",
+                        dir.toString(),
+                        dir.toString()),
+                stored);
+        assertFalse(settings.syncEnabled(), "storing the fields connects nothing");
+    }
+
+    private static TextField field(SettingsWindow window, String prompt) {
+        for (Region page : window.pagesForTest()) {
+            for (TextField field : find(page, TextField.class)) {
+                if (prompt.equals(field.getPromptText())) return field;
+            }
+        }
+        throw new AssertionError("no field with the prompt " + prompt);
+    }
+
+    private static void enter(TextField field, String text) {
+        field.setText(text);
+        field.fireEvent(new ActionEvent());
+    }
+
     /** Works every control under {@code node}; counts switches, choices, steppers, sliders, fields. */
     private static void exercise(Node node, int[] counts) {
         if (node instanceof CheckBox box && !box.isDisabled()) {

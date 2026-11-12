@@ -56,6 +56,71 @@ class OneMenuTest {
         assertEquals(List.of(false, true), showing, "one menu: the second, with the first closed");
     }
 
+    /**
+     * MENU-07 (Pauta 6.0.1): a press in the window closes a right-click menu, a press on the node
+     * it was opened on included, and the press still reaches what was pressed.
+     */
+    @Test
+    void aPressOutsideClosesARightClickMenuAndIsNotConsumed() throws Exception {
+        List<Object> result = onFx(() -> {
+            StackPane owner = new StackPane();
+            StackPane root = new StackPane(owner);
+            Stage stage = new Stage();
+            Scene scene = new Scene(root, 300, 200);
+            OneMenu.closeOnOutsidePress(scene);
+            stage.setScene(scene);
+            stage.show();
+            int[] reached = {0};
+            owner.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> reached[0]++);
+
+            ContextMenu tabMenu = OneMenu.installRightClick(new ContextMenu(new MenuItem("Rename Tab")));
+            tabMenu.show(owner, 10, 10);
+            boolean shown = tabMenu.isShowing();
+            javafx.event.Event.fireEvent(owner, press());
+            boolean afterPress = tabMenu.isShowing();
+
+            // A drop-down opened by a plain click keeps the stock behaviour.
+            ContextMenu dropDown = OneMenu.install(new ContextMenu(new MenuItem("Bash")));
+            dropDown.show(owner, 10, 10);
+            javafx.event.Event.fireEvent(owner, press());
+            boolean dropDownStays = dropDown.isShowing();
+            dropDown.hide();
+
+            // A menu that turned auto-hide off is left alone.
+            ContextMenu pinned = OneMenu.installRightClick(new ContextMenu(new MenuItem("Pinned")));
+            pinned.setAutoHide(false);
+            pinned.show(owner, 10, 10);
+            javafx.event.Event.fireEvent(owner, press());
+            boolean pinnedStays = pinned.isShowing();
+            pinned.hide();
+            stage.hide();
+            return List.of(shown, afterPress, dropDownStays, pinnedStays, reached[0]);
+        });
+        assertEquals(List.of(true, false, true, true, 3), result);
+    }
+
+    private static javafx.scene.input.MouseEvent press() {
+        return new javafx.scene.input.MouseEvent(
+                javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+                20,
+                20,
+                20,
+                20,
+                javafx.scene.input.MouseButton.PRIMARY,
+                1,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                null);
+    }
+
     @Test
     void everyContextMenuInTheAppGoesThroughOneMenu() throws IOException {
         // A ContextMenu made without it opens beside whatever is up; the failure is visual and quiet.
@@ -64,7 +129,7 @@ class OneMenuTest {
             for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
                 String text = Files.readString(file);
                 int made = count(text, "new ContextMenu(");
-                int installed = count(text, "OneMenu.install(");
+                int installed = count(text, "OneMenu.install");
                 if (file.getFileName().toString().equals("OneMenu.java")) continue;
                 if (made > installed) bare.add(file + ": " + made + " made, " + installed + " installed");
             }

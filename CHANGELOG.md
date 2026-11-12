@@ -26,6 +26,9 @@ done.
   ticked; window positions and the settings-sync connection stay as they are. Your current
   configuration is copied to `backups/` in the config folder first. A zip that is not an export, or
   that a newer Termina wrote, is refused before anything changes.
+- **Toggle Regular Expression is a command**: in the palette, and bindable on the Keyboard page.
+  It flips the find bar's `.*` switch, opening the bar first if it is closed. The switch could only
+  be clicked.
 - **Open Link and Copy Link Address are commands**, for the link under the pointer: in the palette,
   and bindable on the Keyboard page, as well as on the right-click menu.
 - **One Termina per config folder.** Launching it again opens a new window in the running Termina,
@@ -44,7 +47,8 @@ done.
   amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
   lists everything Termina reported this session, with times, whether the bar is on or not. Help ▸
   Debug Log opens the Debug Log, which was only on the Advanced page. A crash says so in the log
-  too, pointing at the Debug Log.
+  too, pointing at the Debug Log. Once the update check has found a newer version the bar names it
+  in a link that opens its release, until the link is followed.
 - **Pinned tabs.** Pin Tab, in the Window menu, a tab's own menu and the palette, moves a tab to the
   pinned group at the left and marks it with a pin and a bold title. Close Other Tabs and the other
   bulk closes pass over it, and Reopen Closed Tab brings it back pinned. Closing it by itself still
@@ -69,6 +73,19 @@ done.
 - **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
   a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
   default button, and the red action runs only from itself: a click, or Tab to it and Space.
+- **A dialog's buttons are in the same order on every OS**: Cancel to the left of the action.
+  JavaFX orders them by OS, which on Windows put the action first.
+- **Hide Menu Bar is in the menus on macOS too, greyed.** The View menu's row and the terminal's
+  right-click checkbox were left out there, and the command was missing from the palette; they are
+  there now, disabled, and the palette says why: the menus are in the screen menu bar.
+- **The sync repository and branch are saved as they are typed in**, on Enter or when the focus
+  leaves the field, not only by Connect; an address or branch that cannot work is marked and not
+  saved. **A shell path that names nothing, or a file that cannot run, is marked and no longer
+  saved**: the setting keeps the last path that passed. A profile's command and starting directory
+  follow the same rule.
+- **An imported theme's file names its `schemaVersion`**, like the settings file. One a newer
+  Termina wrote is kept as `<name>.properties.v<n>.bak` and not read; a file from before the
+  version reads as it did.
 - **Settings ▸ Advanced opens the same Debug Log as Help ▸ Debug Log**, with Report a Problem on it.
   It used to open a second window that lacked the button.
 - **Every prompt's buttons are in Termina's language**: Rename Tab's Cancel, and both buttons where
@@ -105,8 +122,9 @@ done.
   do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
   current tab's own menu.
 - **About Termina is in the macOS application menu** as well as in Help.
-- **Tooltips name the shortcut in force**: the find bar's arrows and the zoom row's buttons say
-  "Zoom In (Ctrl+=)", and follow a chord moved on the Keyboard page.
+- **Tooltips name the command and the shortcut in force**: the zoom row's buttons say "Zoom In
+  (Ctrl+=)", the find bar's arrows "Find Next" and "Find Previous" and its `.*` switch "Toggle
+  Regular Expression", each with its chord, and they follow a chord moved on the Keyboard page.
 - **Settings search ranks what it finds**: a title above a description above a section heading
   above a keyword, and a whole word above part of one. Section headings and page names are
   searched, and every word typed has to be found.
@@ -199,6 +217,8 @@ done.
 - **The rename prompt, the shell-failure message and two more dialogs draw in the interface font.**
   They were in the platform's.
 - **`--help` lines up.** The `--new-instance` and `--dev` rows sat ten columns left of the rest.
+- **A click on the tab strip closes a tab's right-click menu.** The menu stayed up through a press
+  on the strip it was opened on, and now closes on a press anywhere in the window.
 - **A click that closes the terminal's right-click menu now also acts.** It was swallowed, so
   closing the menu cost a click; a right-click elsewhere now reopens the menu there.
 - **About no longer says "You are up to date" when nothing has checked.** It said so whenever no

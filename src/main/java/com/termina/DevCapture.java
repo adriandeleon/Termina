@@ -115,6 +115,9 @@ final class DevCapture {
             // whole afterCommand wait to land in. The interesting moment is *after* the second
             // report, not during the first.
             checkUpdatesIfRequested(windows, window);
+            // A newer version, as the check would report one: the Help row and the status bar's link.
+            String announced = System.getProperty("termina.captureUpdateAvailable");
+            if (announced != null) windows.announceUpdateForCapture(announced);
             syncNowIfRequested(windows, window);
             if (settings != null) importConfigIfRequested(windows, settings);
             TerminalView terminal = window.activeTerminal();

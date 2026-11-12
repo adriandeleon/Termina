@@ -35,6 +35,8 @@ final class DialogAnswers {
      * @param danger whether a button had the danger style
      * @param cancelIsDefault whether the default button was the cancelling one
      * @param uiFont whether the scene or the pane carried the interface font's stylesheet
+     * @param buttonOrder the button bar's order string
+     * @param cancelLeftmost whether the cancelling button was drawn left of every other
      */
     record Seen(
             String header,
@@ -43,7 +45,9 @@ final class DialogAnswers {
             int defaults,
             boolean danger,
             boolean cancelIsDefault,
-            boolean uiFont) {}
+            boolean uiFont,
+            String buttonOrder,
+            boolean cancelLeftmost) {}
 
     private static final List<Seen> SEEN = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -74,8 +78,29 @@ final class DialogAnswers {
         List<String> sheets = new java.util.ArrayList<>(pane.getStylesheets());
         if (pane.getScene() != null) sheets.addAll(pane.getScene().getStylesheets());
         boolean uiFont = sheets.stream().anyMatch(sheet -> sheet.endsWith("ui-font.css"));
+        // Where the buttons were drawn, which is the skin's doing and what the user sees.
+        pane.applyCss();
+        pane.layout();
+        double cancelX = Double.NaN;
+        double leftmostOther = Double.POSITIVE_INFINITY;
+        for (ButtonType type : pane.getButtonTypes()) {
+            if (!(pane.lookupButton(type) instanceof Button button)) continue;
+            double x = button.localToScene(0, 0).getX();
+            if (type.getButtonData().isCancelButton()) cancelX = x;
+            else leftmostOther = Math.min(leftmostOther, x);
+        }
+        boolean cancelLeftmost = Double.isNaN(cancelX) || cancelX < leftmostOther;
+        String order = pane.lookup(".button-bar") instanceof ButtonBar bar ? bar.getButtonOrder() : "";
         return new Seen(
-                String.valueOf(pane.getHeaderText()), buttons, stock, defaults, danger, cancelIsDefault, uiFont);
+                String.valueOf(pane.getHeaderText()),
+                buttons,
+                stock,
+                defaults,
+                danger,
+                cancelIsDefault,
+                uiFont,
+                order,
+                cancelLeftmost);
     }
 
     private DialogAnswers() {}

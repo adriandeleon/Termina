@@ -95,6 +95,7 @@ class DevCaptureFxTest {
                 "tabs, panes and windows",
                 Map.ofEntries(
                         Map.entry("termina.captureTabs", "2"),
+                        Map.entry("termina.captureUpdateAvailable", "99.0.0"),
                         Map.entry("termina.captureWindows", "1"),
                         Map.entry("termina.capturePanes", "right,down,left,max,max,move,close"),
                         Map.entry("termina.captureCloseAnswer", "close"),

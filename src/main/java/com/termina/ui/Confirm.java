@@ -109,8 +109,19 @@ final class Confirm {
         style(dialog.getDialogPane());
     }
 
-    /** The app's stylesheet and UI font on a dialog of our own, so it matches the windows. */
+    /**
+     * The one order a dialog's buttons are in, on every OS (WIN-11, Pauta 6.0.1): Cancel to the
+     * left of every action, the group at the right. JavaFX's own order follows the OS, which puts
+     * the confirming button left of Cancel on Windows and right of it elsewhere.
+     */
+    static final String BUTTON_ORDER = "L_HE+FBIX_CUNYOA_R";
+
+    /**
+     * The app's stylesheet and UI font on a dialog of our own, so it matches the windows, and its
+     * buttons in {@link #BUTTON_ORDER}. Every dialog the app shows goes through here.
+     */
     static void style(javafx.scene.control.DialogPane pane) {
+        if (pane.lookup(".button-bar") instanceof ButtonBar bar) bar.setButtonOrder(BUTTON_ORDER);
         var css = Confirm.class.getResource("/com/termina/styles/app.css");
         if (css != null && !pane.getStylesheets().contains(css.toExternalForm())) {
             pane.getStylesheets().add(css.toExternalForm());

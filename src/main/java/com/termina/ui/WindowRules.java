@@ -75,15 +75,21 @@ final class WindowRules {
     }
 
     /**
-     * Whether to offer showing and hiding the menu bar at all.
+     * Whether showing and hiding the menu bar can do anything: not under a system menu bar, where
+     * there is nothing in the window to hide.
      *
-     * <p>Two menus ask this — the View menu, for its Hide item, and the right-click menu, for its
-     * checkbox — and they must agree: an app that offers the toggle in one place and not the other
-     * reads as a bug in whichever place you looked first. Under a system menu bar there is nothing
-     * in the window to hide, and an entry that does nothing when clicked is worse than no entry.
+     * <p>The command, its View row and the right-click menu's checkbox are there on every OS all
+     * the same (OS-01, Pauta 6.0.1): where this is false they are disabled, and the command says
+     * why ({@link #menuBarToggleUnavailableKey}), as the Settings row for it always has. Hidden,
+     * they were a command one OS's users could not find and the others' could.
      */
     static boolean offersMenuBarToggle(boolean systemMenuBar) {
         return !systemMenuBar;
+    }
+
+    /** The catalogue key of why the menu bar cannot be hidden here, or null when it can. */
+    static @Nullable String menuBarToggleUnavailableKey(boolean systemMenuBar) {
+        return offersMenuBarToggle(systemMenuBar) ? null : "settings.showMenuBar.mac";
     }
 
     /** Whether the tab strip is worth its row of chrome. */

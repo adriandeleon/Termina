@@ -300,6 +300,8 @@ public final class TerminalWindow {
         restoredWidth = width;
         restoredHeight = height;
         Scene scene = new Scene(overlay, width, height);
+        // A press anywhere in the window closes an open right-click menu (MENU-07, Pauta 6.0.1).
+        OneMenu.closeOnOutsidePress(scene);
         // The last position too, pulled back onto a screen that still exists — a monitor that has
         // gone leaves coordinates that would put the window where nobody can reach its title bar.
         // Another window cascading from this one overrides it afterwards (WindowManager).
@@ -1040,10 +1042,11 @@ public final class TerminalWindow {
         // The command is read at each click rather than captured, so changing it in the settings
         // applies to the next link without every open tab having to be re-wired.
         terminal.setLinkActions(new LinkOpener(windows::openLink, settings::linkOpenCommand, this::reportOpenFailed));
-        // Left unwired under a system menu bar, which is how the item stays out of the menu there.
-        if (WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR)) {
-            terminal.setMenuBarToggle(settings::showMenuBar, () -> settings.setShowMenuBar(!settings.showMenuBar()));
-        }
+        // Wired on every OS; under a system menu bar the row is there and disabled (OS-01).
+        terminal.setMenuBarToggle(
+                settings::showMenuBar,
+                () -> settings.setShowMenuBar(!settings.showMenuBar()),
+                WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR));
         terminal.setOnBellRung(() -> {
             TabMarkState marks = marksOf(tab);
             if (marks != null) marks.apply(TabMarks.onBell(isSelected(tab), marks.mark));
@@ -1577,7 +1580,7 @@ public final class TerminalWindow {
                 new SeparatorMenuItem(),
                 moveLeft,
                 moveRight);
-        OneMenu.install(menu);
+        OneMenu.installRightClick(menu);
         // Recomputed per show: how many tabs there are, and where this one sits, both change long
         // after the menu was built.
         menu.setOnShowing(e -> {
@@ -2779,10 +2782,8 @@ public final class TerminalWindow {
         // below decides what a row does, is called or whether it can run: that is the registry's.
         Map<String, MenuAction> defined = menuCommands();
         boolean zoomRow = WindowRules.showsZoomRow(SYSTEM_MENU_BAR);
-        boolean menuBarToggleShown = WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR);
-        if (menuBarToggleShown) menuBarToggle = defined.get("hideMenuBar");
-        else defined.remove("hideMenuBar");
-        for (MenuBarModel.Menu spec : MenuBarModel.menus(zoomRow, menuBarToggleShown)) {
+        menuBarToggle = defined.get("hideMenuBar");
+        for (MenuBarModel.Menu spec : MenuBarModel.menus(zoomRow)) {
             String title = tr(spec.titleKey());
             Menu menu = new Menu(title);
             for (String row : spec.rows()) {
@@ -2925,6 +2926,9 @@ public final class TerminalWindow {
                 // Cmd+Shift+G on it, where Cmd+H would hide the application.
                 item("menu.findNext", () -> withActiveTerminal(terminal -> terminal.findNext(true))),
                 item("menu.findPrevious", () -> withActiveTerminal(terminal -> terminal.findNext(false))),
+                // No chord by default, and no menu row: the find bar's switch is the row. It is here
+                // so the keyboard can reach a switch that is out of the Tab order (FIND-16).
+                item("menu.findRegex", () -> withActiveTerminal(TerminalView::toggleSearchRegex)),
                 previousPromptAction,
                 nextPromptAction,
                 selectOutputAction,
@@ -2942,7 +2946,14 @@ public final class TerminalWindow {
                 // is showing. The way back is the right-click menu, which carries a checkbox.
                 // Defined everywhere and in a menu only where there is a bar to hide: under a system
                 // menu bar it is in none, and Shift+Cmd+M stays free rather than bound to a no-op.
-                item("menu.hideMenuBar", () -> settings.setShowMenuBar(!settings.showMenuBar())),
+                // Registered on every OS and unavailable, with its reason, under a system menu
+                // bar (OS-01, Pauta 6.0.1); a chord runs a command whatever the registry says of
+                // it, so the action checks too.
+                item("menu.hideMenuBar", () -> {
+                    if (WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR)) {
+                        settings.setShowMenuBar(!settings.showMenuBar());
+                    }
+                }),
                 statusBarAction,
                 // Listed in the palette like any other command (PAL-02, Pauta 2.0.2).
                 paletteAction,
@@ -3161,6 +3172,19 @@ public final class TerminalWindow {
      */
     private void refreshUpdateItem() {
         for (MenuItem item : itemsFor("checkForUpdates")) MenuRows.setTitle(item, registry.label("checkForUpdates"));
+        // The status bar's link to the release (DIAG-09, Pauta 6.0.1), the same action as the row.
+        var update = windows.availableUpdate();
+        statusBar.showUpdate(update == null ? null : update.version(), windows::openReleasePage);
+    }
+
+    /** The status bar's update link, or an empty string: for tests. */
+    String statusBarUpdateLinkForTest() {
+        return statusBar.updateLinkForTest();
+    }
+
+    /** Follows the status bar's update link: for tests. */
+    void followStatusBarUpdateLinkForTest() {
+        statusBar.followUpdateLinkForTest();
     }
 
     /** Check for Updates, or once one is known, its release page. */
@@ -3318,6 +3342,8 @@ public final class TerminalWindow {
      */
     private @Nullable String unavailableNow(String id) {
         if (id.equals(reopenAction.id()) && !canReopen()) return tr("palette.disabled.nothingToReopen");
+        String noMenuBarToHide = WindowRules.menuBarToggleUnavailableKey(SYSTEM_MENU_BAR);
+        if ("hideMenuBar".equals(id) && noMenuBarToHide != null) return tr(noMenuBarToHide);
         for (MenuAction marked : List.of(previousPromptAction, nextPromptAction, selectOutputAction)) {
             if (id.equals(marked.id()) && !promptMarksAvailable()) return tr("palette.disabled.noPromptMarks");
         }
@@ -3584,6 +3610,7 @@ public final class TerminalWindow {
     private void applySettingsTo(TerminalView terminal) {
         com.termina.config.Settings.ProfileStyle style =
                 settings.profileStyle(terminal.launchOptions().profileId());
+        terminal.refreshChordTooltips();
         terminal.setPalette(themeOf(terminal).palette());
         terminal.setFontFamily(style.fontFamily().isEmpty() ? settings.fontFamily() : style.fontFamily());
         terminal.setFontSize(settings.effectiveFontSize(style));

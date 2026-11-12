@@ -69,7 +69,21 @@ class WindowManagerFxTest {
         onFx(() -> {
             windows.showAbout(first.stage());
             windows.onUpdateOutcome(new UpdateService.Outcome(true, release, null, null), false);
-            windows.openReleasePage();
+            return null;
+        });
+        // DIAG-09 (Pauta 6.0.1): every window's status bar names the version in a link, and the
+        // link opens that release. Following it in one window takes it down in all of them.
+        String notice = com.termina.i18n.Messages.tr("status.updateAvailable", "99.0.0");
+        assertEquals(notice, onFx(first::statusBarUpdateLinkForTest));
+        assertEquals(notice, onFx(keeper::statusBarUpdateLinkForTest));
+        assertEquals(List.of(), opened);
+        onFx(() -> {
+            keeper.followStatusBarUpdateLinkForTest();
+            return null;
+        });
+        assertEquals("", onFx(first::statusBarUpdateLinkForTest));
+        assertEquals("", onFx(keeper::statusBarUpdateLinkForTest));
+        onFx(() -> {
             windows.dismissCurrentUpdate();
             windows.onUpdateOutcome(
                     new UpdateService.Outcome(false, null, UpdateCheck.ErrorKind.OFFLINE, "no route"), true);

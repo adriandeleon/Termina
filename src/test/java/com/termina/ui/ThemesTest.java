@@ -96,6 +96,36 @@ class ThemesTest {
         assertEquals("editora-dark", Themes.byId("editora-dark").id());
     }
 
+    /** SET-10 (Pauta 6.0.1): a newer build's theme is kept beside itself and not read. */
+    @Test
+    void aThemeFromANewerTerminaIsSetAsideAndNotListed() throws Exception {
+        Path themes = Files.createDirectories(config.resolve("themes"));
+        String current = com.termina.theme.ThemeFile.write(
+                new com.termina.theme.ColorScheme("Night", 0x101010, 0xf0f0f0, new int[16], null, null));
+        int newer = com.termina.theme.ThemeFile.SCHEMA_VERSION + 1;
+        String fromTheFuture = current.replace(
+                "schemaVersion=" + com.termina.theme.ThemeFile.SCHEMA_VERSION, "schemaVersion=" + newer);
+        assertFalse(current.equals(fromTheFuture), "the file carries its version");
+        Files.writeString(themes.resolve("night.properties"), current);
+        Files.writeString(themes.resolve("later.properties"), fromTheFuture);
+        Themes.useDirectory(themes);
+        assertEquals(Theme.values().length + 1, Themes.all().size());
+        assertEquals("Night", Themes.byId("user-night").displayName());
+        Path backup = themes.resolve("later.properties.v" + newer + ".bak");
+        assertEquals(backup, Themes.backupOf(themes.resolve("later.properties"), newer));
+        assertEquals(fromTheFuture, Files.readString(backup));
+        assertFalse(Files.exists(themes.resolve("later.properties")));
+        // Whatever named it falls back, as for any theme that is not there.
+        assertEquals(
+                Themes.byId("no-such-theme").id(), Themes.byId("user-later").id());
+
+        // A second newer file of the same name does not overwrite the copy already kept.
+        Files.writeString(themes.resolve("later.properties"), fromTheFuture + "# second\n");
+        Themes.useDirectory(themes);
+        assertEquals(fromTheFuture, Files.readString(backup));
+        assertEquals(Theme.values().length + 1, Themes.all().size());
+    }
+
     @Test
     void aBrokenFileInTheFolderIsSkipped() throws Exception {
         Path themes = Files.createDirectories(config.resolve("themes"));

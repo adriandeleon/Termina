@@ -628,15 +628,26 @@ public final class SettingsWindow {
         status.setVisible(false);
         status.setManaged(false);
         PauseTransition debounce = new PauseTransition(Duration.millis(300));
-        debounce.setOnFinished(e -> {
-            String key = field.isDisabled() ? null : validationKey(check.apply(field.getText()));
-            status.setText(key == null ? "" : tr(key));
-            status.setVisible(key != null);
-            status.setManaged(key != null);
-        });
+        debounce.setOnFinished(
+                e -> showValidation(status, field.isDisabled() ? null : validationKey(check.apply(field.getText()))));
         field.textProperty().addListener((o, old, text) -> debounce.playFromStart());
         field.disabledProperty().addListener((o, was, disabled) -> debounce.playFromStart());
         return new VBox(2, field, status);
+    }
+
+    /** Shows what is wrong with a field's value under it, or takes the line away for null. */
+    private static void showValidation(Label status, @Nullable String key) {
+        status.setText(key == null ? "" : tr(key));
+        status.setVisible(key != null);
+        status.setManaged(key != null);
+    }
+
+    /**
+     * Whether a path field's value is written when the field commits (SET-04, Pauta 6.0.1): an
+     * empty one, which means the default, and one that passed. Anything marked is not.
+     */
+    static boolean commits(ShellLauncher.PathStatus status) {
+        return validationKey(status) == null;
     }
 
     /** The catalogue key for a verdict worth showing, or null when the path is fine or empty. */
@@ -1165,16 +1176,23 @@ public final class SettingsWindow {
         shellField = new TextField();
         shellField.setPromptText(tr("settings.shell.prompt"));
         shellField.setPrefWidth(260);
-        shellField.focusedProperty().addListener((o, was, focused) -> {
-            if (!focused && !loading) write(() -> settings.setShell(shellField.getText()));
-        });
-        shellField.setOnAction(e -> {
-            if (!loading) write(() -> settings.setShell(shellField.getText()));
-        });
         // The launcher falls back to $SHELL when this is not executable, on purpose and without a
         // word; this line is the word. Typing /bin/zshh and getting bash otherwise reads as the
         // setting being broken.
-        VBox shellControl = withValidation(shellField, new Label(), ShellLauncher::validateShellPath);
+        Label shellStatus = new Label();
+        VBox shellControl = withValidation(shellField, shellStatus, ShellLauncher::validateShellPath);
+        // Committed on Enter and on losing focus, and only a path that passes: one that names
+        // nothing is marked and the setting keeps what it had (SET-04, Pauta 6.0.1).
+        Runnable commitShell = () -> {
+            if (loading) return;
+            ShellLauncher.PathStatus verdict = ShellLauncher.validateShellPath(shellField.getText());
+            showValidation(shellStatus, validationKey(verdict));
+            if (commits(verdict)) write(() -> settings.setShell(shellField.getText()));
+        };
+        shellField.focusedProperty().addListener((o, was, focused) -> {
+            if (!focused) commitShell.run();
+        });
+        shellField.setOnAction(e -> commitShell.run());
         row(
                 Category.TERMINAL,
                 session,
@@ -1817,10 +1835,16 @@ public final class SettingsWindow {
         boolean changed = false;
         for (int i = 0; i < user.size(); i++) {
             if (!user.get(i).id().equals(selected.id())) continue;
-            com.termina.shell.Profile edited = user.get(i)
-                    .withName(profileName.getText().trim())
-                    .withCommandLine(profileCommand.getText())
-                    .withWorkingDirectory(profileDirectory.getText());
+            // A command or a directory that is marked is not written (SET-04, Pauta 6.0.1): the
+            // profile keeps the one it had, and the mark under the field says why.
+            com.termina.shell.Profile edited =
+                    user.get(i).withName(profileName.getText().trim());
+            if (commits(ShellLauncher.validateCommand(profileCommand.getText()))) {
+                edited = edited.withCommandLine(profileCommand.getText());
+            }
+            if (commits(ShellLauncher.validateDirectory(profileDirectory.getText()))) {
+                edited = edited.withWorkingDirectory(profileDirectory.getText());
+            }
             if (edited.equals(user.get(i))) return;
             user.set(i, edited);
             changed = true;
@@ -2040,6 +2064,7 @@ public final class SettingsWindow {
         syncRepository.textProperty().addListener((o, old, text) -> {
             if (!loading) showSyncFieldError(null);
         });
+        commitOnEnterOrBlur(syncRepository, this::commitSyncFields);
         syncFieldError = new Label();
         syncFieldError.getStyleClass().add("settings-row-description");
         syncFieldError.getStyleClass().add("state-error");
@@ -2059,6 +2084,7 @@ public final class SettingsWindow {
         syncBranch = new TextField();
         syncBranch.setPromptText(Settings.DEFAULT_SYNC_BRANCH);
         syncBranch.setPrefWidth(160);
+        commitOnEnterOrBlur(syncBranch, this::commitSyncFields);
         row(
                 Category.SYNC,
                 repository,
@@ -2173,6 +2199,53 @@ public final class SettingsWindow {
         notSynced.getStyleClass().add("settings-row-description");
         notSynced.setWrapText(true);
         what.getChildren().add(notSynced);
+    }
+
+    /** A text field's commit: Enter in it, and the focus leaving it (SET-04). */
+    private static void commitOnEnterOrBlur(TextField field, Runnable commit) {
+        field.setOnAction(e -> commit.run());
+        field.focusedProperty().addListener((o, was, focused) -> {
+            if (!focused) commit.run();
+        });
+    }
+
+    /**
+     * Writes the repository and branch as they are typed in, on Enter or when the focus leaves
+     * either field, so they are settings like any other and not something only Connect stores
+     * (SET-04, Pauta 6.0.1). A value that cannot work is marked and not written. The fields are
+     * disabled while connected, so this never moves a sync that is running.
+     */
+    private void commitSyncFields() {
+        if (loading || settings.syncEnabled() || syncCreating) return;
+        String url =
+                syncRepository.getText() == null ? "" : syncRepository.getText().strip();
+        String branch = syncBranch.getText() == null || syncBranch.getText().isBlank()
+                ? Settings.DEFAULT_SYNC_BRANCH
+                : syncBranch.getText().strip();
+        String problem = syncCommitProblem(url, branch);
+        if (problem != null) {
+            showSyncFieldError(
+                    "settings.sync.repository.credentials".equals(problem)
+                            ? tr(problem, com.termina.sync.SyncEngine.withoutCredentials(url))
+                            : tr(problem));
+            return;
+        }
+        showSyncFieldError(null);
+        write(() -> {
+            settings.setSyncRepository(url);
+            settings.setSyncBranch(branch);
+        });
+    }
+
+    /**
+     * What is wrong with the sync fields as a value to store, or null. An empty repository is
+     * nothing to connect to but a fine thing to store: it is how the field is cleared.
+     */
+    static @Nullable String syncCommitProblem(String url, String branch) {
+        if (url.isEmpty()) {
+            return com.termina.sync.SyncEngine.isUsableBranch(branch) ? null : "settings.sync.branch.invalid";
+        }
+        return syncFieldProblem(url, branch);
     }
 
     private void showSyncFieldError(@Nullable String text) {
