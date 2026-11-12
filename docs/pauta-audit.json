@@ -11,8 +11,8 @@
     {
       "id": "OS-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2782 removes the `hideMenuBar` command under the macOS system menu bar (its row dropped at ui/MenuBarModel.java:102, the right-click toggle left unwired at TerminalWindow.java:1043) instead of keeping it disabled with a reason, as the settings row does (ui/SettingsWindow.java:938) (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "Hide Menu Bar is registered on every OS (src/main/java/com/termina/ui/TerminalWindow.java:2952) and its View row is in the model unconditionally (src/main/java/com/termina/ui/MenuBarModel.java:105); under the macOS system menu bar the command is unavailable with the reason the Settings row gives (unavailableNow, src/main/java/com/termina/ui/TerminalWindow.java:3345; WindowRules.menuBarToggleUnavailableKey), and the right-click checkbox is wired everywhere (:1046) and disabled there (src/main/java/com/termina/ui/TerminalView.java:2524); held by src/test/java/com/termina/ui/MenuBarVisibilityTest.java:65 and src/test/java/com/termina/ui/MenuBarModelTest.java. The macOS half is read, not run (fixed in 26adef2)"
     },
     {
       "id": "OS-02",
@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 58 MUSTs fail (OS-01, OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-01, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, DOCS-06, DIAG-09, CLI-11, PERF-01, PERF-05, PERF-07, ACC-01, KBD-01, KBD-03, KBD-15, PAL-01, FIND-01, FIND-02, FIND-03, FIND-06, FIND-07, FIND-16, WIN-01, WIN-03, WIN-11, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, TBAR-03, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, MENU-07, SET-03, SET-04, SET-09, SET-10) and so do the 68 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 47 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-01, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, DOCS-06, CLI-11, PERF-01, PERF-07, ACC-01, KBD-01, KBD-03, PAL-01, FIND-01, FIND-02, FIND-03, FIND-06, FIND-07, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, SET-03) and so do the 68 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -473,8 +473,8 @@
     {
       "id": "PERF-05",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/instance/SingleInstance.java:123: handOff connects to a socket, writes and reads inside CompletableFuture.supplyAsync with no executor (the common pool); no class extends Process"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/instance/SingleInstance.java:134: handOff's connect, write and read run through supplyAsync with an executor of its own, a daemon thread (onHandOffThread, :144), not the common pool; the only other supplyAsync (src/main/java/com/termina/ui/TerminalView.java:2198) names LINK_CHECKS; no class extends Process; held by src/test/java/com/termina/instance/SingleInstanceTest.java:60 (fixed in 26adef2)"
     },
     {
       "id": "PERF-06",
@@ -588,7 +588,7 @@
       "id": "KBD-01",
       "level": "MUST",
       "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/DebugLogWindow.java:45 Refresh, :47 Copy, :54 Export and :74 Clear, and src/main/java/com/termina/ui/MessageLogWindow.java:71 Clear, run handlers of their own; the registry (src/main/java/com/termina/ui/TerminalWindow.java:3383) has no command for them, nor for the find bar's regex toggle (SearchBar.java:65)"
+      "evidence": "src/main/java/com/termina/ui/DebugLogWindow.java:45 Refresh, :47 Copy, :54 Export and :74 Clear, and src/main/java/com/termina/ui/MessageLogWindow.java:71 Clear, run handlers of their own; the registry has no command for them (the find bar's regex toggle has one now, findRegex)"
     },
     {
       "id": "KBD-02",
@@ -671,8 +671,8 @@
     {
       "id": "KBD-15",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/SearchBar.java:63 takes the find bar's regular-expression toggle out of the Tab order, and no command and no key of the field (:113-127) toggles it: the mouse alone can work it (FIND-16 fails for it too) (upgrade work: a SHOULD in 2.0.2)"
+      "status": "pass",
+      "evidence": "the find bar's regular-expression switch stays out of the Tab order (src/main/java/com/termina/ui/SearchBar.java:65) and a registered command now does what it does, as FIND-16 allows: findRegex, Toggle Regular Expression (src/main/java/com/termina/ui/TerminalWindow.java:2931), in the palette and bindable; held by src/test/java/com/termina/ui/MenusFxTest.java:227 (fixed in 26adef2)"
     },
     {
       "id": "KBD-16",
@@ -767,8 +767,8 @@
     {
       "id": "WIN-11",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "`setButtonOrder` not found anywhere in src/main: src/main/java/com/termina/ui/Confirm.java:67 and src/main/java/com/termina/ui/ConfigTransfer.java:169 add OK_DONE and CANCEL_CLOSE buttons and leave the ButtonBar on JavaFX's order for the OS. (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/Confirm.java:124: the dialog helper sets one order on the pane's ButtonBar, BUTTON_ORDER \"L_HE+FBIX_CUNYOA_R\" (:117), the same on every OS, with C before U, N, Y, O and A; every dialog goes through it (Confirm.ask and prompt, the import question at src/main/java/com/termina/ui/ConfigTransfer.java, the two alerts in src/main/java/com/termina/ui/TerminalWindow.java); src/test/java/com/termina/ui/DialogsFxTest.java:152 finds Cancel drawn left of every action on each dialog the tests answer, and :166 holds the order string (fixed in 26adef2)"
     },
     {
       "id": "WIN-08",
@@ -947,8 +947,8 @@
     {
       "id": "TBAR-03",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/SearchBar.java:90-91: the find bar's arrows are named from `search.older`/`search.newer` (\"Previous match, up (Enter)\"), not a command's title, and each shows the other command's chord: the up arrow steps older, as findNext does (src/main/java/com/termina/ui/TerminalWindow.java:2926), and shows findPrevious's chord"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:95-100: the find bar's up arrow is named with Find Next's title and findNext's chord, the down arrow with Find Previous's and findPrevious's, and the switch with Toggle Regular Expression's, each read from the keymap in force and rebuilt when the bar opens and when the bindings change (src/main/java/com/termina/ui/TerminalWindow.java:3613 -> src/main/java/com/termina/ui/TerminalView.java:3556); the catalog's search.older and search.newer strings are gone; held by src/test/java/com/termina/ui/ChordTooltipsTest.java:84 and src/test/java/com/termina/ui/MenusFxTest.java:227 (fixed in 26adef2)"
     },
     {
       "id": "TBAR-14",
@@ -1235,8 +1235,8 @@
     {
       "id": "MENU-07",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "no press filter on the window or scene: the only one is the terminal view's (src/main/java/com/termina/ui/TerminalView.java:464), which hides its own menu alone (:2601-2602); a tab's menu (src/main/java/com/termina/ui/TerminalWindow.java:990, :1564) is left with the stock auto-hide, which ignores a press on the tab strip it was opened on"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/OneMenu.java:52 closeOnOutsidePress: a MOUSE_PRESSED filter on the window's scene (src/main/java/com/termina/ui/TerminalWindow.java:304) hides a showing right-click menu and does not consume the press; a tab's menu (:1583) and the terminal's (src/main/java/com/termina/ui/TerminalView.java:2536) are installed as right-click menus, the profile chevron's drop-down keeps the stock behavior, and a menu with auto-hide off is left alone; src/test/java/com/termina/ui/OneMenuTest.java:64 presses inside the owner control and finds the menu closed and the press delivered, and src/test/java/com/termina/ui/MenusFxTest.java:264 does it on a window's tab strip. A press in another window is left to the stock auto-hide and is not tested (fixed in 26adef2)"
     },
     {
       "id": "MENU-08",
@@ -1373,8 +1373,8 @@
     {
       "id": "SET-04",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "no Save button and controls write live, but two parts are unmet: the Sync repository and branch fields commit on neither Enter nor focus loss, only when Connect is pressed (src/main/java/com/termina/ui/SettingsWindow.java:2018-2046, written at :2193-2195); and a shell path that fails validation is marked yet still written (:1168-1177). Restart rows do say so (messages.properties:192-202)"
+      "status": "pass",
+      "evidence": "no Save button and every control writes live; the Sync repository and branch fields now commit on Enter and on focus loss (src/main/java/com/termina/ui/SettingsWindow.java:2067, :2087, commitSyncFields :2218), and a value that fails its check is marked and not written: the sync address and branch (syncCommitProblem, :2244), the shell path (:1186) and a profile's command and directory (:1842-1845); restart rows say so (messages.properties:192-202); held by src/test/java/com/termina/ui/SettingsWindowFxTest.java:108 and src/test/java/com/termina/ui/SettingsSyncTest.java:34, :45 (fixed in 26adef2)"
     },
     {
       "id": "SET-05",
@@ -1403,14 +1403,14 @@
     {
       "id": "SET-09",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "settings.json and workspace-state.json carry `schemaVersion` with a migration list (src/main/java/com/termina/config/ConfigJson.java:43,51,103,116), but an imported color scheme, themes/<name>.properties, is written whole and read back at start with no version (src/main/java/com/termina/theme/ThemeFile.java:28,49; src/main/java/com/termina/ui/Themes.java:182)"
+      "status": "pass",
+      "evidence": "settings.json and workspace-state.json carry schemaVersion with a migration list (src/main/java/com/termina/config/ConfigJson.java:43,51,103,116), and an imported color scheme now does too: src/main/java/com/termina/theme/ThemeFile.java:35 SCHEMA_VERSION 1, written at :65 and read back by versionOf (:51), with one step for every version below it (MIGRATIONS, :44; an identity step, the version being all that 1 added); held by src/test/java/com/termina/theme/ThemeImportTest.java:134, :146 (fixed in 26adef2)"
     },
     {
       "id": "SET-10",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/config/Settings.java:416-423 keeps a newer settings.json or workspace-state.json as <name>.v<n>.bak and loads defaults (src/test/java/com/termina/config/SettingsTest.java:325-333), but themes/<name>.properties carries no version (SET-09), so a newer one cannot be told from a current one (src/main/java/com/termina/theme/ThemeFile.java:49)"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:416-423 keeps a newer settings.json or workspace-state.json as <name>.v<n>.bak and loads defaults, and src/main/java/com/termina/ui/Themes.java:84 does the same for a theme file whose schemaVersion is higher than the build's (setAside, :105: kept as <name>.properties.v<n>.bak, not read, the theme then falling back like any that is missing); held by src/test/java/com/termina/config/SettingsTest.java and src/test/java/com/termina/ui/ThemesTest.java:101 (fixed in 26adef2)"
     },
     {
       "id": "SET-11",
@@ -1511,8 +1511,8 @@
     {
       "id": "DIAG-09",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/WindowManager.java:387 posts status.updateAvailable, which names the version, to the echo area, but nothing in the bar opens the release: a click on the echo area or the count opens the Message Log (src/main/java/com/termina/ui/StatusBar.java:33-36), and the bar has no other node (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/StatusBar.java:59 showUpdate: once the check has found a newer version the status bar holds a link that names it (status.updateAvailable) and opens that release (src/main/java/com/termina/ui/TerminalWindow.java:3177 -> WindowManager.openReleasePage), in every window, until it is followed or the version dismissed; held by src/test/java/com/termina/ui/WindowManagerFxTest.java:74 and seen in a headless capture (-Dtermina.captureUpdateAvailable) (fixed in 26adef2)"
     },
     {
       "id": "DIAG-10",
@@ -2195,8 +2195,8 @@
     {
       "id": "FIND-16",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/SearchBar.java:63 sets the regular-expression toggle not focus-traversable, and no registered command and no key of the field (:113-127) toggles it; the Next, Previous and Close buttons (:107) are covered by Enter, Shift+Enter and Escape (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:65: the regular-expression switch is not focus-traversable, and the registered command findRegex toggles its option, opening the bar first if it is closed (src/main/java/com/termina/ui/TerminalWindow.java:2931 -> src/main/java/com/termina/ui/TerminalView.java:3636); Next, Previous and Close are covered by Enter, Shift+Enter and Escape in the field; held by src/test/java/com/termina/ui/MenusFxTest.java:227 and src/test/java/com/termina/ui/ChordTooltipsTest.java:116 (fixed in 26adef2)"
     },
     {
       "id": "MLOG-08",
@@ -2445,6 +2445,7 @@
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
+    "Eleven more were judged again the same day, after the fixes in 26adef2: WIN-11, PERF-05, OS-01, KBD-15, FIND-16, TBAR-03, MENU-07, SET-04, DIAG-09, SET-09, SET-10. KBD-01's evidence was brought up to date with them; it still fails.",
     "Found while driving the command line, and not a result of its own: the main class, com.termina.App, extends Application, so the Java launcher starts the JavaFX toolkit before App.main runs (LauncherHelper$FXHelper). With no display, --version, --help and --report end in \"Unable to open DISPLAY\" before the code the CLI rules read is reached. CLI-01 and CLI-05 pass by their checks, which read main; a main class that is not an Application would make them hold without a display too."
   ]
 }
