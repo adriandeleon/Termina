@@ -61,7 +61,7 @@ opts=(-XX:AOTCacheOutput="$cache"
       # a different module graph is one the launch may refuse.
       --add-exports=javafx.graphics/com.sun.glass.ui=com.termina
       "$mac_opens"
-      -m com.termina/com.termina.App)
+      -m com.termina/com.termina.Main)
 
 # A configuration of its own, made here and removed on the way out. The trainer is the real
 # application: pointed at the developer's own folder it started their shell, could start a settings

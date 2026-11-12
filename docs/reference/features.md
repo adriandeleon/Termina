@@ -616,7 +616,7 @@ bindings — and a settings file naming a theme this machine does not have falls
 
 - **Login shells.** A GUI process inherits a stripped `PATH` with no Homebrew and no version-manager
   directories. The shell is started with `-l` so the user's profile puts them back.
-- **AWT is forced headless** in `App.main`. We require `java.desktop` (JediTerm's `TtyConnector`
+- **AWT is forced headless** in `Main.main`. We require `java.desktop` (JediTerm's `TtyConnector`
   declares `java.awt.Dimension` overloads) but never use AWT — and on macOS an initialised AWT
   contends with JavaFX for the AppKit run loop, which hangs rather than fails.
 - **Explicit `requires` for `kotlin.stdlib` and `org.slf4j`.** JediTerm and pty4j are automatic

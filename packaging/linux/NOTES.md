@@ -1,8 +1,9 @@
 # The Linux menu entry
 
 `Termina.desktop` replaces the one jpackage generates, to add `StartupWMClass` — the class JavaFX
-derives from the module's main class, without which a running window cannot be matched to its
-launcher and the dock shows a second generic icon beside it.
+derives from the `Application` subclass it launches (`com.termina.App`; not the main class, which
+is `com.termina.Main`), without which a running window cannot be matched to its launcher and the
+dock shows a second generic icon beside it. `MainTest` holds the entry to that class's name.
 
 Two things about this file are easy to get wrong, and both fail quietly.
 

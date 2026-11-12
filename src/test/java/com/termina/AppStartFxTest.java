@@ -50,7 +50,7 @@ class AppStartFxTest {
                 "{\n  \"schemaVersion\" : 1,\n  \"settings\" : {\n    \"updates.check\" : false\n  }\n}\n");
         // This process claims the folder, as the first launch does; start() then listens there.
         String[] args = {"--config-dir", config.toString()};
-        App.claimOrHandOff(com.termina.cli.CommandLine.parse(args), args);
+        App.hold(Main.claimOrHandOff(com.termina.cli.CommandLine.parse(args), args));
         Stage stage = onFx(Stage::new);
         onFx(() -> {
             new App()

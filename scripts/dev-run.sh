@@ -68,4 +68,4 @@ exec java \
     $MAC_OPENS \
     "-Dprism.order=$PRISM" \
     "$@" \
-    -m com.termina/com.termina.App
+    -m com.termina/com.termina.Main
