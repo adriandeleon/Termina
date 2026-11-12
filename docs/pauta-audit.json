@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 47 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-01, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, DOCS-06, CLI-11, PERF-01, PERF-07, ACC-01, KBD-01, KBD-03, PAL-01, FIND-01, FIND-02, FIND-03, FIND-06, FIND-07, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, SET-03) and so do the 68 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 43 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, ACC-01, KBD-01, FIND-01, FIND-02, FIND-03, FIND-06, FIND-07, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, SET-03) and so do the 67 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -305,8 +305,8 @@
     {
       "id": "DOCS-06",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "the command is registered as `documentation`, not `help.documentation` (src/main/java/com/termina/ui/TerminalWindow.java:2977, id from idOf at :3041); under that name it opens AppInfo.DOCUMENTATION and is a Help row (src/main/java/com/termina/ui/MenuBarModel.java:139); no Welcome page"
+      "status": "pass",
+      "evidence": "the command is registered as help.documentation and opens AppInfo.DOCUMENTATION in the browser (src/main/java/com/termina/ui/TerminalWindow.java:2992); a Documentation row of the Help menu runs it through the registry (src/main/java/com/termina/ui/MenuBarModel.java:139); in the palette and bindable like any command; no Welcome page; the id is held by src/test/java/com/termina/ui/MenuBarModelTest.java:25 (fixed in 9261b38)"
     },
     {
       "id": "DOCS-07",
@@ -594,13 +594,13 @@
       "id": "KBD-02",
       "level": "SHOULD",
       "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3041 idOf makes each id the catalog key without `menu.`: `newTab`, `closeTab`, `find`, `commandPalette` (src/main/resources/com/termina/keymaps/keymap.json:5-33); no id is dotted or grouped by area"
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3051 idOf makes each id the catalog key without `command.`; four ids are dotted and grouped by area now, the ones a rule names (help.about, palette.show, help.documentation, view.messageLog), and the rest are not: `newTab`, `closeTab`, `find` (src/main/resources/com/termina/keymaps/keymap.json:5-33)"
     },
     {
       "id": "KBD-03",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3034 reads each title and description from `menu.<id>` and `menu.<id>.desc`; src/main/resources/com/termina/i18n/messages.properties has no `command.` key at all (the names `command.<id>` and `command.<id>.desc` are required as spelled)"
+      "status": "pass",
+      "evidence": "a command's title is command.<id> and its palette description command.<id>.desc: src/main/java/com/termina/ui/TerminalWindow.java:3041 item() reads both and takes the id from the key (idOf, :3051), the numbered tab and profile commands each with keys of their own (:3024), and src/main/resources/com/termina/i18n/messages.properties has 75 such pairs and no menu.<id> title for a command; src/test/java/com/termina/ui/MenuBarModelTest.java:57 walks every command of the menu model, which is every registered one, and fails on a missing key, and src/test/java/com/termina/i18n/MessagesTest.java:33 holds the six catalogs to the same keys. What a command is called in its other state (Unpin Tab, Hide Status Bar, Show Menu Bar, Close Pane) is still a menu.* key (fixed in 9261b38)"
     },
     {
       "id": "KBD-04",
@@ -1721,8 +1721,8 @@
     {
       "id": "PAL-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "each window builds one palette (src/main/java/com/termina/ui/TerminalWindow.java:3100), but the command that opens it is registered as `commandPalette` (TerminalWindow.java:105, keymap.json:5), not `palette.show`: the same thing under another name"
+      "status": "pass",
+      "evidence": "each window builds one palette, and the command that opens it is registered as palette.show (src/main/java/com/termina/ui/TerminalWindow.java:104; src/main/resources/com/termina/keymaps/keymap.json:5, Ctrl+Shift+P, Cmd+Shift+P on macOS); the id is held by src/test/java/com/termina/ui/MenuBarModelTest.java:25, and a stored keys.commandPalette is brought to keys.palette.show (src/main/java/com/termina/config/CommandIds.java:53, seen in a headless run on a schema 1 file) (fixed in 9261b38)"
     },
     {
       "id": "PAL-02",
@@ -1913,8 +1913,8 @@
     {
       "id": "ABOUT-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "the command's id is `about`, not `help.about`: src/main/java/com/termina/ui/TerminalWindow.java:2990 (a required name). The rest is there: the Help menu's last row (ui/MenuBarModel.java:148) and the macOS application-menu item (ui/WindowManager.java:240, ui/MacAppMenu.java:30)"
+      "status": "pass",
+      "evidence": "the command is registered as help.about (src/main/java/com/termina/ui/TerminalWindow.java:3005) and opens the About window; it is the Help menu's last row (src/main/java/com/termina/ui/MenuBarModel.java:148), and on macOS the app adds the application menu's About item (src/main/java/com/termina/ui/WindowManager.java:258, ui/MacAppMenu.java); the id is held by src/test/java/com/termina/ui/MenuBarModelTest.java:25, and a key binding stored or synced under the old id still reaches it (src/main/java/com/termina/config/CommandIds.java:20) (fixed in 9261b38)"
     },
     {
       "id": "ABOUT-02",
@@ -2207,8 +2207,8 @@
     {
       "id": "MLOG-02",
       "level": "SHOULD",
-      "status": "fail",
-      "evidence": "the command is registered as `messageLog`, not `view.messageLog` (src/main/java/com/termina/ui/TerminalWindow.java:2985), and a click on the unread-error count calls windows.showMessageLog directly, not the command (src/main/java/com/termina/ui/StatusBar.java:33-36, src/main/java/com/termina/ui/TerminalWindow.java:277)"
+      "status": "pass",
+      "evidence": "the command is registered as view.messageLog (src/main/java/com/termina/ui/TerminalWindow.java:3000), and a click on the unread-error count, as on the echo area, runs it through the registry (src/main/java/com/termina/ui/StatusBar.java:40 -> src/main/java/com/termina/ui/TerminalWindow.java:279) (fixed in 9261b38)"
     },
     {
       "id": "MLOG-03",
@@ -2446,6 +2446,7 @@
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
     "Eleven more were judged again the same day, after the fixes in 26adef2: WIN-11, PERF-05, OS-01, KBD-15, FIND-16, TBAR-03, MENU-07, SET-04, DIAG-09, SET-09, SET-10. KBD-01's evidence was brought up to date with them; it still fails.",
+    "Five more were judged again the same day, after the fixes in 9261b38: KBD-03, ABOUT-01, PAL-01, DOCS-06, MLOG-02. KBD-02's evidence was brought up to date with them; it still fails.",
     "Found while driving the command line, and not a result of its own: the main class, com.termina.App, extends Application, so the Java launcher starts the JavaFX toolkit before App.main runs (LauncherHelper$FXHelper). With no display, --version, --help and --report end in \"Unable to open DISPLAY\" before the code the CLI rules read is reached. CLI-01 and CLI-05 pass by their checks, which read main; a main class that is not an Application would make them hold without a display too."
   ]
 }
