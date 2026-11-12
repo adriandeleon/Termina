@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 43 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, ACC-01, KBD-01, FIND-01, FIND-02, FIND-03, FIND-06, FIND-07, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, SET-03) and so do the 67 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 38 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, ACC-01, KBD-01, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, SET-03) and so do the 66 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -588,7 +588,7 @@
       "id": "KBD-01",
       "level": "MUST",
       "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/DebugLogWindow.java:45 Refresh, :47 Copy, :54 Export and :74 Clear, and src/main/java/com/termina/ui/MessageLogWindow.java:71 Clear, run handlers of their own; the registry has no command for them (the find bar's regex toggle has one now, findRegex)"
+      "evidence": "the two log windows' buttons now call what their commands call (debugLog.find, .refresh, .copy, .export, .clear, messageLog.copy, .clear: src/main/java/com/termina/ui/TerminalWindow.java:3004-3010; src/main/java/com/termina/ui/DebugLogWindow.java:260-297, src/main/java/com/termina/ui/MessageLogWindow.java:172-184), but other buttons still run handlers no command reaches: in Settings, Reset, Import and Remove theme, the key bindings' Reset and Reset All, Add and Remove profile and the sync page's Connect, Create on GitHub, Sync Now's Cancel and Sync Anyway and Remove credentials (src/main/java/com/termina/ui/SettingsWindow.java:336, :871-873, :1306, :1334, :1635-1637, :2096-2133); Report a Problem's Copy and Open (src/main/java/com/termina/ui/ReportProblemWindow.java:50-55); About's Copy details (src/main/java/com/termina/ui/AboutWindow.java:31)"
     },
     {
       "id": "KBD-02",
@@ -1224,7 +1224,7 @@
       "id": "MENU-05",
       "level": "MUST",
       "status": "fail",
-      "evidence": "the Message Log's `ListView` has no right-click menu (src/main/java/com/termina/ui/MessageLogWindow.java:34), nor the Debug Log's read-only `TextArea` (src/main/java/com/termina/ui/DebugLogWindow.java:27), nor Settings' profile list (src/main/java/com/termina/ui/SettingsWindow.java:1553); the only menus are a tab's (src/main/java/com/termina/ui/TerminalWindow.java:990) and the terminal's (src/main/java/com/termina/ui/TerminalView.java:2531), whose rows do run commands"
+      "evidence": "the Message Log's list and the Debug Log's text now have right-click menus whose rows are their commands (src/main/java/com/termina/ui/MessageLogWindow.java:97, src/main/java/com/termina/ui/DebugLogWindow.java:106), beside a tab's and the terminal's; Settings' profile list still has none (src/main/java/com/termina/ui/SettingsWindow.java), and its Add and Remove are not commands"
     },
     {
       "id": "MENU-06",
@@ -2105,26 +2105,26 @@
     {
       "id": "FIND-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "the terminal's find bar is a child node of its view (src/main/java/com/termina/ui/TerminalView.java:3576), but the Debug Log, a log shown as text in a TextArea (src/main/java/com/termina/ui/DebugLogWindow.java:27), has none: its window is the text, a path and a row of buttons (:92)"
+      "status": "pass",
+      "evidence": "the terminal's find bar is a child node of its view (src/main/java/com/termina/ui/TerminalView.java), and the Debug Log, a log shown as text, now has one too: an HBox docked at the top of its window's scene (src/main/java/com/termina/ui/DebugLogWindow.java:108, built at :142), shown and hidden in place, with no Popup and no Stage; src/test/java/com/termina/ui/LogWindowsFxTest.java:43 finds it in the window's own scene, and a headless capture shows it (-Dtermina.captureDebugLogFind). The Message Log is a list and has a filter (FIND-03) (fixed in 32baadd)"
     },
     {
       "id": "FIND-02",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "fails with FIND-01: the Debug Log's text has no find bar (src/main/java/com/termina/ui/DebugLogWindow.java:92); the terminal's bar does search as it is typed and shows the count (src/main/java/com/termina/ui/SearchBar.java:55, :161)"
+      "status": "pass",
+      "evidence": "both bars search as the query is typed and show a count: the terminal's (src/main/java/com/termina/ui/SearchBar.java, ScrollbackSearch) and the Debug Log's, whose field's text listener runs the search after a 120 ms pause and sets the count label, \"1 of 6\" or \"No matches\" (src/main/java/com/termina/ui/DebugLogWindow.java:150, runFind :205; the matching is src/main/java/com/termina/ui/TextFind.java:28); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:43 and src/test/java/com/termina/ui/TextFindTest.java (fixed in 32baadd)"
     },
     {
       "id": "FIND-03",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "the Message Log is a ListView of entries (src/main/java/com/termina/ui/MessageLogWindow.java:34) in a window of the list and a row of buttons (:81): no filter field over it"
+      "status": "pass",
+      "evidence": "the app's main content is not a list; its one log shown as a list, the Message Log, has a filter field over it (src/main/java/com/termina/ui/MessageLogWindow.java:107) whose text listener narrows the entries as it is typed (:50, refresh :153, every word typed has to be in the line: src/main/java/com/termina/ui/TextFind.java:74); Escape in the field empties it, and from an empty one goes back to the list (:52); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:152 (fixed in 32baadd)"
     },
     {
       "id": "FIND-04",
       "level": "SHOULD",
-      "status": "fail",
-      "evidence": "the terminal's find command is registered as `find` (src/main/java/com/termina/ui/TerminalWindow.java:2923, keymap.json:18), not `find.show`, though on the right chords; run while the bar is open it puts the caret back in the field and does not step (src/main/java/com/termina/ui/TerminalView.java:3556-3591)"
+      "status": "pass",
+      "evidence": "the terminal's find command is find.show (src/main/java/com/termina/ui/TerminalWindow.java:2928), on Ctrl+Shift+F and Cmd+F on macOS (src/main/resources/com/termina/keymaps/keymap.json:18, keymap.mac.json:18), and run while its bar is open it steps to the next match (src/main/java/com/termina/ui/TerminalView.java:3653); the Debug Log's bar has a command of its own, debugLog.find (:3004), which does the same there (src/main/java/com/termina/ui/DebugLogWindow.java:186); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:43 and src/test/java/com/termina/ui/MenuBarModelTest.java; a stored keys.find is brought to keys.find.show (src/main/java/com/termina/config/CommandIds.java) (fixed in 32baadd)"
     },
     {
       "id": "FIND-05",
@@ -2135,14 +2135,14 @@
     {
       "id": "FIND-06",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "fails with FIND-01: the Debug Log's text has no find bar (src/main/java/com/termina/ui/DebugLogWindow.java:92); the terminal's bar steps up on Enter and down on Shift+Enter (src/main/java/com/termina/ui/SearchBar.java:117-118), wrapping (src/main/java/com/termina/ui/ScrollbackSearch.java:274-278)"
+      "status": "pass",
+      "evidence": "the terminal's bar steps up on Enter and down on Shift+Enter, wrapping (src/main/java/com/termina/ui/SearchBar.java, ScrollbackSearch); the Debug Log's steps to the next match on Enter and the previous on Shift+Enter, wrapping at both ends (src/main/java/com/termina/ui/DebugLogWindow.java:153-154, step :214, src/main/java/com/termina/ui/TextFind.java step); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:43 and src/test/java/com/termina/ui/TextFindTest.java (fixed in 32baadd)"
     },
     {
       "id": "FIND-07",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "fails with FIND-01: the Debug Log's text has no find bar (src/main/java/com/termina/ui/DebugLogWindow.java:92); the terminal's bar closes on Escape, consumed (src/main/java/com/termina/ui/SearchBar.java:115, :126), and on its button, stopping the debounces and the scan, clearing the matches and focusing the terminal (src/main/java/com/termina/ui/TerminalView.java:3595-3607)"
+      "status": "pass",
+      "evidence": "the terminal's bar closes on Escape, consumed, and on its button, stopping the debounces and the scan, clearing the matches and focusing the terminal; the Debug Log's closes on Escape in the field, consumed so the window stays open (src/main/java/com/termina/ui/DebugLogWindow.java:153, :116), and on its close button: the pending search is stopped, the selection that showed the match goes and the text takes the focus (closeFind, :249); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:43 (fixed in 32baadd)"
     },
     {
       "id": "FIND-08",
@@ -2447,6 +2447,7 @@
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
     "Eleven more were judged again the same day, after the fixes in 26adef2: WIN-11, PERF-05, OS-01, KBD-15, FIND-16, TBAR-03, MENU-07, SET-04, DIAG-09, SET-09, SET-10. KBD-01's evidence was brought up to date with them; it still fails.",
     "Five more were judged again the same day, after the fixes in 9261b38: KBD-03, ABOUT-01, PAL-01, DOCS-06, MLOG-02. KBD-02's evidence was brought up to date with them; it still fails.",
+    "Six more were judged again the same day, after the fixes in 32baadd: FIND-01, FIND-02, FIND-03, FIND-04, FIND-06, FIND-07. KBD-01 and MENU-05 were brought up to date with them; both still fail, for what is left.",
     "Found while driving the command line, and not a result of its own: the main class, com.termina.App, extends Application, so the Java launcher starts the JavaFX toolkit before App.main runs (LauncherHelper$FXHelper). With no display, --version, --help and --report end in \"Unable to open DISPLAY\" before the code the CLI rules read is reached. CLI-01 and CLI-05 pass by their checks, which read main; a main class that is not an Application would make them hold without a display too."
   ]
 }
