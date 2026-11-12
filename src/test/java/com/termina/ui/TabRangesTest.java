@@ -61,8 +61,8 @@ class TabRangesTest {
 
     @Test
     void theIdsAreTheCommandsIds() {
-        assertEquals(TabRanges.CLOSE_OTHERS, TerminalWindow.idOf("menu.closeOtherTabs"));
-        assertEquals(TabRanges.CLOSE_LEFT, TerminalWindow.idOf("menu.closeTabsToTheLeft"));
-        assertEquals(TabRanges.CLOSE_RIGHT, TerminalWindow.idOf("menu.closeTabsToTheRight"));
+        assertEquals(TabRanges.CLOSE_OTHERS, TerminalWindow.idOf("command.closeOtherTabs"));
+        assertEquals(TabRanges.CLOSE_LEFT, TerminalWindow.idOf("command.closeTabsToTheLeft"));
+        assertEquals(TabRanges.CLOSE_RIGHT, TerminalWindow.idOf("command.closeTabsToTheRight"));
     }
 }

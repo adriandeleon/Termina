@@ -256,7 +256,8 @@ public final class WindowManager {
         // After the show, and a pulse later, by when Glass has built the application menu; until it
         // takes, every window that opens tries again (ABOUT-01).
         Platform.runLater(() -> MacAppMenu.addAbout(
-                com.termina.i18n.Messages.tr("menu.about", com.termina.AppInfo.NAME), () -> showAbout(frontWindow())));
+                com.termina.i18n.Messages.tr("command.help.about", com.termina.AppInfo.NAME),
+                () -> showAbout(frontWindow())));
         // A command line with something to run wins outright; otherwise the default profile decides
         // what a window opens as, which is the whole point of having chosen one.
         if (fill != null) {

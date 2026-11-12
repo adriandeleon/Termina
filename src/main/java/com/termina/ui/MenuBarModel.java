@@ -105,7 +105,7 @@ final class MenuBarModel {
         viewRows.add("hideMenuBar");
         viewRows.add("showStatusBar");
         viewRows.add(SEPARATOR);
-        viewRows.add("commandPalette");
+        viewRows.add("palette.show");
         Menu view = new Menu("menu.view", viewRows, List.of());
 
         List<String> windowUnlisted = new ArrayList<>();
@@ -136,16 +136,16 @@ final class MenuBarModel {
         Menu help = new Menu(
                 "menu.help",
                 List.of(
-                        "documentation",
+                        "help.documentation",
                         "whatsNew",
                         "keyboardShortcuts",
                         SEPARATOR,
                         "checkForUpdates",
-                        "messageLog",
+                        "view.messageLog",
                         "debugLog",
                         "reportProblem",
                         SEPARATOR,
-                        "about"),
+                        "help.about"),
                 List.of());
 
         return List.of(file, edit, view, window, help);

@@ -73,6 +73,15 @@ done.
 - **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
   a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
   default button, and the red action runs only from itself: a click, or Tab to it and Space.
+- **Four commands have new ids**, the ones Pauta names: `help.about` (was `about`), `palette.show`
+  (`commandPalette`), `help.documentation` (`documentation`) and `view.messageLog` (`messageLog`).
+  A key binding is stored under its command's id, so `settings.json` moves to `schemaVersion` 2 and
+  a `keys.commandPalette` line becomes `keys.palette.show` when the file is read; a
+  `settings.properties` from before 0.15 is brought forward the same way. Settings sync reads the
+  old ids as the new ones, so a repository shared with a computer on an older Termina keeps
+  working; that older Termina does not know the new ids, and puts those four commands back on
+  their default chords once a newer one has synced.
+- **A click on the status bar opens the Message Log through its command**, like the menu row.
 - **A dialog's buttons are in the same order on every OS**: Cancel to the left of the action.
   JavaFX orders them by OS, which on Windows put the action first.
 - **Hide Menu Bar is in the menus on macOS too, greyed.** The View menu's row and the terminal's
@@ -216,6 +225,8 @@ done.
   error. Only an exception was logged.
 - **The rename prompt, the shell-failure message and two more dialogs draw in the interface font.**
   They were in the platform's.
+- **"Go to Tab" and "Go to Last Tab" are spelled right in French and Italian.** The apostrophe was
+  missing from "l'onglet" and "all'ultima".
 - **`--help` lines up.** The `--new-instance` and `--dev` rows sat ten columns left of the rest.
 - **A click on the tab strip closes a tab's right-click menu.** The menu stayed up through a press
   on the strip it was opened on, and now closes on a press anywhere in the window.

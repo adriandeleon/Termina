@@ -101,7 +101,8 @@ final class ZoomMenuRow {
         button.getStyleClass().add("zoom-button");
         button.setFocusTraversable(false);
         // Its text is a symbol ("−", "+", "⤢"), which a screen reader would read as itself.
-        javafx.beans.property.StringProperty tip = new javafx.beans.property.SimpleStringProperty(tr("menu." + id));
+        javafx.beans.property.StringProperty tip =
+                new javafx.beans.property.SimpleStringProperty(tr(TerminalWindow.COMMAND_KEY + id));
         tips.put(id, tip);
         IconNames.name(button, tip);
         button.setOnAction(e -> {
@@ -122,7 +123,8 @@ final class ZoomMenuRow {
     void refresh() {
         percent.setText(actions.percent() + "%");
         // On every open, so a chord moved on the Keyboard page shows the next time the row does.
-        tips.forEach((id, tip) -> tip.set(IconNames.withChord(tr("menu." + id), actions.chordOf(id))));
+        tips.forEach(
+                (id, tip) -> tip.set(IconNames.withChord(tr(TerminalWindow.COMMAND_KEY + id), actions.chordOf(id))));
     }
 
     /** What each button's tooltip says now, by command id: for tests. */

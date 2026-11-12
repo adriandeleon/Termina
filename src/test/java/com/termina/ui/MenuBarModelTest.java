@@ -20,6 +20,23 @@ class MenuBarModelTest {
 
     private static final boolean[] ZOOM_ROWS = {true, false};
 
+    /** ABOUT-01, PAL-01, DOCS-06, MLOG-02 (Pauta 6.0.1): the ids those rules name, as spelled. */
+    @Test
+    void theCommandsPautaNamesHaveItsIds() {
+        List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus(true));
+        assertTrue(ids.containsAll(List.of("help.about", "palette.show", "help.documentation", "view.messageLog")));
+        for (String old : List.of("about", "commandPalette", "documentation", "messageLog")) {
+            assertFalse(ids.contains(old), old);
+        }
+        // About, Documentation and the Message Log are rows of the Help menu.
+        List<String> help = MenuBarModel.menus(true).stream()
+                .filter(menu -> menu.titleKey().equals("menu.help"))
+                .findFirst()
+                .orElseThrow()
+                .rows();
+        assertTrue(help.containsAll(List.of("help.about", "help.documentation", "view.messageLog")), help.toString());
+    }
+
     @Test
     void everyCommandIsInTheBarOnceAndNothingElseIs() {
         for (boolean zoomRow : ZOOM_ROWS) {
@@ -44,9 +61,9 @@ class MenuBarModelTest {
         }
         List<String> missing = new ArrayList<>();
         for (String id : MenuBarModel.commandIds(MenuBarModel.menus(true))) {
-            if (MenuBarModel.isNumbered(id)) continue; // titled from a pattern with the number in it
-            if (!english.containsKey("menu." + id)) missing.add("menu." + id);
-            if (!english.containsKey("menu." + id + ".desc")) missing.add("menu." + id + ".desc");
+            // KBD-03 (Pauta 6.0.1): command.<id> and command.<id>.desc, the numbered ones too.
+            if (!english.containsKey("command." + id)) missing.add("command." + id);
+            if (!english.containsKey("command." + id + ".desc")) missing.add("command." + id + ".desc");
         }
         for (MenuBarModel.Menu menu : MenuBarModel.menus(true)) {
             if (!english.containsKey(menu.titleKey())) missing.add(menu.titleKey());

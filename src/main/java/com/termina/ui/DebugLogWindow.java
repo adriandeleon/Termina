@@ -83,7 +83,7 @@ final class DebugLogWindow {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox buttons = new HBox(8, refresh, copy, export, clear, spacer, close);
         if (onReport != null) {
-            Button report = new Button(tr("menu.reportProblem"));
+            Button report = new Button(tr("command.reportProblem"));
             report.setOnAction(e -> onReport.run());
             buttons.getChildren().add(buttons.getChildren().indexOf(spacer), report);
         }

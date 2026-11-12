@@ -99,7 +99,7 @@ final class CommandPalette {
         });
 
         prefixChip.getStyleClass().add("palette-prefix");
-        setOpener(Keymap.defaultFor("commandPalette"));
+        setOpener(Keymap.defaultFor("palette.show"));
         input.getStyleClass().add("palette-input");
         input.setPromptText(tr("palette.prompt"));
         input.textProperty().addListener((o, was, now) -> filter(now));

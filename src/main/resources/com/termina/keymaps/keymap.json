@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "comment": "Termina's default key bindings. Windows and Linux: Shortcut is Ctrl, and an application chord adds Shift, since plain Ctrl+letter belongs to the shell. The user's own, from Settings ▸ Keyboard, are applied on top. Chords are JavaFX KeyCombination names.",
   "bindings": {
-    "commandPalette": "Shortcut+Shift+P",
+    "palette.show": "Shortcut+Shift+P",
     "reopenClosedTab": "Shortcut+Shift+Z",
     "previousPrompt": "Shortcut+Shift+Up",
     "nextPrompt": "Shortcut+Shift+Down",

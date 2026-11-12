@@ -55,16 +55,16 @@ class MenusFxTest {
 
     /** Items left out, by their catalogue key. */
     private static final List<String> SKIPPED_KEYS = List.of(
-            "menu.checkForUpdates",
-            "menu.documentation",
-            "menu.whatsNew",
-            "menu.exportConfiguration",
-            "menu.importConfiguration",
-            "menu.renameTab",
-            "menu.closeWindow",
+            "command.checkForUpdates",
+            "command.help.documentation",
+            "command.whatsNew",
+            "command.exportConfiguration",
+            "command.importConfiguration",
+            "command.renameTab",
+            "command.closeWindow",
             "menu.hideStatusBar",
-            "menu.showStatusBar",
-            "menu.openLink",
+            "command.showStatusBar",
+            "command.openLink",
             "menu.copyLink");
 
     @Test
@@ -103,7 +103,7 @@ class MenusFxTest {
         for (Tab tab : onFx(() -> new ArrayList<>(window.tabsForTest()))) {
             if (tab.getContextMenu() == null) continue;
             List<MenuItem> items = new ArrayList<>(tab.getContextMenu().getItems());
-            items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("menu.closeTab")));
+            items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("command.closeTab")));
             fired += fireAll(items, skipped, failures);
         }
         List<MenuItem> bar = new ArrayList<>();
@@ -115,7 +115,7 @@ class MenusFxTest {
             bar.addAll(flatten(menu.getItems()));
         }
         bar.sort(java.util.Comparator.comparing(item -> text(item) != null
-                && text(item).startsWith(Messages.tr("menu.closeTab").substring(0, 5))));
+                && text(item).startsWith(Messages.tr("command.closeTab").substring(0, 5))));
         fired += fireAll(bar, skipped, failures);
 
         assertEquals(List.of(), failures);
@@ -239,9 +239,9 @@ class MenusFxTest {
         List<String> tips = onFx(view::searchTooltipsForTest);
         assertEquals(
                 List.of(
-                        IconNames.withChord(Messages.tr("menu.findNext"), Keymap.defaultFor("findNext")),
-                        IconNames.withChord(Messages.tr("menu.findPrevious"), Keymap.defaultFor("findPrevious")),
-                        Messages.tr("menu.findRegex")),
+                        IconNames.withChord(Messages.tr("command.findNext"), Keymap.defaultFor("findNext")),
+                        IconNames.withChord(Messages.tr("command.findPrevious"), Keymap.defaultFor("findPrevious")),
+                        Messages.tr("command.findRegex")),
                 tips);
         assertTrue(tips.get(0).contains("("), "Find Next has a chord to show: " + tips);
         onFx(() -> {
@@ -251,7 +251,7 @@ class MenusFxTest {
         String moved = onFx(() -> view.searchTooltipsForTest().get(2));
         assertEquals(
                 IconNames.withChord(
-                        Messages.tr("menu.findRegex"), javafx.scene.input.KeyCombination.valueOf("Alt+Shift+R")),
+                        Messages.tr("command.findRegex"), javafx.scene.input.KeyCombination.valueOf("Alt+Shift+R")),
                 moved);
         onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {

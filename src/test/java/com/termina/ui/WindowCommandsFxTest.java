@@ -41,7 +41,7 @@ class WindowCommandsFxTest {
     /** Commands left out, by id, and why. */
     private static final Set<String> SKIPPED = Set.of(
             "checkForUpdates", // the network
-            "documentation", // a browser
+            "help.documentation", // a browser
             "whatsNew", // a browser
             "exportConfiguration", // writes to the real home folder
             "importConfiguration", // a file chooser

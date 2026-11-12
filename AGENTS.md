@@ -55,7 +55,9 @@ branch switches and commits cannot interfere.
 - Read the nearby code and its tests first, and follow their patterns.
 - **A user action is a command**: a `MenuAction` with an id in `TerminalWindow.menuCommands`, placed
   in a menu by `ui.MenuBarModel` (as a row, or as unlisted: palette and chord only), titled by
-  `menu.<id>` with a `menu.<id>.desc`, in all six `messages*.properties`. Its default chord, if it
+  `command.<id>` with a `command.<id>.desc`, in all six `messages*.properties` (KBD-03;
+  `MenuBarModelTest` checks every command). An id is forever: key bindings are stored and synced
+  under it, so renaming one means an entry in `config.CommandIds`. Its default chord, if it
   has one, goes in `src/main/resources/com/termina/keymaps/keymap.json` and `keymap.mac.json`, not
   in the code (`KeymapTest` checks both). Anything that shows a chord asks `chordOf(id)`, never the
   action's default. What it is called *now* and whether it can run now go in

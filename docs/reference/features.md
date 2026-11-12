@@ -525,7 +525,10 @@ which is why none of the defaults use it. Commands with no shortcut of their own
 Duplicate Tab — can be given one. In the file each binding is one line, keyed by command:
 `keys.newTab=Ctrl+Shift+Y`, or `keys.closeTab=none` for no shortcut at all. A line that does not
 parse, or that takes a chord an earlier line already took, is dropped on read and the command keeps
-its default.
+its default. Four commands go by the ids Pauta names: `keys.palette.show`, `keys.help.about`,
+`keys.help.documentation` and `keys.view.messageLog`. A file that still has their older names
+(`keys.commandPalette` and so on) is brought forward when it is read, and so is what settings sync
+receives from a computer on an older Termina.
 
 ### Shell profiles
 

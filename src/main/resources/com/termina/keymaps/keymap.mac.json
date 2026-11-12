@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "comment": "Termina's default key bindings. macOS: Cmd is Shortcut. The user's own, from Settings ▸ Keyboard, are applied on top. Chords are JavaFX KeyCombination names.",
   "bindings": {
-    "commandPalette": "Shortcut+Shift+P",
+    "palette.show": "Shortcut+Shift+P",
     "reopenClosedTab": "Shortcut+Z",
     "previousPrompt": "Shortcut+Up",
     "nextPrompt": "Shortcut+Down",

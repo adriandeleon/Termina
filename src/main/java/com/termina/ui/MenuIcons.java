@@ -238,13 +238,13 @@ public final class MenuIcons {
             case "selectAll" -> MenuIcons.selectAll();
             case "clearScrollback" -> MenuIcons.clear();
             case "find" -> MenuIcons.search();
-            case "commandPalette" -> MenuIcons.commandPalette();
+            case "palette.show" -> MenuIcons.commandPalette();
             case "moveTabLeft" -> MenuIcons.arrowLeft();
             case "moveTabRight" -> MenuIcons.arrowRight();
             case "renameTab" -> MenuIcons.rename();
             case "duplicateTab" -> MenuIcons.duplicate();
             case "pinTab" -> MenuIcons.pin();
-            case "about" -> MenuIcons.about();
+            case "help.about" -> MenuIcons.about();
             default -> null;
         };
     }

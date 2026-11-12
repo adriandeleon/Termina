@@ -385,7 +385,9 @@ public final class Settings {
      * ({@link SettingsFormat}), so what can go wrong here is the disk.
      */
     private void importLegacy(Path legacy) throws IOException {
-        Map<String, String> read = SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy)));
+        // The properties file is schema 1 in all but its syntax, so it is brought forward like one.
+        Map<String, String> read =
+                ConfigJson.migrate(1, SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy))));
         read.forEach(properties::setProperty);
         baseline = Map.of();
         writeFile();
@@ -397,7 +399,7 @@ public final class Settings {
 
     private void readLegacyInto(Path legacy) {
         try {
-            SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy)))
+            ConfigJson.migrate(1, SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy))))
                     .forEach(properties::setProperty);
         } catch (IOException | RuntimeException ignored) {
             // Defaults, then: never a launch that fails over its settings.
@@ -761,8 +763,9 @@ public final class Settings {
      * there — clamped on read, like every other setting, because the file is hand-edited.
      *
      * <p>Keyed by command rather than by chord, unlike Editora's, so a hand-edited file reads as a
-     * list of what each command is on. {@code keys.commandPalette} predates the rest and is the
-     * palette's line unchanged.
+     * list of what each command is on. The palette's line predates the rest: it was
+     * {@code keys.commandPalette} until the command took the id {@code palette.show}, and a file
+     * that still says so is brought forward ({@link CommandIds}).
      */
     public java.util.Map<String, String> keyBindings() {
         java.util.Map<String, String> bindings = new java.util.TreeMap<>();

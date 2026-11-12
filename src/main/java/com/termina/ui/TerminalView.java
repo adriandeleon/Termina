@@ -2477,12 +2477,12 @@ public final class TerminalView extends Region {
     }
 
     private ContextItems buildContextMenu() {
-        MenuItem copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
-        MenuItem pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
-        MenuItem openLinkItem = item(tr("menu.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
+        MenuItem copyItem = item(tr("command.copy"), MenuIcons.copy(), this::copySelection);
+        MenuItem pasteItem = item(tr("command.paste"), MenuIcons.paste(), this::paste);
+        MenuItem openLinkItem = item(tr("command.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
         // The right-clicked link, not the one under the pointer now: the menu can be raised from
         // the keyboard. The commands of the same names act on the pointer's.
-        MenuItem copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> copyLinkAddress(menuLink));
+        MenuItem copyLinkItem = item(tr("command.copyLinkAddress"), MenuIcons.copy(), () -> copyLinkAddress(menuLink));
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.
@@ -2492,14 +2492,14 @@ public final class TerminalView extends Region {
                 openLinkItem,
                 copyLinkItem,
                 linkSeparator,
-                item(tr("menu.newTab"), MenuIcons.newTab(), () -> runCommand.accept("newTab")),
-                item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
+                item(tr("command.newTab"), MenuIcons.newTab(), () -> runCommand.accept("newTab")),
+                item(tr("command.newWindow"), MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
-                item(tr("menu.selectAll"), MenuIcons.selectAll(), this::selectAll),
+                item(tr("command.selectAll"), MenuIcons.selectAll(), this::selectAll),
                 new SeparatorMenuItem(),
-                item(tr("menu.clearScrollback"), MenuIcons.clear(), this::clearScrollback)));
+                item(tr("command.clearScrollback"), MenuIcons.clear(), this::clearScrollback)));
 
         if (zoomActions != null) {
             // The same row the View menu carries, built again: a Node cannot be in two menus.
@@ -2528,10 +2528,12 @@ public final class TerminalView extends Region {
 
         items.add(new SeparatorMenuItem());
         items.add(
-                item(tr("menu.commandPalette"), MenuIcons.commandPalette(), () -> runCommand.accept("commandPalette")));
-        items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> runCommand.accept("settings")));
-        items.add(
-                item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> runCommand.accept("about")));
+                item(tr("command.palette.show"), MenuIcons.commandPalette(), () -> runCommand.accept("palette.show")));
+        items.add(item(tr("command.settings"), MenuIcons.settings(), () -> runCommand.accept("settings")));
+        items.add(item(
+                tr("command.help.about", com.termina.AppInfo.NAME),
+                MenuIcons.about(),
+                () -> runCommand.accept("help.about")));
 
         ContextMenu menu = OneMenu.installRightClick(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);

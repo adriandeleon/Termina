@@ -32,6 +32,21 @@ class SyncMergeTest {
     }
 
     @Test
+    void aCommandUnderItsOldIdOnOneSideAndItsNewOneOnTheOtherIsOneCommand() {
+        // This computer has renamed Command Palette's id; the other, on an older Termina, has not.
+        String base = "commandPalette=Alt+X\n";
+        String mine = "palette.show=Alt+X\n";
+        String theirs = "commandPalette=Alt+X\ncopy=Ctrl+Alt+C\n";
+
+        SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
+
+        assertEquals(Map.of("palette.show", "Alt+X", "copy", "Ctrl+Alt+C"), r.merged());
+        assertEquals(List.of("copy"), r.received());
+        assertEquals(List.of(), r.sent());
+        assertEquals(List.of(), r.conflicts());
+    }
+
+    @Test
     void aRemovalOnEitherSideIsCarriedOver() {
         // Putting a command back on its default removes its line; that is a change like any other.
         String base = file(Map.of("newTab", "Ctrl+Shift+Y", "copy", "Ctrl+Alt+C"));

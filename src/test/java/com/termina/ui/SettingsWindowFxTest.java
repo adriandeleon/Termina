@@ -68,8 +68,7 @@ class SettingsWindowFxTest {
         List<Keybindings.Command> commands = List.of(
                 new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")),
                 new Keybindings.Command("closeTab", "File", "Close Tab", Keymap.defaultFor("closeTab")),
-                new Keybindings.Command(
-                        "commandPalette", "View", "Command Palette", Keymap.defaultFor("commandPalette")));
+                new Keybindings.Command("palette.show", "View", "Command Palette", Keymap.defaultFor("palette.show")));
 
         int[] worked = onFx(() -> {
             Stage owner = new Stage();
