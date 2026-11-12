@@ -1,0 +1,2450 @@
+{
+  "$schema": "https://pauta-project.dev/6.0.1/audit.schema.json",
+  "app": "Termina",
+  "commit": "6de43a1",
+  "edition": "6.0.1",
+  "appEdition": "2.0.2",
+  "date": "2026-11-12",
+  "scope": [],
+  "rules": "https://pauta-project.dev/6.0.1/rules.json",
+  "results": [
+    {
+      "id": "OS-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2782 removes the `hideMenuBar` command under the macOS system menu bar (its row dropped at ui/MenuBarModel.java:102, the right-click toggle left unwired at TerminalWindow.java:1043) instead of keeping it disabled with a reason, as the settings row does (ui/SettingsWindow.java:938) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "OS-02",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no one Os class: `grep -rl '\"os.name\"' src/main/java` lists 20 files (AppInfo.java:145, ui/TerminalWindow.java:50, ui/MenuAction.java:63, ui/Keybindings.java:33, pty/ShellLauncher.java:32, pty/ProcessCwd.java:32, shell/ShellDiscovery.java:84 and 13 more); none compares a separatorChar (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "OS-03",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no Os class and so no override (OS-02), and no test that sets each OS and compares command ids, menu rows and settings pages: not found in src/test; the nearest, src/test/java/com/termina/ui/KeymapTest.java:22, compares only the two keymaps' command sets (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "OS-04",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "read all 20 files that read os.name and their callers: src/main/java/com/termina/pty/ProcessCwd.java:55 believes a shell's reported folder on Windows only (ui/TerminalView.java:3140, ui/TerminalWindow.java:885); sync/KeybindingsFile.java:35 syncs key bindings in one file for macOS and another for Windows/Linux; ui/PrimarySelection.java:133 middle-click pastes the clipboard on macOS/Windows, where the row gives none (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "pom.xml:27 defines `pauta.version` (2.0.2), but there is no pauta.json: `find src/main/resources -name pauta.json` finds none (expected src/main/resources/com/termina/pauta.json), and nothing states a conformance (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-02",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no conformance helper: `grep -rli conformance src` finds nothing, no pauta.json to read, and no test holds the README to a computed conformance; About (src/main/java/com/termina/ui/AboutWindow.java:131) has nothing to call (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-03",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "not a new app: it has releases behind it (CHANGELOG.md:212 `## [0.14.0] - 2026-10-31` and 17 earlier numbered sections; tags up to v0.14.0), so it is outside the rule"
+    },
+    {
+      "id": "PAUTA-04",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no pauta.json, so no unmet rule has an exception: 58 MUSTs fail (OS-01, OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-01, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, DOCS-06, DIAG-09, CLI-11, PERF-01, PERF-05, PERF-07, ACC-01, KBD-01, KBD-03, KBD-15, PAL-01, FIND-01, FIND-02, FIND-03, FIND-06, FIND-07, FIND-16, WIN-01, WIN-03, WIN-11, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, TBAR-03, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, MENU-07, SET-03, SET-04, SET-09, SET-10) and so do the 68 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+    },
+    {
+      "id": "PAUTA-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "no pauta.json, so no `not-applicable` entry names a limited rule (the missing file is PAUTA-01's and PAUTA-09's finding)"
+    },
+    {
+      "id": "PAUTA-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "no `deviation` entry: there is no pauta.json (PAUTA-01's and PAUTA-09's finding)"
+    },
+    {
+      "id": "PAUTA-07",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "no `pending` entry to read: there is no pauta.json (PAUTA-01's and PAUTA-09's finding)"
+    },
+    {
+      "id": "PAUTA-08",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "no exception and so no reason to read: there is no pauta.json (PAUTA-01's and PAUTA-09's finding)"
+    },
+    {
+      "id": "PAUTA-16",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "not made from a template: no pauta.json, so no `template` field, `app-only` entry or `pending` link to another repository"
+    },
+    {
+      "id": "PAUTA-18",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "no `checked` list (no pauta.json), so there is no entry to be malformed or stale"
+    },
+    {
+      "id": "PAUTA-09",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no pauta.json among the bundled resources: src/main/resources/com/termina/ holds build-info.properties, i18n/, styles/, fonts/, icons/ and keymaps/ but no pauta.json (`find src -name 'pauta*'`: not found) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-10",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no PautaConformanceTest or equivalent, and no src/test/resources/pauta-rules.json (src/test/resources holds only themes/); src/test/java/com/termina/AppInfoTest.java:38 holds only the edition named in AGENTS.md and the README (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-11",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "Read the commit that next raises `pauta.version` (pom.xml:27; the last was 1b0d195): it should also replace pauta-rules.json (none exists yet, PAUTA-10), update pauta.json, the README and AGENTS.md together; the app keeps no skill copy (.claude/skills absent); not recorded"
+    },
+    {
+      "id": "PAUTA-13",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "the app names its website (README.md:24, src/main/java/com/termina/AppInfo.java:42), but the website has no Pauta conformance page: read the local checkout /home/adl/src/adl/termina-website (5117cc4, equal to origin HEAD), whose src/content/docs/ has 16 pages and none on Pauta (`grep -rli pauta src public scripts`: not found) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-14",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no generator reads pauta.json in the website's repository: the local checkout of termina-website (5117cc4) has scripts/GenCommands.java and scripts/gen-images.mjs only, and no conformance page to generate (fails with PAUTA-13); the app has no pauta.json either (PAUTA-09) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-15",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "README.md:14 has the Pauta badge, but it names the edition alone (`Pauta-2.0.2`, no conformance) and links https://pauta-project.dev/2.0.2/, not the website's /docs/pauta/ page; the README has no 'Built to' or 'Working toward' line (only the badge's alt text) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PAUTA-17",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "AGENTS.md:11 '## Pauta' names 2.0.2, the edition of pom.xml:27, and links https://pauta-project.dev/2.0.2/llms.txt and /2.0.2/llms-full.txt (AGENTS.md:13-14); no link at latest/ or another edition; src/test/java/com/termina/AppInfoTest.java:41 asserts the edition and the llms.txt link"
+    },
+    {
+      "id": "PLAT-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:17 maven.compiler.release 25; pom.xml:253 requireJavaVersion [25,) in the main build, none in os-mac/os-windows/os-linux/git-commit; every setup-java step names '25' (.github/workflows/ci.yml:41, :65, :126; .github/workflows/release.yml:56, :453); no setup-graalvm step. Checked by reading, command not run."
+    },
+    {
+      "id": "PLAT-02",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "pom.xml:886 jLinkOptions in the dist profile's jpackage APP_IMAGE execution (pom.xml:820-824); scripts/build-installers.sh:25 wraps every installer with --app-image; the release builds with -Pdist -Dskip.installers=false (.github/workflows/release.yml:166)."
+    },
+    {
+      "id": "PLAT-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:29 javafx.version 27.0.1 (leading number 27 >= 27, as the command reads it)."
+    },
+    {
+      "id": "PLAT-04",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/module-info.java:1 declares `module com.termina` (not an open module) and has no `opens` line at all; one `exports com.termina` at :43."
+    },
+    {
+      "id": "PLAT-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:186-188 io.github.mkpaz:atlantafx-base 3.0.0; src/main/java/module-info.java:7 requires atlantafx.base."
+    },
+    {
+      "id": "PLAT-08",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "mvnw, mvnw.cmd and .mvn/wrapper/maven-wrapper.properties are all present (checked with ls, the three files the command tests)."
+    },
+    {
+      "id": "PLAT-09",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:513 -Xep:NullAway:ERROR with JSpecifyMode; pom.xml:129-134 jspecify; all 17 source packages under src/main/java/com/termina have a package-info.java with @NullMarked (own loop over every package dir, as the command does: none missing)."
+    },
+    {
+      "id": "PLAT-10",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:267 palantirJavaFormat; .github/workflows/ci.yml:11 pull_request; job `format` (ci.yml:30-45) runs only `./mvnw ... spotless:check` at :45, with no compile/test/package/verify Maven run in that job."
+    },
+    {
+      "id": "PLAT-11",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:544 surefire glass.platform=Headless; junit-jupiter 6.1.3 (pom.xml:77, :197); no Monocle or TestFX in pom.xml; the CI test step (.github/workflows/ci.yml:68-70) uses no xvfb; xvfb-run only wraps the AOT training launch (scripts/aot-train.sh:83) and the smoke test (scripts/smoke-test.sh:32)."
+    },
+    {
+      "id": "PLAT-12",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "pom.xml:603-604: the os-windows profile (activation by <os>, pom.xml:599) sets coverage.bundle.line 0.45 and coverage.bundle.method 0.47, below 0.90; the main floors are 0.90 (pom.xml:41-42) on the jacoco-check at verify (pom.xml:324-352)."
+    },
+    {
+      "id": "PLAT-13",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "No import of org.slf4j, log4j, commons-logging, logback, jboss-logging or tinylog in src/main/java (own grep of the command's pattern: nothing). Logging is java.util.logging and the JDK's System.Logger, which lands in it (e.g. src/main/java/com/termina/term/OscInterceptor.java:108); slf4j-jdk14 only binds the libraries (pom.xml:175-180)."
+    },
+    {
+      "id": "PLAT-14",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/config/ConfigJson.java:71 and :115 parse and build settings.json by hand with jackson-core's JsonParser/JsonGenerator; no ObjectMapper anywhere (pom.xml:191-193 has jackson-core only, no databind); themes are written as .properties (src/main/java/com/termina/ui/Themes.java:180)."
+    },
+    {
+      "id": "REPO-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "README.md has the logo (:2), badges (:8-14), pitch (:21), hero screenshot (:18), Highlights (:32), Install (:72), Build from source (:99), Command line (:113), Configuration with ~/.termina (:133) and License (:149), links the website (:24) and runs to 152 lines"
+    },
+    {
+      "id": "REPO-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "CHANGELOG.md:8 opens with `## [Unreleased]`; the other 18 sections are `## [x.y.z] - YYYY-MM-DD`; headings are only Added/Changed/Fixed/Security; all 328 `- ` entries start `- **`. Sections 0.1.0 to 0.7.0 also carry a 'Known gaps' list (e.g. CHANGELOG.md:755) above their first heading: notes, not change entries"
+    },
+    {
+      "id": "REPO-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "LICENSE:1 `MIT License`, LICENSE:3 `Copyright (c) 2026 Adrián Arturo De León Saldivar` (made the Command's two greps by hand: both match)"
+    },
+    {
+      "id": "REPO-04",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "NOTICE:1-3 name, copyright and the MIT sentence; every runtime dependency of pom.xml:107-194 (NOTICE:8-71) and every font under fonts/ (NOTICE:103-114) with its license; pom.xml:224 packages NOTICE into the jar and pom.xml:925 into the app image; src/test/java/com/termina/NoticeTest.java:36 and :65 hold both"
+    },
+    {
+      "id": "REPO-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "AGENTS.md:25 'Essential commands', AGENTS.md:41 'Worktrees — one per task', AGENTS.md:53 'Change checklist', and it says it is never a changelog (AGENTS.md:8); CLAUDE.md is 6 lines that point to AGENTS.md (CLAUDE.md:3)"
+    },
+    {
+      "id": "REPO-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "CONTRIBUTING.md:9 run, :10 `./mvnw test`, :11 `./mvnw spotless:apply`, :12 `./mvnw verify` (the build CI runs), :14 links building-and-packaging.md, and :31 the pull request step"
+    },
+    {
+      "id": "REPO-07",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "docs/architecture.md, docs/conventions.md, docs/testing.md, docs/gotchas.md, docs/release.md, docs/building-and-packaging.md and docs/decisions/ (nine ADRs and a README) all exist"
+    },
+    {
+      "id": "REPO-08",
+      "level": "MAY",
+      "status": "fail",
+      "evidence": "no TODO.md at the repository root (`ls TODO.md`: not found); a MAY, so no consequence"
+    },
+    {
+      "id": "REPO-09",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/ISSUE_TEMPLATE/bug_report.yml:21 `id: environment` and :27 `id: report`; src/main/java/com/termina/report/ProblemReport.java:86 builds `issues/new?template=bug_report.yml&environment=…&report=…`, which Report a Problem opens (ui/ReportProblemWindow.java:108)"
+    },
+    {
+      "id": "REPO-10",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "branding/termina-icon.svg is the source, with termina.png, termina.icns and termina.ico beside it; `jpackage.icon` points at them (pom.xml:50, :592, :606, :614, used at pom.xml:828)"
+    },
+    {
+      "id": "REPO-11",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "all 13 files in scripts/ are `.sh` with the shebang `#!/usr/bin/env bash` (e.g. scripts/dev-run.sh:1); none has a Python, JS, PowerShell or batch extension (made the Command's find and shebang check by hand)"
+    },
+    {
+      "id": "DOCS-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "README.md:24 and src/main/java/com/termina/AppInfo.java:46 name termina-project.dev; read termina-website@5117cc4 (local checkout ../termina-website, same as origin head): src/content/docs/ has getting-started, keyboard, settings, faq and 12 feature-area pages, but none of the 16 carries a screenshot (no image in any file; the docs layout adds none)"
+    },
+    {
+      "id": "DOCS-02",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "docs/reference/installing.md:6-14 and :19-22 tell the app's user which download to take, how to install it and how to check its signature (README.md:97 sends readers there); website part met: all 16 docs pages of termina-website@5117cc4 (local checkout ../termina-website, same as origin head) give category and order"
+    },
+    {
+      "id": "DOCS-03",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/AppInfo.java:46 DOCUMENTATION is the unversioned HOMEPAGE + \"/docs/\", not /docs/v-<version>/; the website serves no versioned docs either (astro.config.mjs:29 of termina-website@5117cc4, local checkout)"
+    },
+    {
+      "id": "DOCS-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "read termina-website@5117cc4 (local checkout ../termina-website, same as origin head): scripts/GenCommands.java generates src/lib/commands.ts and version.ts, but What's new is hand-written (src/lib/whatsnew.ts:1) and there is no check of the ids and chords the docs quote: package.json has no check:docs script and .github/workflows/pages.yml runs none"
+    },
+    {
+      "id": "DOCS-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "jreleaser.yml:53-58 takes the notes from out/release-notes.md, which scripts/release-notes.sh:38-40 writes from the version's CHANGELOG.md section; no generate_release_notes in .github/workflows/release.yml; no Welcome page (v0.14.0's notes on GitHub read as written text)"
+    },
+    {
+      "id": "DOCS-06",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "the command is registered as `documentation`, not `help.documentation` (src/main/java/com/termina/ui/TerminalWindow.java:2977, id from idOf at :3041); under that name it opens AppInfo.DOCUMENTATION and is a Help row (src/main/java/com/termina/ui/MenuBarModel.java:139); no Welcome page"
+    },
+    {
+      "id": "DOCS-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/MenuBarModel.java:136-148: Help runs documentation, whatsNew, keyboardShortcuts, checkForUpdates, messageLog, debugLog, reportProblem, about, with no Command Palette row first: the app has a palette and its row is in View (:108)"
+    },
+    {
+      "id": "DOCS-08",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "Open Help → Keyboard Shortcuts, search for a command and find its key: src/main/java/com/termina/ui/MenuBarModel.java:141, src/main/java/com/termina/ui/ShortcutsWindow.java:35 (search field, rows from the live bindings); not recorded"
+    },
+    {
+      "id": "DOCS-10",
+      "level": "MAY",
+      "status": "limited",
+      "evidence": "no Search Everywhere picker: no SearchEverywhere class or command in src/main/java"
+    },
+    {
+      "id": "DOCS-11",
+      "level": "MAY",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/SettingsWindow.java has no help link on any page and no page-to-slug map (searched it for help, docs, slug, DOCUMENTATION; searched messages.properties for settings.help: not found)"
+    },
+    {
+      "id": "DOCS-12",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "docs/README.md:3-5 says the folder is for people working on Termina and that user docs live on the website; :13-24 link each guide with one line (architecture, conventions, testing, gotchas, building-and-packaging, release, decisions/), :26-30 reference/"
+    },
+    {
+      "id": "DOCS-13",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "docs/decisions/0001-jediterm-emulation.md to 0009-config-in-json.md, each with ## Context, ## Decision and ## Consequences (e.g. docs/decisions/0001-jediterm-emulation.md:5, :11, :17)"
+    },
+    {
+      "id": "DOCS-14",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "CONTRIBUTING.md:4, :14, :20 and :25 link into docs/; AGENTS.md:8 keeps itself short and never a changelog; the catalogues and history (features.md, the audit, the reviews) are under docs/reference/ (docs/reference/README.md:9-23)"
+    },
+    {
+      "id": "DOCS-15",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "17 Javadoc comments are followed by another with nothing between: src/main/java/com/termina/App.java:57-62, src/main/java/com/termina/ui/TerminalWindow.java:3188-3193, src/main/java/com/termina/ui/WindowManager.java:180-181, src/main/java/com/termina/DevCapture.java:235-236, src/test/java/com/termina/ui/WindowLifecycleTest.java:111-112 among them; no test guards it (searched src/test for Javadoc: not found)"
+    },
+    {
+      "id": "DOCS-16",
+      "level": "MUST",
+      "status": "manual",
+      "evidence": "On GitHub, read adriandeleon/Termina's most recently merged feature pull requests: each diff touches CHANGELOG.md and the guides it concerns, and one that changes what a user sees names the termina-website pull request; the rule is stated at docs/conventions.md:77-82 and CONTRIBUTING.md:28-30; not recorded"
+    },
+    {
+      "id": "DOCS-17",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "AGENTS.md:8-9 (\"When documentation and code disagree, the code wins: verify it, and fix the documentation in the same change\") and docs/README.md:7"
+    },
+    {
+      "id": "DOCS-18",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "README.md:18 has one hero image (docs/screenshot.png), no light and dark pair; and the capture hook writes the scene at its own size, not 2×: src/main/java/com/termina/DevCapture.java:1501 scene.snapshot(null) with no scale"
+    },
+    {
+      "id": "QUAL-02",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "grep -rn '@SuppressWarnings(\"NullAway\")' src/main finds nothing; the one related line is the narrower @SuppressWarnings(\"NullAway.Init\") at src/main/java/com/termina/ui/SettingsWindow.java:154, which the check's string does not match."
+    },
+    {
+      "id": "QUAL-03",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "pom.xml:354-358 has the BUNDLE BRANCH limit, but PACKAGE line floors cover only cli, i18n, update, config, link, theme, shell and sync (pom.xml:362-475); com.termina.ui (23,546 lines), com.termina (1,927), term (1,382) and pty (837) have none, by the comment at pom.xml:476-491."
+    },
+    {
+      "id": "QUAL-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "docs/testing.md:37 quotes the floors (0.90 lines, 0.90 methods), but no test compares the guide with the pom: src/test/java/com/termina/WorkflowRulesTest.java:143-150 reads pom.xml alone, and the only test naming docs/testing.md checks that it exists (src/test/java/com/termina/RepositoryDocsTest.java:36). Searched src/test for jacoco, coverage.bundle, testing.md: not found."
+    },
+    {
+      "id": "QUAL-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/WindowRules.java:34-217 (shouldShowTabBar :90, yieldsToTextField :154, tabIndexFor :129) and 15 more decision classes import no javafx type, each with an untagged unit test; src/test/java/com/termina/ui/PureDecisionsTest.java:21-52 holds the list (own grep: 0 javafx imports in all 16)."
+    },
+    {
+      "id": "QUAL-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "All 25 test classes that call Platform.startup carry @Tag(\"fx\") (own grep of src/test: none untagged; no FxToolkit use); src/test/java/com/termina/FxTestTagsTest.java:38 fails the build for one that does not."
+    },
+    {
+      "id": "QUAL-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "grep -rn 'Thread.sleep' src/test finds 37 lines, e.g. src/test/java/com/termina/ui/ViewEventsFxTest.java:67 (sleep 600), src/test/java/com/termina/ui/DialogsFxTest.java:116 (sleep 800), src/test/java/com/termina/ui/WindowCommandsFxTest.java:149 (polling sleep 50)."
+    },
+    {
+      "id": "QUAL-08",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "Every FX test builds its window on Settings in a @TempDir (e.g. src/test/java/com/termina/ui/WindowCommandsFxTest.java:56, :70); the tests that export point user.home, where the export lands (src/main/java/com/termina/ui/ConfigTransfer.java:51), at a temp folder (src/test/java/com/termina/ui/SettingsWindowFxTest.java:188-189); the sweep leaves that command out (WindowCommandsFxTest.java:46). No shared fixture and no test that asserts it."
+    },
+    {
+      "id": "QUAL-09",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/DevCapture.java:40 (capture hook, -Dtermina.capture; scene snapshot written as PNG at :1501-1517), scheduled from the app's own start at src/main/java/com/termina/App.java:230 on the real WindowManager and window; src/test/java/com/termina/DevCaptureFxTest.java runs it headless."
+    },
+    {
+      "id": "QUAL-10",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "Break what a drift or parity test guards, run it and see it fail: e.g. remove a @Tag(\"fx\") and run src/test/java/com/termina/FxTestTagsTest.java:38, or move the attest step and run src/test/java/com/termina/WorkflowRulesTest.java:91; not recorded"
+    },
+    {
+      "id": "QUAL-11",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/WindowCommandsFxTest.java:71 everyPaletteCommandRunsAgainstALiveWindow iterates the window's command rows (:100) and runs each in a real headless window (:119-131), eight left out by id with reasons (:42-50); tagged fx, not excluded by surefire, disabled on Windows only (:38)."
+    },
+    {
+      "id": "QUAL-13",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/test/java/com/termina/ui/SettingsWindowFxTest.java:62-99 works every control but puts each back, and after the reload reads back two switches only (:96-98: showScrollBar, confirmClose); no FX test sets every control, reloads and reads each one back (searched src/test for round trip, survives, restart: only pure Settings tests, src/test/java/com/termina/config/SettingsTest.java:35)."
+    },
+    {
+      "id": "QUAL-15",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/WorkflowRulesTest.java:91 (asset check, then attest, then publish, then checksums attested) and :104 (team check, notarytool, staple, spctl, launch); src/test/java/com/termina/MacSigningTest.java:19, :48; src/test/java/com/termina/LinuxSigningTest.java:21, :49. Run by ./mvnw verify: no tag, no surefire exclude."
+    },
+    {
+      "id": "PERF-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "start() deletes a stale socket file and binds the socket once the window is shown (src/main/java/com/termina/App.java:210 -> src/main/java/com/termina/instance/SingleInstance.java:95); fonts registered on the FX thread after the first frame (App.java:221 -> src/main/java/com/termina/ui/Fonts.java:141); Files.isExecutable on every profile-menu build (src/main/java/com/termina/ui/TerminalWindow.java:758 -> src/main/java/com/termina/pty/ShellLauncher.java:69) and from the Settings path check's timer (src/main/java/com/termina/ui/SettingsWindow.java:632); sync backup written inside runLater (src/main/java/com/termina/ui/SettingsSync.java:641). Read the 166 grep lines outside DevCapture"
+    },
+    {
+      "id": "PERF-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "read the 45 grep lines outside DevCapture plus the emulator, cwd-watcher, logging and single-instance callbacks: each hands over inside Platform.runLater or sets volatile fields only (src/main/java/com/termina/ui/FxTerminalDisplay.java:236, src/main/java/com/termina/ui/TerminalView.java:401, :580, src/main/java/com/termina/ui/SettingsSync.java:694, src/main/java/com/termina/work/LatestOnly.java:54); no violation found"
+    },
+    {
+      "id": "PERF-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "read the 41 runLater lines outside DevCapture: repeatable requests go through LatestOnly (src/main/java/com/termina/work/LatestOnly.java:39): search src/main/java/com/termina/ui/TerminalView.java:3710, link checks :1856, update check src/main/java/com/termina/update/UpdateService.java:96, gh check src/main/java/com/termina/ui/SettingsSync.java:416, theme import src/main/java/com/termina/ui/SettingsWindow.java:790, zip scan src/main/java/com/termina/ui/ConfigTransfer.java:110; the rest are events or one-off results"
+    },
+    {
+      "id": "PERF-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "platform threads are named daemons (src/main/java/com/termina/term/TerminalExecutors.java:32), but four Executors.newVirtualThreadPerTaskExecutor() run unnamed virtual threads: src/main/java/com/termina/ui/TerminalView.java:594, :1869, :3715 and src/main/java/com/termina/ui/TerminalWindow.java:2202"
+    },
+    {
+      "id": "PERF-05",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/instance/SingleInstance.java:123: handOff connects to a socket, writes and reads inside CompletableFuture.supplyAsync with no executor (the common pool); no class extends Process"
+    },
+    {
+      "id": "PERF-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalView.java:696 markDirty sets the dirty flag and wake() (:398) starts the painter only when FrameGate.claim() wins (src/main/java/com/termina/ui/FrameGate.java:37); one render per pulse at :376, and layout clears the flag (:1014); src/test/java/com/termina/ui/FrameGateTest.java"
+    },
+    {
+      "id": "PERF-23",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "find bar: a query restarts a 120 ms PauseTransition before the scan (src/main/java/com/termina/ui/TerminalView.java:3530, :3562); Settings path fields: 300 ms (src/main/java/com/termina/ui/SettingsWindow.java:630, :637); the palette, Settings search and Shortcuts filter lists in memory"
+    },
+    {
+      "id": "PERF-07",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "terminal output is drained once a pulse (src/main/java/com/termina/ui/TerminalView.java:350), but the emulator thread calls Platform.runLater once for each OSC 9/777 notification (src/main/java/com/termina/ui/TerminalView.java:3191) and each OSC 52 clipboard write (:3116), and each uncaught error gets a runLater of its own (src/main/java/com/termina/ui/WindowManager.java:85); the bell (:508) and titles are coalesced, these are not"
+    },
+    {
+      "id": "PERF-08",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "read the 60 lines of the first grep and the 39 of the second outside DevCapture: the painter draws visible rows only (src/main/java/com/termina/ui/TerminalView.java:1066), the per-frame scans are over lists capped at 1000 matches and 2000 marks, text listeners debounce or filter in memory; growing lists are ListViews (src/main/java/com/termina/ui/MessageLogWindow.java:34, src/main/java/com/termina/ui/SettingsWindow.java:1553); no violation found (TerminalView's handlers skimmed, not read line by line)"
+    },
+    {
+      "id": "PERF-09",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "fonts and colours are cached, but each frame copies every style run to a new String (src/main/java/com/termina/ui/TerminalView.java:1095) and, for a run drawn per glyph (CJK, icons), makes a new char[] and String for each glyph (:1252, new String(Character.toChars(codePoint)))"
+    },
+    {
+      "id": "PERF-10",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2082 calls applyCss() on the window's whole TabPane when a closed tab is reopened (the scene root in the capture hooks at :3828 and src/main/java/com/termina/ui/TerminalView.java:3862); palette cells remove and re-add the palette-disabled class on every cell update, which each keystroke causes (src/main/java/com/termina/ui/CommandPalette.java:362, :365)"
+    },
+    {
+      "id": "PERF-11",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "named caps, oldest dropped: src/main/java/com/termina/ui/DebugLog.java:45, :205 (2000 records; file 8 MB :52), src/main/java/com/termina/ui/MessageLog.java:27 (500), src/main/java/com/termina/ui/ClosedTabs.java:37, src/main/java/com/termina/ui/WindowManager.java:470, src/main/java/com/termina/ui/PromptMarks.java:25, src/main/java/com/termina/ui/ScrollbackSearch.java:34, scrollback clamped src/main/java/com/termina/config/Settings.java:126, :708; tests src/test/java/com/termina/ui/MessageLogTest.java:30, src/test/java/com/termina/ui/DebugLogTest.java:105"
+    },
+    {
+      "id": "PERF-12",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "theme import reads at most 8 MB (src/main/java/com/termina/ui/Themes.java:163) and refuses over MAX_BYTES 4 MB (src/main/java/com/termina/theme/ThemeImport.java:21, :33); config zip: MAX_ENTRY_BYTES, MAX_TOTAL_BYTES, MAX_ENTRIES checked while reading (src/main/java/com/termina/config/ConfigArchive.java:120, :240, :282); neither input has anything to step down to"
+    },
+    {
+      "id": "PERF-13",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "WINDOW_HIDDEN clears the tab list and runs dispose() (src/main/java/com/termina/ui/TerminalWindow.java:373, :2035); each pane's close() stops the painter, the cwd watcher and the session with its executors (src/main/java/com/termina/ui/TerminalView.java:685, src/main/java/com/termina/term/TerminalSession.java:254); update and message-log listeners removed (:2822, src/main/java/com/termina/ui/MessageLogWindow.java:100); test src/test/java/com/termina/ui/WindowLifecycleTest.java:50"
+    },
+    {
+      "id": "PERF-14",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Settings, About, logs and Report windows are made on first open (src/main/java/com/termina/ui/WindowManager.java:577, :318, :397, :404, :416), the palette at src/main/java/com/termina/ui/TerminalWindow.java:3100, Shortcuts at :1872, the find bar at src/main/java/com/termina/ui/TerminalView.java:3558; test src/test/java/com/termina/ui/WindowLifecycleTest.java:61"
+    },
+    {
+      "id": "PERF-15",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:220: FirstFrame.after runs the remaining fonts, the large icons and (3 s later) the update check on the second pulse after the window is shown (src/main/java/com/termina/ui/FirstFrame.java:40); the first sync waits 5 s (src/main/java/com/termina/ui/SettingsSync.java:75)"
+    },
+    {
+      "id": "PERF-16",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "main is in the Application subclass (src/main/java/com/termina/App.java:14, :28; pom.xml:559 mainClass com.termina.App) and starts no read before launch (:54); the settings are read in init() (:131, :148), off the FX thread but after the toolkit has started"
+    },
+    {
+      "id": "PERF-17",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no .bss: 'bss' and 'convertToBinary' not found in pom.xml, scripts/ or src/main; src/main/resources/com/termina/styles/ holds five .css files and nothing converts them"
+    },
+    {
+      "id": "PERF-18",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "read the merged pull requests that touch a hot path for a stated cost: gh pr list --repo adriandeleon/Termina --state merged (#24, #49, #50, #90); not recorded"
+    },
+    {
+      "id": "PERF-19",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "scripts/measure-startup.sh:16, :59 (median of the warm runs of several launches); phase marks from main (src/main/java/com/termina/App.java:47) to the first paint (src/main/java/com/termina/ui/TerminalView.java:383, src/main/java/com/termina/perf/Startup.java:55, :70)"
+    },
+    {
+      "id": "PERF-20",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no sampler of the FX thread's stack: getStackTrace, getAllStackTraces, ThreadMXBean and 'ampler' not found in src/main/java; -Dtermina.stallLog (src/main/java/com/termina/ui/StallMonitor.java:36) prints only how long a frame gap was"
+    },
+    {
+      "id": "PERF-21",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "not every fixed hot path has a test: commit cedc1f5 fixed per-frame costs (PromptMarks.all snapshot src/main/java/com/termina/ui/PromptMarks.java:58, scroll bar updated outside the lock src/main/java/com/termina/ui/TerminalView.java:1083) and b9fbb83 the title coalescing (src/main/java/com/termina/ui/FxTerminalDisplay.java:236) with no test for them; found for others: src/test/java/com/termina/ui/FrameGateTest.java, src/test/java/com/termina/config/SettingsSaveTest.java"
+    },
+    {
+      "id": "PERF-22",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "read the pull requests that fixed a suspected regression for a number before and after: gh pr view 24, 49, 50, 90 --repo adriandeleon/Termina (#24's body gives idle CPU before and after); not recorded"
+    },
+    {
+      "id": "KBD-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/DebugLogWindow.java:45 Refresh, :47 Copy, :54 Export and :74 Clear, and src/main/java/com/termina/ui/MessageLogWindow.java:71 Clear, run handlers of their own; the registry (src/main/java/com/termina/ui/TerminalWindow.java:3383) has no command for them, nor for the find bar's regex toggle (SearchBar.java:65)"
+    },
+    {
+      "id": "KBD-02",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3041 idOf makes each id the catalog key without `menu.`: `newTab`, `closeTab`, `find`, `commandPalette` (src/main/resources/com/termina/keymaps/keymap.json:5-33); no id is dotted or grouped by area"
+    },
+    {
+      "id": "KBD-03",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3034 reads each title and description from `menu.<id>` and `menu.<id>.desc`; src/main/resources/com/termina/i18n/messages.properties has no `command.` key at all (the names `command.<id>` and `command.<id>.desc` are required as spelled)"
+    },
+    {
+      "id": "KBD-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "the palette grays a command and gives the reason as its tooltip (src/main/java/com/termina/ui/CommandPalette.java:364), but a menu row is only disabled, with no reason shown (src/main/java/com/termina/ui/TerminalWindow.java:3337), and the right-click menu hides Open Link and Copy Link Address when there is no link (src/main/java/com/termina/ui/TerminalView.java:2391)"
+    },
+    {
+      "id": "KBD-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/keymaps/keymap.json:5 and keymap.mac.json:5 bind `Shortcut+Shift+P` (Ctrl+Shift+P, Cmd+Shift+P on macOS) to the palette command of the terminal's one keymap; its id, `commandPalette`, is PAL-01's finding"
+    },
+    {
+      "id": "KBD-06",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/CommandPalette.java:249 scores the title fuzzily, :250 falls back to the keywords (the menu's name) below every title match, :253-257 ranks by score then the shorter title; the description is drawn only (:124) and each row draws its chord in force (:361, TerminalWindow.java:3651); src/test/java/com/termina/ui/CommandPaletteTest.java:50, :60, :67"
+    },
+    {
+      "id": "KBD-07",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:296 makes the scene root a StackPane and :3100 hands it to the palette, which adds its backdrop and card to it (src/main/java/com/termina/ui/CommandPalette.java:184); no `javafx.stage.Popup` is created in src/main, and the app has no picker"
+    },
+    {
+      "id": "KBD-09",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "a terminal app: src/main/resources/com/termina/keymaps/keymap.json and keymap.mac.json, read by src/main/java/com/termina/ui/Keymap.java:44; no binding in either is Ctrl alone or Alt alone with a letter (letters take Shortcut+Shift off macOS, Alt only digits: keymap.json:39); src/test/java/com/termina/ui/KeymapTest.java:35"
+    },
+    {
+      "id": "KBD-10",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "the check's terminal branch: src/main/resources/com/termina/keymaps/ holds keymap.json and keymap.mac.json and no emacs.json or cua.json (the only two .json files under src/main/resources), so it needs none of intellij, vscode or sublime"
+    },
+    {
+      "id": "KBD-21",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "keymap.json and keymap.mac.json bind the same 51 command ids (compared with jq: no id in one and missing from the other); src/test/java/com/termina/ui/KeymapTest.java:22 asserts it"
+    },
+    {
+      "id": "KBD-11",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/Keybindings.java:67 resolve is the one place: the keymap's defaults, then the user's stored `keys.*` over them; called from src/main/java/com/termina/ui/TerminalWindow.java:3063 on every settings change (the app has no plugins)"
+    },
+    {
+      "id": "KBD-12",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "open Settings ▸ Keyboard, type in the search box, and bind a chord another command has: the page lists every command of the table (src/main/java/com/termina/ui/SettingsWindow.java:1278) and reports a taken chord (:1371-1377); not recorded"
+    },
+    {
+      "id": "KBD-13",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "no catalog value names a command's chord: src/main/resources/com/termina/i18n/messages.properties:359-361 name only the find field's fixed keys (Enter, Shift+Enter, Escape) and :78 takes the chord as a parameter; every chord is drawn by KeyCombination.getDisplayText of the chord in force (src/main/java/com/termina/ui/IconNames.java:47, MenuRows.java:110, CommandPalette.java:361)"
+    },
+    {
+      "id": "KBD-14",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "no multi-key prefix in the app: src/main/java/com/termina/ui/Keymap.java:49 reads one KeyCombination per command id and the key filter matches single chords (src/main/java/com/termina/ui/TerminalWindow.java:3432), so there is no prefix to hint for"
+    },
+    {
+      "id": "KBD-15",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:63 takes the find bar's regular-expression toggle out of the Tab order, and no command and no key of the field (:113-127) toggles it: the mouse alone can work it (FIND-16 fails for it too) (upgrade work: a SHOULD in 2.0.2)"
+    },
+    {
+      "id": "KBD-16",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/styles/app.css:695-715 is one `:focus-visible` block for buttons, toggles, menu buttons, links, combo boxes, check boxes and text fields (the app has no radio button); the only rules after it (:718-724) are the menu rows' and set no border or background insets on those controls; no test tabs to a control"
+    },
+    {
+      "id": "KBD-22",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/styles/app.css:703-704 sets `-fx-border-width: 2` and `-fx-border-insets: -3` for the outside ring, and :712-714 widens a text field's focus border with `-fx-background-insets: 0, 2px`; no control flush with the window's edge takes a ring"
+    },
+    {
+      "id": "KBD-18",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "the on/off rows of Settings are plain CheckBoxes (src/main/java/com/termina/ui/SettingsWindow.java:915, :930, :947, :970), whose role is CHECK_BOX; searched src/main for `AccessibleRole.TOGGLE_BUTTON`, `setAccessibleRole` and a switch class: not found"
+    },
+    {
+      "id": "ACC-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no test sweeps every control: src/test/java/com/termina/ui/IconOnlyButtonsFxTest.java:61 checks icon-only buttons and tab close buttons only (check() returns 0 for anything else, :108) in the main window, Settings and About; no field, combo box, list cell or menu row, and not the Shortcuts, Debug Log, Message Log or Report windows or the dialogs (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-02",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/StatusBar.java:35: the two status-bar Labels open the Message Log on a click with no accessible role and no executeAccessibleAction; setAccessibleRole and executeAccessibleAction not found in src/main/java (the terminal view, a Region with key and mouse handlers at src/main/java/com/termina/ui/TerminalView.java:464, sets none either) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-03",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalView.java:81: the terminal is painted on a Canvas, and neither it nor the view sets an accessible text or role; setAccessibleText appears only at src/main/java/com/termina/ui/SettingsWindow.java:593, :1674 and src/main/java/com/termina/ui/StatusBar.java:70 (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "the visual bell flashes the terminal and clears it with a PauseTransition (src/main/java/com/termina/ui/TerminalView.java:709, :713, :302) started with no look at the OS setting; 'educedMotion' not found in src/main/java (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-05",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:1807: a tab's notification, bell and activity marks are one Circle(3) (:1744) told apart by its fill alone (magenta, yellow, cyan); no word, glyph or shape differs (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-06",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no panel beside the content: the window is a menu bar, a tab strip, terminal panes and an optional status bar (src/main/java/com/termina/ui/TerminalWindow.java:274); no tool panel or sidebar in src/"
+    },
+    {
+      "id": "ACC-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "docs/release.md (137 lines) has no screen-reader step: 'Narrator', 'VoiceOver' and 'screen reader' not found in it (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-08",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/PaletteNav.java:42 moves the palette's selection with select() and scrollTo() only; notifyAccessibleAttributeChanged and FOCUS_ITEM not found in src/main/java, and a row that cannot run says why in a Tooltip, not its accessible text (src/main/java/com/termina/ui/CommandPalette.java:368) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ACC-09",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no listener on Windows.SPI.HighContrast and no high-contrast theme: 'HighContrast' not found in src/main/java; src/main/java/com/termina/ui/Theme.java:20 has the four built-in themes only (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "WIN-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/config/Settings.java:1001: `ui.showStatusBar` defaults to false, so the bar is hidden until the user turns it on (the app's own record: docs/decisions/0008-optional-status-bar.md; the fix is a pauta.json entry or the default). The rest is there: echo classes at src/main/java/com/termina/ui/StatusBar.java:60, click opens the Message Log at :35."
+    },
+    {
+      "id": "WIN-03",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/config/Settings.java:965: `window.menuBarInTitleBar` defaults to false, so Windows and Linux start decorated; the EXTENDED stage with a HeaderBar holding the menu bar exists only behind it (src/main/java/com/termina/ui/TerminalWindow.java:283-286, :2756). macOS half met (:2773 useSystemMenuBar). (upgrade work: a SHOULD in 2.0.2)"
+    },
+    {
+      "id": "WIN-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "The helper is src/main/java/com/termina/ui/Confirm.java:84 (`style`), but four dialogs do not pass through it: src/main/java/com/termina/ui/TerminalWindow.java:2124 (Rename Tab), :3243 (report alert), :3876 (shell-failure alert) and src/main/java/com/termina/ui/SettingsWindow.java:2208 (Create on GitHub)."
+    },
+    {
+      "id": "WIN-11",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "`setButtonOrder` not found anywhere in src/main: src/main/java/com/termina/ui/Confirm.java:67 and src/main/java/com/termina/ui/ConfigTransfer.java:169 add OK_DONE and CANCEL_CLOSE buttons and leave the ButtonBar on JavaFX's order for the OS. (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "WIN-08",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "Size, position and maximized are saved on hiding (src/main/java/com/termina/ui/TerminalWindow.java:2712) and restored (:299-317, :359; src/test/java/com/termina/config/SettingsTest.java:451), but the open tabs are not: workspace-state.json holds only window.* and update keys (src/main/java/com/termina/config/Settings.java:288-298); no restore of tabs at launch found."
+    },
+    {
+      "id": "WIN-09",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "`zoomIn`, `zoomOut`, `actualSize` on Shortcut+Equals, Shortcut+Minus, Shortcut+0 in both keymaps (src/main/resources/com/termina/keymaps/keymap.json:21-23, keymap.mac.json:21-23); the level is the saved `font.zoom` (src/main/java/com/termina/config/Settings.java:690)."
+    },
+    {
+      "id": "WIN-12",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "No UI zoom: no setting or command for it found (searched src/main for uiZoom, ui zoom, chrome zoom); `zoomIn`/`zoomOut`/`actualSize` scale the terminal font only (src/main/java/com/termina/config/Settings.java:690), and chrome sizes are absolute pixels (src/main/resources/com/termina/styles/app.css:401). (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "WIN-13",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "No quit method: several windows, each close request asks for itself (src/main/java/com/termina/ui/TerminalWindow.java:364-367, :2727), macOS's Quit is not caught (`handleQuitAction` not found), and App.stop only tears down (src/main/java/com/termina/ui/WindowManager.java:631). (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "WIN-14",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "`app.quit` is not registered (no match for `app.quit` or a quit command in src/main), and the File menu has no Quit row: it ends closeWindow … settings, syncNow, configureProfiles (src/main/java/com/termina/ui/MenuBarModel.java:55-72). The app ends only with its last window (src/main/java/com/termina/ui/WindowManager.java:217). (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "WIN-15",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/MacAppMenu.java:30 adds About only to the macOS application menu; no Settings item is inserted, Settings stays a File menu row on every OS (src/main/java/com/termina/ui/MenuBarModel.java:69). (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "WIN-10",
+      "level": "MAY",
+      "status": "fail",
+      "evidence": "No Zen, Expert or Simple mode: no such command or chrome truth table found in src/main (searched zen, expertMode, simpleMode); the nearest are the separate menu-bar and status-bar toggles (src/main/java/com/termina/ui/TerminalWindow.java:129)."
+    },
+    {
+      "id": "ICON-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/WindowManager.java:106 and :134: the listener on Window.getWindows() adds ui-font.css to each window's scene, and to a new scene when the window's scene changes (popups take their owner's); the four dialogs that had none also add it themselves (src/main/java/com/termina/ui/TerminalWindow.java:2133, :3248, :3718, :3854; src/main/java/com/termina/ui/SettingsWindow.java:2232). No .root rule in app.css sets -fx-font-family. src/test/java/com/termina/ui/DialogsFxTest.java:144 fails on a dialog it answers that lacks the sheet (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "ICON-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Inter-Regular, -Bold, -Italic, -BoldItalic .ttf and OFL.txt are in src/main/resources/com/termina/fonts/inter/; `Font.loadFont` runs on them (src/main/java/com/termina/ui/Fonts.java:75-78, :141) from App.prepare before any stylesheet or window (src/main/java/com/termina/App.java:155). No mapping of a platform UI font found."
+    },
+    {
+      "id": "ICON-04",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/styles/editora-light.css:9 and editora-dark.css:9: the first rule is `.root` (ends :123); the only `#` hex after it is in a comment (:4977)."
+    },
+    {
+      "id": "ICON-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/styles/editora-light.css and editora-dark.css are byte-identical (cmp) to Editora's styles/atlantafx-themes/ files at Editora bab4437e7; the pair is the default (src/main/java/com/termina/config/Settings.java:658, src/main/java/com/termina/ui/Themes.java:121)."
+    },
+    {
+      "id": "ICON-06",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "No keyboard token: the `.root` block of src/main/resources/com/termina/styles/app.css:16-27 has no `-state-key` or other ladder() (no `ladder(` in app.css or settings.css); the chord chip uses -color-accent-fg (:404) and the menus' chord column -color-fg-muted (:722)."
+    },
+    {
+      "id": "ICON-07",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/styles/app.css:17-19 declare -state-red, -state-amber, -state-green once on `.root`, each chained to a role; component rules use the tokens (:30-31, :107, :565, :671-672) and none in app.css or settings.css names -color-danger-fg, -color-warning-fg or -color-success-fg."
+    },
+    {
+      "id": "ICON-08",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "The only fixed colors in app.css, settings.css and ui-font.css are the scrim and two shadow tokens on `.root` (src/main/resources/com/termina/styles/app.css:24-26, rgba of black); every component rule uses a role or token. Held for app.css by src/test/java/com/termina/ui/AppCssColorsTest.java:22."
+    },
+    {
+      "id": "ICON-09",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "No contrast test of the chrome stylesheets: src/test/java/com/termina/ui/ThemeTest.java:38 computes ratios for the terminal schemes only, and no test computes muted ink on the themes' grounds or walks app.css/settings.css for text set in -color-fg-subtle (searched src/test for color-fg, contrast, .css)."
+    },
+    {
+      "id": "ICON-10",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "No test computes a role's -fg on its -subtle fill or on the default and subtle grounds of editora-light.css and editora-dark.css: src/test/java/com/termina/ui/ThemeTest.java is the only contrast test and reads the terminal palettes, not the stylesheets; not found in src/test."
+    },
+    {
+      "id": "ICON-11",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "No test computes -color-fg-emphasis on the accent, success, warning and danger -emphasis fills of the two themes: `fg-emphasis` does not occur in src/test (only src/test/java/com/termina/ui/ThemeTest.java computes contrast, for terminal schemes)."
+    },
+    {
+      "id": "ICON-12",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "The token and block exist (src/main/resources/com/termina/styles/app.css:693 `-focus-ring: -color-accent-emphasis`, :695-715 `:focus-visible`), but no test reads `-focus-ring` and computes it on the themes' grounds: `focus-ring` does not occur in src/test."
+    },
+    {
+      "id": "ICON-13",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "No state token without a theme role: the only state tokens are -state-red, -state-amber and -state-green, each chained to a role (src/main/resources/com/termina/styles/app.css:17-19); no fixed hex or per-theme pair in app.css or settings.css. The missing Brace token is ICON-06's."
+    },
+    {
+      "id": "ICON-14",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "The only test class that computes a contrast ratio, src/test/java/com/termina/ui/ThemeTest.java:150, starts no toolkit and has no fx tag (javafx Color for arithmetic only); no FX test computes one. It reads the terminal schemes from the Theme enum, not a .css: the stylesheet contrast tests themselves are missing (ICON-09 to ICON-12)."
+    },
+    {
+      "id": "ICON-15",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Light and dark themes (src/main/java/com/termina/ui/Themes.java:121, Theme.EDITORA_LIGHT/EDITORA_DARK); a theme change calls Application.setUserAgentStylesheet in the running app (src/main/java/com/termina/ui/WindowManager.java:279)."
+    },
+    {
+      "id": "ICON-16",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/Themes.java:54 `SYSTEM_ID`, listed first by byDisplayName (:148), which fills the Settings picker (src/main/java/com/termina/ui/SettingsWindow.java:839); a listener on Platform.getPreferences().colorSchemeProperty() re-applies the theme (src/main/java/com/termina/ui/WindowManager.java:91-94)."
+    },
+    {
+      "id": "ICON-17",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/Themes.java:138: byId ends in FALLBACK, Editora Dark (:47), which is the first-run default (src/main/java/com/termina/config/Settings.java:658); held by src/test/java/com/termina/ui/ThemeTest.java:111."
+    },
+    {
+      "id": "ICON-18",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "Every use of the three tokens marks a listed meaning: errors and refusals in red (src/main/resources/com/termina/styles/app.css:30, :565 an invalid regex, :671), warnings in amber (:31, :672), a verified up-to-date check in green (:107); no other rule in app.css or settings.css uses them."
+    },
+    {
+      "id": "ICON-19",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "One icon family: every glyph is a filled path with the `menu-icon` class (src/main/java/com/termina/ui/MenuIcons.java:222, src/main/java/com/termina/ui/ProfileIcons.java:377) or the pin's `tab-pin` (MenuIcons.java:66); no stroke-colored glyph class and no `-fx-stroke` in the stylesheets."
+    },
+    {
+      "id": "ICON-20",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "one lookup keyed by the command, MenuIcons.forCommand (src/main/java/com/termina/ui/MenuIcons.java:224): the menu bar's rows (src/main/java/com/termina/ui/TerminalWindow.java:3346) and Configure Profiles' row in the profile menu (:813) both ask it, so that row wears the layers and not the Settings gear; held by src/test/java/com/termina/ui/MenuIconsTest.java:54. The right-click menus name the same MenuIcons methods directly (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "ICON-23",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "No list of files with an icon each: no project tree, file tabs or file list in src/main; src/main/java/com/termina/ui/ProfileIcons.java gives shell profiles a mark, not files."
+    },
+    {
+      "id": "ICON-24",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "NOTICE:81-83 credits Material Design Icons (Apache-2.0) for MenuIcons, :141-148 Simple Icons (CC0) for ProfileIcons, :99-107 the six OFL families under fonts/, and :113-139 Symbols Nerd Font Mono with each glyph set's license."
+    },
+    {
+      "id": "TBAR-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/IconNames.java:27 binds a control's tooltip and accessible text to one observable string, chord included; every icon-only button uses it (src/main/java/com/termina/ui/TerminalWindow.java:239, :252, :674; src/main/java/com/termina/ui/SearchBar.java:64, :108; src/main/java/com/termina/ui/ZoomMenuRow.java:106); src/test/java/com/termina/ui/IconOnlyButtonsFxTest.java:61 sweeps the windows"
+    },
+    {
+      "id": "TBAR-03",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:90-91: the find bar's arrows are named from `search.older`/`search.newer` (\"Previous match, up (Enter)\"), not a command's title, and each shows the other command's chord: the up arrow steps older, as findNext does (src/main/java/com/termina/ui/TerminalWindow.java:2926), and shows findPrevious's chord"
+    },
+    {
+      "id": "TBAR-14",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/CommandPalette.java:369: the disabled row's `new Tooltip(why)` gets no show delay (JavaFX's 1 s); no `-fx-show-delay` in src/main/resources/com/termina/styles/; src/main/java/com/termina/ui/IconNames.java:30 sets 400 ms and src/main/java/com/termina/ui/TerminalWindow.java:688 repeats it inline, so the delay is not set in one place (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "TBAR-06",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/resources/com/termina/styles/editora-light.css:2662-2663 (and editora-dark.css): `.menu-bar` paints a 1 px `-color-border-muted` line under its `-color-bg-subtle`, and src/main/resources/com/termina/styles/app.css:130-133 gives `.header-bar` the same hairline; the tab strip under it is on `-color-bg-default` (editora-light.css:4293), not overridden in app.css: a line and a change of ground between the two top bars"
+    },
+    {
+      "id": "TBAR-02",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no toolbar: no `ToolBar` in src/main/java; the only icon-only bars are the tab strip's + and chevron (src/main/java/com/termina/ui/TerminalWindow.java:239) and the find bar's buttons (src/main/java/com/termina/ui/SearchBar.java:67), which the rule's appliesTo says are not toolbars"
+    },
+    {
+      "id": "TBAR-04",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no toolbar: no `ToolBar` in src/main/java; the only icon-only bars are the tab strip's + and chevron (src/main/java/com/termina/ui/TerminalWindow.java:239) and the find bar's buttons (src/main/java/com/termina/ui/SearchBar.java:67), which the rule's appliesTo says are not toolbars"
+    },
+    {
+      "id": "TBAR-05",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no toolbar: no `ToolBar` in src/main/java; the only icon-only bars are the tab strip's + and chevron (src/main/java/com/termina/ui/TerminalWindow.java:239) and the find bar's buttons (src/main/java/com/termina/ui/SearchBar.java:67), which the rule's appliesTo says are not toolbars"
+    },
+    {
+      "id": "TBAR-07",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no toolbar: no `ToolBar` in src/main/java; the only icon-only bars are the tab strip's + and chevron (src/main/java/com/termina/ui/TerminalWindow.java:239) and the find bar's buttons (src/main/java/com/termina/ui/SearchBar.java:67), which the rule's appliesTo says are not toolbars"
+    },
+    {
+      "id": "TBAR-08",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no toolbar: no `ToolBar` in src/main/java; the only icon-only bars are the tab strip's + and chevron (src/main/java/com/termina/ui/TerminalWindow.java:239) and the find bar's buttons (src/main/java/com/termina/ui/SearchBar.java:67), which the rule's appliesTo says are not toolbars"
+    },
+    {
+      "id": "TBAR-09",
+      "level": "MAY",
+      "status": "limited",
+      "evidence": "no toolbar: no `ToolBar` in src/main/java; the only icon-only bars are the tab strip's + and chevron (src/main/java/com/termina/ui/TerminalWindow.java:239) and the find bar's buttons (src/main/java/com/termina/ui/SearchBar.java:67), which the rule's appliesTo says are not toolbars"
+    },
+    {
+      "id": "TBAR-15",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no main toolbar: no `ToolBar` in src/main/java; the window's top is a menu bar (or HeaderBar holding it, src/main/java/com/termina/ui/TerminalWindow.java:2756) over the tab strip"
+    },
+    {
+      "id": "TBAR-16",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no main toolbar: no `ToolBar` in src/main/java; the window's top is a menu bar (or HeaderBar holding it, src/main/java/com/termina/ui/TerminalWindow.java:2756) over the tab strip"
+    },
+    {
+      "id": "TBAR-17",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no main toolbar: no `ToolBar` in src/main/java; the window's top is a menu bar (or HeaderBar holding it, src/main/java/com/termina/ui/TerminalWindow.java:2756) over the tab strip"
+    },
+    {
+      "id": "TBAR-18",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no main toolbar: no `ToolBar` in src/main/java; the window's top is a menu bar (or HeaderBar holding it, src/main/java/com/termina/ui/TerminalWindow.java:2756) over the tab strip"
+    },
+    {
+      "id": "TBAR-19",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no main toolbar: no `ToolBar` in src/main/java; the window's top is a menu bar (or HeaderBar holding it, src/main/java/com/termina/ui/TerminalWindow.java:2756) over the tab strip"
+    },
+    {
+      "id": "TBAR-12",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool windows or stripe buttons in src/main/java (searched stripe, ToolWindow)"
+    },
+    {
+      "id": "TBAR-13",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool windows or stripe buttons in src/main/java (searched stripe, ToolWindow)"
+    },
+    {
+      "id": "TABS-10",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:513 binds the stage title to the selected tab's active pane; src/main/java/com/termina/ui/TerminalTitle.java:33,45 gives the user's name for the tab, the title the shell set, the working folder's path, or the app's name alone (src/main/java/com/termina/ui/TerminalWindow.java:505)"
+    },
+    {
+      "id": "TABS-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/MenuBarModel.java:62-67 (closeTab, closeOtherTabs, closeTabsToTheLeft/Right, reopenClosedTab) and :118-126 (nextTab, previousTab, pinTab) are registered commands with menu rows and palette rows (src/main/java/com/termina/ui/TerminalWindow.java:2846-2849); every tab's right-click menu lists pin, close, close others, left, right (src/main/java/com/termina/ui/TerminalWindow.java:1564-1578)"
+    },
+    {
+      "id": "TABS-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:920 `new Tab()` never gets text; :976-989 the graphic is one Label `tab-title` with no file-type glyph, bound to the active pane's title (:1077); its tooltip is that pane's working folder with `~` for home (:1078, src/main/java/com/termina/ui/TerminalTitle.java:88)"
+    },
+    {
+      "id": "TABS-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/styles/app.css:185 bolds `.tab-title.pinned` and src/main/java/com/termina/ui/TerminalWindow.java:1790-1803 adds the pin; src/main/java/com/termina/ui/TerminalTitle.java:69-71 puts the shell's title, then the running program, before the folder; marks for notification, bell and output (src/main/java/com/termina/ui/TerminalWindow.java:1048-1064) clear on selection (:381)"
+    },
+    {
+      "id": "TABS-04",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TabRanges.java:29-36 `closing` drops every pinned index, and all three bulk closes build their list through it (src/main/java/com/termina/ui/TerminalWindow.java:1604-1622); src/test/java/com/termina/ui/TabRangesTest.java:46 asserts it"
+    },
+    {
+      "id": "TABS-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:1653-1662 `togglePin` counts the other pinned tabs and moves the tab to that index: last of the pinned group when pinned, first after it when unpinned"
+    },
+    {
+      "id": "TABS-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/ClosedTabs.java:37 MAX = 20, :87-90 newest first, one list per window (src/main/java/com/termina/ui/TerminalWindow.java:1945); an entry is the PaneLayout (each pane's launch options in its last directory, its user title, the splits and dividers), the strip index and the pin, no scrollback (src/main/java/com/termina/ui/PaneLayout.java:24-45); reopened at src/main/java/com/termina/ui/TerminalWindow.java:2051-2098; src/test/java/com/termina/ui/ClosedTabsTest.java"
+    },
+    {
+      "id": "TABS-07",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "drag a tab along the strip: the dragged header should dim and an accent line mark the landing edge (src/main/java/com/termina/ui/TerminalWindow.java:1441 `tab-dragging`, :1497-1498 `tab-drop-before/after`; src/main/resources/com/termina/styles/app.css:193-205); not recorded"
+    },
+    {
+      "id": "TABS-08",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "a terminal app: its tabs hold terminals, not files, and the rule's text passes such an app by (src/main/java/com/termina/ui/TerminalWindow.java:968-971 a tab's content is a PaneGroup of shells; no Git status anywhere in src/)"
+    },
+    {
+      "id": "TABS-09",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "a terminal app: its tabs hold no files, so the rule's text passes it by (no open-files switcher is owed; tabs are PaneGroups of shells, src/main/java/com/termina/ui/TerminalWindow.java:968-971)"
+    },
+    {
+      "id": "TABS-12",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no command hides the tab bar with any number of tabs: the nearest is the `settings.hideTabBar` toggle (src/main/java/com/termina/ui/SettingCommands.java:72), which hides the strip only while the window has one tab (src/main/java/com/termina/ui/WindowRules.java:90, src/main/java/com/termina/ui/TerminalWindow.java:599)"
+    },
+    {
+      "id": "TABS-13",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a window of its own"
+    },
+    {
+      "id": "TABS-15",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a window of its own"
+    },
+    {
+      "id": "TABS-19",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a window of its own"
+    },
+    {
+      "id": "TABS-16",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "TABS-17",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "TABS-18",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "TABS-20",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "TABS-21",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "TABS-22",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "TABS-23",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tool window stripes: no tool panels or stripe buttons in src/ (the window is a menu bar, a tab strip and an optional status bar, src/main/java/com/termina/ui/TerminalWindow.java:270, :3218)"
+    },
+    {
+      "id": "MENU-14",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3371: `barIcon` returns null for every command it does not list, so about half the menu bar's rows have an empty icon column (Close Window, Reopen Closed Tab, Find Next, Next Tab, Split Right, all of Help but About); the zoom row has none (src/main/java/com/termina/ui/ZoomMenuRow.java:82); Copy Link Address borrows Copy's glyph (src/main/java/com/termina/ui/TerminalView.java:2481)"
+    },
+    {
+      "id": "MENU-15",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "right-click rows have no chord cell: `tabItem` (src/main/java/com/termina/ui/TerminalWindow.java:1598) and the terminal menu's `item` (src/main/java/com/termina/ui/TerminalView.java:2536) build plain `MenuItem`s with no accelerator text, so New Tab, Close Tab, Copy, Paste show none; the menu bar's chords are `-color-fg-muted`, not a keyboard color (src/main/resources/com/termina/styles/app.css:721-724) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "MENU-16",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no `.context-menu` font rule in src/main/resources/com/termina/styles/app.css: Inter is set on `.root` only (src/main/resources/com/termina/styles/ui-font.css:14) and the title's size is the theme's root 14px, inherited; only the bar's chord is pinned (app.css:723, 11px); no UI zoom to scale either (searched uiZoom, UiZoom, uiScale: not found; src/main/java/com/termina/ui/ZoomLevels.java is the terminal font's)"
+    },
+    {
+      "id": "MENU-18",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/resources/com/termina/styles/editora-light.css:2788-2789: `.context-menu` has radius 4px and a shadow of radius 6px at offset Y 2 (editora-dark.css:2789: 8px, Y 2), not radius 8 and 16 at Y 16, and app.css does not override it; the row padding 8 x 12 (editora-light.css:2717), the 22 px icon column and the 8 and 18 px margins (src/main/java/com/termina/ui/MenuRows.java:46, :183-184) are met (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "MENU-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/MenuBarModel.java:26 and :29: the model holds two rows that are no command id: `+newTabProfile`, whose rows carry each profile's name and open the tab from a handler of their own (src/main/java/com/termina/ui/TerminalWindow.java:2883-2886), and `+zoomRow`, one row of buttons for four commands (:2792-2800)"
+    },
+    {
+      "id": "MENU-02",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no bar row calls `setAccelerator` and command rows are `CustomMenuItem`s of icon, title, spacer, chord (src/main/java/com/termina/ui/MenuRows.java:65-80, :170-188; macOS text-only :66-69), but the View menu's zoom row is a `CustomMenuItem` of title, spacer and four buttons, with no icon column and no chord (src/main/java/com/termina/ui/ZoomMenuRow.java:82-92): not every in-window row has the layout"
+    },
+    {
+      "id": "MENU-03",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2832: every menu's ON_SHOWING runs `refreshItems` (:3333-3340), which re-reads each row's title and gate from the registry; `applyKeybindings` (:3069-3072), run on every settings change (:3567), rewrites every row's chord; the language applies at restart, so rows are built in it (src/main/resources/com/termina/i18n/messages.properties:202)"
+    },
+    {
+      "id": "MENU-04",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Simple mode: nothing in src/main/java or the catalog names one (searched simpleMode, \"Simple mode\", expert); `MenuBarModel.menus` has one shape per platform (src/main/java/com/termina/ui/MenuBarModel.java:52)"
+    },
+    {
+      "id": "MENU-17",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no command focuses the menu bar: none in the keymap (src/main/resources/com/termina/keymaps/keymap.json) or in `menuCommands` (src/main/java/com/termina/ui/TerminalWindow.java:2896; searched focusMenu, menuBar.requestFocus: not found), while a plain F10 goes to the program (src/main/java/com/termina/ui/ViewKeys.java:45, src/main/java/com/termina/ui/KeyEncoding.java:65) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "MENU-05",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "the Message Log's `ListView` has no right-click menu (src/main/java/com/termina/ui/MessageLogWindow.java:34), nor the Debug Log's read-only `TextArea` (src/main/java/com/termina/ui/DebugLogWindow.java:27), nor Settings' profile list (src/main/java/com/termina/ui/SettingsWindow.java:1553); the only menus are a tab's (src/main/java/com/termina/ui/TerminalWindow.java:990) and the terminal's (src/main/java/com/termina/ui/TerminalView.java:2531), whose rows do run commands"
+    },
+    {
+      "id": "MENU-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/OneMenu.java:27-35 hides every other registered menu as one starts to show, across windows; the tab menus (src/main/java/com/termina/ui/TerminalWindow.java:1579), the profile menu (:819) and the terminal's (src/main/java/com/termina/ui/TerminalView.java:2531) are installed; src/test/java/com/termina/ui/OneMenuTest.java:41 and :60"
+    },
+    {
+      "id": "MENU-07",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no press filter on the window or scene: the only one is the terminal view's (src/main/java/com/termina/ui/TerminalView.java:464), which hides its own menu alone (:2601-2602); a tab's menu (src/main/java/com/termina/ui/TerminalWindow.java:990, :1564) is left with the stock auto-hide, which ignores a press on the tab strip it was opened on"
+    },
+    {
+      "id": "MENU-08",
+      "level": "MUST",
+      "status": "manual",
+      "evidence": "open the terminal's menu and a tab's, press Escape, then type: the keys reach the shell and no ESC byte does; src/main/java/com/termina/ui/TerminalView.java:1398-1404 hides the menu and consumes the key, src/main/java/com/termina/ui/TerminalWindow.java:1594 gives focus back after a tab's menu; not recorded"
+    },
+    {
+      "id": "MENU-09",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/ViewKeys.java:46-47 reads the Menu key and Shift+F10, the same on every OS (:41, no Cmd form), and src/main/java/com/termina/ui/TerminalView.java:1454 shows the view's menu at the cursor (:2337); no list has a row menu; the tab's menu opens from the `tabMenu` command (src/main/java/com/termina/ui/TerminalWindow.java:1377); src/test/java/com/termina/ui/ViewKeysTest.java:82"
+    },
+    {
+      "id": "MENU-10",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no list in the app has a right-click menu to open on the clicked row (src/main/java/com/termina/ui/MessageLogWindow.java:34, src/main/java/com/termina/ui/SettingsWindow.java:1553), and the app has no editor: fails with MENU-05; a tab's menu is the clicked tab's (src/main/java/com/termina/ui/TerminalWindow.java:990)"
+    },
+    {
+      "id": "MENU-11",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:990: each tab's menu is built with the tab (`tab.setContextMenu(buildTabMenu(tab))`), not on its first request, though its on-showing handler sets labels and enablement (:1582-1590); the terminal view's menu is built on first request (src/main/java/com/termina/ui/TerminalView.java:2403)"
+    },
+    {
+      "id": "MENU-12",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no menu row carries a danger style class and no stylesheet has a `.menu-item.danger` rule (searched danger in src/main/java/com/termina/ui/ and src/main/resources/com/termina/styles/app.css): Clear Scrollback, which discards the history, is a plain row (src/main/java/com/termina/ui/TerminalView.java:2498), as are the rows that close tabs (src/main/java/com/termina/ui/TerminalWindow.java:1572-1575)"
+    },
+    {
+      "id": "MENU-13",
+      "level": "MAY",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalView.java:2326-2329 `shouldShowMenu`: the keyboard request and Shift always show the menu, otherwise only when no program reports the mouse; asked at :2362; src/test/java/com/termina/ui/ContextMenuContentionTest.java:21-40"
+    },
+    {
+      "id": "TRAY-01",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells"
+    },
+    {
+      "id": "TRAY-02",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells"
+    },
+    {
+      "id": "TRAY-03",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells"
+    },
+    {
+      "id": "TRAY-04",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells"
+    },
+    {
+      "id": "TRAY-05",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells; no `--minimized` flag"
+    },
+    {
+      "id": "TRAY-06",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells; no start at login (searched autostart, LaunchAgents)"
+    },
+    {
+      "id": "TRAY-07",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells; no start at login (searched autostart, LaunchAgents)"
+    },
+    {
+      "id": "TRAY-12",
+      "level": "MAY",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells; no `Taskbar` or `LauncherEntry` badge"
+    },
+    {
+      "id": "TRAY-13",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells"
+    },
+    {
+      "id": "TRAY-14",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no tray and no work that outlives the window: no `SystemTray`, `TrayIcon`, StatusNotifierItem or `setImplicitExit(false)` in src/main/java (only a comment, src/main/java/com/termina/ui/DesktopNotifier.java:18); a closed window ends its shells"
+    },
+    {
+      "id": "TRAY-09",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/DesktopNotifier.java: one class, the text as arguments or environment, off the FX thread, stopped at 5 s (:148, :178-190), and every failure is logged and none thrown (:156-170): no tool to run, an exception, the timeout and an exit code that is not zero (failure, :198); held by src/test/java/com/termina/ui/DesktopNotifierTest.java:75 and :89 (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "TRAY-10",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:1055 posts only when `TabMarks.postsToDesktop` says the window, tab or pane is not the one in front (src/main/java/com/termina/ui/TabMarks.java:48); one kind of event (a program's OSC 9/777) with its own switch, `terminal.notifications` (src/main/java/com/termina/config/Settings.java:921, read at TerminalWindow.java:1053)"
+    },
+    {
+      "id": "TRAY-11",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "with Settings' notifications off, run a program that sends OSC 9 or OSC 777 in a tab that is not selected: the tab still shows its mark; src/main/java/com/termina/ui/TerminalWindow.java:1050-1053 marks the tab before it reads the setting; not recorded"
+    },
+    {
+      "id": "SET-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "the `settings` command (src/main/java/com/termina/ui/TerminalWindow.java:2909, File menu and palette via src/main/java/com/termina/ui/MenuBarModel.java:69) is bound to `Shortcut+Comma` in the app's one key table: src/main/resources/com/termina/keymaps/keymap.json:13 (Ctrl+,) and keymap.mac.json:13 (Cmd+,)"
+    },
+    {
+      "id": "SET-02",
+      "level": "MUST",
+      "status": "manual",
+      "evidence": "open Settings: pages should be listed with icons in a sidebar on the left, the open page on the right, the search field above both (src/main/java/com/termina/ui/SettingsWindow.java:348-351 search over a BorderPane of sidebar and page, :435 an icon per page); not recorded"
+    },
+    {
+      "id": "SET-03",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/SettingsSearch.java:20 scores title, description, heading plus page name, and keywords, ranks them 8/4/2/1 and whole word over word start (:36-72), and src/main/java/com/termina/ui/SettingsWindow.java:486-523 hides non-matches and opens the best page; missing: a row's visible text (its controls' labels and choices) is never searched, only hand-typed English keywords stand in (:493-495)"
+    },
+    {
+      "id": "SET-04",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no Save button and controls write live, but two parts are unmet: the Sync repository and branch fields commit on neither Enter nor focus loss, only when Connect is pressed (src/main/java/com/termina/ui/SettingsWindow.java:2018-2046, written at :2193-2195); and a shell path that fails validation is marked yet still written (:1168-1177). Restart rows do say so (messages.properties:192-202)"
+    },
+    {
+      "id": "SET-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "one Settings model is shared by every window and src/main/java/com/termina/ui/WindowManager.java:82 `settings.addOnChange(this::applySettingsEverywhere)` applies each change to every open window (:275-281)"
+    },
+    {
+      "id": "SET-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/SettingCommands.java:65-183 gives every setting row a command or a reason (COVERED_ELSEWHERE, :49-60), held by src/test/java/com/termina/ui/SettingCommandsTest.java:92; the rule's Reference names this table. Outside it, with no command: the Profiles page's per-profile fields (src/main/java/com/termina/ui/SettingsWindow.java:1582-1639) and the Keyboard page's bindings (:1299-1330), read here as user data edited in Settings, not settings; if they count as settings the rule is unmet"
+    },
+    {
+      "id": "SET-07",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:276 configDir: --config-dir, then --dev (~/.termina-dev), then TERMINA_CONFIG_DIR, then ~/.termina, with no branch on the OS; every reader resolves through defaultFile (:262); held by src/test/java/com/termina/config/SettingsTest.java:555 (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "SET-08",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:275-299: preferences in settings.json, window geometry and the update check's memory in workspace-state.json, sorted by `isStateKey`; imported themes are files of their own under themes/ (src/main/java/com/termina/ui/Themes.java:180)"
+    },
+    {
+      "id": "SET-09",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "settings.json and workspace-state.json carry `schemaVersion` with a migration list (src/main/java/com/termina/config/ConfigJson.java:43,51,103,116), but an imported color scheme, themes/<name>.properties, is written whole and read back at start with no version (src/main/java/com/termina/theme/ThemeFile.java:28,49; src/main/java/com/termina/ui/Themes.java:182)"
+    },
+    {
+      "id": "SET-10",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/config/Settings.java:416-423 keeps a newer settings.json or workspace-state.json as <name>.v<n>.bak and loads defaults (src/test/java/com/termina/config/SettingsTest.java:325-333), but themes/<name>.properties carries no version (SET-09), so a newer one cannot be told from a current one (src/main/java/com/termina/theme/ThemeFile.java:49)"
+    },
+    {
+      "id": "SET-11",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:708,730,1158 clamp on read, :714-721 an unknown value reads as its default, :413-414 a file that will not decode is copied to <name>.corrupt.bak and defaults load, catching RuntimeException too; src/test/java/com/termina/config/SettingsTest.java:82,318,370. A theme file that will not decode is skipped and left in place (src/main/java/com/termina/ui/Themes.java reload)"
+    },
+    {
+      "id": "SET-22",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:499-501 writes a temp file beside the target and :626-630 moves it (ATOMIC_MOVE, else replace); imported themes likewise (src/main/java/com/termina/ui/Themes.java:181-186, src/main/java/com/termina/config/ConfigArchive.java:357-360); src/main/java/com/termina/sync/SyncEngine.java:445,450 write in place only inside the clone, and the merge base is a Git ref"
+    },
+    {
+      "id": "SET-12",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/ConfigArchive.java:136 names the export termina-config-<yyyyMMdd-HHmmss>.zip and :166 zips the config folder; import reads one back and restores the ticked parts (:232, :327, :346); commands exportConfiguration and importConfiguration (src/main/java/com/termina/ui/TerminalWindow.java:2916-2917); src/test/java/com/termina/config/ConfigArchiveTest.java:38,44,88,124"
+    },
+    {
+      "id": "SET-13",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "stores no secret the user gave it: no password, token or key field in src/main/java/com/termina/config/Settings.java and no keychain use; sync signs in through the user's own git and `gh auth token` at run time, remembering only an account name (src/main/java/com/termina/sync/SyncAccount.java:76,135)"
+    },
+    {
+      "id": "SET-14",
+      "level": "MUST",
+      "status": "limited",
+      "evidence": "asks for no credential: no PasswordField in src/main, and its three TextInputDialogs ask for a tab name, a setting's value and a repository name (src/main/java/com/termina/ui/TerminalWindow.java:2124, :3739; src/main/java/com/termina/ui/SettingsWindow.java:2208)"
+    },
+    {
+      "id": "SET-15",
+      "level": "MUST",
+      "status": "manual",
+      "evidence": "paste https://user:token@host/repo.git as the sync repository and press Connect: the page should refuse it and say to use a credential helper or an SSH URL (src/main/java/com/termina/ui/SettingsWindow.java:2184-2190, :2239; src/main/resources/com/termina/i18n/messages.properties:414); not recorded"
+    },
+    {
+      "id": "SET-16",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "the paste confirmation `input.confirmPaste` is a config key only: no Settings row or command calls `setConfirmPaste` (src/main/java/com/termina/config/Settings.java:795; src/test/java/com/termina/config/SecurityOptionsTest.java:23). Read as not security: `ui.confirmClose`, the question before closing a running tab, has a row and a command (src/main/java/com/termina/ui/SettingsWindow.java:1135, src/main/java/com/termina/ui/SettingCommands.java:104)"
+    },
+    {
+      "id": "SET-18",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "the Sync page takes the URL in a field and offers Create on GitHub (src/main/java/com/termina/ui/SettingsWindow.java:2018, :2055), which runs `gh repo create` (src/main/java/com/termina/sync/GitHubRepo.java:89); src/main/java/com/termina/sync/SyncAccount.java:113-136 finds the gh account that can read the repository and records it in the clone's own config; src/test/java/com/termina/sync/SyncAccountTest.java:135,146"
+    },
+    {
+      "id": "SET-19",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/SettingsSync.java:284-287 runs five seconds after start, :305 after a local change, :279 on an interval; the `syncNow` command runs one on demand (src/main/java/com/termina/ui/TerminalWindow.java:2912, src/main/java/com/termina/ui/MenuBarModel.java:70); only the key bindings file is sent (src/main/java/com/termina/ui/SettingsSync.java:625-627), no window size or path"
+    },
+    {
+      "id": "SET-20",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/sync/SyncMerge.java:76-80 keeps this computer's value for an entry both sides changed and lists it as a conflict (src/test/java/com/termina/sync/SyncMergeTest.java:50); src/main/java/com/termina/ui/SettingsSync.java:641 copies the live bindings to sync/backups/<stamp>/ before replacing them (:655-662)"
+    },
+    {
+      "id": "SET-21",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "a failed sync reaches the Message Log and the echo area only when Sync Now was run from the menu or palette (src/main/java/com/termina/ui/SettingsSync.java:586-590, src/main/java/com/termina/ui/TerminalWindow.java:3199); a failure of an automatic run or of Connect or Sync Now on the Settings page only sets the page's status text (:601; sole listener src/main/java/com/termina/ui/SettingsWindow.java:176), which is a plain label, not a pill (:2068-2070)"
+    },
+    {
+      "id": "DIAG-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/MessageLog.java:27 (cap 500), :50-56 (newest first, oldest dropped), :129-130 (HH:mm:ss), memory only; the echo area shows only the log's latest (src/main/java/com/termina/ui/StatusBar.java:53-58); Esc and Clear at src/main/java/com/termina/ui/MessageLogWindow.java:87 and :70-71; src/test/java/com/termina/ui/MessageLogTest.java:19, :30, :54"
+    },
+    {
+      "id": "DIAG-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/DebugLog.java:87-110 (root logger handler and uncaught handler feed append), :45 and :204-208 (2000 entries), :117-127 (termina-session.log in the config folder), :161-170 (last session kept as termina-session.prev.log); src/test/java/com/termina/ui/DebugLogTest.java:47, :105"
+    },
+    {
+      "id": "DIAG-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "one Debug Log window, modeless with Refresh, Copy, Clear, Export and Report a Problem (src/main/java/com/termina/ui/DebugLogWindow.java:105, :44-73, :85-88), and Settings → Advanced now opens that same window (src/main/java/com/termina/ui/SettingsWindow.java:2001, through the opener src/main/java/com/termina/ui/WindowManager.java:609 sets); held by src/test/java/com/termina/ui/SecondaryWindowsFxTest.java:125. A SettingsWindow built with no window manager, which only tests do, still falls back to a log window without Report a Problem (SettingsWindow.java:2008) (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "DIAG-04",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:33 DebugLog.install() is main's first statement, before CommandLine.parse and launch; the handler records and tells the listener (src/main/java/com/termina/ui/DebugLog.java:104-110), which posts status.uncaughtError as an error to the log the echo area reads, no dialog (src/main/java/com/termina/ui/WindowManager.java:85-87)"
+    },
+    {
+      "id": "DIAG-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:220-226 (FirstFrame.after, then a 3 s PauseTransition, once per process in start); src/main/java/com/termina/ui/WindowManager.java:330-338 (skips when the setting is off or the stored last check is under a day old, src/main/java/com/termina/update/UpdateCheck.java:21); src/main/java/com/termina/AppInfo.java:60 /releases/latest; nothing in update/ downloads or installs"
+    },
+    {
+      "id": "DIAG-09",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/WindowManager.java:387 posts status.updateAvailable, which names the version, to the echo area, but nothing in the bar opens the release: a click on the echo area or the count opens the Message Log (src/main/java/com/termina/ui/StatusBar.java:33-36), and the bar has no other node (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "DIAG-10",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2984 registers checkForUpdates (Editora's help.checkForUpdates), a Help row at src/main/java/com/termina/ui/MenuBarModel.java:143; the automatic check returns at once while updates.check is off (src/main/java/com/termina/ui/WindowManager.java:331), switched at src/main/java/com/termina/ui/SettingsWindow.java:1973"
+    },
+    {
+      "id": "DIAG-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2987 registers reportProblem, a Help row at src/main/java/com/termina/ui/MenuBarModel.java:146; src/main/java/com/termina/report/ProblemReport.java:43-71 builds it from AppInfo.details() (version, Java, JavaFX, OS: src/main/java/com/termina/AppInfo.java:136-147), a settings summary and the last 200 Debug Log lines; src/test/java/com/termina/report/ProblemReportTest.java:18"
+    },
+    {
+      "id": "DIAG-11",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/report/ProblemReport.java:71 redacts both fields before the window gets them (src/main/java/com/termina/ui/WindowManager.java:429-434); src/main/java/com/termina/report/Redactor.java:59-73 replaces home paths, credentials in URLs, secrets and tokens, addresses and the login name; src/test/java/com/termina/report/RedactorTest.java:15, :21, :27, :33, :40"
+    },
+    {
+      "id": "DIAG-12",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/ReportProblemWindow.java:34-35 (two editable TextAreas), :106-110 (copies the edited text, then opens the link through the link opener, no request of its own); src/main/java/com/termina/report/ProblemReport.java:86-89 names template=bug_report.yml and fills environment and report (.github/ISSUE_TEMPLATE/bug_report.yml:21, :27)"
+    },
+    {
+      "id": "DIAG-13",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/report/ProblemReport.java:89 link(repository, pasteHint): within MAX_LINK_LENGTH (7500) the report rides in the form's report field, past it the paste hint does (:94), from report.pasteHint in the window (src/main/java/com/termina/ui/ReportProblemWindow.java:108) and naming the written file for --report (src/main/java/com/termina/report/ReportCommand.java:51); held by src/test/java/com/termina/report/ProblemReportTest.java:52 and :63 (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "DIAG-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no Doctor: no doctor class, command or catalog key in src/main (searched 'doctor', case-insensitive: not found), though the app starts git, gh, xclip, wl-copy, notify-send and gdbus"
+    },
+    {
+      "id": "DIAG-08",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no user documents: a terminal emulator with no document model, nothing to save and no recovery package in src/main/java/com/termina/"
+    },
+    {
+      "id": "CLI-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:36-40 parses and exits before launch; :72-74 prints CommandLine.usage, a fixed English text block (src/main/java/com/termina/cli/CommandLine.java:128-147), :80-83 prints AppInfo.details(), fixed English, no catalog; src/test/java/com/termina/AppEarlyExitTest.java:28"
+    },
+    {
+      "id": "CLI-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:276-281: --config-dir first, and --dev gives Path.of(home, \".termina-dev\") with no branch on the OS; every reader resolves through defaultFile (:262) with both flags (src/main/java/com/termina/App.java:78, :89, :147)"
+    },
+    {
+      "id": "CLI-03",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:50-53: with --new-instance claimOrHandOff is skipped, so the process neither claims the folder nor hands off (src/main/java/com/termina/cli/CommandLine.java:75)"
+    },
+    {
+      "id": "CLI-04",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "reopens nothing from its last session: the state file holds only the window's place and size and the update check's memory (src/main/java/com/termina/config/Settings.java:288-297); Reopen Closed Tab is within a session"
+    },
+    {
+      "id": "CLI-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/report/ReportCommand.java:46 writes the redacted report to termina-report-<time>.txt in the current folder, or in the temp folder where that one cannot be written (:77-91), :54 prints the file's path and :60 hands the issue's address to the opener, all before launch (src/main/java/com/termina/App.java:76-79); held by src/test/java/com/termina/report/ReportCommandTest.java:27 and :56 (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "CLI-12",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/cli/CommandLine.java:73 skips --add-exports, --add-opens and -p with their values, in both forms (launcherOptionWidth, :133), and any other unknown option with one dash or two is still refused on stderr with status 2 (src/main/java/com/termina/App.java:67-70); no files are opened, so `-` and `--` have nothing to find; held by src/test/java/com/termina/cli/CommandLineTest.java:132 and :156 (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "CLI-13",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/cli/CommandLine.java:72-73: -h for --help, -v and -V for --version"
+    },
+    {
+      "id": "CLI-11",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no console launcher and no AttachConsole: the jpackage configuration (pom.xml:816-828) adds no launcher with win-console=true, and src/, packaging/ and scripts/ hold neither string (searched 'win-console', 'AttachConsole': not found) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "CLI-06",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "opens no files or folders named on its command line: the parser takes options and -e command only and refuses any other argument (src/main/java/com/termina/cli/CommandLine.java:101)"
+    },
+    {
+      "id": "CLI-07",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:88-103: the first launch claims the folder, a later one hands its arguments and working directory over a Unix-domain socket and exits (src/main/java/com/termina/instance/SingleInstance.java:72-87, :93, :121); --new-instance skips it (:50-53); opens no files; src/test/java/com/termina/instance/SingleInstanceTest.java:40"
+    },
+    {
+      "id": "CLI-08",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/instance/SingleInstance.java:78 tryLock on instance.lock in the config folder, null when another process holds it (src/test/java/com/termina/instance/SingleInstanceTest.java:29); a --new-instance process skips that one but still learns of the other from the session log's lock (src/main/java/com/termina/ui/DebugLog.java:125, :148)"
+    },
+    {
+      "id": "CLI-09",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/App.java:46 System.setProperty(\"java.awt.headless\", \"true\") before launch, always: no tray, dock badge, open-file handler or AWT trash in src/; what runs before it (DebugLog.install, CommandLine.parse, earlyExit) loads no AWT class"
+    },
+    {
+      "id": "CLI-10",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "git, gh and the link opener's command are found on the login shell's PATH (src/main/java/com/termina/ui/SettingsSync.java:560, :571; src/main/java/com/termina/ui/LinkOpener.java:103), but not every process: src/main/java/com/termina/ui/SystemTools.java:15-18 resolves xclip, wl-copy, notify-send and gdbus without it by design, and gh runs with the inherited PATH (src/main/java/com/termina/sync/GitHubRepo.java:126-133)"
+    },
+    {
+      "id": "INTL-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/resources/com/termina/i18n/messages.properties with messages_es, messages_pt, messages_fr, messages_it and messages_de.properties"
+    },
+    {
+      "id": "INTL-02",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/i18n/Messages.java:36 LANGUAGES holds the six codes; the picker lists Messages.available() (src/main/java/com/termina/ui/SettingsWindow.java:1028) and the parity test walks the same list (src/test/java/com/termina/i18n/MessagesTest.java:38)"
+    },
+    {
+      "id": "INTL-03",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "compared the five translated catalogs with the base value by value: 10 to 23 identical values each, all names, terms or bare patterns (Zoom, Shell, Terminal, Commit {0}, {0} ({1})); no untranslated sentence"
+    },
+    {
+      "id": "INTL-04",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "run the app in each of the six languages with the window 1024 px wide, open each window and Settings page and look for a cut row (German first): src/main/java/com/termina/ui/SettingsWindow.java:570; not recorded"
+    },
+    {
+      "id": "INTL-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "no Chinese, Japanese or Korean catalog: src/main/resources/com/termina/i18n/ holds en, de, es, fr, it and pt"
+    },
+    {
+      "id": "INTL-06",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "no Arabic or Hebrew catalog: src/main/resources/com/termina/i18n/ holds en, de, es, fr, it and pt"
+    },
+    {
+      "id": "INTL-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "one lookup, Messages.tr (src/main/java/com/termina/i18n/Messages.java:83), but literals reach text positions: setPromptText(\"/path/to/editor {file}:{line}\") at src/main/java/com/termina/ui/SettingsWindow.java:1190, setPromptText(\"wsl.exe -d Ubuntu\") at :1574, new Label(\"100%\") at :1001, new ToggleButton(\".*\") at src/main/java/com/termina/ui/SearchBar.java:41; no test scans for them"
+    },
+    {
+      "id": "INTL-08",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "compared the catalogs: 510 keys in each of the six, none missing, none extra, no empty value; held by src/test/java/com/termina/i18n/MessagesTest.java:33 and :51"
+    },
+    {
+      "id": "INTL-09",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "checked every value of the six catalogs: no lone apostrophe in a value with a placeholder, no doubled one in a value without, and no choice pattern in any; held by src/test/java/com/termina/i18n/MessagesTest.java:98"
+    },
+    {
+      "id": "INTL-10",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "a tab's number is filled into a bare {0}: src/main/resources/com/termina/i18n/messages.properties:119 palette.goToTab=Go to Tab {0}: {1} gets the int index + 1 (src/main/java/com/termina/ui/TerminalWindow.java:3674), :31 menu.goToTab and :391 palette.movePaneToTab likewise; only statusbar.unread (:479) uses number,#"
+    },
+    {
+      "id": "INTL-11",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "compared each translated catalog with the base key by key: settings.json, sync/, .gitignore, gh auth setup-git, M-b, HTTP, SSH and the like are spelled the same in all five; only made-up examples differ (settings.sync.repository.prompt, git@github.com:you/…)"
+    },
+    {
+      "id": "INTL-12",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no {0,choice,…} in any catalog, and counts that can be 1 are worded for the plural only: src/main/resources/com/termina/i18n/messages.properties:479 statusbar.unread={0,number,#} unread errors (src/main/java/com/termina/ui/StatusBar.java:66), :527 config.part.THEMES=Imported themes ({0} files); no value has a placeholder and (s) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "INTL-13",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "catalogs translate modifiers: src/main/resources/com/termina/i18n/messages_de.properties:69 Umschalt+Ziehen, :311 Strg, :359 Umschalt+Eingabe; messages_es.properties:69, :359 Mayús; messages_fr.properties:69, :359 Maj; messages_it.properties:69, :359 Maiusc; no catalog test looks for them (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "INTL-14",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/i18n/Messages.java:150 resolve (stored choice, then the system's language, then English), :174 defaultLocale (the four cases), set with Locale.setDefault at src/main/java/com/termina/App.java:169; tr formats with new MessageFormat(value), the default locale (:120); tests src/test/java/com/termina/i18n/MessagesTest.java:151, :158, :168"
+    },
+    {
+      "id": "PAL-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "each window builds one palette (src/main/java/com/termina/ui/TerminalWindow.java:3100), but the command that opens it is registered as `commandPalette` (TerminalWindow.java:105, keymap.json:5), not `palette.show`: the same thing under another name"
+    },
+    {
+      "id": "PAL-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3646-3719 lists every registered command, an unavailable one grayed with its reason (:3662, CommandPalette.java:364); each row shows the title (CommandPalette.java:360) and a line of the card the selected command's description (:123-126); src/test/java/com/termina/ui/WindowLifecycleTest.java:67"
+    },
+    {
+      "id": "PAL-10",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/CommandPalette.java:137 width 620, :56 ROW_HEIGHT 36, :59 VISIBLE_ROWS 8, :104 prompt from the catalog, where it reads \"Run command…\" (src/main/resources/com/termina/i18n/messages.properties:284); src/test/java/com/termina/ui/CommandPaletteTest.java:134"
+    },
+    {
+      "id": "PAL-04",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/CommandPalette.java:182-184: show clears the field and filters on the empty query before it adds the card to the host"
+    },
+    {
+      "id": "PAL-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/CommandPalette.java:223 runs selectFirstEnabled after every filter, and :281-289 steps over disabled rows to the first that can run; no test asserts it with a disabled command at the top"
+    },
+    {
+      "id": "PAL-06",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "↑ ↓, Page Up/Down, Enter and hide-then-run are there (src/main/java/com/termina/ui/PaletteKeys.java:66-77, CommandPalette.java:216), but the handler never asks the keymap: beside them it moves on a fixed table of letters, `C-n`, `C-p`, `C-v`, `M-v` (PaletteKeys.java:46-53), which the check rules out"
+    },
+    {
+      "id": "PAL-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "Esc and a press on the backdrop hide it (src/main/java/com/termina/ui/PaletteKeys.java:76, CommandPalette.java:96; the keymap binds no cancel command), but hide always focuses the active terminal (TerminalWindow.java:3100, :3783): the node that had the focus is not kept, so a palette opened from the find bar's field does not return there"
+    },
+    {
+      "id": "PAL-08",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/CommandPalette.java:198-209 handles only move, accept and cancel; searched for a help chord (`C-h`, F1, Shift+F1) and a docs URL built from a command's id in src/main/java/com/termina/ui: not found"
+    },
+    {
+      "id": "PAL-09",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "applying the bindings updates the opener chip only (src/main/java/com/termina/ui/TerminalWindow.java:3073); the rows take their chords when the palette is shown (:3651), so one that is open keeps the old ones, and the legend is fixed text set once (src/main/java/com/termina/ui/CommandPalette.java:133)"
+    },
+    {
+      "id": "QOPEN-01",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no picker: themes and each value of a setting are separate palette rows (src/main/java/com/termina/ui/TerminalWindow.java:3726, SettingCommands.java:69) and combo boxes in Settings, and profiles a ContextMenu (TerminalWindow.java:819); searched src/main for a generic picker class and `ChoiceDialog`: not found"
+    },
+    {
+      "id": "QOPEN-02",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-03",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-04",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-05",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-06",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-07",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-08",
+      "level": "MAY",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-09",
+      "level": "MAY",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-10",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-11",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "QOPEN-12",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+    },
+    {
+      "id": "WELC-01",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "does not open files or projects in tabs: its tabs are terminals, each started with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716-718)"
+    },
+    {
+      "id": "WELC-02",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "always opens into content, a tab with its shell (src/main/java/com/termina/ui/TerminalWindow.java:716-718), which the Check names as having no empty state to judge; the only empty window is the notice left when the default shell itself fails to start (:950-957)"
+    },
+    {
+      "id": "WELC-03",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-04",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-05",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-06",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-07",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-08",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-09",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-10",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "WELC-11",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no Welcome page: no welcome class, tab or `view.welcome` command in src/main; a window always opens a tab with a shell (src/main/java/com/termina/ui/TerminalWindow.java:716)"
+    },
+    {
+      "id": "ABOUT-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "the command's id is `about`, not `help.about`: src/main/java/com/termina/ui/TerminalWindow.java:2990 (a required name). The rest is there: the Help menu's last row (ui/MenuBarModel.java:148) and the macOS application-menu item (ui/WindowManager.java:240, ui/MacAppMenu.java:30)"
+    },
+    {
+      "id": "ABOUT-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:125 links the website and :130-131 adds \"Source code and releases\", which opens the repository's releases page (AppInfo.RELEASES_PAGE) whatever the update check answered; version, build, runtime, license and every update answer are shown (:113-123, refreshUpdateRow); held by src/test/java/com/termina/ui/SecondaryWindowsFxTest.java:121 (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "ABOUT-03",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:140-145 puts AppInfo.details() on the clipboard and sets the label to `about.copied`, with no hide; the button is in the scene's own footer row (AboutWindow.java:162) of a plain Stage, which has no dialog button bar that could close it"
+    },
+    {
+      "id": "ABOUT-04",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:71 gives NOT_CHECKED (`about.notChecked`) with no answer and CHECKS_OFF ('Update checks are off.') when off, never 'up to date' (:191-194); src/test/java/com/termina/ui/AboutUpdateLineTest.java:17 and :22 assert both"
+    },
+    {
+      "id": "ABOUT-10",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/resources/com/termina/styles/app.css:108 `.about-update-headline` is bold in `-color-accent-fg`, the accent, not `-state-amber`; and a failed check gets the muted `.about-details`, not `-state-red` (src/main/java/com/termina/ui/AboutWindow.java:196). Up to date is `-state-green` (app.css:107) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "ABOUT-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:132 adds the link `about.pauta` ('Built to Pauta {0}', i18n/messages.properties:91) among the links; src/main/java/com/termina/AppInfo.java:141 writes `Pauta: <edition>` right after the Commit line (asserted by src/test/java/com/termina/AppInfoTest.java:58). The Partial wording is ABOUT-09's"
+    },
+    {
+      "id": "ABOUT-06",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/AppInfo.java:105 builds `https://pauta-project.dev/<pauta.version>/`, which the link opens (ui/AboutWindow.java:133); no `latest`; src/test/java/com/termina/AppInfoTest.java:33 asserts both"
+    },
+    {
+      "id": "ABOUT-07",
+      "level": "MUST",
+      "status": "not-checked",
+      "evidence": "About says \"Built to Pauta 2.0.2\" (src/main/resources/com/termina/i18n/messages.properties:91, pauta.version at pom.xml:27), and this audit was run against 6.0.1: only the rules of 2.0.2 settle a Built to (https://pauta-project.dev/2.0.2/rules.json). Audit against 2.0.2 to settle it"
+    },
+    {
+      "id": "ABOUT-08",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "pom.xml:27 `pauta.version`; src/main/resources/com/termina/build-info.properties:4 carries it, filtered at pom.xml:210-214; src/main/java/com/termina/AppInfo.java:33 reads it from there; no edition literal in the code outside comments (`grep -rn '2\\.0\\.2' src/main/java`)"
+    },
+    {
+      "id": "ABOUT-09",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "About shows no conformance: src/main/java/com/termina/ui/AboutWindow.java:131-135 adds only the edition link (no 'Pauta conformance' link, no `help.pauta`), AppInfo.java:141 is followed by no `Pauta conformance:` line, there is no helper to call (PAUTA-02) and no 'Working toward' wording in the catalog (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no Pauta window and no `help.pauta` command: `grep -rn 'help\\.pauta\\|PautaWindow' src` finds nothing; the Help menu's rows (src/main/java/com/termina/ui/MenuBarModel.java:138-148) have no Pauta Conformance row"
+    },
+    {
+      "id": "PWIN-02",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no Pauta window: fails with PWIN-01 (`grep -rni pauta src/main/java` finds only AppInfo's edition and About's link, ui/AboutWindow.java:131) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-03",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no Pauta window: fails with PWIN-01; there is also no pauta.json loader or conformance helper for it to read (PAUTA-09, PAUTA-02) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-04",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "no Pauta window: fails with PWIN-01; and no `help.pautaRules` command is registered: About's edition link opens AppInfo.pautaUrl() itself (src/main/java/com/termina/ui/AboutWindow.java:133), so the palette cannot reach it (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-05",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no Pauta window: fails with PWIN-01; no sorted list of exceptions anywhere in src/ (`grep -rli conformance src`: not found) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-06",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no Pauta window: fails with PWIN-01; no `pauta.copy` or `pauta.copied` key in src/main/resources/com/termina/i18n/messages.properties (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-07",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no `help.pautaDocs` command: `grep -rn 'pautaDocs' src` finds nothing; the nearest is the `documentation` command, which opens AppInfo.DOCUMENTATION (src/main/java/com/termina/AppInfo.java:46). No Pauta window to hold the link (PWIN-01) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "PWIN-08",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "no Pauta window: fails with PWIN-01; nothing to open with an empty `exceptions` array (no pauta.json either, PAUTA-09) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "CONF-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Each removal asks through Confirm.ask before it changes anything: reset settings (src/main/java/com/termina/ui/SettingsWindow.java:387), remove theme (:802), reset a shortcut that takes another's chord (:1402), reset all shortcuts (:1415), remove profile (:1851), remove credentials (:2092); Import configuration asks at src/main/java/com/termina/ui/ConfigTransfer.java:140."
+    },
+    {
+      "id": "CONF-02",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Each question names the thing and what happens: src/main/resources/com/termina/i18n/messages.properties:164-165 (theme {0}), :258-259 (profile {0}), :268-269, :307-308, :315-316, :449-450, :518-519 (import “{0}”), and :104-107 for closing tabs with running programs."
+    },
+    {
+      "id": "CONF-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "The confirming ButtonType is named with the action's verb passed by each caller (Reset, Remove, Reset All Shortcuts, Remove from URL, Close, Import) and gets Styles.DANGER (src/main/java/com/termina/ui/Confirm.java:65-69, src/main/java/com/termina/ui/ConfigTransfer.java:167-171); none says OK or Yes."
+    },
+    {
+      "id": "CONF-14",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "the three text prompts swap the stock pair for catalog-worded buttons before they are shown (Confirm.prompt, src/main/java/com/termina/ui/Confirm.java:103): Rename Tab (src/main/java/com/termina/ui/TerminalWindow.java:2133), a setting's value (:3718) and Create on GitHub (src/main/java/com/termina/ui/SettingsWindow.java:2232); Confirm.ask and ConfigTransfer already named both buttons. src/test/java/com/termina/ui/DialogsFxTest.java:144 fails on a stock ButtonType in any dialog of two or more buttons it answers; the Create on GitHub prompt is not among those it answers (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "CONF-04",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Cancel has the CANCEL_CLOSE role and the result defaults to it: src/main/java/com/termina/ui/Confirm.java:66, :80 (`showAndWait().orElse(cancel) == go`); Import configuration likewise (src/main/java/com/termina/ui/ConfigTransfer.java:168, :140, which imports nothing unless the answer is the action)."
+    },
+    {
+      "id": "CONF-13",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/Confirm.java:55-60: Options.REMOVAL, and any question with the danger style, makes Cancel the one default button before the dialog is shown (:76; cancelIsDefault at :90 unsets the action's default and sets Cancel's), and Import configuration does the same (src/main/java/com/termina/ui/ConfigTransfer.java:177); src/test/java/com/termina/ui/DialogsFxTest.java:144 fails on any dialog it answers that has a red button and not exactly one default button, Cancel (fixed in b4edc60, on top of 6de43a1)"
+    },
+    {
+      "id": "CONF-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "No unsaved-changes question: the app has no documents to save, and no dialog with a Save answer exists in src/main (the questions are src/main/java/com/termina/ui/Confirm.java:59 and src/main/java/com/termina/ui/ConfigTransfer.java:163, two buttons each)."
+    },
+    {
+      "id": "CONF-06",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2272 names the action `dialog.closeAnyway`, which is \"Close\" (src/main/resources/com/termina/i18n/messages.properties:108)."
+    },
+    {
+      "id": "CONF-07",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "In the running app, close a tab with nothing running and reopen it with Reopen Closed Tab: no question should be asked and the tab should come back. Code: src/main/java/com/termina/ui/TerminalWindow.java:2187-2195 (no question when nothing runs), :112 (reopenClosedTab), :1723; not recorded"
+    },
+    {
+      "id": "CONF-08",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/Confirm.java:80 is true for the action button alone, and callers act only on true, the multi-line paste warning included (src/main/java/com/termina/ui/TerminalWindow.java:2231, :2254; src/main/java/com/termina/ui/SettingsWindow.java:387; src/main/java/com/termina/ui/ConfigTransfer.java:140)."
+    },
+    {
+      "id": "CONF-09",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "Closing many tabs asks once for the set (src/main/java/com/termina/ui/TerminalWindow.java:1714-1716) with the plural question and a count of the programs it ends (:2278-2283, `dialog.closeRunningTabs`, `dialog.closeRunningMore`); there are no unsaved buffers for a per-tab sweep."
+    },
+    {
+      "id": "CONF-10",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "Remove Profile deletes for good and its question does not say so (src/main/resources/com/termina/i18n/messages.properties:258-259: \"…are deleted\"; no \"cannot be undone\" anywhere in the catalog). Remove Theme does say how it comes back (:165). The Check's own clause holds vacuously: the phrase appears nowhere."
+    },
+    {
+      "id": "CONF-11",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "Sync Anyway, the dangerous alternative beside Sync Now, is shown only after a sync stopped at NEEDS_CONFIRMATION (src/main/java/com/termina/ui/SettingsWindow.java:2268-2270), but it is not red: the button gets no danger style (:2079-2082)."
+    },
+    {
+      "id": "CONF-12",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/Confirm.java:59-80 has no hook that answers without showing the Alert, and the Settings questions build their words inline in UI methods (src/main/java/com/termina/ui/SettingsWindow.java:387-392, :802-807). Only the close and paste questions have capture hooks (src/main/java/com/termina/ui/TerminalWindow.java:2212, :2237)."
+    },
+    {
+      "id": "FIND-01",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "the terminal's find bar is a child node of its view (src/main/java/com/termina/ui/TerminalView.java:3576), but the Debug Log, a log shown as text in a TextArea (src/main/java/com/termina/ui/DebugLogWindow.java:27), has none: its window is the text, a path and a row of buttons (:92)"
+    },
+    {
+      "id": "FIND-02",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "fails with FIND-01: the Debug Log's text has no find bar (src/main/java/com/termina/ui/DebugLogWindow.java:92); the terminal's bar does search as it is typed and shows the count (src/main/java/com/termina/ui/SearchBar.java:55, :161)"
+    },
+    {
+      "id": "FIND-03",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "the Message Log is a ListView of entries (src/main/java/com/termina/ui/MessageLogWindow.java:34) in a window of the list and a row of buttons (:81): no filter field over it"
+    },
+    {
+      "id": "FIND-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "the terminal's find command is registered as `find` (src/main/java/com/termina/ui/TerminalWindow.java:2923, keymap.json:18), not `find.show`, though on the right chords; run while the bar is open it puts the caret back in the field and does not step (src/main/java/com/termina/ui/TerminalView.java:3556-3591)"
+    },
+    {
+      "id": "FIND-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalView.java:3788-3816 washes every match in view and outlines the current one; the search starts on the newest match at or above the bottom row of the view (:3693, src/main/java/com/termina/ui/ScrollbackSearch.java:261) and scrolls to it (:3696)"
+    },
+    {
+      "id": "FIND-06",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "fails with FIND-01: the Debug Log's text has no find bar (src/main/java/com/termina/ui/DebugLogWindow.java:92); the terminal's bar steps up on Enter and down on Shift+Enter (src/main/java/com/termina/ui/SearchBar.java:117-118), wrapping (src/main/java/com/termina/ui/ScrollbackSearch.java:274-278)"
+    },
+    {
+      "id": "FIND-07",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "fails with FIND-01: the Debug Log's text has no find bar (src/main/java/com/termina/ui/DebugLogWindow.java:92); the terminal's bar closes on Escape, consumed (src/main/java/com/termina/ui/SearchBar.java:115, :126), and on its button, stopping the debounces and the scan, clearing the matches and focusing the terminal (src/main/java/com/termina/ui/TerminalView.java:3595-3607)"
+    },
+    {
+      "id": "FIND-08",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalView.java:3847 fromSearchBar; the terminal's key filters (:1394 pressed, :1462 typed, :2731 released) and its mouse and scroll filters (:2610 press, latched for the drag and release, :2700 moved, :3014 scroll) return early for an event aimed at the bar"
+    },
+    {
+      "id": "FIND-09",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:3436 leaves copy, paste, select all and undo's chord to a focused text field (src/main/java/com/termina/ui/WindowRules.java:154) and the terminal's key filter passes the field's keys (TerminalView.java:1394), while Find Next and Find Previous still run from the field; src/test/java/com/termina/ui/TextFieldChordsTest.java:12, :21"
+    },
+    {
+      "id": "FIND-10",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:167-168 sets the count to `search.none`, \"No matches\" (src/main/resources/com/termina/i18n/messages.properties:363); nothing beeps or opens"
+    },
+    {
+      "id": "FIND-11",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no find bar that replaces: the terminal's bar is a query field, a count, a regex toggle and three buttons (src/main/java/com/termina/ui/SearchBar.java:71)"
+    },
+    {
+      "id": "FIND-12",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "no find bar that replaces: the terminal's bar is a query field, a count, a regex toggle and three buttons (src/main/java/com/termina/ui/SearchBar.java:71)"
+    },
+    {
+      "id": "FIND-13",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "the main content is not a list: a window is a TabPane of terminals (src/main/java/com/termina/ui/TerminalWindow.java:270)"
+    },
+    {
+      "id": "FIND-14",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "the main content is not a list: a window is a TabPane of terminals (src/main/java/com/termina/ui/TerminalWindow.java:270)"
+    },
+    {
+      "id": "FIND-15",
+      "level": "SHOULD",
+      "status": "limited",
+      "evidence": "the main content is not a list: a window is a TabPane of terminals (src/main/java/com/termina/ui/TerminalWindow.java:270)"
+    },
+    {
+      "id": "FIND-16",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:63 sets the regular-expression toggle not focus-traversable, and no registered command and no key of the field (:113-127) toggles it; the Next, Previous and Close buttons (:107) are covered by Enter, Shift+Enter and Escape (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "MLOG-08",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "a separate window, not a card in the scene: src/main/java/com/termina/ui/MessageLogWindow.java:32 new Stage(), :83 Scene 640 × 380 (not 773 wide with a 336 list); cap 500, not 200 (src/main/java/com/termina/ui/MessageLog.java:27) (upgrade work: not in 2.0.2)"
+    },
+    {
+      "id": "MLOG-02",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "the command is registered as `messageLog`, not `view.messageLog` (src/main/java/com/termina/ui/TerminalWindow.java:2985), and a click on the unread-error count calls windows.showMessageLog directly, not the command (src/main/java/com/termina/ui/StatusBar.java:33-36, src/main/java/com/termina/ui/TerminalWindow.java:277)"
+    },
+    {
+      "id": "MLOG-03",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/MessageLogWindow.java:88-93 closes on a fixed Ctrl+G written into the handler, read from no key table (keymaps/keymap.json binds no cancel command); Esc (:87) and a press outside, through loss of focus (:97-99), do close it"
+    },
+    {
+      "id": "MLOG-04",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": "src/main/java/com/termina/ui/MessageLogWindow.java:60-65 copies on C with isShortcutDown, but the copy chord of the key table is not read (\"copy\" at src/main/resources/com/termina/keymaps/keymap.json:14, or the user's keys.copy): a rebound copy chord does nothing in the log"
+    },
+    {
+      "id": "MLOG-05",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/MessageLog.java:112-117 severityOfKey: fail or error in the last segment is an error, cannot or invalid a warning; src/test/java/com/termina/ui/MessageLogTest.java:64. No caller in src/main yet: every post names its severity directly, which the rule allows"
+    },
+    {
+      "id": "MLOG-06",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/MessageLogWindow.java:120-127: showing the log refreshes it and calls markRead (src/main/java/com/termina/ui/MessageLog.java:82-86); clear zeroes the count (src/main/java/com/termina/ui/MessageLog.java:88-93); src/test/java/com/termina/ui/MessageLogTest.java:54"
+    },
+    {
+      "id": "MLOG-07",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/MessageLog.java:32 counts unread errors apart from the entries, and :51-57 leaves the count alone when the cap drops one; src/test/java/com/termina/ui/MessageLogTest.java:43 anEvictedErrorIsStillCountedUntilRead"
+    },
+    {
+      "id": "SYNC-01",
+      "level": "SHOULD",
+      "status": "manual",
+      "evidence": "open Settings and search \"sync\": it should land on the Sync page, which carries the key bindings between computers (src/main/java/com/termina/ui/SettingsWindow.java:91 the Sync page, :544; src/main/java/com/termina/ui/SettingsSearch.java:51-55 a query naming a page opens it); not recorded"
+    },
+    {
+      "id": "SYNC-02",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "sync runs the user's own `git` against the URL they gave (src/main/java/com/termina/sync/SyncEngine.java:276 push, :350 fetch; src/main/java/com/termina/sync/GitRunner.java) with their credential helper, SSH key or `gh` account (src/main/java/com/termina/sync/SyncAccount.java:63-78); no server or account of the app's own appears in src/main/java/com/termina/sync/"
+    },
+    {
+      "id": "REL-01",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:38-47: linux-x64 on ubuntu-latest, linux-arm64 on ubuntu-24.04-arm, macos-arm64 on macos-latest, macos-x64 on macos-15-intel, windows-x64 on windows-latest; each leg builds with -Pdist (:166), whose jpackage execution is pom.xml:814-823."
+    },
+    {
+      "id": "REL-02",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "scripts/check-release-assets.sh:18-20 takes the expected names from jreleaser.yml, which are Termina-{{projectVersion}}-<target>.<ext> (jreleaser.yml:74, :104, :140-156); the build legs rename to that scheme (.github/workflows/release.yml:317)."
+    },
+    {
+      "id": "REL-03",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "jreleaser.yml has no build or assemble step: it attaches the matrix's files (jreleaser.yml:74, :104, :138-157) and one checksums file (:60-61; out/jreleaser/checksums/checksums_sha256.txt, .github/workflows/release.yml:536); brew and winget take the same dmg and msi (:77, :107); the publish job needs [build, sign-linux] (release.yml:427)."
+    },
+    {
+      "id": "REL-04",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:467-476 writes out/release-notes.md with scripts/release-notes.sh (the version's CHANGELOG.md section after the install text, scripts/release-notes.sh:3, :24), and jreleaser.yml:58 gives it to JReleaser as changelog.external."
+    },
+    {
+      "id": "REL-05",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:70-76 fails the leg when the tag (minus v) differs from the pom version, and :77-80 when the pom is still a snapshot."
+    },
+    {
+      "id": "REL-06",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "pom.xml:9 version 0.15.0-SNAPSHOT at origin/master; .github/workflows/release.yml:554-590 `bump` job opens the pull request to the next -SNAPSHOT after a tag's release."
+    },
+    {
+      "id": "REL-07",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:461-463 runs scripts/check-release-assets.sh on the gathered artifacts before \"Publish release\" (:514); the script fails on a missing or an extra file (scripts/check-release-assets.sh:27-38)."
+    },
+    {
+      "id": "REL-08",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "packaging/linux/Termina.desktop:12 StartupWMClass=com.termina.App; src/main/java/com/termina/App.java:14 `public final class App extends Application`."
+    },
+    {
+      "id": "REL-09",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "packaging/linux/io.github.adriandeleon.Termina.metainfo.xml:3 <id>io.github.adriandeleon.Termina</id>."
+    },
+    {
+      "id": "REL-10",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "pom.xml:939-951 the dist profile's aot-train execution runs scripts/aot-train.sh, which launches with -XX:AOTCacheOutput (scripts/aot-train.sh:56) under xvfb-run on Linux (:82-83); the Linux release legs install xvfb (.github/workflows/release.yml:96)."
+    },
+    {
+      "id": "REL-11",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "jreleaser.yml attaches .dmg (:74 arm64, :140 x64), .msi (:104), and .deb, .rpm, .AppImage and .tar.gz for linux-x64 and linux-arm64 (:141-156), with one checksums file (:60-61, checksums_sha256.txt)."
+    },
+    {
+      "id": "REL-12",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "jreleaser.yml:77-93 brew packager with a cask `termina` for the macos-arm64 dmg (:74), repository adriandeleon/homebrew-tap (:86-89)."
+    },
+    {
+      "id": "REL-13",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": "jreleaser.yml:107-133 winget packager: identifier AdrianDeLeon.Termina (:111), moniker termina (:119), from the adriandeleon/winget-pkgs fork (:125-128), for the windows-x64 msi (:104)."
+    },
+    {
+      "id": "REL-14",
+      "level": "SHOULD",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:527-528 passes secrets.PACKAGES_TOKEN as both packagers' token; :503-508 adds --exclude-packager brew --exclude-packager winget when it is empty, and the release still publishes."
+    },
+    {
+      "id": "REL-15",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:118-119 imports MACOS_CERT_P12/MACOS_CERT_PASSWORD; scripts/sign-mac-app.sh:29, :65-67 signs with --options runtime and packaging/macos/Termina.entitlements; release.yml:199-201 APPLE_API_KEY_P8/_ID/_ISSUER, :239 team 8JKSF797L8, :253 notarytool, :269 staple, :273 and :279 spctl, :283 launches the notarized app."
+    },
+    {
+      "id": "REL-16",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:348-422 `sign-linux` job apart from the build legs reads LINUX_GPG_KEY and LINUX_GPG_PASSPHRASE (:370-371); scripts/sign-linux-packages.sh:91 rpmsign, :80-81 debsigs-format _gpgorigin, :99 armored .asc per file; packaging/linux/signing-key.asc is \"Adrian De Leon (release signing)\", byte-identical to Editora's; attached as termina-signing-key.asc (jreleaser.yml:157)."
+    },
+    {
+      "id": "REL-17",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": ".github/workflows/release.yml:42-47 and :326-332: the Windows leg uploads the .msi with no signing step; searched .github and scripts for signtool, Authenticode, WINDOWS_CERT: not found."
+    },
+    {
+      "id": "REL-18",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:481-485 actions/attest-build-provenance with subject-path 'artifacts/*', the folder the asset check holds to exactly jreleaser.yml's files (:461-463); the checksums file is attested at :532-536. Kept in order by src/test/java/com/termina/WorkflowRulesTest.java:91."
+    },
+    {
+      "id": "REL-19",
+      "level": "MUST",
+      "status": "fail",
+      "evidence": "The workflow meets its part (.github/workflows/ci.yml:9-12 both triggers, Format job :30-45, `./mvnw verify` :69), but master requires neither check: gh api repos/adriandeleon/Termina/branches/master says protected false, required_status_checks off, with no checks; /branches/master/protection is 404 \"Branch not protected\"; /rulesets and /rules/branches/master are []."
+    },
+    {
+      "id": "REL-20",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/ci.yml:11 (every pull request, no label) runs `./mvnw verify` (:69) on ubuntu-latest, macos-latest and windows-latest (:56); the FX tests are off on Windows only (e.g. src/test/java/com/termina/ui/WindowCommandsFxTest.java:38), so they run on Linux and macOS; the release runs verify on all five legs (.github/workflows/release.yml:166)."
+    },
+    {
+      "id": "REL-21",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:10 tags ['v*'] and :12 workflow_dispatch; a dispatched run builds and signs, then JReleaser gets --dry-run (:498-501) and both attest steps are skipped (:482, :533)."
+    },
+    {
+      "id": "REL-30",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:427 the publish job needs build (and sign-linux, which needs build), and every build leg runs `./mvnw ... clean -Pdist -Dskip.installers=false verify` with no -DskipTests (:166)."
+    },
+    {
+      "id": "REL-22",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "All 24 `uses:` lines in .github/workflows end in a 40-character SHA and a version comment (own grep of the command's two patterns: no line left over), e.g. .github/workflows/ci.yml:35 `# v7.0.1`, .github/workflows/release.yml:515 jreleaser/release-action `# v2.5.0`; no .github/actions."
+    },
+    {
+      "id": "REL-23",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/dependabot.yml:5-8 github-actions, interval weekly; :13-16 maven, interval weekly."
+    },
+    {
+      "id": "REL-24",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/ci.yml:16-17 and .github/workflows/release.yml:17-18 start from permissions: contents: read; every write is in a job's own block (release.yml:433-436 publish, :560-562 bump)."
+    },
+    {
+      "id": "REL-25",
+      "level": "SHOULD",
+      "status": "fail",
+      "evidence": ".github/workflows/release.yml:449-453: the publish job's setup-java step has no `cache: maven`; the other four steps have it (.github/workflows/ci.yml:42, :66, :127; release.yml:57)."
+    },
+    {
+      "id": "REL-26",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Every job with steps sets timeout-minutes on the job: .github/workflows/ci.yml:33, :50, :113; .github/workflows/release.yml:31, :352, :428, :559. No job calls a reusable workflow."
+    },
+    {
+      "id": "REL-31",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/ci.yml:19-24 (the only pull_request workflow): group ci-${{ github.ref }}, cancel-in-progress ${{ github.event_name == 'pull_request' }}, so false for a push, a dispatch or any run on master. release.yml has no pull_request trigger."
+    },
+    {
+      "id": "REL-27",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/ci.yml:74-81 uploads target/surefire-reports under if: always(); :83-90 uploads target/site/jacoco; :94-106 appends the line, branch and method totals to $GITHUB_STEP_SUMMARY."
+    },
+    {
+      "id": "REL-28",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:122-130 (macOS: no secrets fails on a tag, else warns and sets enabled=false, which skips notarization at :195); :374-390 (Linux: no key fails on a tag, else signs with a throw-away key and warns). No other signing step."
+    },
+    {
+      "id": "REL-29",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": ".github/workflows/release.yml:174-183 runs scripts/smoke-test.sh on the packaged launcher in every build leg (Linux, macOS and Windows legs, :38-47), and the publish job needs build (:427), so it is before \"Publish release\" (:514)."
+    }
+  ],
+  "problems": [
+    "The app names Pauta 2.0.2 (pauta.version, pom.xml:27; the README badge, README.md:14; AGENTS.md:13). This audit was run against 6.0.1 on request (edition=6.0.1), so appEdition is 2.0.2 and a failure marked \"upgrade work\" is one 2.0.2 did not ask for, or asked for at a lower level.",
+    "There is no pauta.json (PAUTA-01, PAUTA-09): the app records no exception and no checked entry, so every unmet rule is fail and every manual result is not recorded.",
+    "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
+    "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
+    "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
+    "Found while driving the command line, and not a result of its own: the main class, com.termina.App, extends Application, so the Java launcher starts the JavaFX toolkit before App.main runs (LauncherHelper$FXHelper). With no display, --version, --help and --report end in \"Unable to open DISPLAY\" before the code the CLI rules read is reached. CLI-01 and CLI-05 pass by their checks, which read main; a main class that is not an Application would make them hold without a display too."
+  ]
+}
