@@ -12,13 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** What a command line that opens no window prints and exits with. */
-class AppEarlyExitTest {
+class MainEarlyExitTest {
 
     private final ByteArrayOutputStream out = new ByteArrayOutputStream();
     private final ByteArrayOutputStream err = new ByteArrayOutputStream();
 
     private Integer run(String... args) {
-        return App.earlyExit(
+        return Main.earlyExit(
                 CommandLine.parse(args),
                 new PrintStream(out, true, StandardCharsets.UTF_8),
                 new PrintStream(err, true, StandardCharsets.UTF_8));

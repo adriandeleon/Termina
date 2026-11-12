@@ -69,7 +69,7 @@ the real shell, and writes a PNG:
 java --module-path <deps> --add-modules com.termina \
   -Dtermina.capture=/tmp/shot.png \
   -Dtermina.captureCommand='ls --color=always' \
-  -m com.termina/com.termina.App
+  -m com.termina/com.termina.Main
 ```
 
 `-Dtermina.captureNativeChord=A;CONTROL+F` presses those keys through the **operating system**, via

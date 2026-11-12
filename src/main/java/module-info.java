@@ -28,7 +28,7 @@ module com.termina {
 
     // TtyConnector declares default resize(java.awt.Dimension) overloads. We never call them,
     // but the interface cannot be verified without java.desktop on the module path.
-    // See App.main for why AWT is nonetheless forced headless.
+    // See Main.main for why AWT is nonetheless forced headless.
     requires java.desktop;
     // The debug log captures j.u.l output, which is where JavaFX and the emulator report trouble.
     requires java.logging;

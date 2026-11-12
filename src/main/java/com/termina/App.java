@@ -10,99 +10,29 @@ import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
 import org.jspecify.annotations.Nullable;
 
-/** Termina — a cross-platform terminal emulator on JavaFX. */
+/**
+ * Termina — a cross-platform terminal emulator on JavaFX. This is the application {@link Main}
+ * launches, never the main class itself: a main class that extends {@code Application} has the
+ * toolkit started for it before {@code main} runs, and the command line must be answered without
+ * one.
+ */
 public final class App extends Application {
 
     private @Nullable WindowManager windows;
 
     /**
-     * This process's hold on its config folder (CLI-07), taken in {@link #main} before the toolkit
+     * This process's hold on its config folder (CLI-07), taken by {@link Main} before the toolkit
      * starts and served once the first window is up; null with {@code --new-instance}, or when the
      * folder could not be claimed and this one started anyway.
      */
     private static com.termina.instance.@Nullable SingleInstance instance;
 
-    /** How the launcher is invoked, for the usage text. */
-    private static final String LAUNCH_NAME = "termina";
-
-    public static void main(String[] args) {
-        // First, before the arguments are even read (DIAG-04, Pauta 2.0.2): anything that goes wrong
-        // from here on is captured, not printed to a console a packaged app does not have. It
-        // keeps records in memory only; the file beside the settings is attached once the config
-        // folder is known. Nothing in it loads AWT, which the line below must precede.
-        com.termina.ui.DebugLog.install();
-        // Parsed before anything else starts. --version is what somebody pastes into a bug report,
-        // so it must not depend on a display, a config file, or the toolkit coming up at all.
-        CommandLine cli = CommandLine.parse(args);
-        Integer exit = earlyExit(cli, System.out, System.err);
-        // Not a bare return: launching an Application subclass in module mode starts the FX toolkit,
-        // whose non-daemon thread would keep the process alive after main returns.
-        if (exit != null) System.exit(exit);
-
-        // Must be the first statement, before any AWT class can load. We require java.desktop
-        // (TtyConnector's default methods reference java.awt.Dimension) but never use AWT, and on
-        // macOS an initialised AWT/Java2D pipeline contends with JavaFX's Glass/Prism for the
-        // single AppKit run loop — an intermittent hang rather than a clean failure.
-        System.setProperty("java.awt.headless", "true");
-        com.termina.perf.Startup.mark("main");
-        // A capture or an AOT training run is a process of its own whatever the folder: handed to a
-        // Termina already running, it would photograph or train nothing.
-        boolean ownProcess = cli.newInstance()
-                || System.getProperty("termina.capture") != null
-                || System.getProperty("termina.aotTrain") != null;
-        if (!ownProcess) claimOrHandOff(cli, args);
-        launch(args);
-    }
-
     /**
-     * One Termina per config folder (CLI-07): the first launch claims it; a later one hands its
-     * arguments to the first, which opens a window for them, and exits here. When the holder does
-     * not answer, this one starts on its own rather than not at all, and says why on stderr.
+     * Hands over the hold {@link Main} took on the config folder. Static because {@code launch}
+     * makes the application itself, with nothing passed to it.
      */
-    /**
-     * What a command line that does not open a window does — an error, {@code --help},
-     * {@code --report}, {@code --version} — and the process's exit status; null to go on and launch.
-     */
-    static @Nullable Integer earlyExit(CommandLine cli, java.io.PrintStream out, java.io.PrintStream err) {
-        if (cli.error() != null) {
-            err.println(AppInfo.NAME + ": " + cli.error());
-            err.println("Try '" + LAUNCH_NAME + " --help' for the options.");
-            return 2;
-        }
-        if (cli.help()) {
-            out.println(CommandLine.usage(LAUNCH_NAME));
-            return 0;
-        }
-        if (cli.report()) {
-            // No window: for when the window is what will not start. CLI-05.
-            return com.termina.report.ReportCommand.run(Settings.defaultFile(cli.configDir(), cli.dev()), out);
-        }
-        if (cli.version()) {
-            // The first line stays "Termina <version>", which is what anything parsing it reads.
-            AppInfo.details().forEach(out::println);
-            return 0;
-        }
-        return null;
-    }
-
-    static void claimOrHandOff(CommandLine cli, String[] args) {
-        java.nio.file.Path configDir = Settings.defaultFile(cli.configDir(), cli.dev())
-                .toAbsolutePath()
-                .getParent();
-        if (configDir == null) return;
-        try {
-            instance = com.termina.instance.SingleInstance.claim(configDir);
-        } catch (java.io.IOException | RuntimeException e) {
-            return; // a folder that cannot be locked is no reason not to start
-        }
-        if (instance != null) return;
-        var request = new com.termina.instance.SingleInstance.Request(
-                System.getProperty("user.dir", ""), java.util.List.of(args));
-        if (com.termina.instance.SingleInstance.handOff(configDir, request, java.time.Duration.ofSeconds(5))) {
-            System.exit(0);
-        }
-        System.err.println(
-                AppInfo.NAME + ": another Termina holds " + configDir + " but did not answer; starting a second one.");
+    static void hold(com.termina.instance.@Nullable SingleInstance claimed) {
+        instance = claimed;
     }
 
     /**

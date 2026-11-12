@@ -556,7 +556,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>${javafx.plugin.version}</version>
                 <configuration>
-                    <mainClass>com.termina/com.termina.App</mainClass>
+                    <mainClass>com.termina/com.termina.Main</mainClass>
                     <options>
                         <!-- JNA loads the pty4j native library through System.load. Without this the
                              JDK warns on every launch, and it says the call will be blocked outright
@@ -827,7 +827,7 @@
                                     <vendor>Termina</vendor>
                                     <icon>${jpackage.icon}</icon>
                                     <destination>${project.build.directory}/dist</destination>
-                                    <module>com.termina/com.termina.App</module>
+                                    <module>com.termina/com.termina.Main</module>
                                     <modulePaths>
                                         <modulePath>${project.build.directory}/mods</modulePath>
                                     </modulePaths>

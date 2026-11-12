@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
  * Puts a program's notification (OSC 9, OSC 777) on the desktop.
  *
  * <p>JavaFX has no notification API, and AWT — which has {@code SystemTray} — is forced headless
- * (see {@code App.main}). Every platform has a command that does it, so this runs that:
+ * (see {@code Main.main}). Every platform has a command that does it, so this runs that:
  * {@code notify-send} on Linux, or the session bus directly through {@code gdbus} where libnotify's
  * tool is not installed; {@code osascript} on macOS; a PowerShell toast on Windows.
  *
