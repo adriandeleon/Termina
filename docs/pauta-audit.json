@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 38 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, ACC-01, KBD-01, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, MENU-05, SET-03) and so do the 66 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 36 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, ACC-01, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, SET-03) and so do the 66 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -587,8 +587,8 @@
     {
       "id": "KBD-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "the two log windows' buttons now call what their commands call (debugLog.find, .refresh, .copy, .export, .clear, messageLog.copy, .clear: src/main/java/com/termina/ui/TerminalWindow.java:3004-3010; src/main/java/com/termina/ui/DebugLogWindow.java:260-297, src/main/java/com/termina/ui/MessageLogWindow.java:172-184), but other buttons still run handlers no command reaches: in Settings, Reset, Import and Remove theme, the key bindings' Reset and Reset All, Add and Remove profile and the sync page's Connect, Create on GitHub, Sync Now's Cancel and Sync Anyway and Remove credentials (src/main/java/com/termina/ui/SettingsWindow.java:336, :871-873, :1306, :1334, :1635-1637, :2096-2133); Report a Problem's Copy and Open (src/main/java/com/termina/ui/ReportProblemWindow.java:50-55); About's Copy details (src/main/java/com/termina/ui/AboutWindow.java:31)"
+      "status": "pass",
+      "evidence": "every button that acts is a registered command now, the control calling what the command's runnable calls: the Settings window's eleven (src/main/java/com/termina/ui/SettingsActions.java:19; the buttons and the commands both run SettingsWindow.act, src/main/java/com/termina/ui/SettingsWindow.java:411, the commands through run, :393, registered at src/main/java/com/termina/ui/TerminalWindow.java:3035), Report a Problem's Copy and Open (report.copy, report.open: src/main/java/com/termina/ui/TerminalWindow.java:3012, src/main/java/com/termina/ui/ReportProblemWindow.java:104, :117), About's Copy details and its three links (help.copyDetails, help.website, help.sourceCode, help.pautaRules: src/main/java/com/termina/ui/TerminalWindow.java:3014-3018), and the two log windows' (debugLog.*, messageLog.*); a command that cannot run now says why (src/main/java/com/termina/ui/SettingsActions.java:72); held by src/test/java/com/termina/ui/WindowManagerFxTest.java:172, src/test/java/com/termina/ui/SettingsActionsTest.java and src/test/java/com/termina/ui/MenuBarModelTest.java. Read as outside the rule, and so with no command: a window's own Close button, the Keyboard page's recording field and Reset beside each command (the binding's own control, as SET-06 was judged), and a find bar's keys, which the FIND rules give (fixed in ef3fdfa)"
     },
     {
       "id": "KBD-02",
@@ -1223,8 +1223,8 @@
     {
       "id": "MENU-05",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "the Message Log's list and the Debug Log's text now have right-click menus whose rows are their commands (src/main/java/com/termina/ui/MessageLogWindow.java:97, src/main/java/com/termina/ui/DebugLogWindow.java:106), beside a tab's and the terminal's; Settings' profile list still has none (src/main/java/com/termina/ui/SettingsWindow.java), and its Add and Remove are not commands"
+      "status": "pass",
+      "evidence": "every list, tab, terminal and read-only console with actions has a right-click menu whose rows are commands: a tab's (src/main/java/com/termina/ui/TerminalWindow.java), the terminal's (src/main/java/com/termina/ui/TerminalView.java), the Message Log's list and the Debug Log's text (src/main/java/com/termina/ui/MessageLogWindow.java:98, src/main/java/com/termina/ui/DebugLogWindow.java:106), and now Settings' profile list, with Add and Remove (src/main/java/com/termina/ui/SettingsWindow.java:1723; settings.addProfile, settings.removeProfile); the Settings sidebar only navigates and the palette's list is an overlay; held by src/test/java/com/termina/ui/WindowManagerFxTest.java:182 and src/test/java/com/termina/ui/LogWindowsFxTest.java (fixed in ef3fdfa)"
     },
     {
       "id": "MENU-06",
@@ -1266,7 +1266,7 @@
       "id": "MENU-12",
       "level": "SHOULD",
       "status": "fail",
-      "evidence": "no menu row carries a danger style class and no stylesheet has a `.menu-item.danger` rule (searched danger in src/main/java/com/termina/ui/ and src/main/resources/com/termina/styles/app.css): Clear Scrollback, which discards the history, is a plain row (src/main/java/com/termina/ui/TerminalView.java:2498), as are the rows that close tabs (src/main/java/com/termina/ui/TerminalWindow.java:1572-1575)"
+      "evidence": "a `.menu-item.danger` rule now colors a destructive right-click row's text -color-danger-fg (src/main/resources/com/termina/styles/app.css), and the rows that discard carry it: Clear Scrollback in the terminal's menu, Clear in the Debug Log's and the Message Log's, Remove in the profile list's; but the menu bar's Clear Scrollback row is plain, and so are the rows that close tabs (src/main/java/com/termina/ui/TerminalWindow.java), which this audit counted as discarding"
     },
     {
       "id": "MENU-13",
@@ -1992,7 +1992,7 @@
       "id": "PWIN-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no Pauta window: fails with PWIN-01; and no `help.pautaRules` command is registered: About's edition link opens AppInfo.pautaUrl() itself (src/main/java/com/termina/ui/AboutWindow.java:133), so the palette cannot reach it (upgrade work: not in 2.0.2)"
+      "evidence": "no Pauta window: fails with PWIN-01. The help.pautaRules command is registered now and opens the edition's own address, never latest/ (src/main/java/com/termina/ui/TerminalWindow.java:3018), and About's edition link opens the same address (src/main/java/com/termina/ui/AboutWindow.java) (upgrade work: not in 2.0.2)"
     },
     {
       "id": "PWIN-05",
@@ -2448,6 +2448,7 @@
     "Eleven more were judged again the same day, after the fixes in 26adef2: WIN-11, PERF-05, OS-01, KBD-15, FIND-16, TBAR-03, MENU-07, SET-04, DIAG-09, SET-09, SET-10. KBD-01's evidence was brought up to date with them; it still fails.",
     "Five more were judged again the same day, after the fixes in 9261b38: KBD-03, ABOUT-01, PAL-01, DOCS-06, MLOG-02. KBD-02's evidence was brought up to date with them; it still fails.",
     "Six more were judged again the same day, after the fixes in 32baadd: FIND-01, FIND-02, FIND-03, FIND-04, FIND-06, FIND-07. KBD-01 and MENU-05 were brought up to date with them; both still fail, for what is left.",
+    "Two more were judged again the same day, after the fixes in ef3fdfa: KBD-01, MENU-05. MENU-12 and PWIN-04 were brought up to date with them; both still fail.",
     "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails."
   ]
 }
