@@ -3008,6 +3008,14 @@ public final class TerminalWindow {
                 item("command.debugLog.clear", () -> windows.debugLog(stage).clear()),
                 item("command.messageLog.copy", () -> windows.messageLog().copy()),
                 item("command.messageLog.clear", () -> windows.messageLog().clear()),
+                // Report a Problem's and About's buttons and links, as commands.
+                item("command.report.copy", () -> windows.reportProblemAction(stage, false)),
+                item("command.report.open", () -> windows.reportProblemAction(stage, true)),
+                item("command.help.copyDetails", AboutWindow::copyDetails),
+                item("command.help.website", () -> windows.openLink(com.termina.AppInfo.HOMEPAGE)),
+                item("command.help.sourceCode", () -> windows.openLink(com.termina.AppInfo.RELEASES_PAGE)),
+                // The edition's own page, never latest/ (PWIN-04 names the id).
+                item("command.help.pautaRules", () -> windows.openLink(com.termina.AppInfo.pautaUrl())),
                 item("command.reportProblem", () -> windows.showReportProblem(stage)),
                 MenuAction.of(tr("command.help.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
                         .describedAs(description("command.help.about"))
@@ -3020,6 +3028,11 @@ public final class TerminalWindow {
             String key = "command.focusPane" + direction.name().charAt(0)
                     + direction.name().substring(1).toLowerCase(java.util.Locale.ROOT);
             all.add(item(key, () -> focusPane(direction)));
+        }
+        // The Settings window's buttons, as commands (KBD-01, Pauta 6.0.1): each brings the window
+        // up on its page and runs what the button runs.
+        for (SettingsActions.Action action : SettingsActions.Action.values()) {
+            all.add(item(COMMAND_KEY + action.id(), () -> windows.runSettingsAction(stage, action)));
         }
         // The nine profile and tab chords. Registered because a menu's own accelerators never fire
         // in this window — TerminalView consumes Ctrl+<key> first, which is the whole reason
@@ -3340,6 +3353,10 @@ public final class TerminalWindow {
             return tr(settings.showMenuBar() ? "command.hideMenuBar" : "menu.showMenuBar");
         }
         if ("closeTab".equals(id) && activeTabIsSplit()) return tr("menu.closePane");
+        // One command, named for the way it will go, as the button in Settings is.
+        if (SettingsActions.Action.SYNC_CONNECT.id().equals(id) && settings.syncEnabled()) {
+            return tr("menu.syncDisconnect");
+        }
         if ("checkForUpdates".equals(id)) {
             var update = windows.availableUpdate();
             if (update != null) return tr("menu.updateAvailable", update.version());
@@ -3353,6 +3370,8 @@ public final class TerminalWindow {
      */
     private @Nullable String unavailableNow(String id) {
         if (id.equals(reopenAction.id()) && !canReopen()) return tr("palette.disabled.nothingToReopen");
+        SettingsActions.Action settingsAction = SettingsActions.Action.byId(id);
+        if (settingsAction != null) return windows.settingsActionUnavailable(settingsAction);
         String noMenuBarToHide = WindowRules.menuBarToggleUnavailableKey(SYSTEM_MENU_BAR);
         if ("hideMenuBar".equals(id) && noMenuBarToHide != null) return tr(noMenuBarToHide);
         for (MenuAction marked : List.of(previousPromptAction, nextPromptAction, selectOutputAction)) {

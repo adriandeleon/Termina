@@ -48,10 +48,7 @@ final class ReportProblemWindow {
         status.getStyleClass().add("settings-row-description");
 
         Button copy = new Button(tr("report.copy"));
-        copy.setOnAction(e -> {
-            copyToClipboard();
-            status.setText(tr("report.copied"));
-        });
+        copy.setOnAction(e -> copy());
         Button open = new Button(tr("report.open"));
         open.setDefaultButton(true);
         open.setOnAction(e -> openIssue());
@@ -103,7 +100,21 @@ final class ReportProblemWindow {
         Clipboard.getSystemClipboard().setContent(content);
     }
 
-    private void openIssue() {
+    /** Copies both fields as they stand; what {@code report.copy} and the Copy button do. */
+    void copy() {
+        copyToClipboard();
+        status.setText(tr("report.copied"));
+    }
+
+    boolean isShowing() {
+        return stage.isShowing();
+    }
+
+    /**
+     * Opens a new issue with the two fields filled in, the report on the clipboard as well; what
+     * {@code report.open} and the window's default button do.
+     */
+    void openIssue() {
         copyToClipboard();
         ProblemReport.Link link = edited().link(AppInfo.GITHUB_REPO, tr("report.pasteHint"));
         openLink.accept(link.url());

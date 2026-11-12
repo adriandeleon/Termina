@@ -35,6 +35,17 @@ class MenuBarModelTest {
                 "debugLog.clear",
                 "messageLog.copy",
                 "messageLog.clear")));
+        // And the buttons of Settings, Report a Problem and About, and About's links.
+        for (SettingsActions.Action action : SettingsActions.Action.values()) {
+            assertTrue(ids.contains(action.id()), action.id());
+        }
+        assertTrue(ids.containsAll(List.of(
+                "report.copy",
+                "report.open",
+                "help.copyDetails",
+                "help.website",
+                "help.sourceCode",
+                "help.pautaRules")));
         for (String old : List.of("about", "commandPalette", "documentation", "messageLog", "find")) {
             assertFalse(ids.contains(old), old);
         }

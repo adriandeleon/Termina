@@ -36,6 +36,17 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **The buttons of Settings, Report a Problem and About are commands**, in the palette and bindable
+  on the Keyboard page: Reset All Settings, Import Theme, Remove Theme, Reset All Shortcuts, Add
+  Profile, Remove Profile, Connect Settings Sync (which reads Disconnect once connected), Create
+  Sync Repository on GitHub, Cancel Sync, Sync Anyway, Remove Credentials From Sync Address, Copy
+  Problem Report, Open Issue for Problem Report, Copy Version Details, Open Termina's Website,
+  Source Code and Releases, and Pauta Guidelines. Each Settings command opens Settings on its page
+  and does what the button does, questions included; one that cannot run is greyed in the palette
+  with the reason.
+- **A right-click menu on the profile list** in Settings, with Add and Remove.
+- **A right-click row that discards something is drawn in the danger colour**: Clear Scrollback,
+  Clear in the two log windows, and Remove in the profile list.
 - **Toggle Regular Expression is a command**: in the palette, and bindable on the Keyboard page.
   It flips the find bar's `.*` switch, opening the bar first if it is closed. The switch could only
   be clicked.

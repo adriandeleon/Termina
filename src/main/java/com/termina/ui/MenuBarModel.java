@@ -51,6 +51,8 @@ final class MenuBarModel {
     static List<Menu> menus(boolean zoomRow) {
         List<String> fileUnlisted = new ArrayList<>(numbered(WindowRules.PROFILE_CHORD_ID));
         fileUnlisted.addAll(List.of("exportConfiguration", "importConfiguration"));
+        // The Settings window's buttons (KBD-01): palette and chord only, beside Settings itself.
+        for (SettingsActions.Action action : SettingsActions.Action.values()) fileUnlisted.add(action.id());
         Menu file = new Menu(
                 "menu.file",
                 List.of(
@@ -155,7 +157,13 @@ final class MenuBarModel {
                         "debugLog.export",
                         "debugLog.clear",
                         "messageLog.copy",
-                        "messageLog.clear"));
+                        "messageLog.clear",
+                        "report.copy",
+                        "report.open",
+                        "help.copyDetails",
+                        "help.website",
+                        "help.sourceCode",
+                        "help.pautaRules"));
 
         return List.of(file, edit, view, window, help);
     }

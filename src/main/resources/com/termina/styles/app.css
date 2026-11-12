@@ -44,6 +44,16 @@
 }
 
 /* A disabled item dims its label but not its graphic, so the icon has to be dimmed explicitly. */
+/* A destructive row of a right-click menu (MENU-12): its text in the danger colour, until it is
+   the highlighted row, whose text has to read on the highlight. */
+.context-menu .menu-item.danger > .label {
+    -fx-text-fill: -color-danger-fg;
+}
+
+.context-menu .menu-item.danger:focused > .label {
+    -fx-text-fill: -color-fg-default;
+}
+
 .menu-item:disabled .menu-icon {
     -fx-fill: -color-fg-subtle;
     -fx-opacity: 0.5;

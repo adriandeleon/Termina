@@ -169,6 +169,81 @@ class WindowManagerFxTest {
         });
         waitFor(() -> reports.size() >= 2, "the import");
 
+        // KBD-01 (Pauta 6.0.1): the buttons of Settings, Report a Problem and About are commands,
+        // each run here from the palette's rows as a chord would run it.
+        assertEquals(List.of(), onFx(() -> windows.profiles().userProfiles()));
+        assertTrue(unavailable(keeper, "settings.removeTheme"), "the theme in use is built in");
+        assertTrue(unavailable(keeper, "settings.removeProfile"), "no profile is selected");
+        assertTrue(unavailable(keeper, "sync.cancel"), "no sync is running");
+        assertTrue(unavailable(keeper, "sync.removeCredentials"), "the address holds none");
+        run(keeper, "settings.addProfile");
+        assertEquals(1, onFx(() -> windows.profiles().userProfiles().size()));
+        assertTrue(!unavailable(keeper, "settings.removeProfile"), "the new profile is selected");
+        // MENU-05, MENU-12: the profile list's own menu, Remove styled as dangerous.
+        assertEquals(
+                List.of(
+                        com.termina.i18n.Messages.tr("settings.profileAdd"),
+                        com.termina.i18n.Messages.tr("settings.profileRemove") + " (danger)"),
+                onFx(() -> windows.settingsWindowForTest().profileMenuRowsForTest()));
+        onFx(() -> {
+            DialogAnswers.next(false, null);
+            return null;
+        });
+        run(keeper, "settings.removeProfile");
+        assertEquals(1, onFx(() -> windows.profiles().userProfiles().size()), "Cancel kept it");
+        onFx(() -> {
+            DialogAnswers.next(true, null);
+            return null;
+        });
+        run(keeper, "settings.removeProfile");
+        assertEquals(0, onFx(() -> windows.profiles().userProfiles().size()));
+
+        onFx(() -> {
+            settings.setFontSize(17);
+            DialogAnswers.next(true, null);
+            return null;
+        });
+        run(keeper, "settings.reset");
+        assertEquals(Settings.DEFAULT_FONT_SIZE, onFx(settings::fontSize));
+        onFx(() -> {
+            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+            DialogAnswers.next(true, null);
+            return null;
+        });
+        run(keeper, "settings.resetShortcuts");
+        assertEquals(java.util.Map.of(), onFx(settings::keyBindings));
+
+        // The connection's command is named for the way it will go.
+        assertEquals(com.termina.i18n.Messages.tr("command.sync.connect"), label(keeper, "sync.connect"));
+
+        int linksBefore = opened.size();
+        run(keeper, "help.website");
+        run(keeper, "help.sourceCode");
+        run(keeper, "help.pautaRules");
+        assertEquals(
+                List.of(
+                        com.termina.AppInfo.HOMEPAGE,
+                        com.termina.AppInfo.RELEASES_PAGE,
+                        com.termina.AppInfo.pautaUrl()),
+                opened.subList(linksBefore, opened.size()));
+        run(keeper, "help.copyDetails");
+        assertTrue(clipboard().startsWith(com.termina.AppInfo.NAME + " "), clipboard());
+        run(keeper, "report.copy");
+        assertTrue(clipboard().contains("Problem report"), clipboard());
+        run(keeper, "report.open");
+        assertTrue(opened.get(opened.size() - 1).contains("/issues/new?template=bug_report.yml"), opened.toString());
+        // The windows the commands brought up are put away before this one is closed by asking.
+        onFx(() -> {
+            for (javafx.stage.Window open : List.copyOf(javafx.stage.Window.getWindows())) {
+                if (open instanceof javafx.stage.Stage stage
+                        && open != keeper.stage()
+                        && windows.windows().stream().noneMatch(w -> w.stage() == stage)) {
+                    stage.hide();
+                }
+            }
+            return null;
+        });
+
         // The status bar off and on from the View menu's command; then a window closed by asking.
         onFx(() -> {
             for (MenuAction row : keeper.runnablePaletteRowsForTest()) {
@@ -186,6 +261,36 @@ class WindowManagerFxTest {
         // update checks answer on their own time; both write into the settings folder when they do,
         // and JUnit cannot delete a folder that is still being written into.
         waitUntilQuiet(dir);
+    }
+
+    private static void run(TerminalWindow window, String id) throws Exception {
+        boolean ran = onFx(() -> {
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if (id.equals(row.id())) {
+                    row.action().run();
+                    return true;
+                }
+            }
+            return false;
+        });
+        assertTrue(ran, "no runnable command " + id);
+    }
+
+    private static boolean unavailable(TerminalWindow window, String id) throws Exception {
+        return onFx(() -> window.runnablePaletteRowsForTest().stream().noneMatch(row -> id.equals(row.id())));
+    }
+
+    private static String label(TerminalWindow window, String id) throws Exception {
+        return onFx(() -> window.runnablePaletteRowsForTest().stream()
+                .filter(row -> id.equals(row.id()))
+                .map(MenuAction::label)
+                .findFirst()
+                .orElse(""));
+    }
+
+    private static String clipboard() throws Exception {
+        return onFx(() ->
+                String.valueOf(javafx.scene.input.Clipboard.getSystemClipboard().getString()));
     }
 
     private static boolean started(TerminalWindow window) {

@@ -80,7 +80,8 @@ class MessagesTest {
             "menu.showMenuBar",
             "menu.showMenuBar.desc",
             "menu.closePane",
-            "menu.closePane.desc");
+            "menu.closePane.desc",
+            "menu.syncDisconnect");
 
     @Test
     void everyCommandTitleHasADescription() throws Exception {

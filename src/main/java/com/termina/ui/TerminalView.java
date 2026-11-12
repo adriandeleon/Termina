@@ -2499,7 +2499,7 @@ public final class TerminalView extends Region {
                 pasteItem,
                 item(tr("command.selectAll"), MenuIcons.selectAll(), this::selectAll),
                 new SeparatorMenuItem(),
-                item(tr("command.clearScrollback"), MenuIcons.clear(), this::clearScrollback)));
+                dangerous(item(tr("command.clearScrollback"), MenuIcons.clear(), this::clearScrollback))));
 
         if (zoomActions != null) {
             // The same row the View menu carries, built again: a Node cannot be in two menus.
@@ -2538,6 +2538,12 @@ public final class TerminalView extends Region {
         ContextMenu menu = OneMenu.installRightClick(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);
         return new ContextItems(menu, openLinkItem, copyLinkItem, linkSeparator, copyItem, pasteItem, menuBarItem);
+    }
+
+    /** Marks a row that discards something, so its text is drawn in the danger colour (MENU-12). */
+    private static MenuItem dangerous(MenuItem item) {
+        item.getStyleClass().add("danger");
+        return item;
     }
 
     private static MenuItem item(String text, Node icon, Runnable action) {

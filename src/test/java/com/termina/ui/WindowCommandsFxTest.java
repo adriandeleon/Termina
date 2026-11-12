@@ -46,6 +46,15 @@ class WindowCommandsFxTest {
             "exportConfiguration", // writes to the real home folder
             "importConfiguration", // a file chooser
             "debugLog.export", // a file chooser
+            "settings.importTheme", // a file chooser
+            "settings.reset", // a question
+            "settings.resetShortcuts", // a question
+            "settings.removeProfile", // a question, once Add Profile has selected one
+            "sync.createRepository", // a prompt, where gh is signed in
+            "report.open", // a browser
+            "help.website", // a browser
+            "help.sourceCode", // a browser
+            "help.pautaRules", // a browser
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
             "showStatusBar"); // turning the bar off makes every later report a modal dialog

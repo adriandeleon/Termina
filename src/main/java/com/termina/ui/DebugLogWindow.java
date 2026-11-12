@@ -96,7 +96,7 @@ final class DebugLogWindow {
                 new javafx.scene.control.SeparatorMenuItem(),
                 row(tr("debuglog.refresh"), null, this::refresh),
                 row(tr("debuglog.export"), null, this::export),
-                row(tr("debuglog.clear"), MenuIcons.clear(), this::clear));
+                dangerous(row(tr("debuglog.clear"), MenuIcons.clear(), this::clear)));
         if (onReport != null) {
             menu.getItems()
                     .addAll(
@@ -135,6 +135,12 @@ final class DebugLogWindow {
     private static javafx.scene.control.MenuItem row(String title, javafx.scene.@Nullable Node icon, Runnable action) {
         javafx.scene.control.MenuItem item = new javafx.scene.control.MenuItem(title, icon);
         item.setOnAction(e -> action.run());
+        return item;
+    }
+
+    /** Marks a row that discards something, so its text is drawn in the danger colour (MENU-12). */
+    private static javafx.scene.control.MenuItem dangerous(javafx.scene.control.MenuItem item) {
+        item.getStyleClass().add("danger");
         return item;
     }
 

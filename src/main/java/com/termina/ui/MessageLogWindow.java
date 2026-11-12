@@ -93,6 +93,7 @@ final class MessageLogWindow {
         copyRow.setOnAction(e -> copy());
         javafx.scene.control.MenuItem clearRow =
                 new javafx.scene.control.MenuItem(tr("debuglog.clear"), MenuIcons.clear());
+        clearRow.getStyleClass().add("danger");
         clearRow.setOnAction(e -> clear());
         list.setContextMenu(OneMenu.installRightClick(new javafx.scene.control.ContextMenu(copyRow, clearRow)));
         Button close = new Button(tr("debuglog.close"));

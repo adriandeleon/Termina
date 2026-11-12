@@ -29,6 +29,17 @@ public final class AboutWindow {
     private final Stage stage = new Stage();
     private final VBox updateRow = new VBox(4);
     private final Button copy = new Button();
+
+    /**
+     * Puts everything {@code --version} prints on the clipboard, for a bug report; what
+     * {@code help.copyDetails} and the Copy details button do.
+     */
+    static void copyDetails() {
+        var content = new javafx.scene.input.ClipboardContent();
+        content.putString(String.join("\n", AppInfo.details()) + "\n");
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+    }
+
     private final Consumer<String> openLink;
     private final Settings settings;
 
@@ -145,9 +156,7 @@ public final class AboutWindow {
         // bar, and the window stays open: copying is a step on the way to somewhere else.
         copy.setText(tr("about.copyDetails"));
         copy.setOnAction(e -> {
-            var content = new javafx.scene.input.ClipboardContent();
-            content.putString(String.join("\n", AppInfo.details()) + "\n");
-            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+            copyDetails();
             copy.setText(tr("about.copied"));
         });
 

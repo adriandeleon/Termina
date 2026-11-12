@@ -489,6 +489,51 @@ public final class WindowManager {
         window.show(from, currentReport());
     }
 
+    /**
+     * Report a Problem's two buttons as commands ({@code report.copy}, {@code report.open}): on the
+     * window as it stands when it is open, with whatever the user has edited, and on a fresh
+     * report shown first when it is not.
+     */
+    void reportProblemAction(Window from, boolean open) {
+        ReportProblemWindow window = reportWindow;
+        if (window == null || !window.isShowing()) {
+            showReportProblem(from);
+            window = reportWindow;
+        }
+        if (window == null) return;
+        if (open) window.openIssue();
+        else window.copy();
+    }
+
+    /** One of the Settings window's actions, as its command runs it (KBD-01). */
+    void runSettingsAction(Window from, SettingsActions.Action action) {
+        settingsWindow().run(from, action);
+    }
+
+    /**
+     * Why a Settings action cannot run now, or null when it can. Answered from the settings and the
+     * sync's state, without building the Settings window: the palette asks on every listing.
+     */
+    @Nullable
+    String settingsActionUnavailable(SettingsActions.Action action) {
+        String key = SettingsActions.unavailableKey(action, settingsActionState());
+        return key == null ? null : tr(key);
+    }
+
+    private SettingsActions.State settingsActionState() {
+        SettingsWindow window = settingsWindow;
+        SettingsSync.State state = sync.state();
+        com.termina.sync.SyncReport report = state.report();
+        return new SettingsActions.State(
+                Themes.byId(settings.themeId()).isBuiltIn(),
+                window != null && window.hasRemovableProfileSelected(),
+                settings.syncEnabled(),
+                state.phase() == SettingsSync.Phase.SYNCING,
+                report != null && report.status() == com.termina.sync.SyncReport.Status.NEEDS_CONFIRMATION,
+                com.termina.sync.SyncEngine.hasCredentials(settings.syncRepository()),
+                sync.gitHubAvailable());
+    }
+
     /** Opens Report a Problem and returns its scene, for the development capture hook. */
     public javafx.scene.Scene showReportProblemForCapture(Window from) {
         showReportProblem(from);

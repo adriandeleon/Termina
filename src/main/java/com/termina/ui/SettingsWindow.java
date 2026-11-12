@@ -334,7 +334,7 @@ public final class SettingsWindow {
         pageHost.setAlignment(Pos.TOP_LEFT);
 
         Button reset = new Button(tr("settings.reset"));
-        reset.setOnAction(e -> confirmReset());
+        reset.setOnAction(e -> act(SettingsActions.Action.RESET));
         Button close = new Button(tr("settings.close"));
         close.setOnAction(e -> stage.hide());
         close.setDefaultButton(true);
@@ -371,6 +371,8 @@ public final class SettingsWindow {
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
+        // A press anywhere in the window closes the profile list's right-click menu (MENU-07).
+        OneMenu.closeOnOutsidePress(scene);
         stage.setScene(scene);
         Icons.applyTo(stage);
 
@@ -383,6 +385,77 @@ public final class SettingsWindow {
      * <p>The first version reset on the click. The button sits next to Close, the file it clears
      * held the user's profiles, and "put the font back" is what most people mean by it.
      */
+    /**
+     * Runs one of the window's actions as its command does: the window comes up first, on the
+     * action's page, so its question and its result have somewhere to be seen (KBD-01, Pauta
+     * 6.0.1). The buttons run the same {@link #act}.
+     */
+    void run(Window from, SettingsActions.Action action) {
+        show(from);
+        Category page = pageOf(action);
+        if (page != null) sidebar.getSelectionModel().select(page);
+        act(action);
+    }
+
+    private static @Nullable Category pageOf(SettingsActions.Action action) {
+        return switch (action) {
+            case RESET -> null;
+            case IMPORT_THEME, REMOVE_THEME -> Category.APPEARANCE;
+            case RESET_SHORTCUTS -> Category.KEYBOARD;
+            case ADD_PROFILE, REMOVE_PROFILE -> Category.PROFILES;
+            case SYNC_CONNECT, SYNC_CREATE, SYNC_CANCEL, SYNC_ANYWAY, SYNC_REMOVE_CREDENTIALS -> Category.SYNC;
+        };
+    }
+
+    /** What each button does, and each command. */
+    private void act(SettingsActions.Action action) {
+        switch (action) {
+            case RESET -> confirmReset();
+            case IMPORT_THEME -> importThemeFile();
+            case REMOVE_THEME -> removeChosenTheme();
+            case RESET_SHORTCUTS -> confirmResetKeys();
+            case ADD_PROFILE -> addUserProfile();
+            case REMOVE_PROFILE -> removeSelectedProfile();
+            case SYNC_CONNECT -> toggleSyncConnection();
+            case SYNC_CREATE -> createSyncRepositoryOnGitHub();
+            case SYNC_CANCEL -> {
+                if (sync != null && !sync.cancel()) syncState.setText(tr("sync.state.tooLateToCancel"));
+            }
+            case SYNC_ANYWAY -> {
+                if (sync != null) sync.syncAllowingLargeRemoval();
+            }
+            case SYNC_REMOVE_CREDENTIALS -> {
+                // The token in the address may be the only copy the user has of it.
+                if (sync != null
+                        && Confirm.ask(
+                                stage,
+                                tr("settings.sync.removeCredentials"),
+                                tr("settings.sync.removeCredentials.confirmTitle"),
+                                tr("settings.sync.removeCredentials.confirmDetail"),
+                                tr("settings.sync.removeCredentials"))) {
+                    sync.removeCredentialsFromUrl();
+                }
+            }
+        }
+    }
+
+    /** The titles of a profile row's right-click menu, with whether each can run: for tests. */
+    java.util.List<String> profileMenuRowsForTest() {
+        javafx.scene.control.ContextMenu menu = profileList.getContextMenu();
+        javafx.event.Event.fireEvent(menu, new javafx.stage.WindowEvent(menu, javafx.stage.WindowEvent.WINDOW_SHOWING));
+        return menu.getItems().stream()
+                .map(item -> item.getText()
+                        + (item.isDisable() ? " (disabled)" : "")
+                        + (item.getStyleClass().contains("danger") ? " (danger)" : ""))
+                .toList();
+    }
+
+    /** Whether a profile of the user's own is selected on the Profiles page: what Remove needs. */
+    boolean hasRemovableProfileSelected() {
+        com.termina.shell.Profile selected = editing;
+        return selected != null && selected.isEditable();
+    }
+
     private void confirmReset() {
         if (!Confirm.ask(
                 stage,
@@ -869,9 +942,9 @@ public final class SettingsWindow {
         // Importing: a file chooser for the formats ThemeImport reads, and a line that says what
         // happened — the new theme's name, or why the file was not one.
         Button importTheme = new Button(tr("settings.importTheme.button"));
-        importTheme.setOnAction(e -> importThemeFile());
+        importTheme.setOnAction(e -> act(SettingsActions.Action.IMPORT_THEME));
         removeTheme = new Button(tr("settings.removeTheme.button"));
-        removeTheme.setOnAction(e -> removeChosenTheme());
+        removeTheme.setOnAction(e -> act(SettingsActions.Action.REMOVE_THEME));
         themeImportResult = new Label();
         themeImportResult.getStyleClass().add("settings-note");
         themeImportResult.setWrapText(true);
@@ -1304,7 +1377,7 @@ public final class SettingsWindow {
     private void buildKeyboard(VBox page) {
         VBox all = section(page, tr("settings.section.shortcuts"));
         Button resetAll = new Button(tr("settings.keys.resetAll"));
-        resetAll.setOnAction(e -> confirmResetKeys());
+        resetAll.setOnAction(e -> act(SettingsActions.Action.RESET_SHORTCUTS));
         row(
                 Category.KEYBOARD,
                 all,
@@ -1633,9 +1706,21 @@ public final class SettingsWindow {
         }
 
         Button addProfile = new Button(tr("settings.profileAdd"));
-        addProfile.setOnAction(e -> addUserProfile());
+        addProfile.setOnAction(e -> act(SettingsActions.Action.ADD_PROFILE));
         removeProfile = new Button(tr("settings.profileRemove"));
-        removeProfile.setOnAction(e -> removeSelectedProfile());
+        removeProfile.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
+
+        // A row's own menu (MENU-05, Pauta 6.0.1): the list's two actions, each a command. Remove
+        // is the row's, so it is styled as dangerous (MENU-12) and greyed for a profile that is
+        // not the user's to remove, decided as the menu shows.
+        javafx.scene.control.MenuItem addRow = new javafx.scene.control.MenuItem(tr("settings.profileAdd"));
+        addRow.setOnAction(e -> act(SettingsActions.Action.ADD_PROFILE));
+        javafx.scene.control.MenuItem removeRow = new javafx.scene.control.MenuItem(tr("settings.profileRemove"));
+        removeRow.getStyleClass().add("danger");
+        removeRow.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
+        javafx.scene.control.ContextMenu profileMenu = new javafx.scene.control.ContextMenu(addRow, removeRow);
+        profileMenu.setOnShowing(e -> removeRow.setDisable(!hasRemovableProfileSelected()));
+        profileList.setContextMenu(OneMenu.installRightClick(profileMenu));
 
         HBox buttons = new HBox(8, addProfile, removeProfile);
         buttons.setAlignment(Pos.CENTER_LEFT);
@@ -2094,10 +2179,10 @@ public final class SettingsWindow {
                 "sync branch git main");
 
         syncConnect = new Button();
-        syncConnect.setOnAction(e -> toggleSyncConnection());
+        syncConnect.setOnAction(e -> act(SettingsActions.Action.SYNC_CONNECT));
         // Offered only while gh is installed and signed in, which `show` asks.
         syncCreateGitHub = new Button(tr("settings.sync.createGithub"));
-        syncCreateGitHub.setOnAction(e -> createSyncRepositoryOnGitHub());
+        syncCreateGitHub.setOnAction(e -> act(SettingsActions.Action.SYNC_CREATE));
         setShown(syncCreateGitHub, false);
         row(
                 Category.SYNC,
@@ -2118,31 +2203,16 @@ public final class SettingsWindow {
             if (sync != null) sync.syncNow();
         });
         syncCancel = new Button(tr("dialog.cancel"));
-        syncCancel.setOnAction(e -> {
-            if (sync != null && !sync.cancel()) syncState.setText(tr("sync.state.tooLateToCancel"));
-        });
+        syncCancel.setOnAction(e -> act(SettingsActions.Action.SYNC_CANCEL));
         syncAnyway = new Button(tr("settings.sync.anyway"));
-        syncAnyway.setOnAction(e -> {
-            if (sync != null) sync.syncAllowingLargeRemoval();
-        });
+        syncAnyway.setOnAction(e -> act(SettingsActions.Action.SYNC_ANYWAY));
         // Said, because it is otherwise invisible: which of the user's GitHub accounts this computer
         // syncs as, whichever one `gh auth switch` last made active.
         syncAccount = new Label();
         syncAccount.setWrapText(true);
         syncAccount.getStyleClass().add("settings-row-description");
         syncRemoveCredentials = new Button(tr("settings.sync.removeCredentials"));
-        syncRemoveCredentials.setOnAction(e -> {
-            // The token in the address may be the only copy the user has of it.
-            if (sync != null
-                    && Confirm.ask(
-                            stage,
-                            tr("settings.sync.removeCredentials"),
-                            tr("settings.sync.removeCredentials.confirmTitle"),
-                            tr("settings.sync.removeCredentials.confirmDetail"),
-                            tr("settings.sync.removeCredentials"))) {
-                sync.removeCredentialsFromUrl();
-            }
-        });
+        syncRemoveCredentials.setOnAction(e -> act(SettingsActions.Action.SYNC_REMOVE_CREDENTIALS));
         HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway, syncRemoveCredentials);
         VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
         stateControl.setMaxWidth(420);
