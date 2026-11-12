@@ -546,7 +546,7 @@
       "id": "PERF-16",
       "level": "SHOULD",
       "status": "fail",
-      "evidence": "main is in the Application subclass (src/main/java/com/termina/App.java:14, :28; pom.xml:559 mainClass com.termina.App) and starts no read before launch (:54); the settings are read in init() (:131, :148), off the FX thread but after the toolkit has started"
+      "evidence": "main is no longer in the Application subclass: src/main/java/com/termina/Main.java:28 is the entry point (pom.xml mainClass com.termina.Main, since 6bf1f68) and launches src/main/java/com/termina/App.java; but it starts no config read before launch, and the settings are still read in App.init(), off the FX thread and after the toolkit has started"
     },
     {
       "id": "PERF-17",
@@ -2448,6 +2448,6 @@
     "Eleven more were judged again the same day, after the fixes in 26adef2: WIN-11, PERF-05, OS-01, KBD-15, FIND-16, TBAR-03, MENU-07, SET-04, DIAG-09, SET-09, SET-10. KBD-01's evidence was brought up to date with them; it still fails.",
     "Five more were judged again the same day, after the fixes in 9261b38: KBD-03, ABOUT-01, PAL-01, DOCS-06, MLOG-02. KBD-02's evidence was brought up to date with them; it still fails.",
     "Six more were judged again the same day, after the fixes in 32baadd: FIND-01, FIND-02, FIND-03, FIND-04, FIND-06, FIND-07. KBD-01 and MENU-05 were brought up to date with them; both still fail, for what is left.",
-    "Found while driving the command line, and not a result of its own: the main class, com.termina.App, extends Application, so the Java launcher starts the JavaFX toolkit before App.main runs (LauncherHelper$FXHelper). With no display, --version, --help and --report end in \"Unable to open DISPLAY\" before the code the CLI rules read is reached. CLI-01 and CLI-05 pass by their checks, which read main; a main class that is not an Application would make them hold without a display too."
+    "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails."
   ]
 }
