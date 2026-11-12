@@ -8,10 +8,28 @@ is broken.
   automatic modules. An automatic module reads everything *in* the graph but does not pull explicit
   modules *into* it, so without those two lines the build is clean and the first emulator call dies
   with `NoClassDefFoundError`.
-- **AWT is forced headless in `App.main`, as the first statement.** We require `java.desktop`
+- **AWT is forced headless in `Main.main`, as the first statement.** We require `java.desktop`
   (JediTerm's `TtyConnector` declares `java.awt.Dimension` overloads) but never use AWT — and on
   macOS an initialised AWT contends with JavaFX for the AppKit run loop, which hangs rather than
   fails.
+- **The main class is `Main` and must never extend `Application`.** When the class a launcher
+  names is an `Application` subclass, the Java launcher (`LauncherHelper$FXHelper`) starts the
+  JavaFX toolkit *before* that class's `main` runs. `App` was the main class, so the command-line
+  handling at the top of `App.main` came after the toolkit: with no display, `--version`, `--help`,
+  `--report` and a mistyped option all died with `Unable to open DISPLAY` and a stack trace that
+  has no frame of ours in it, and `--report` exists for when the window will not start. With a
+  display nothing looks wrong — they only pay the toolkit's startup — so no developer's machine
+  shows it. `Main` answers the command line and makes the single-instance hand-off, then calls
+  `Application.launch(App.class, args)`; every launcher names it (both places in `pom.xml`,
+  `scripts/dev-run.sh`, `scripts/aot-train.sh`). `MainTest` fails if a launcher names an
+  `Application`, and runs the command line in a process whose toolkit cannot start (no display,
+  `-Dglass.platform` naming a platform that does not exist). To see it by hand:
+  `env -u DISPLAY -u WAYLAND_DISPLAY java … -m com.termina/com.termina.Main --version`.
+  **The window class did not move with it.** JavaFX names the glass application after the
+  `Application` subclass given to `launch` (`LauncherImpl` → `PlatformImpl.setApplicationName`),
+  not after the main class, and GTK glass sets `WM_CLASS` from that name, so it is still
+  `com.termina.App` and `StartupWMClass` in `packaging/linux/Termina.desktop` stays as it was.
+  Renaming or replacing `App` is what would change it.
 - **Special keys go through JediTerm's encoder** (`TerminalStarter.getCode`), never hard-coded. In
   application-cursor-key mode Up is `ESC O A`, otherwise `ESC [ A`. Printable characters come from
   `KEY_TYPED`, the only event reporting the *composed* character — that is what makes dead keys,

@@ -43,7 +43,8 @@ installed only on Debian 13 and Ubuntu 24.04 onwards.
 Every installed copy carries `LICENSE` and `NOTICE` beside the application's jars, and the jar has
 them under `META-INF/`.
 
-The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the module's
-main class rather than from the application name. Without it a running window cannot be matched to
+The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the
+`Application` subclass it launches (not from the main class, `com.termina.Main`, nor from the
+application name). Without it a running window cannot be matched to
 its launcher, so the dock shows a second generic icon beside the entry instead of highlighting it.
 **This one wants checking on a real desktop** — `xprop WM_CLASS`, then click the window.

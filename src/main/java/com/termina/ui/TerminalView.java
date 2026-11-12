@@ -499,7 +499,7 @@ public final class TerminalView extends Region {
         display.setOnRepaint(this::markDirty);
         display.setSelectionSupplier(() -> selection);
         // Visual bell. An audible one would mean java.awt.Toolkit.beep(), which initialises AWT —
-        // see App.main for why that is off the table.
+        // see Main.main for why that is off the table.
         //
         // Coalesced: `cat` of a binary file rings the bell thousands of times in one read, and each
         // used to queue its own runLater and its own transition. One flash is pending at a time;

@@ -91,7 +91,9 @@ what the code does about it is in [`docs/gotchas.md`](docs/gotchas.md) — read 
 touching its area.
 
 - `module-info` requires `kotlin.stdlib` and `org.slf4j` explicitly.
-- AWT is forced headless in `App.main`, as the first statement.
+- AWT is forced headless in `Main.main`, as the first statement.
+- The main class is `Main` and must never extend `Application`: the Java launcher starts the
+  toolkit before such a class's `main`, so `--version` and `--report` needed a display.
 - Special keys go through JediTerm's encoder
 - Application chords are `Ctrl+Shift+key` off macOS, never `Ctrl+key`.
 - Key bindings are a scene-level filter, not menu accelerators; the bar's rows draw their chords

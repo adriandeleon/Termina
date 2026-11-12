@@ -208,6 +208,12 @@ done.
   terminal window, Settings, About, Keyboard Shortcuts, confirmation dialogs — reported the
   desktop's setting, which is what JavaFX picks a native frame's dark variant from on Windows and
   macOS. On Linux the native frame follows the desktop whatever the app says.
+- **`termina --version`, `--help` and `--report` answer without a display.** The window toolkit was
+  started before the command line was read, so where there is no display — over SSH, in a
+  container, or when the display is the very problem `--report` is for — each ended in "Unable to
+  open DISPLAY" and a stack trace, and a mistyped option did too, in place of its message. They
+  now answer before the toolkit starts, and sooner everywhere. A launch that only hands its
+  arguments to the Termina already running no longer starts the toolkit either.
 
 ## [0.14.0] - 2026-10-31
 
