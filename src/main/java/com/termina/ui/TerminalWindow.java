@@ -34,7 +34,6 @@ import javafx.scene.layout.HeaderDragType;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import javafx.util.Duration;
 
 import com.termina.config.Settings;
 import com.termina.process.RunningProgram;
@@ -701,8 +700,7 @@ public final class TerminalWindow {
      * for good, so it is not an edge case.
      */
     private void installDirectoryTooltip(Label label, javafx.beans.property.StringProperty directory) {
-        Tooltip tip = new Tooltip();
-        tip.setShowDelay(Duration.millis(400));
+        Tooltip tip = IconNames.tooltip();
         tip.textProperty().bind(directory);
         directory.addListener((o, was, now) -> applyDirectoryTooltip(label, tip, now));
         applyDirectoryTooltip(label, tip, directory.get());
@@ -2241,7 +2239,7 @@ public final class TerminalWindow {
 
     /** Where the close prompt reads the process table: a virtual thread each. */
     private static final java.util.concurrent.Executor CLOSE_CHECKS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-close-check");
 
     /**
      * Answers the close prompt. Replaced by the capture hook, which cannot click a modal dialog —
@@ -3522,6 +3520,7 @@ public final class TerminalWindow {
     private MenuItem menuItem(MenuAction action) {
         MenuItem item = MenuRows.row(action.label(), barIcon(action.id()), SYSTEM_MENU_BAR);
         String id = action.id();
+        if (WindowRules.isDestructive(id)) item.getStyleClass().add("danger");
         if (id == null) {
             item.setOnAction(e -> action.action().run());
         } else {

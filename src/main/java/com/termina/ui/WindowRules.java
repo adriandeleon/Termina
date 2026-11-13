@@ -118,6 +118,16 @@ final class WindowRules {
         };
     }
 
+    /**
+     * Whether a command discards something that does not come back (MENU-12, Pauta 6.0.1), so its
+     * row is drawn in the danger color wherever a menu lists it. Clearing the scrollback is one.
+     * Closing a tab is not: it is how a session ends, it asks first when something is running,
+     * and a closed tab can be reopened.
+     */
+    static boolean isDestructive(@Nullable String id) {
+        return "clearScrollback".equals(id);
+    }
+
     /** Which profile a numbered profile command opens, 1 to 9; 0 for any other id. */
     static int profileNumber(@Nullable String id) {
         if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return 0;

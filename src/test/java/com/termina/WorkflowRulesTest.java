@@ -151,6 +151,28 @@ class WorkflowRulesTest {
     }
 
     @Test
+    void theTestingGuideQuotesTheFloorsTheBuildEnforces() throws IOException {
+        // QUAL-04 (Pauta 6.0.1): a guide that quotes the floors is held to the pom's.
+        String pom = read(Path.of("pom.xml"));
+        String guide = read(Path.of("docs/testing.md"));
+        java.util.regex.Matcher quoted = java.util.regex.Pattern.compile(
+                        "(\\d\\.\\d\\d) lines and (\\d\\.\\d\\d) methods")
+                .matcher(guide);
+        assertTrue(quoted.find(), "docs/testing.md quotes the whole-build floors");
+        assertEquals(property(pom, "coverage.bundle.line"), quoted.group(1), "the line floor the guide quotes");
+        assertEquals(property(pom, "coverage.bundle.method"), quoted.group(2), "the method floor the guide quotes");
+        assertFalse(quoted.find(), "the floors are quoted once, so there is one place to keep right");
+    }
+
+    private static String property(String pom, String name) {
+        java.util.regex.Matcher value = java.util.regex.Pattern.compile(
+                        "<" + java.util.regex.Pattern.quote(name) + ">([^<]+)</")
+                .matcher(pom);
+        assertTrue(value.find(), name + " is a property of the pom");
+        return value.group(1).strip();
+    }
+
+    @Test
     void noProfileThatActivatesByOsOrJdkTouchesTheCoverageGate() throws IOException {
         // PLAT-12 (Pauta 6.0.1): the pom has one set of floors. A runner that measures lower says
         // so on its own command line, in the workflow, where the choice can be read.

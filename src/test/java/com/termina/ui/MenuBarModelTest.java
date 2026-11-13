@@ -57,6 +57,48 @@ class MenuBarModelTest {
     }
 
     @Test
+    void theHelpMenuRunsInPautasOrder() {
+        // DOCS-07 (Pauta 6.0.1): Command Palette, Documentation, the keyboard reference, Check for
+        // Updates, Message Log, Debug Log, Report a Problem, Pauta Conformance, About. Termina has
+        // no Welcome page, whose row drops; What's New is its own, beside the documentation.
+        List<String> help = MenuBarModel.menus().stream()
+                .filter(menu -> menu.titleKey().equals("menu.help"))
+                .findFirst()
+                .orElseThrow()
+                .rows()
+                .stream()
+                .filter(MenuBarModel::isCommand)
+                .toList();
+        assertEquals(
+                List.of(
+                        "palette.show",
+                        "help.documentation",
+                        "whatsNew",
+                        "keyboardShortcuts",
+                        "checkForUpdates",
+                        "view.messageLog",
+                        "debugLog",
+                        "reportProblem",
+                        "help.pauta",
+                        "help.about"),
+                help);
+        // And it is a row of that menu alone.
+        List<String> view = MenuBarModel.menus().get(2).rows();
+        assertFalse(view.contains("palette.show"));
+        assertFalse(view.getLast().equals(MenuBarModel.SEPARATOR));
+    }
+
+    @Test
+    void onlyWhatDiscardsIsDrawnAsDangerous() {
+        // MENU-12 (Pauta 6.0.1): the scrollback does not come back; a closed tab does.
+        assertTrue(WindowRules.isDestructive("clearScrollback"));
+        for (String id : List.of("closeTab", "closeOtherTabs", "closeWindow", "app.quit", "copy")) {
+            assertFalse(WindowRules.isDestructive(id), id);
+        }
+        assertFalse(WindowRules.isDestructive(null));
+    }
+
+    @Test
     void everyCommandIsInTheBarOnceAndNothingElseIs() {
         List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus());
         Set<String> seen = new HashSet<>();

@@ -751,7 +751,7 @@ public final class SettingsWindow {
      * thread each; a check is one or two file-system calls.
      */
     private static final java.util.concurrent.Executor PATH_CHECKS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-path-check");
 
     /**
      * Checks what {@code field} holds now, off the FX thread, and hands the verdict back on it.
@@ -2321,6 +2321,9 @@ public final class SettingsWindow {
         syncCancel = new Button(tr("dialog.cancel"));
         syncCancel.setOnAction(e -> act(SettingsActions.Action.SYNC_CANCEL));
         syncAnyway = new Button(tr("settings.sync.anyway"));
+        // The dangerous alternative beside the safe one, in red (CONF-11, Pauta 6.0.1): it is
+        // shown only once a sync has stopped to ask.
+        syncAnyway.getStyleClass().add("danger");
         syncAnyway.setOnAction(e -> act(SettingsActions.Action.SYNC_ANYWAY));
         // Said, because it is otherwise invisible: which of the user's GitHub accounts this computer
         // syncs as, whichever one `gh auth switch` last made active.

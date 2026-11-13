@@ -524,6 +524,10 @@ class MenusFxTest {
                     }
                     if (item.getAccelerator() != null) out.add("accelerator on " + text(item));
                     if (!(item.getUserData() instanceof String id)) continue;
+                    // MENU-12 (Pauta 6.0.1): the bar's destructive row is drawn as one.
+                    if (item.getStyleClass().contains("danger") != WindowRules.isDestructive(id)) {
+                        out.add(id + " danger=" + item.getStyleClass().contains("danger"));
+                    }
                     javafx.scene.input.KeyCombination chord = window.chordOf(id);
                     String shown = MenuRows.chordText(item);
                     if (!shown.equals(chord == null ? "" : chord.getDisplayText())) {

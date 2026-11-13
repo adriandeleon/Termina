@@ -63,6 +63,15 @@
     -fx-text-fill: -color-fg-default;
 }
 
+/* The same for a row of the menu bar, whose title is a label of the row's own (MENU-12). */
+.menu-item.danger .menu-item-title {
+    -fx-text-fill: -color-danger-fg;
+}
+
+.menu-item.danger:focused .menu-item-title {
+    -fx-text-fill: -color-fg-default;
+}
+
 .menu-item:disabled .menu-icon {
     -fx-fill: -color-fg-subtle;
     -fx-opacity: 0.5;
@@ -143,6 +152,9 @@
 .about-credits { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.85em; }
 .about-path { -fx-text-fill: -color-fg-muted; -fx-font-family: monospace; -fx-font-size: 0.8em; }
 .about-uptodate { -fx-text-fill: -state-green; -fx-font-size: 0.9em; }
+/* A failed check in the red token, and when the last one ran in the muted color (ABOUT-10). */
+.about-checkfailed { -fx-text-fill: -state-red; -fx-font-size: 0.9em; }
+.about-lastchecked { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.9em; }
 /* The Pauta window (PWIN-02): the conformance as a pill in its role's tint, and the list of
    exceptions, each a rule's ID, its level and the reason. */
 .pauta-conformance {
@@ -166,7 +178,9 @@
 .pauta-reason > .text { -fx-fill: -color-fg-default; }
 .pauta-reason > .hyperlink { -fx-padding: 0; }
 
-.about-update-headline { -fx-text-fill: -color-accent-fg; -fx-font-weight: bold; }
+/* An available update stands out (ABOUT-10): bold, in amber, which nothing else in About uses;
+   the links beside it keep the accent. */
+.about-update-headline { -fx-text-fill: -state-amber; -fx-font-weight: bold; }
 
 /*
  * macOS moves the menus to the screen menu bar, but the MenuBar node stays in the scene graph —

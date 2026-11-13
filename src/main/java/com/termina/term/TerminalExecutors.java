@@ -37,6 +37,15 @@ public final class TerminalExecutors implements TerminalExecutorServiceManager {
         };
     }
 
+    /**
+     * A virtual thread for each task, named {@code name-N} (PERF-04, Pauta 6.0.1): a thread dump
+     * then says what each one is for. Virtual threads are daemons already.
+     */
+    public static ExecutorService virtual(String name) {
+        return Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name(name + "-", 1).factory());
+    }
+
     /** The number in this pool's thread names: termina-worker-N, termina-sched-N. */
     public int id() {
         return id;

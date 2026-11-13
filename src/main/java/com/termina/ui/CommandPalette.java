@@ -379,7 +379,8 @@ final class CommandPalette {
                 // Say why it is greyed: a grey row with no explanation reads as a bug, not a state.
                 String why = disabledReason.apply(item);
                 if (why != null && !why.isBlank()) {
-                    Tooltip tip = new Tooltip(why);
+                    Tooltip tip = IconNames.tooltip();
+                    tip.setText(why);
                     tip.setWrapText(true);
                     tip.setMaxWidth(380);
                     tip.getStyleClass().add("palette-disabled-tooltip");

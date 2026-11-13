@@ -111,8 +111,6 @@ final class MenuBarModel {
         viewRows.add(SEPARATOR);
         viewRows.add("hideMenuBar");
         viewRows.add("showStatusBar");
-        viewRows.add(SEPARATOR);
-        viewRows.add("palette.show");
         // The UI zoom's three commands: palette and chord only. View's zoom rows are the
         // terminal text's, which is the zoom a terminal's user reaches for.
         Menu view = new Menu("menu.view", viewRows, List.of("uiZoomIn", "uiZoomOut", "uiZoomReset"));
@@ -140,11 +138,12 @@ final class MenuBarModel {
                         "movePaneToNewTab"),
                 windowUnlisted);
 
-        // Pauta's order (DOCS-07), less what Termina does not have yet: the reference, the update
-        // check, the two logs, then About last.
+        // Pauta's order (DOCS-07, Pauta 6.0.1), less what Termina does not have: the Command
+        // Palette first, the reference, the update check, the two logs, then About last.
         Menu help = new Menu(
                 "menu.help",
                 List.of(
+                        "palette.show",
                         "help.documentation",
                         "whatsNew",
                         "keyboardShortcuts",

@@ -23,11 +23,20 @@ final class IconNames {
 
     private IconNames() {}
 
+    /**
+     * Every tooltip the app makes (TBAR-14, Pauta 6.0.1): made here, so each shows after the same
+     * delay and none is left on JavaFX's own second.
+     */
+    static Tooltip tooltip() {
+        Tooltip tip = new Tooltip();
+        tip.setShowDelay(SHOW_DELAY);
+        return tip;
+    }
+
     /** Names {@code node} with a text that may change; returns the tooltip it installed. */
     static Tooltip name(Node node, ObservableValue<String> text) {
-        Tooltip tip = new Tooltip();
+        Tooltip tip = tooltip();
         tip.textProperty().bind(text);
-        tip.setShowDelay(SHOW_DELAY);
         if (node instanceof Control control) {
             control.setTooltip(tip);
         } else {

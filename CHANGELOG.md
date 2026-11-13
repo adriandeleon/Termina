@@ -120,6 +120,18 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **Command Palette is the first row of the Help menu**, where the guidelines put it; it was in View.
+- **The Message Log follows the key bindings.** The shortcut bound to Copy copies its selected
+  lines, as Ctrl+C (Cmd+C) still does. Ctrl+G no longer closes it: Escape does, and so does going
+  back to the window behind.
+- **The visual bell does not flash while the system asks for reduced motion.** The tab is still
+  marked.
+- **About shows an available update in bold amber and a failed check in red**; the links keep the
+  accent color.
+- **Removing a profile says that it cannot be undone**, and Sync Anyway is drawn as the dangerous
+  button it is. Clear Scrollback is red in the Edit menu, as it was in the right-click menu.
+- **Shortcut names are not translated.** Ctrl and Shift read the same in every language; a few
+  German, Spanish, French and Italian strings said Strg, Umschalt, Mayús, Maj or Maiusc.
 - **A middle-click pastes nothing on macOS and Windows.** It pasted the clipboard there. On Linux
   it pastes the primary selection, as before; the three systems differ in this and it is Linux's
   alone.

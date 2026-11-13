@@ -73,14 +73,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "DOCS-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-07",
-      "kind": "pending",
-      "reason": "The Help menu does not start with the Command Palette, which is in the View menu.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "DOCS-15",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-15",
@@ -105,14 +97,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "QUAL-04",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-04",
-      "kind": "pending",
-      "reason": "Nothing checks that the testing guide quotes the same coverage floors as the build.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "QUAL-07",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/quality/#qual-07",
@@ -126,14 +110,6 @@
       "url": "https://pauta-project.dev/6.0.1/quality/#qual-13",
       "kind": "pending",
       "reason": "No test changes every setting, restarts and reads each one back.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-04",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-04",
-      "kind": "pending",
-      "reason": "Some background threads have no name, which makes a thread dump harder to read.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -225,14 +201,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "ACC-04",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-04",
-      "kind": "pending",
-      "reason": "The visual bell flashes even when the operating system asks for reduced motion.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "ACC-05",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-05",
@@ -281,14 +249,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "TBAR-14",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/toolbars-and-tooltips/#tbar-14",
-      "kind": "pending",
-      "reason": "A greyed row's tooltip in the Command Palette takes a second to appear, longer than the other tooltips.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "TBAR-06",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/toolbars-and-tooltips/#tbar-06",
@@ -326,14 +286,6 @@
       "url": "https://pauta-project.dev/6.0.1/menus/#menu-11",
       "kind": "pending",
       "reason": "Each tab's right-click menu is built with the tab, not the first time it is opened.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-12",
-      "kind": "pending",
-      "reason": "Clear Scrollback in the menu bar and the rows that close tabs are not drawn in the danger color.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -385,14 +337,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "INTL-13",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/i18n/#intl-13",
-      "kind": "pending",
-      "reason": "The names of modifier keys are translated in some languages.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "PAL-06",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-06",
@@ -433,30 +377,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "ABOUT-10",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/about/#about-10",
-      "kind": "pending",
-      "reason": "About shows a newer version in the accent color and a failed update check in plain text, not in the warning and error colors.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "CONF-10",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/confirm-dialog/#conf-10",
-      "kind": "pending",
-      "reason": "The question before removing a profile does not say that it cannot be undone.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "CONF-11",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/confirm-dialog/#conf-11",
-      "kind": "pending",
-      "reason": "The Sync Anyway button is not drawn in the danger color.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "CONF-12",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/templates/confirm-dialog/#conf-12",
@@ -470,22 +390,6 @@
       "url": "https://pauta-project.dev/6.0.1/templates/message-log/#mlog-08",
       "kind": "pending",
       "reason": "The Message Log opens as a window of its own, not as a card over the terminal, and keeps 500 messages.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MLOG-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/message-log/#mlog-03",
-      "kind": "pending",
-      "reason": "Ctrl+G closes the Message Log as a fixed key and does not follow the key bindings.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MLOG-04",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/message-log/#mlog-04",
-      "kind": "pending",
-      "reason": "Copying from the Message Log uses a fixed key and does not follow the key bindings.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

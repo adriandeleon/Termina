@@ -591,7 +591,7 @@ public final class TerminalView extends Region {
 
     /** Where shells are started: a virtual thread each. */
     private static final java.util.concurrent.Executor SHELL_STARTS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-shell-start");
 
     /**
      * Where the shell should start, worked out when it starts rather than now: the directory a new
@@ -711,10 +711,12 @@ public final class TerminalView extends Region {
 
     /** Visual bell: a brief wash over the canvas, cleared by the next frame. */
     private void flashBell() {
+        // A flash is motion: with the OS asking for less of it, the bell is the tab's mark alone.
+        if (!Motion.plays()) return;
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.color(1, 1, 1, 0.18));
         g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        bellClear.playFromStart();
+        Motion.play(bellClear);
     }
 
     // ---------------------------------------------------------------- font & layout
@@ -1869,7 +1871,7 @@ public final class TerminalView extends Region {
      * hold up the next one, which an interrupt cannot unstick.
      */
     private static final java.util.concurrent.Executor LINK_CHECKS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-link-check");
 
     /** Whether {@code file} exists: true or false when known, null when not yet — and then asked. */
     private @Nullable Boolean exists(java.nio.file.Path file) {
@@ -3798,7 +3800,7 @@ public final class TerminalView extends Region {
 
     /** Where scans run: a virtual thread each, interrupted when superseded. */
     private static final java.util.concurrent.Executor SEARCHES =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-search");
 
     /**
      * Rows {@code [from, to)} as they were numbered when the search began, copied under the lock.
