@@ -121,8 +121,9 @@ is broken.
   and cannot render a JavaFX node. It says so only as `Warning: MenuBar ignored property
   useSystemMenuBar because menus contain CustomMenuItem` on stderr; there is no API to ask, and a
   packaged app has no stderr anyone reads. Together with the collapse above, the zoom row left macOS
-  with **no menus anywhere** — none in the screen bar, and the window's at zero height. So the row
-  is built only where it can be drawn (`WindowRules.showsZoomRow`), and the collapse now asks
+  with **no menus anywhere** — none in the screen bar, and the window's at zero height. The row has
+  since left the bar on every platform (each zoom command is a row of its own, MENU-01 and MENU-02,
+  Pauta 6.0.1), and the collapse asks
   `menusFitASystemMenuBar` first, which mirrors JavaFX's rule — including that `SeparatorMenuItem`
   extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
   rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on
@@ -358,6 +359,24 @@ is broken.
   thread and the question comes a little later, so a test that answers it waits for the answer
   (`DialogAnswers.answered()`) before queueing another — a newer answer cancels an older one, and
   the prompt then sits unanswered and catches the next test's.
+- **The UI zoom scales three kinds of size, each its own way** (`ui.UiZoom`; WIN-12, MENU-16, Pauta
+  6.0.1). A length in a stylesheet is multiplied as text: `Npx` anywhere, and a bare number in a
+  property that takes a length (`UiZoom.LENGTHS`: a new length property written bare needs adding
+  there, or it stays its size while everything round it grows). A size set in code in a window is
+  picked up by `UiZoom.adopt`, which walks each stage's scene as it opens and multiplies whatever
+  code set: padding, spacing, margins, min/pref/max sizes, an image's fit, a glyph's scale. And a
+  popup's rows are adopted by nothing, because a menu measures its own columns: `MenuRows`,
+  `ZoomMenuRow`, `MenuIcons`, `ProfileIcons` and the profile tick bind their sizes to
+  `UiZoom.factor` themselves. Three things follow. A size the code recomputes later (a list as tall
+  as its rows) must be `UiZoom.own` and multiply itself, or the walker puts back the size it first
+  saw. A size measured from text is already zoomed, since the font is: multiplying it again is the
+  bug to look for when something is too wide at 150% and right at 100%. And a region's size set
+  before anyone asked for the property has **no style origin at all**, not `USER`: `Region` keeps
+  it in a plain field. `UiZoomFxTest` holds all of it; a capture with `"ui.zoom": "150"` in the
+  settings file is how to look.
+- **A glyph's stroke is not a stylesheet length.** The outline glyphs are scaled as nodes, stroke
+  and all, so a bare `-fx-stroke-width` is left out of the zoom; scaled twice, a cross in a box
+  filled in at 150%.
 - **The FX tests share one toolkit, and a window one leaves open is the next one's problem.** Three
   ways it has bitten, all found only when the order changed. Quit hid every stage but its own
   manager's terminals, which in a test JVM included another manager's last terminal window: that

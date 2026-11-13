@@ -34,7 +34,6 @@ import javafx.scene.layout.HeaderDragType;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import javafx.util.Duration;
 
 import com.termina.config.Settings;
 import com.termina.process.RunningProgram;
@@ -335,8 +334,7 @@ public final class TerminalWindow {
         scene.setFill(theme.palette().background());
         // Before the first frame, so the title bar is never drawn in the desktop's scheme first.
         scene.getPreferences().setColorScheme(theme.colorScheme());
-        var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
-        if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
 
         // A scene FILTER, not the menu's accelerators: filters run in the capturing phase, before
@@ -702,8 +700,7 @@ public final class TerminalWindow {
      * for good, so it is not an edge case.
      */
     private void installDirectoryTooltip(Label label, javafx.beans.property.StringProperty directory) {
-        Tooltip tip = new Tooltip();
-        tip.setShowDelay(Duration.millis(400));
+        Tooltip tip = IconNames.tooltip();
         tip.textProperty().bind(directory);
         directory.addListener((o, was, now) -> applyDirectoryTooltip(label, tip, now));
         applyDirectoryTooltip(label, tip, directory.get());
@@ -808,11 +805,13 @@ public final class TerminalWindow {
      */
     private static javafx.scene.Node profileGraphic(com.termina.shell.Profile profile, boolean isDefault) {
         StackPane tick = new StackPane();
-        tick.setMinWidth(TICK_SLOT_WIDTH);
-        tick.setPrefWidth(TICK_SLOT_WIDTH);
-        tick.setMaxWidth(TICK_SLOT_WIDTH);
+        // Bound to the UI zoom here: a menu's rows are in a popup, which nothing adopts.
+        UiZoom.bind(tick.minWidthProperty(), TICK_SLOT_WIDTH);
+        UiZoom.bind(tick.prefWidthProperty(), TICK_SLOT_WIDTH);
+        UiZoom.bind(tick.maxWidthProperty(), TICK_SLOT_WIDTH);
         if (isDefault) tick.getChildren().add(MenuIcons.check());
-        javafx.scene.layout.HBox graphic = new javafx.scene.layout.HBox(6, tick, ProfileIcons.forProfile(profile));
+        javafx.scene.layout.HBox graphic = new javafx.scene.layout.HBox(tick, ProfileIcons.forProfile(profile));
+        UiZoom.bind(graphic.spacingProperty(), 6);
         graphic.setAlignment(Pos.CENTER_LEFT);
         return graphic;
     }
@@ -894,17 +893,19 @@ public final class TerminalWindow {
         if (terminal == null || !terminal.isStarted()) return null;
         String known = terminal.getDisplay().getCwd();
         long pid = terminal.getSession().pid();
-        return () -> directoryOf(pid, known);
+        boolean osKnows = terminal.osKnowsDirectory();
+        return () -> directoryOf(pid, known, osKnows);
     }
 
     /**
-     * The directory of the shell {@code pid}, on the worker that starts the new one. Where a shell's
-     * own report wins (Windows: see ProcessCwd), the directory the tab knows — reported, or polled
-     * from the OS until one was — is the answer. Elsewhere the OS, asked now.
+     * The directory of the shell {@code pid}, on the worker that starts the new one: the OS, asked
+     * now, on every OS alike (OS-04, Pauta 6.0.1). Where the process is not the shell (WSL's
+     * launcher: see ProcessCwd) the OS's answer would be the launcher's, so the directory the tab
+     * knows from the shell's own report is the answer; it is the fallback everywhere else.
      */
-    static String directoryOf(long pid, @Nullable String known) {
+    static String directoryOf(long pid, @Nullable String known, boolean osKnows) {
         String fallback = known == null ? "" : known;
-        if (com.termina.pty.ProcessCwd.reportedDirectoryWins() && !fallback.isBlank()) return fallback;
+        if (!osKnows) return fallback;
         return com.termina.pty.ProcessCwd.of(pid).orElse(fallback);
     }
 
@@ -1570,7 +1571,29 @@ public final class TerminalWindow {
      * this — so it appears on the header rather than on the terminal, and the tab it acts on is the
      * one that was clicked rather than whichever happens to be selected.
      */
+    /**
+     * A tab's menu, not built with the tab (MENU-11, Pauta 6.0.1): an empty shell until it is first
+     * asked for, when {@link #fillTabMenu} makes its rows and takes over the showing. Fifty tabs
+     * are then fifty shells and no rows. The one placeholder row is there because JavaFX does not
+     * show a menu that has no items, so an empty one could never be asked.
+     */
     private ContextMenu buildTabMenu(Tab tab) {
+        ContextMenu menu = new ContextMenu(new MenuItem(""));
+        OneMenu.installRightClick(menu);
+        menu.setOnShowing(e -> {
+            fillTabMenu(menu, tab);
+            // fillTabMenu installed the handler that sets each showing up; this first one too.
+            var perShow = menu.getOnShowing();
+            if (perShow != null) perShow.handle(e);
+        });
+        // The right-click that opened it focused the tab strip, and the guard left that alone while
+        // the menu was up. Closing a menu moves no focus, so the guard is asked again here.
+        menu.setOnHidden(e -> reclaimFocusIfUnclaimed());
+        return menu;
+    }
+
+    /** The rows of {@code tab}'s menu, made on its first showing, and what each showing sets. */
+    private void fillTabMenu(ContextMenu menu, Tab tab) {
         MenuItem closeOthers = tabItem("closeOtherTabs", MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
         MenuItem closeLeft = tabItem("closeTabsToTheLeft", MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
         MenuItem closeRight = tabItem("closeTabsToTheRight", MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
@@ -1582,22 +1605,22 @@ public final class TerminalWindow {
         newTabAs.getItems().add(new MenuItem(""));
         newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
 
-        ContextMenu menu = new ContextMenu(
-                tabItem("newTab", MenuIcons.newTab(), this::openTab),
-                newTabAs,
-                tabItem("duplicateTab", MenuIcons.duplicate(), () -> duplicateTab(tab)),
-                new SeparatorMenuItem(),
-                tabItem("renameTab", MenuIcons.rename(), () -> renameTab(tab)),
-                pin,
-                new SeparatorMenuItem(),
-                tabItem("closeTab", MenuIcons.close(), () -> closeTab(tab)),
-                closeOthers,
-                closeLeft,
-                closeRight,
-                new SeparatorMenuItem(),
-                moveLeft,
-                moveRight);
-        OneMenu.installRightClick(menu);
+        menu.getItems()
+                .setAll(
+                        tabItem("newTab", MenuIcons.newTab(), this::openTab),
+                        newTabAs,
+                        tabItem("duplicateTab", MenuIcons.duplicate(), () -> duplicateTab(tab)),
+                        new SeparatorMenuItem(),
+                        tabItem("renameTab", MenuIcons.rename(), () -> renameTab(tab)),
+                        pin,
+                        new SeparatorMenuItem(),
+                        tabItem("closeTab", MenuIcons.close(), () -> closeTab(tab)),
+                        closeOthers,
+                        closeLeft,
+                        closeRight,
+                        new SeparatorMenuItem(),
+                        moveLeft,
+                        moveRight);
         // Recomputed per show: how many tabs there are, and where this one sits, both change long
         // after the menu was built.
         menu.setOnShowing(e -> {
@@ -1612,10 +1635,6 @@ public final class TerminalWindow {
             moveLeft.setDisable(index <= 0);
             moveRight.setDisable(index < 0 || index >= count - 1);
         });
-        // The right-click that opened it focused the tab strip, and the guard left that alone while
-        // the menu was up. Closing a menu moves no focus, so the guard is asked again here.
-        menu.setOnHidden(e -> reclaimFocusIfUnclaimed());
-        return menu;
     }
 
     /** A row of a tab's menu: titled as command {@code id} is, and showing that command's chord. */
@@ -2238,7 +2257,7 @@ public final class TerminalWindow {
 
     /** Where the close prompt reads the process table: a virtual thread each. */
     private static final java.util.concurrent.Executor CLOSE_CHECKS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-close-check");
 
     /**
      * Answers the close prompt. Replaced by the capture hook, which cannot click a modal dialog —
@@ -2653,6 +2672,39 @@ public final class TerminalWindow {
     private MenuBar menuBar;
 
     /** The window's tabs, for the test that fires each one's menu. */
+    /**
+     * Puts the keyboard in the menu bar and opens its first menu, as F10 does in an app whose F10
+     * is its own: the arrows then walk the bar, and Escape gives the keyboard back.
+     */
+    private void focusMenuBar() {
+        if (WindowRules.focusMenuBarUnavailableKey(SYSTEM_MENU_BAR, settings.showMenuBar()) != null) return;
+        if (menuBar.getMenus().isEmpty()) return;
+        menuBar.requestFocus();
+        menuBar.getMenus().getFirst().show();
+    }
+
+    /** A tab's menu as it would open now: built if this is its first asking, and set up for the showing. */
+    List<MenuItem> tabMenuItemsForTest(Tab tab) {
+        ContextMenu menu = tab.getContextMenu();
+        if (menu == null) return List.of();
+        javafx.event.Event.fireEvent(menu, new javafx.stage.WindowEvent(menu, javafx.stage.WindowEvent.WINDOW_SHOWING));
+        return List.copyOf(menu.getItems());
+    }
+
+    /** Whether a tab's menu has been built: not before it was first asked for (MENU-11). */
+    static boolean tabMenuBuilt(Tab tab) {
+        ContextMenu menu = tab.getContextMenu();
+        return menu != null && menu.getItems().size() > 1;
+    }
+
+    /** The tab strip's profile drop-down, as it would open now. */
+    List<MenuItem> profileMenuItemsForTest() {
+        showProfileMenu();
+        List<MenuItem> items = List.copyOf(profileMenu.getItems());
+        profileMenu.hide();
+        return items;
+    }
+
     List<Tab> tabsForTest() {
         return tabs.getTabs();
     }
@@ -2837,24 +2889,21 @@ public final class TerminalWindow {
         // The commands, by id; then the bar, assembled from MenuBarModel's ids (MENU-01). Nothing
         // below decides what a row does, is called or whether it can run: that is the registry's.
         Map<String, MenuAction> defined = menuCommands();
-        boolean zoomRow = WindowRules.showsZoomRow(SYSTEM_MENU_BAR);
         menuBarToggle = defined.get("hideMenuBar");
-        for (MenuBarModel.Menu spec : MenuBarModel.menus(zoomRow)) {
+        for (MenuBarModel.Menu spec : MenuBarModel.menus()) {
             String title = tr(spec.titleKey());
             Menu menu = new Menu(title);
             for (String row : spec.rows()) {
                 switch (row) {
                     case MenuBarModel.SEPARATOR -> menu.getItems().add(new SeparatorMenuItem());
-                    case MenuBarModel.PROFILE_SUBMENU -> menu.getItems().add(profileSubmenu());
-                    case MenuBarModel.ZOOM_ROW -> {
-                        // The same four commands, shown as one row of buttons: each keeps its chord
-                        // and its palette row through enlist, with no item of its own.
-                        ZoomMenuRow zoomMenuRow = new ZoomMenuRow(zoomActions());
-                        menu.getItems().add(zoomMenuRow.item());
-                        // The level can have moved since the row was last shown — from a chord, the
-                        // other menu, or another window entirely.
-                        menu.setOnShowing(e -> zoomMenuRow.refresh());
-                        for (String id : MenuBarModel.ZOOM_COMMANDS) enlist(defined(defined, id), title);
+                    case MenuBarModel.PROFILE_SUBMENU -> {
+                        List<MenuAction> rows = new ArrayList<>();
+                        for (String id : MenuBarModel.submenuRows(row)) {
+                            MenuAction action = defined(defined, id);
+                            rows.add(action);
+                            enlist(action, title);
+                        }
+                        menu.getItems().add(profileSubmenu(tr(MenuBarModel.submenuTitleKey(row)), rows));
                     }
                     default -> {
                         MenuAction action = defined(defined, row);
@@ -2908,42 +2957,37 @@ public final class TerminalWindow {
     }
 
     /**
-     * File's New Tab With Profile: a submenu, not a command, whose rows are the profiles there are
-     * when it opens. Its entries reach the palette by name instead (paletteRows), which is more use
-     * there than "New Tab with Profile 3".
+     * File's New Tab With Profile: a submenu that groups the nine numbered profile commands
+     * (MENU-01, Pauta 6.0.1). Each row is its command's, run through the registry like any other
+     * row of the bar; as the submenu opens it takes the name of the profile it opens from the
+     * registry, wears that profile's mark, and is shown only while there is such a profile. A
+     * tenth profile onwards has no command and so no row here: the tab strip's drop-down lists
+     * every profile, and the palette finds each by name.
      */
-    private Menu profileSubmenu() {
-        Menu newTabAs = MenuRows.submenu(tr("menu.newTabProfile"), MenuIcons.newTab(), SYSTEM_MENU_BAR);
-        // A Menu with no items renders as a dead entry with no arrow, and the items are only known
-        // at show time — so it is seeded with one that is replaced before it is ever drawn.
-        newTabAs.getItems().add(new MenuItem(""));
-        newTabAs.setOnShowing(e -> {
-            newTabAs.getItems().setAll(profileBarRows());
-            MenuRows.alignChords(newTabAs.getItems());
-        });
+    private Menu profileSubmenu(String title, List<MenuAction> numbered) {
+        Menu newTabAs = MenuRows.submenu(title, MenuIcons.newTab(), SYSTEM_MENU_BAR);
+        for (MenuAction action : numbered) newTabAs.getItems().add(menuItem(action));
+        newTabAs.addEventHandler(Menu.ON_SHOWING, e -> refreshProfileRows(newTabAs));
         return newTabAs;
     }
 
-    /**
-     * The profiles as the bar's rows (MENU-02): the chord drawn by the row rather than an
-     * accelerator, and on the macOS screen menu bar, no icon. The right-click menus keep
-     * {@link #profileMenuItems}.
-     */
-    private List<MenuItem> profileBarRows() {
-        List<MenuItem> rows = new ArrayList<>();
+    /** The submenu's rows as the profiles are now: named, marked, and hidden past the last one. */
+    private void refreshProfileRows(Menu newTabAs) {
         List<com.termina.shell.Profile> all = windows.profiles().all();
         String defaultId = windows.profiles().defaultProfileId();
-        for (int index = 0; index < all.size(); index++) {
+        for (int index = 0; index < newTabAs.getItems().size(); index++) {
+            MenuItem row = newTabAs.getItems().get(index);
+            boolean exists = index < all.size();
+            row.setVisible(exists);
+            row.getProperties().remove(DEFAULT_PROFILE_ITEM);
+            if (!exists) continue;
             com.termina.shell.Profile profile = all.get(index);
-            int number = index + 1;
-            boolean isDefault = profile.id().equals(defaultId) || (defaultId.isBlank() && number == 1);
-            MenuItem row = MenuRows.row(profile.name(), profileGraphic(profile, isDefault), SYSTEM_MENU_BAR);
-            if (number <= TAB_CHORD_COUNT) MenuRows.setChord(row, chordOf(PROFILE_CHORD_ID + number));
+            boolean isDefault = profile.id().equals(defaultId) || (defaultId.isBlank() && index == 0);
+            MenuRows.setIcon(row, profileGraphic(profile, isDefault));
             if (isDefault) row.getProperties().put(DEFAULT_PROFILE_ITEM, Boolean.TRUE);
-            row.setOnAction(e -> openTab(profile));
-            rows.add(row);
         }
-        return rows;
+        // The names, from the registry, and the chords' column after them.
+        refreshItems(newTabAs);
     }
 
     /**
@@ -3002,6 +3046,14 @@ public final class TerminalWindow {
                 item("command.zoomOut", () -> zoom(-1)),
                 item("command.actualSize", this::resetZoom),
                 item("command.fullScreen", this::toggleFullScreen),
+                // The keyboard's way into the in-window bar (MENU-17, Pauta 6.0.1): a plain F10 and a
+                // lone Alt belong to the program in the terminal.
+                item("command.focusMenuBar", this::focusMenuBar),
+                // The UI zoom (WIN-12, Pauta 6.0.1): the chrome, not the terminal's text, which
+                // keeps Ctrl+=, Ctrl+- and Ctrl+0. No chord of their own by default.
+                item("command.uiZoomIn", () -> UiZoom.change(settings, UiZoom.in(settings.uiZoom()))),
+                item("command.uiZoomOut", () -> UiZoom.change(settings, UiZoom.out(settings.uiZoom()))),
+                item("command.uiZoomReset", () -> UiZoom.change(settings, Settings.DEFAULT_UI_ZOOM)),
                 // "Hide", not a checkbox: the in-window bar's menu can only be opened while the bar
                 // is showing. The way back is the right-click menu, which carries a checkbox.
                 // Defined everywhere and in a menu only where there is a bar to hide: under a system
@@ -3422,6 +3474,9 @@ public final class TerminalWindow {
             var update = windows.availableUpdate();
             if (update != null) return tr("menu.updateAvailable", update.version());
         }
+        // A numbered profile command is called what it opens, while there is such a profile.
+        com.termina.shell.Profile opens = profileNumbered(id);
+        if (opens != null) return opens.name();
         return standing;
     }
 
@@ -3444,7 +3499,24 @@ public final class TerminalWindow {
         if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
         }
+        if ("focusMenuBar".equals(id)) {
+            String noBar = WindowRules.focusMenuBarUnavailableKey(SYSTEM_MENU_BAR, settings.showMenuBar());
+            if (noBar != null) return tr(noBar);
+        }
+        String zoomLimit = WindowRules.uiZoomUnavailableKey(id, settings.uiZoom());
+        if (zoomLimit != null) return tr(zoomLimit);
+        int profileNumber = WindowRules.profileNumber(id);
+        if (profileNumber > 0 && profileNumbered(id) == null) {
+            return tr("palette.disabled.noSuchProfile", profileNumber);
+        }
         return null;
+    }
+
+    /** The profile a numbered profile command opens now, or null: no such profile, or another command. */
+    private com.termina.shell.@Nullable Profile profileNumbered(String id) {
+        int number = WindowRules.profileNumber(id);
+        List<com.termina.shell.Profile> all = windows.profiles().all();
+        return number >= 1 && number <= all.size() ? all.get(number - 1) : null;
     }
 
     /** Every menu item of {@code menu} named and greyed as the registry says now. */
@@ -3498,6 +3570,7 @@ public final class TerminalWindow {
     private MenuItem menuItem(MenuAction action) {
         MenuItem item = MenuRows.row(action.label(), barIcon(action.id()), SYSTEM_MENU_BAR);
         String id = action.id();
+        if (WindowRules.isDestructive(id)) item.getStyleClass().add("danger");
         if (id == null) {
             item.setOnAction(e -> action.action().run());
         } else {

@@ -115,8 +115,13 @@ final class CommandPalette {
         list.setAccessibleText(tr("palette.list"));
         list.setPlaceholder(new Label(tr("palette.empty")));
         // A whole number of rows: a fixed pixel height cut the last row in half.
-        list.setFixedCellSize(ROW_HEIGHT);
-        list.setPrefHeight(listHeight(0));
+        // Both follow the UI zoom (WIN-12, Pauta 6.0.1), and the list works its height out itself.
+        UiZoom.own(list);
+        UiZoom.follow(list, () -> {
+            list.setFixedCellSize(UiZoom.px(ROW_HEIGHT));
+            list.setPrefHeight(
+                    listHeight(list.getInsets().getTop() + list.getInsets().getBottom()));
+        });
         list.insetsProperty().addListener((o, was, in) -> list.setPrefHeight(listHeight(in.getTop() + in.getBottom())));
         list.setCellFactory(view -> new CommandCell());
         // The query field keeps the keyboard; the list is driven from it. A click on a row runs
@@ -151,7 +156,12 @@ final class CommandPalette {
 
     /** The list height that shows exactly {@link #VISIBLE_ROWS} rows inside {@code insets} of chrome. Pure. */
     static double listHeight(double insets) {
-        return VISIBLE_ROWS * ROW_HEIGHT + insets;
+        return listHeight(insets, UiZoom.factor().get());
+    }
+
+    /** The same at a UI zoom of {@code factor}: the rows grow with it, the chrome's insets already have. Pure. */
+    static double listHeight(double insets, double factor) {
+        return VISIBLE_ROWS * ROW_HEIGHT * factor + insets;
     }
 
     /** Names the chord that opens the palette on the chip; null hides the chip rather than lying. */
@@ -184,14 +194,54 @@ final class CommandPalette {
         this.disabledReason = disabledReason == null ? a -> null : disabledReason;
         input.clear();
         filter("");
+        // Where the keyboard was, to give it back on closing (PAL-07, Pauta 6.0.1).
+        focusBefore = host.getScene() == null ? null : host.getScene().getFocusOwner();
         host.getChildren().addAll(backdrop, card);
         input.requestFocus();
     }
 
+    /** The node that had the keyboard when the palette opened, or null. */
+    private javafx.scene.@Nullable Node focusBefore;
+
     void hide() {
         if (!isShowing()) return;
         host.getChildren().removeAll(backdrop, card);
-        onHidden.run();
+        javafx.scene.Node before = focusBefore;
+        focusBefore = null;
+        // A command the palette ran may already have put the keyboard somewhere of its own, a
+        // find bar's field: then it stays there. Otherwise back where it was, the find bar's
+        // field included, and to the terminal when that node is gone or cannot take it.
+        javafx.scene.Node now = host.getScene() == null ? null : host.getScene().getFocusOwner();
+        boolean stillOurs = now == null || now == input || isUnder(now, card);
+        if (stillOurs && returnsTo(before, host.getScene())) {
+            java.util.Objects.requireNonNull(before).requestFocus();
+        } else if (stillOurs) {
+            onHidden.run();
+        }
+    }
+
+    /**
+     * Whether closing gives the keyboard back to {@code before}: it is still in this scene, shown,
+     * enabled and able to take focus. Otherwise the terminal has it.
+     */
+    static boolean returnsTo(javafx.scene.@Nullable Node before, javafx.scene.@Nullable Scene scene) {
+        if (before == null || scene == null || before.getScene() != scene) return false;
+        if (!before.isFocusTraversable() && !(before instanceof javafx.scene.control.TextInputControl)) {
+            // The terminal itself is not focus-traversable and takes focus by request: it is the
+            // fallback, and reaching it through the fallback keeps one way of focusing it.
+            return false;
+        }
+        for (javafx.scene.Node node = before; node != null; node = node.getParent()) {
+            if (!node.isVisible() || node.isDisabled()) return false;
+        }
+        return true;
+    }
+
+    private static boolean isUnder(javafx.scene.Node node, javafx.scene.Node ancestor) {
+        for (javafx.scene.Node at = node; at != null; at = at.getParent()) {
+            if (at == ancestor) return true;
+        }
+        return false;
     }
 
     private boolean isEnabled(MenuAction action) {
@@ -369,7 +419,8 @@ final class CommandPalette {
                 // Say why it is greyed: a grey row with no explanation reads as a bug, not a state.
                 String why = disabledReason.apply(item);
                 if (why != null && !why.isBlank()) {
-                    Tooltip tip = new Tooltip(why);
+                    Tooltip tip = IconNames.tooltip();
+                    tip.setText(why);
                     tip.setWrapText(true);
                     tip.setMaxWidth(380);
                     tip.getStyleClass().add("palette-disabled-tooltip");

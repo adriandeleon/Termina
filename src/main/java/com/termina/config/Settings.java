@@ -77,6 +77,7 @@ public final class Settings {
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
     public static final String SHOW_STATUS_BAR = "ui.showStatusBar";
+    public static final String UI_ZOOM = "ui.zoom";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
     public static final String WINDOW_X = "window.x";
     public static final String WINDOW_Y = "window.y";
@@ -124,6 +125,17 @@ public final class Settings {
     public static final int MIN_SCROLLBACK = 0;
     /** A hard ceiling: scrollback is retained in memory, so this is a footprint decision. */
     public static final int MAX_SCROLLBACK = 200_000;
+
+    /** The UI zoom's default and its range, in percent (WIN-12, Pauta 6.0.1). */
+    public static final int DEFAULT_UI_ZOOM = 100;
+
+    public static final int MIN_UI_ZOOM = 80;
+    public static final int MAX_UI_ZOOM = 200;
+
+    /** {@code percent} within the UI zoom's range. */
+    public static int clampUiZoom(int percent) {
+        return Math.min(MAX_UI_ZOOM, Math.max(MIN_UI_ZOOM, percent));
+    }
 
     public static final int DEFAULT_PADDING = 4;
     public static final int MIN_PADDING = 0;
@@ -735,6 +747,19 @@ public final class Settings {
         put(CURSOR_SHAPE, shape.name());
     }
 
+    /**
+     * The UI zoom, in percent: how large the menus, tabs, status bar and every other window are
+     * drawn. The terminal's text has its own size and its own zoom. Clamped on read as well as
+     * write.
+     */
+    public int uiZoom() {
+        return clampUiZoom(readInt(UI_ZOOM, DEFAULT_UI_ZOOM));
+    }
+
+    public void setUiZoom(int percent) {
+        put(UI_ZOOM, String.valueOf(clampUiZoom(percent)));
+    }
+
     /** The inner padding, in pixels: clamped on read as well as write, since the file is hand-edited. */
     public int padding() {
         return (int) clamp(readInt(PADDING, DEFAULT_PADDING), MIN_PADDING, MAX_PADDING);
@@ -969,11 +994,13 @@ public final class Settings {
      * Put the menu bar in the title bar: one row holds the menus, the window title and the window
      * buttons, and the terminal gains the row the native title bar took.
      *
-     * <p>Off by default. Applies to windows opened after the change — a stage's style is fixed
-     * when it is first shown — and never on macOS, where the menus are in the screen menu bar.
+     * <p>On by default (WIN-03, Pauta 6.0.1); turning it off falls back to a decorated window
+     * with the menu bar under its title bar. Applies to windows opened after the change — a
+     * stage's style is fixed when it is first shown — and never on macOS, where the menus are in
+     * the screen menu bar.
      */
     public boolean menuBarInTitleBar() {
-        return readBoolean(MENU_BAR_IN_TITLE_BAR, false);
+        return readBoolean(MENU_BAR_IN_TITLE_BAR, true);
     }
 
     public void setMenuBarInTitleBar(boolean inTitleBar) {
@@ -1005,11 +1032,12 @@ public final class Settings {
     }
 
     /**
-     * Show the status bar under the terminal. Off by default: it costs the terminal a row, and
-     * every message it would show also reaches a dialog or the Message Log without it.
+     * Show the status bar under the terminal. On by default (WIN-01, Pauta 6.0.1): a message goes
+     * to its echo area and not to a dialog. It costs the terminal a row, which is why it can be
+     * hidden; hidden, a message is a dialog again, and the Message Log has every one either way.
      */
     public boolean showStatusBar() {
-        return readBoolean(SHOW_STATUS_BAR, false);
+        return readBoolean(SHOW_STATUS_BAR, true);
     }
 
     public void setShowStatusBar(boolean show) {

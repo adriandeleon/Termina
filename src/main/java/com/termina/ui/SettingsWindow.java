@@ -362,16 +362,16 @@ public final class SettingsWindow {
         // since the first version has pushed this up; the clamp is what stops that becoming a
         // problem on a laptop.
         javafx.geometry.Rectangle2D visible = javafx.stage.Screen.getPrimary().getVisualBounds();
-        Scene scene =
-                new Scene(root, Math.min(1153, visible.getWidth() * 0.95), Math.min(985, visible.getHeight() * 0.92));
+        Scene scene = new Scene(
+                root,
+                Math.min(UiZoom.px(1153), visible.getWidth() * 0.95),
+                Math.min(UiZoom.px(985), visible.getHeight() * 0.92));
         // Scene stylesheets, not part of the theme: they must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs. app.css first, for the
         // state colours and the keyboard focus ring every window shares; settings.css after it,
         // so the window's own rules win where the two meet.
-        var app = SettingsWindow.class.getResource("/com/termina/styles/app.css");
-        if (app != null) scene.getStylesheets().add(app.toExternalForm());
-        var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
+        scene.getStylesheets().add(UiZoom.sheet("settings.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         // A press anywhere in the window closes the profile list's right-click menu (MENU-07).
@@ -751,7 +751,7 @@ public final class SettingsWindow {
      * thread each; a check is one or two file-system calls.
      */
     private static final java.util.concurrent.Executor PATH_CHECKS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-path-check");
 
     /**
      * Checks what {@code field} holds now, off the FX thread, and hands the verdict back on it.
@@ -861,6 +861,7 @@ public final class SettingsWindow {
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
     private CheckBox menuBarInTitleBar;
+    private Spinner<Integer> uiZoom;
     private CheckBox showScrollBar;
     private CheckBox showStatusBar;
     private CheckBox confirmClose;
@@ -1113,6 +1114,25 @@ public final class SettingsWindow {
                 titleBarReason,
                 menuBarInTitleBar,
                 "title bar titlebar header menu bar unified decorations window buttons");
+
+        // The UI zoom (WIN-12, Pauta 6.0.1): the whole chrome, at once. Written through UiZoom,
+        // which scales the stylesheets on a worker before the setting changes.
+        uiZoom = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                Settings.MIN_UI_ZOOM, Settings.MAX_UI_ZOOM, Settings.DEFAULT_UI_ZOOM, UiZoom.STEP));
+        uiZoom.setEditable(true);
+        UiZoom.bind(uiZoom.prefWidthProperty(), 110);
+        makeLenient(uiZoom, d -> (int) Math.round(d));
+        uiZoom.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            UiZoom.change(settings, value);
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.uiZoom"),
+                tr("settings.uiZoom.desc"),
+                uiZoom,
+                "interface ui zoom scale size chrome menus tabs larger smaller percent");
 
         showScrollBar = new CheckBox();
         showScrollBar.selectedProperty().addListener((o, old, value) -> {
@@ -1787,9 +1807,11 @@ public final class SettingsWindow {
         // A row's own menu (MENU-05, Pauta 6.0.1): the list's two actions, each a command. Remove
         // is the row's, so it is styled as dangerous (MENU-12) and greyed for a profile that is
         // not the user's to remove, decided as the menu shows.
-        javafx.scene.control.MenuItem addRow = new javafx.scene.control.MenuItem(tr("settings.profileAdd"));
+        javafx.scene.control.MenuItem addRow = new javafx.scene.control.MenuItem(
+                tr("settings.profileAdd"), MenuIcons.command(SettingsActions.Action.ADD_PROFILE.id()));
         addRow.setOnAction(e -> act(SettingsActions.Action.ADD_PROFILE));
-        javafx.scene.control.MenuItem removeRow = new javafx.scene.control.MenuItem(tr("settings.profileRemove"));
+        javafx.scene.control.MenuItem removeRow = new javafx.scene.control.MenuItem(
+                tr("settings.profileRemove"), MenuIcons.command(SettingsActions.Action.REMOVE_PROFILE.id()));
         removeRow.getStyleClass().add("danger");
         removeRow.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
         javafx.scene.control.ContextMenu profileMenu = new javafx.scene.control.ContextMenu(addRow, removeRow);
@@ -2299,6 +2321,9 @@ public final class SettingsWindow {
         syncCancel = new Button(tr("dialog.cancel"));
         syncCancel.setOnAction(e -> act(SettingsActions.Action.SYNC_CANCEL));
         syncAnyway = new Button(tr("settings.sync.anyway"));
+        // The dangerous alternative beside the safe one, in red (CONF-11, Pauta 6.0.1): it is
+        // shown only once a sync has stopped to ask.
+        syncAnyway.getStyleClass().add("danger");
         syncAnyway.setOnAction(e -> act(SettingsActions.Action.SYNC_ANYWAY));
         // Said, because it is otherwise invisible: which of the user's GitHub accounts this computer
         // syncs as, whichever one `gh auth switch` last made active.
@@ -2562,6 +2587,7 @@ public final class SettingsWindow {
             removeTheme.setDisable(theme.isBuiltIn());
             fontCombo.setValue(MonospaceFonts.resolve(settings.fontFamily()));
             fontSize.getValueFactory().setValue(settings.fontSize());
+            uiZoom.getValueFactory().setValue(settings.uiZoom());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
             padding.getValueFactory().setValue(settings.padding());

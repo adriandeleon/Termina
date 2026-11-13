@@ -55,8 +55,17 @@ worker threads, the chooser and the parts dialog.
 action, its label now and its gate now (`TerminalWindow.currentLabel`, `unavailableNow`). Menu items,
 the palette and the key bindings all run and name a command through it, and a menu refreshes its
 items from it as it opens (MENU-01, Pauta 2.0.2). Which menu lists which ids, in what order, is
-`ui.MenuBarModel`, a pure list the bar is assembled from; the right-click menu runs the window's
-commands by id too (`TerminalView.setCommandRunner`).
+`ui.MenuBarModel`, a pure list the bar is assembled from: command ids, rules, and one submenu that
+groups the nine numbered profile commands. Nothing in the bar has a title or a handler of its own.
+The right-click menu runs the window's commands by id too (`TerminalView.setCommandRunner`). Every
+row of every menu wears its command's glyph from one table, `ui.MenuIcons.forCommand` (MENU-14,
+Pauta 6.0.1); a new command that gets a menu row needs an entry there, and `MenuIconsTest` and
+`NamedControlsFxTest` fail without one.
+
+**The UI zoom is `ui.UiZoom`.** Every window attaches the app's stylesheets through
+`UiZoom.sheet`, the control theme goes through `UiZoom.theme`, and `WindowManager` applies the
+setting with everything else on a settings change. A new window uses `UiZoom.scene` for its size
+and needs nothing more: its code-set sizes are adopted as it opens.
 
 `com.termina.term.TerminalSession` wires them together and owns the read loop.
 `com.termina.ui.TerminalWindow` is one window (menu bar over a tab strip); each tab is a `PaneGroup`

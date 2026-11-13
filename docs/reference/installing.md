@@ -13,6 +13,10 @@ host-specific and there is no cross-building.
 | Any Linux | `linux-x64.AppImage`, `linux-arm64.AppImage` | `chmod +x`, run it (needs FUSE) |
 | Any Linux, no root | `linux-x64.tar.gz`, `linux-arm64.tar.gz` | unpack, run `termina-<version>/bin/Termina` |
 
+On Windows the installer puts two programs in the folder: `Termina.exe`, which the Start menu
+opens, and `termina-cli.exe`, for a terminal, where `--help`, `--version` and `--report` have a
+console to print in.
+
 Every Linux download has an OpenPGP signature beside it, `<file>.asc`, by the key attached to the
 release as `termina-signing-key.asc` and committed as `packaging/linux/signing-key.asc`:
 

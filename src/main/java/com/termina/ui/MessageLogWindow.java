@@ -23,9 +23,11 @@ import static com.termina.i18n.Messages.tr;
 
 /**
  * The Message Log (DIAG-01, MLOG-01..06, Pauta 2.0.2): this session's messages, newest first, with
- * the time each was said. Opened from the status bar's echo area or Help → Message Log. Escape or
- * C-g closes it, and so does going back to the window behind; Ctrl+C (Cmd+C) copies the selected
- * lines. Opening it counts as reading the errors in it.
+ * the time each was said. Opened from the status bar's echo area or Help → Message Log. Escape
+ * closes it, and so does going back to the window behind; no fixed Ctrl+G, since Termina's key
+ * table binds no cancel command for one to follow (MLOG-03, Pauta 6.0.1). Ctrl+C (Cmd+C) copies
+ * the selected lines, and so do the chords bound to Copy and to the log's own Copy command
+ * (MLOG-04). Opening it counts as reading the errors in it.
  *
  * <p>A filter field over the list narrows it as it is typed (FIND-03, Pauta 6.0.1); Escape in the
  * field empties it, and from an empty one goes back to the list. A row's right-click menu has
@@ -88,7 +90,7 @@ final class MessageLogWindow {
             }
         });
         list.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.C && e.isShortcutDown()) {
+            if (copies(e, chords.apply("copy"), chords.apply("messageLog.copy"))) {
                 copy();
                 e.consume();
             }
@@ -124,18 +126,14 @@ final class MessageLogWindow {
 
         VBox root = new VBox(10, filter, list, buttons);
         root.setPadding(new Insets(12));
-        Scene scene = new Scene(root, 640, 380);
-        var css = MessageLogWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 640, 380);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         // Escape in the filter is the filter's; anywhere else it closes the window.
         SecondaryWindows.closeOnEscape(stage, scene, filter::isFocused);
         OneMenu.closeOnOutsidePress(scene);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.G && e.isControlDown()) {
-                stage.hide();
-                e.consume();
-            } else if (e.getCode() == KeyCode.F && e.isShortcutDown() && !e.isAltDown()) {
+            if (e.getCode() == KeyCode.F && e.isShortcutDown() && !e.isAltDown()) {
                 // Ctrl+F, Cmd+F on macOS: to the filter, where a find bar's chord would lead.
                 filter.requestFocus();
                 filter.selectAll();
@@ -150,6 +148,19 @@ final class MessageLogWindow {
         });
         stage.setOnHidden(e -> log.removeListener(refresh));
         Icons.applyTo(stage);
+    }
+
+    /**
+     * Whether a key press copies the selected lines (MLOG-04, Pauta 6.0.1): the platform's copy
+     * chord, C with the shortcut modifier, whatever the bindings say, and the chords the bindings
+     * in force give the terminal's Copy and the log's own, read from them and not written here.
+     */
+    static boolean copies(
+            KeyEvent e,
+            javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination copy,
+            javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination ownCopy) {
+        if (e.getCode() == KeyCode.C && e.isShortcutDown()) return true;
+        return (copy != null && copy.match(e)) || (ownCopy != null && ownCopy.match(e));
     }
 
     void show(Window from) {

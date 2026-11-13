@@ -13,3 +13,4 @@ that says which one it replaces.
 - [0007. The working directory is read from the OS](0007-directory-from-the-os.md)
 - [0008. The status bar is an option, off by default](0008-optional-status-bar.md)
 - [0009. Config is JSON, with a schema version](0009-config-in-json.md)
+- [0010. The status bar and the title-bar menus are on by default](0010-status-bar-and-title-bar-menus-on-by-default.md)

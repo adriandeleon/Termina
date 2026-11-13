@@ -103,6 +103,8 @@ public final class WindowManager {
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
         // A window joins this list as it is shown, before its first frame: the one place that
         // catches every window — settings, About, a confirmation dialog — however it was made.
+        // The sizes the code fixes, in every window, follow the UI zoom (WIN-12, Pauta 6.0.1).
+        UiZoom.adoptWindows();
         Window.getWindows().addListener((javafx.collections.ListChangeListener<Window>) change -> {
             // Looked up only once a window was actually added: the list also fires for removals,
             // and every tooltip and menu is a window.
@@ -303,7 +305,10 @@ public final class WindowManager {
         ThemeEntry theme = Themes.byId(settings.themeId());
         // The user-agent stylesheet is application-wide, so this restyles every window at once —
         // including the settings window that is probably the one being used to change it.
-        Application.setUserAgentStylesheet(theme.stylesheet());
+        // The UI zoom first (WIN-12, Pauta 6.0.1): every open window's own sheets, then the theme
+        // at that zoom.
+        UiZoom.apply(settings.uiZoom());
+        Application.setUserAgentStylesheet(UiZoom.theme(theme.stylesheet()));
         for (Window open : List.copyOf(Window.getWindows())) applyColorScheme(open, theme.colorScheme());
         for (TerminalWindow window : List.copyOf(windows)) window.applySettings();
     }

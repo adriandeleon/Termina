@@ -103,7 +103,11 @@ class MenusFxTest {
         fired += fireAll(onFx(() -> new ArrayList<>(view.contextMenuForTest().getItems())), skipped, failures);
         for (Tab tab : onFx(() -> new ArrayList<>(window.tabsForTest()))) {
             if (tab.getContextMenu() == null) continue;
-            List<MenuItem> items = new ArrayList<>(tab.getContextMenu().getItems());
+            // MENU-11 (Pauta 6.0.1): a tab's menu is a shell until it is first asked for.
+            assertFalse(TerminalWindow.tabMenuBuilt(tab), "a tab's menu was built before anyone asked for it");
+            List<MenuItem> items = new ArrayList<>(onFx(() -> window.tabMenuItemsForTest(tab)));
+            assertTrue(TerminalWindow.tabMenuBuilt(tab), "asking for it builds it");
+            assertEquals(items, onFx(() -> window.tabMenuItemsForTest(tab)), "and builds it once");
             items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("command.closeTab")));
             fired += fireAll(items, skipped, failures);
         }
@@ -330,8 +334,7 @@ class MenusFxTest {
 
         List<String> mismatches = onFx(() -> {
             List<String> out = new ArrayList<>();
-            List<MenuBarModel.Menu> model =
-                    MenuBarModel.menus(WindowRules.showsZoomRow(TerminalWindow.SYSTEM_MENU_BAR));
+            List<MenuBarModel.Menu> model = MenuBarModel.menus();
             List<Menu> bar = window.menuBarForTest().getMenus();
             assertEquals(model.size(), bar.size());
             Set<String> commands = new java.util.HashSet<>();
@@ -349,8 +352,13 @@ class MenusFxTest {
                     MenuItem item = items.get(r);
                     boolean matches = switch (row) {
                         case MenuBarModel.SEPARATOR -> item instanceof SeparatorMenuItem;
-                        case MenuBarModel.PROFILE_SUBMENU -> item instanceof Menu;
-                        case MenuBarModel.ZOOM_ROW -> item instanceof CustomMenuItem;
+                        case MenuBarModel.PROFILE_SUBMENU ->
+                            item instanceof Menu submenu
+                                    && MenuBarModel.submenuRows(row)
+                                            .equals(submenu.getItems().stream()
+                                                    .map(MenuItem::getUserData)
+                                                    .toList())
+                                    && commands.containsAll(MenuBarModel.submenuRows(row));
                         default -> row.equals(item.getUserData()) && commands.contains(row);
                     };
                     if (!matches) out.add(spec.titleKey() + " row " + r + ": " + row + " vs " + text(item));
@@ -492,13 +500,38 @@ class MenusFxTest {
                 javafx.event.Event.fireEvent(menu, new javafx.event.Event(Menu.ON_SHOWING));
                 for (MenuItem item : menu.getItems()) {
                     if (item instanceof Menu sub) {
-                        sub.getOnShowing().handle(new javafx.event.Event(Menu.ON_SHOWING));
-                        for (MenuItem inner : sub.getItems()) {
+                        javafx.event.Event.fireEvent(sub, new javafx.event.Event(Menu.ON_SHOWING));
+                        // MENU-01 (Pauta 6.0.1): the submenu groups the numbered profile commands.
+                        // A row is its command's: named for the profile it opens by the registry,
+                        // wearing that profile's mark, and shown only while there is such a profile.
+                        List<com.termina.shell.Profile> profiles =
+                                windows.profiles().all();
+                        for (int n = 0; n < sub.getItems().size(); n++) {
+                            MenuItem inner = sub.getItems().get(n);
                             if (inner.getAccelerator() != null) out.add("accelerator on " + text(inner));
+                            String id = TerminalWindow.PROFILE_CHORD_ID + (n + 1);
+                            if (!id.equals(inner.getUserData()))
+                                out.add("profile row " + n + " is " + inner.getUserData());
+                            if (inner.isVisible() != (n < profiles.size()))
+                                out.add(id + " visible=" + inner.isVisible());
+                            if (n >= profiles.size()) continue;
+                            if (!profiles.get(n).name().equals(text(inner))) out.add(id + " is called " + text(inner));
+                            if (!TerminalWindow.SYSTEM_MENU_BAR && MenuRows.iconOf(inner) == null)
+                                out.add(id + " has no mark");
+                            javafx.scene.input.KeyCombination chord = window.chordOf(id);
+                            if (!MenuRows.chordText(inner).equals(chord == null ? "" : chord.getDisplayText())) {
+                                out.add(id + " shows \"" + MenuRows.chordText(inner) + "\"");
+                            }
                         }
+                        if (sub.getItems().size() != WindowRules.TAB_CHORD_COUNT)
+                            out.add("profile rows: " + sub.getItems().size());
                     }
                     if (item.getAccelerator() != null) out.add("accelerator on " + text(item));
                     if (!(item.getUserData() instanceof String id)) continue;
+                    // MENU-12 (Pauta 6.0.1): the bar's destructive row is drawn as one.
+                    if (item.getStyleClass().contains("danger") != WindowRules.isDestructive(id)) {
+                        out.add(id + " danger=" + item.getStyleClass().contains("danger"));
+                    }
                     javafx.scene.input.KeyCombination chord = window.chordOf(id);
                     String shown = MenuRows.chordText(item);
                     if (!shown.equals(chord == null ? "" : chord.getDisplayText())) {

@@ -63,8 +63,8 @@ public final class MenuIcons {
     static Node tabPin() {
         SVGPath svg = new SVGPath();
         svg.setContent(PIN);
-        svg.setScaleX(0.5);
-        svg.setScaleY(0.5);
+        svg.scaleXProperty().bind(UiZoom.times(0.5));
+        svg.scaleYProperty().bind(UiZoom.times(0.5));
         svg.getStyleClass().add("tab-pin");
         return new javafx.scene.Group(svg);
     }
@@ -216,44 +216,268 @@ public final class MenuIcons {
                 + " 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z");
     }
 
+    // ---- one glyph per command a menu lists (MENU-14, Pauta 6.0.1) ----
+    //
+    // Material 24 dp paths where the set has a picture of the command, and 16-unit outline glyphs
+    // in Editora's kit style where it has none. Those marked as Editora's are copied from its
+    // Icons; the rest were drawn for Termina. Each constant is sliced at a fixed width, never
+    // wrapped on a space: a wrap once joined two numbers and drew a quietly wrong shape.
+
+    /** closeWindow: a window with a cross in it. */
+    private static final String CLOSEWINDOW = "M2.5 3.5h11v9h-11zM6.2 6.3l3.6 3.4M9.8 6.3l-3.6 3.4";
+
+    /** reopenClosedTab: Material's history: a clock running backwards. */
+    private static final String REOPENCLOSEDTAB =
+            "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2z"
+                    + "M12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-"
+                    + "1.23-4.5-2.67z";
+
+    /** app.quit: the power mark. */
+    private static final String APP_QUIT = "M8 1.8V7M4.6 3.9a5.6 5.6 0 1 0 6.8 0";
+
+    /** findNext: a chevron down. */
+    private static final String FINDNEXT = "M3.5 5.5 8 10l4.5-4.5";
+
+    /** findPrevious: a chevron up. */
+    private static final String FINDPREVIOUS = "M3.5 10.5 8 6l4.5 4.5";
+
+    /** previousPrompt: two chevrons up: a jump, not a step. */
+    private static final String PREVIOUSPROMPT = "M3.5 7.5 8 3l4.5 4.5M3.5 12.5 8 8l4.5 4.5";
+
+    /** nextPrompt: two chevrons down. */
+    private static final String NEXTPROMPT = "M3.5 3.5 8 8l4.5-4.5M3.5 8.5 8 13l4.5-4.5";
+
+    /** selectLastOutput: lines of text in a frame. */
+    private static final String SELECTLASTOUTPUT = "M2.5 2.5h11v11h-11zM5 6h6M5 8.5h6M5 11h3";
+
+    /** copyLinkAddress: Material's link: two joined rings. */
+    private static final String COPYLINKADDRESS =
+            "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0"
+                    + "-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1"
+                    + " 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z";
+
+    /** findRegex: a dot and a star, as in .*. */
+    private static final String FINDREGEX = "M4 12.3v.2M9.5 3.5v6M6.9 5l5.2 3M12.1 5l-5.2 3";
+
+    /** zoomIn: a magnifier with a plus. */
+    private static final String ZOOMIN =
+            "M2.6 7.0a4.4 4.4 0 1 0 8.8 0a4.4 4.4 0 1 0 -8.8 0M10.4 10.4L14 14M5 7h4M7 5v4";
+
+    /** zoomOut: a magnifier with a minus. */
+    private static final String ZOOMOUT = "M2.6 7.0a4.4 4.4 0 1 0 8.8 0a4.4 4.4 0 1 0 -8.8 0M10.4 10.4L14 14M5 7h4";
+
+    /** actualSize: a magnifier with an equals sign. */
+    private static final String ACTUALSIZE =
+            "M2.6 7.0a4.4 4.4 0 1 0 8.8 0a4.4 4.4 0 1 0 -8.8 0M10.4 10.4L14 14M5.4 6.2h3.2M5.4 7." + "8h3.2";
+
+    /** fullScreen: Material's fullscreen: four corners. */
+    private static final String FULLSCREEN =
+            "M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z";
+
+    /** hideMenuBar: a window with its top row marked. */
+    private static final String HIDEMENUBAR = "M2.5 3h11v10h-11zM2.5 6h11";
+
+    /** showStatusBar: a window with its bottom row marked. */
+    private static final String SHOWSTATUSBAR = "M2.5 3h11v10h-11zM2.5 10h11";
+
+    /** nextTab: Material's chevron right. */
+    private static final String NEXTTAB = "M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
+
+    /** previousTab: Material's chevron left. */
+    private static final String PREVIOUSTAB = "M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z";
+
+    /** splitRight: a pane divided left and right. */
+    private static final String SPLITRIGHT =
+            "M3.5 3.0h9.0a1.5 1.5 0 0 1 1.5 1.5v7.0a1.5 1.5 0 0 1 -1.5 1.5h-9.0a1.5 1.5 0 0 1 -1."
+                    + "5 -1.5v-7.0a1.5 1.5 0 0 1 1.5 -1.5zM8 3v10";
+
+    /** splitDown: a pane divided top and bottom. */
+    private static final String SPLITDOWN =
+            "M3.5 3.0h9.0a1.5 1.5 0 0 1 1.5 1.5v7.0a1.5 1.5 0 0 1 -1.5 1.5h-9.0a1.5 1.5 0 0 1 -1."
+                    + "5 -1.5v-7.0a1.5 1.5 0 0 1 1.5 -1.5zM2 8h12";
+
+    /** maximizePane: four corners pushed out. */
+    private static final String MAXIMIZEPANE = "M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10";
+
+    /** movePaneToNewTab: an arrow leaving a frame. */
+    private static final String MOVEPANETONEWTAB =
+            "M9 2h5v5M14 2L8 8M12 9.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3.5";
+
+    /** help.documentation: an open book. */
+    private static final String HELP_DOCUMENTATION =
+            "M8 4.2C6.6 3.2 4.6 3 2.5 3.4v8.6c2.1-.4 4.1-.2 5.5.8 1.4-1 3.4-1.2 5.5-.8V3.4C11.4 3"
+                    + " 9.4 3.2 8 4.2zM8 4.2v8.6";
+
+    /** whatsNew: a star. */
+    private static final String WHATSNEW = "M8 2.2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 11l-3.5 1.9.8-3.9-2.9-2.7 3.9-.5z";
+
+    /** checkForUpdates: an arrow down onto a line. */
+    private static final String CHECKFORUPDATES = "M8 2.5v7.5M4.8 7l3.2 3 3.2-3M3 13.5h10";
+
+    /** view.messageLog: a speech bubble with lines in it. */
+    private static final String VIEW_MESSAGELOG = "M2.5 3h11v8H7l-3 2.5V11H2.5zM5 6h6M5 8.5h4";
+
+    /** debugLog: a bug. */
+    private static final String DEBUGLOG =
+            "M5.2 8.4 C5.2 6.2 6.5 4.8 8 4.8 C9.5 4.8 10.8 6.2 10.8 8.4 L10.8 10.2 C10.8 12.1 9.5"
+                    + " 13.3 8 13.3 C6.5 13.3 5.2 12.1 5.2 10.2 ZM6.5 5.2 L5.3 3.4M9.5 5.2 L10.7 3.4M5.3 7."
+                    + "8 L3.1 6.6M5.2 9.9 L2.9 9.9M5.3 11.8 L3.1 13.1M10.7 7.8 L12.9 6.6M10.8 9.9 L13.1 9.9"
+                    + "M10.7 11.8 L12.9 13.1M6.0 7.0 L10.0 7.0";
+
+    /** reportProblem: a warning triangle. */
+    private static final String REPORTPROBLEM = "M8 2.2L14.6 13.4H1.4zM8 6.8v3M8 11.6v.2";
+
+    /** help.pauta: Material's checklist. */
+    private static final String HELP_PAUTA =
+            "M22 7l-1.41-1.41L13 13.17l-2.59-2.58L9 12l4 4 9-9zM3 5h11v2H3V5zm0 6h7v2H3v-2zm0 6h7" + "v2H3v-2z";
+
+    /** debugLog.refresh: Material's refresh. */
+    private static final String DEBUGLOG_REFRESH =
+            "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84"
+                    + "-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14."
+                    + "69 4.22 1.78L13 11h7V4l-2.35 2.35z";
+
+    /** debugLog.export: a page with an arrow down. */
+    private static final String DEBUGLOG_EXPORT =
+            "M4.5 2.5h4.6l2.9 2.9v8.1h-7.5zM9.1 2.5v2.9h2.9M8.25 6.8v4.6M6.5 9.7l1.75 1.75L10 9.7";
+
+    /** settings.addProfile: a figure with a plus. */
+    private static final String SETTINGS_ADDPROFILE =
+            "M6 7.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5M1.8 13.5c0-2.4 1.9-4 4.2-4s4.2 1.6 4.2 4M" + "12 5v4M10 7h4";
+
+    /** settings.removeProfile: Material's delete. */
+    private static final String SETTINGS_REMOVEPROFILE =
+            "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
+
+    /** The magnifier with a plus: the zoom row of the right-click menu, which is the zoom family's. */
+    static Node zoom() {
+        return line(ZOOMIN);
+    }
+
     /**
-     * The glyph a command wears wherever it is drawn (ICON-20, Pauta 6.0.1): one lookup, so a menu
-     * bar row and a drop-down's row for the same command cannot pick different ones. Null for a
-     * command with no glyph, which leaves the row's icon column empty.
+     * Command id to glyph. A table, not a switch, so a test can walk it: an id with a typo is
+     * otherwise a row with an empty icon column and nothing to say why. A supplier, because a node
+     * belongs to one scene and every row needs its own.
+     */
+    private static final java.util.Map<String, java.util.function.Supplier<Node>> BY_COMMAND =
+            new java.util.LinkedHashMap<>();
+
+    private static void add(String id, java.util.function.Supplier<Node> glyph) {
+        if (BY_COMMAND.put(id, glyph) != null) throw new IllegalStateException("two glyphs for " + id);
+    }
+
+    static {
+        add("newTab", MenuIcons::newTab);
+        add("newWindow", MenuIcons::newWindow);
+        add("closeTab", MenuIcons::close);
+        add("closeOtherTabs", MenuIcons::closeOthers);
+        add("closeTabsToTheLeft", MenuIcons::closeLeft);
+        add("closeTabsToTheRight", MenuIcons::closeRight);
+        add("settings", MenuIcons::settings);
+        add("syncNow", MenuIcons::sync);
+        add("configureProfiles", MenuIcons::profiles);
+        add("copy", MenuIcons::copy);
+        add("paste", MenuIcons::paste);
+        add("selectAll", MenuIcons::selectAll);
+        add("clearScrollback", MenuIcons::clear);
+        add("find.show", MenuIcons::search);
+        add("palette.show", MenuIcons::commandPalette);
+        add("moveTabLeft", MenuIcons::arrowLeft);
+        add("moveTabRight", MenuIcons::arrowRight);
+        add("renameTab", MenuIcons::rename);
+        add("duplicateTab", MenuIcons::duplicate);
+        add("pinTab", MenuIcons::pin);
+        add("help.about", MenuIcons::about);
+        add("openLink", MenuIcons::openLink);
+        add("keyboardShortcuts", MenuIcons::keyboard);
+        add("closeWindow", () -> line(CLOSEWINDOW));
+        add("reopenClosedTab", () -> of(REOPENCLOSEDTAB));
+        add("app.quit", () -> line(APP_QUIT));
+        add("findNext", () -> line(FINDNEXT));
+        add("findPrevious", () -> line(FINDPREVIOUS));
+        add("previousPrompt", () -> line(PREVIOUSPROMPT));
+        add("nextPrompt", () -> line(NEXTPROMPT));
+        add("selectLastOutput", () -> line(SELECTLASTOUTPUT));
+        add("copyLinkAddress", () -> of(COPYLINKADDRESS));
+        add("findRegex", () -> line(FINDREGEX));
+        add("zoomIn", () -> line(ZOOMIN));
+        add("zoomOut", () -> line(ZOOMOUT));
+        add("actualSize", () -> line(ACTUALSIZE));
+        add("fullScreen", () -> of(FULLSCREEN));
+        add("hideMenuBar", () -> line(HIDEMENUBAR));
+        add("showStatusBar", () -> line(SHOWSTATUSBAR));
+        add("nextTab", () -> of(NEXTTAB));
+        add("previousTab", () -> of(PREVIOUSTAB));
+        add("splitRight", () -> line(SPLITRIGHT));
+        add("splitDown", () -> line(SPLITDOWN));
+        add("maximizePane", () -> line(MAXIMIZEPANE));
+        add("movePaneToNewTab", () -> line(MOVEPANETONEWTAB));
+        add("help.documentation", () -> line(HELP_DOCUMENTATION));
+        add("whatsNew", () -> line(WHATSNEW));
+        add("checkForUpdates", () -> line(CHECKFORUPDATES));
+        add("view.messageLog", () -> line(VIEW_MESSAGELOG));
+        add("debugLog", () -> line(DEBUGLOG));
+        add("reportProblem", () -> line(REPORTPROBLEM));
+        add("help.pauta", () -> of(HELP_PAUTA));
+        add("debugLog.refresh", () -> of(DEBUGLOG_REFRESH));
+        add("debugLog.export", () -> line(DEBUGLOG_EXPORT));
+        add("settings.addProfile", () -> line(SETTINGS_ADDPROFILE));
+        add("settings.removeProfile", () -> of(SETTINGS_REMOVEPROFILE));
+        // The same action in another window wears the same glyph: Copy is Copy wherever it is.
+        add("debugLog.find", MenuIcons::search);
+        add("debugLog.copy", MenuIcons::copy);
+        add("debugLog.clear", MenuIcons::clear);
+        add("messageLog.copy", MenuIcons::copy);
+        add("messageLog.clear", MenuIcons::clear);
+        // A numbered profile row wears its profile's own mark once it opens; this is the mark of
+        // the family, for a row drawn before then.
+        for (int number = 1; number <= WindowRules.TAB_CHORD_COUNT; number++) {
+            add(WindowRules.PROFILE_CHORD_ID + number, MenuIcons::terminal);
+        }
+    }
+
+    /**
+     * The glyph a command wears wherever it is drawn (ICON-20, MENU-14, Pauta 6.0.1): one lookup, so
+     * a menu bar row and a drop-down's row for the same command cannot pick different ones. Null
+     * for a command no menu lists, which has no row to draw one on.
      */
     static @Nullable Node forCommand(@Nullable String id) {
         if (id == null) return null;
-        return switch (id) {
-            case "newTab" -> MenuIcons.newTab();
-            case "newWindow" -> MenuIcons.newWindow();
-            case "closeTab" -> MenuIcons.close();
-            case "closeOtherTabs" -> MenuIcons.closeOthers();
-            case "closeTabsToTheLeft" -> MenuIcons.closeLeft();
-            case "closeTabsToTheRight" -> MenuIcons.closeRight();
-            case "settings" -> MenuIcons.settings();
-            case "syncNow" -> MenuIcons.sync();
-            case "configureProfiles" -> MenuIcons.profiles();
-            case "copy" -> MenuIcons.copy();
-            case "paste" -> MenuIcons.paste();
-            case "selectAll" -> MenuIcons.selectAll();
-            case "clearScrollback" -> MenuIcons.clear();
-            case "find.show" -> MenuIcons.search();
-            case "palette.show" -> MenuIcons.commandPalette();
-            case "moveTabLeft" -> MenuIcons.arrowLeft();
-            case "moveTabRight" -> MenuIcons.arrowRight();
-            case "renameTab" -> MenuIcons.rename();
-            case "duplicateTab" -> MenuIcons.duplicate();
-            case "pinTab" -> MenuIcons.pin();
-            case "help.about" -> MenuIcons.about();
-            default -> null;
-        };
+        java.util.function.Supplier<Node> glyph = BY_COMMAND.get(id);
+        return glyph == null ? null : glyph.get();
+    }
+
+    /** The glyph of a command a menu lists: it has one, or this is a bug in the table above. */
+    static Node command(String id) {
+        Node glyph = forCommand(id);
+        if (glyph == null) throw new IllegalStateException("no glyph for " + id);
+        return glyph;
+    }
+
+    /** Every command with a glyph, for the test that every menu row's command is one of them. */
+    static java.util.Set<String> commandsWithGlyphs() {
+        return java.util.Collections.unmodifiableSet(BY_COMMAND.keySet());
+    }
+
+    /**
+     * A 16-unit outline glyph, stroked: coloured by {@code .menu-icon-line}, which sets a stroke
+     * where {@code .menu-icon} sets a fill. Scaled to the size the 24 dp glyphs are drawn at.
+     */
+    private static Node line(String path) {
+        SVGPath svg = new SVGPath();
+        svg.setContent(path);
+        svg.scaleXProperty().bind(UiZoom.times(SCALE * 24 / 16));
+        svg.scaleYProperty().bind(UiZoom.times(SCALE * 24 / 16));
+        svg.getStyleClass().add("menu-icon-line");
+        return svg;
     }
 
     private static Node of(String path) {
         SVGPath svg = new SVGPath();
         svg.setContent(path);
-        svg.setScaleX(SCALE);
-        svg.setScaleY(SCALE);
+        // With the UI zoom (WIN-12, Pauta 6.0.1): a glyph is chrome, and grows with the text beside it.
+        svg.scaleXProperty().bind(UiZoom.times(SCALE));
+        svg.scaleYProperty().bind(UiZoom.times(SCALE));
         svg.getStyleClass().add("menu-icon");
         return svg;
     }

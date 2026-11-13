@@ -107,7 +107,7 @@ class SecondaryWindowsFxTest {
                     button.fire();
                     count++;
                 }
-                // Escape and Ctrl+G close a window of this kind; whatever is left, the test closes.
+                // Escape closes a window of this kind; whatever is left, the test closes.
                 window.getScene()
                         .getRoot()
                         .fireEvent(

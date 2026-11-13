@@ -97,9 +97,8 @@ final class ShortcutsWindow {
 
         VBox root = new VBox(8, search, scroll, footer);
         root.setPadding(new Insets(14));
-        Scene scene = new Scene(root, 540, 620);
-        var css = ShortcutsWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 540, 620);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         // Enter in the search field is for searching, not for the default button.

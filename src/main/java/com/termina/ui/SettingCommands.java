@@ -76,6 +76,11 @@ final class SettingCommands {
                 host.offersMenuBarInTitleBar()
                         ? titleBar
                         : new Entry(titleBar.key(), titleBar.action(), tr("palette.setting.notOnThisPlatform")));
+        out.add(number(
+                "settings.uiZoom",
+                host,
+                () -> String.valueOf(settings.uiZoom()),
+                value -> UiZoom.change(settings, (int) Math.round(value))));
         out.add(toggle("settings.showScrollBar", settings::showScrollBar, settings::setShowScrollBar));
         out.add(number(
                 "settings.windowOpacity",

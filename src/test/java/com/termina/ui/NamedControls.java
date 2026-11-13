@@ -80,6 +80,54 @@ final class NamedControls {
     }
 
     /** The unnamed rows of every right-click menu a control under {@code root} has been given. */
+    /**
+     * The rows of a menu that carry no glyph (MENU-14, Pauta 6.0.1): every row does but a check or
+     * radio row, whose mark has the icon column. A plain row's glyph is its graphic; a row drawn
+     * from its own nodes has one somewhere in its content, in the icon column.
+     */
+    static List<String> rowsWithoutGlyph(List<? extends MenuItem> items) {
+        List<String> out = new ArrayList<>();
+        for (MenuItem item : items) {
+            if (item instanceof SeparatorMenuItem || !item.isVisible()) continue;
+            if (item instanceof javafx.scene.control.CheckMenuItem
+                    || item instanceof javafx.scene.control.RadioMenuItem) continue;
+            Node drawn = item instanceof CustomMenuItem custom ? custom.getContent() : item.getGraphic();
+            if (drawn == null || !hasShape(drawn)) {
+                String title = MenuRows.isRow(item) ? MenuRows.titleOf(item) : item.getText();
+                out.add("menu row with no glyph: " + title + " " + item.getUserData());
+            }
+            if (item instanceof Menu menu) {
+                javafx.event.Event.fireEvent(menu, new javafx.event.Event(Menu.ON_SHOWING));
+                out.addAll(rowsWithoutGlyph(menu.getItems()));
+            }
+        }
+        return out;
+    }
+
+    /** The same, for the right-click menu of every control under {@code root}. */
+    static List<String> menusWithoutGlyph(Node root) {
+        List<String> out = new ArrayList<>();
+        if (root instanceof Control control && control.getContextMenu() != null) {
+            javafx.scene.control.ContextMenu menu = control.getContextMenu();
+            out.addAll(rowsWithoutGlyph(menu.getItems()));
+        }
+        for (Node child : children(root)) out.addAll(menusWithoutGlyph(child));
+        return out;
+    }
+
+    /** Whether something is drawn under {@code node}: a path with geometry, or an image. */
+    private static boolean hasShape(Node node) {
+        if (node instanceof javafx.scene.shape.SVGPath path) {
+            return path.getBoundsInLocal().getWidth() > 0
+                    && path.getBoundsInLocal().getHeight() > 0;
+        }
+        if (node instanceof javafx.scene.image.ImageView) return true;
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) if (hasShape(child)) return true;
+        }
+        return false;
+    }
+
     static List<String> unnamedMenus(Node root) {
         List<String> out = new ArrayList<>();
         if (root instanceof Control control && control.getContextMenu() != null) {

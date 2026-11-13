@@ -65,8 +65,17 @@ jobs:
           java-version: '25'
           cache: maven
 
+      # One set of coverage floors, in the pom, and no profile lowers it (PLAT-12, Pauta 6.0.1).
+      # Windows skips the tests that drive real shells, because its shell path has never run, and
+      # measures far lower: this runner passes its own floors here, where the choice can be read.
       - name: Test
-        run: ./mvnw -B --no-transfer-progress verify
+        run: |
+          set -euo pipefail
+          floors=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            floors="-Dcoverage.bundle.line=0.45 -Dcoverage.bundle.method=0.47 -Dcoverage.bundle.branch=0.45"
+          fi
+          ./mvnw -B --no-transfer-progress verify $floors
         shell: bash
 
       # Even when the tests pass (REL-27, Pauta 2.0.2): a flaky test is found by reading the
@@ -178,6 +187,18 @@ jobs:
             *)         launcher="target/dist/Termina/bin/Termina" ;;
           esac
           bash scripts/smoke-test.sh "$launcher" "$RUNNER_TEMP/smoke"
+
+      # CLI-11 (Pauta 6.0.1): Termina.exe is a GUI program with no console, so the image carries
+      # termina-cli.exe, the same entry point built as a console program. It has to exist and
+      # answer --version where it was run.
+      - name: Check the Windows console launcher
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$(target/dist/Termina/termina-cli.exe --version)"
+          echo "$out"
+          echo "$out" | grep -q '^Termina '
 
       # The seal the macOS fix-up re-signs. An unquarantined launch, like the smoke test's, does not
       # check it; a downloaded copy does, and calls a broken one "damaged".

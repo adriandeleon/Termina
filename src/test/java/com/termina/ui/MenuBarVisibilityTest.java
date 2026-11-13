@@ -70,15 +70,6 @@ class MenuBarVisibilityTest {
     }
 
     @Test
-    void theZoomRowIsOnlyOfferedWhereJavaFxCanDrawIt() {
-        // Not a preference. The row is a CustomMenuItem, and one of those anywhere in the bar makes
-        // JavaFX decline useSystemMenuBar for all of it — which, with the in-window bar collapsed on
-        // macOS, left a Mac with no menus at all.
-        assertTrue(WindowRules.showsZoomRow(false));
-        assertFalse(WindowRules.showsZoomRow(true));
-    }
-
-    @Test
     void theMenuBarJoinsTheTitleBarOnlyWhereAllThreeAgree() {
         assertTrue(WindowRules.usesHeaderBar(false, true, true));
         // Off is off.

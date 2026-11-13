@@ -203,9 +203,8 @@ public final class AboutWindow {
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = new Scene(root, 480, 440);
-        var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 480, 440);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         stage.setScene(scene);
@@ -226,7 +225,7 @@ public final class AboutWindow {
                         case NOT_CHECKED -> tr("about.notChecked");
                         case CHECKS_OFF -> tr("about.checksOff");
                     });
-            status.getStyleClass().add(line == UpdateLine.UP_TO_DATE ? "about-uptodate" : "about-details");
+            status.getStyleClass().add(updateLineStyle(line));
             updateRow.getChildren().add(status);
         } else {
             Label headline = new Label(tr("about.updateHeadline", update.version()));
@@ -243,9 +242,21 @@ public final class AboutWindow {
         String checked = answer == null ? null : lastChecked(settings.lastUpdateCheck());
         if (checked != null) {
             Label when = new Label(tr("about.lastChecked", checked));
-            when.getStyleClass().add("about-details");
+            when.getStyleClass().add("about-lastchecked");
             updateRow.getChildren().add(when);
         }
+    }
+
+    /**
+     * The style of the update row's line (ABOUT-10, Pauta 6.0.1): up to date in green, a failed
+     * check in red, anything else muted. An available update has its own line, bold in amber.
+     */
+    static String updateLineStyle(UpdateLine line) {
+        return switch (line) {
+            case UP_TO_DATE -> "about-uptodate";
+            case CHECK_FAILED -> "about-checkfailed";
+            case AVAILABLE, NOT_CHECKED, CHECKS_OFF -> "about-details";
+        };
     }
 
     /** The last check as a local date and time in the UI's locale, or null when there was none. */

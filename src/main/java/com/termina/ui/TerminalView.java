@@ -591,7 +591,7 @@ public final class TerminalView extends Region {
 
     /** Where shells are started: a virtual thread each. */
     private static final java.util.concurrent.Executor SHELL_STARTS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-shell-start");
 
     /**
      * Where the shell should start, worked out when it starts rather than now: the directory a new
@@ -630,14 +630,18 @@ public final class TerminalView extends Region {
         // *for* is a UI question. The term layer reports the shell's state; it does not decide what
         // a tab is called. On every platform, since the program half needs only ProcessHandle; the
         // watcher skips the directory where the OS cannot answer.
-        // The OS's answer stands until the shell reports one where a report wins (Windows), and is
-        // not asked for at all where the process is not the shell (WSL's launcher). See ProcessCwd.
+        // The OS's answer is the tab's directory wherever it has one, and is not asked for at all
+        // where the process is not the shell (WSL's launcher); a shell's own report fills in
+        // there. See ProcessCwd.reportFillsIn.
         boolean osKnows = com.termina.pty.ProcessCwd.osKnowsDirectoryOf(
                 launchOptions.hasCommand() ? launchOptions.command().getFirst() : launchOptions.shell());
+        osKnowsDirectory = osKnows;
         cwdWatch = CwdWatcher.watch(
                 session.pid(),
                 cwd -> {
-                    if (osKnows && !directoryReported) display.setCwd(cwd);
+                    if (!osKnows) return;
+                    osAnsweredDirectory = true;
+                    display.setCwd(cwd);
                 },
                 program -> {
                     display.setProgram(program);
@@ -707,10 +711,12 @@ public final class TerminalView extends Region {
 
     /** Visual bell: a brief wash over the canvas, cleared by the next frame. */
     private void flashBell() {
+        // A flash is motion: with the OS asking for less of it, the bell is the tab's mark alone.
+        if (!Motion.plays()) return;
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.setFill(Color.color(1, 1, 1, 0.18));
         g.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
-        bellClear.playFromStart();
+        Motion.play(bellClear);
     }
 
     // ---------------------------------------------------------------- font & layout
@@ -1865,7 +1871,7 @@ public final class TerminalView extends Region {
      * hold up the next one, which an interrupt cannot unstick.
      */
     private static final java.util.concurrent.Executor LINK_CHECKS =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-link-check");
 
     /** Whether {@code file} exists: true or false when known, null when not yet — and then asked. */
     private @Nullable Boolean exists(java.nio.file.Path file) {
@@ -2483,7 +2489,8 @@ public final class TerminalView extends Region {
         MenuItem openLinkItem = commandItem("openLink", MenuIcons.openLink(), () -> openLink(menuLink));
         // The right-clicked link, not the one under the pointer now: the menu can be raised from
         // the keyboard. The commands of the same names act on the pointer's.
-        MenuItem copyLinkItem = commandItem("copyLinkAddress", MenuIcons.copy(), () -> copyLinkAddress(menuLink));
+        MenuItem copyLinkItem =
+                commandItem("copyLinkAddress", MenuIcons.command("copyLinkAddress"), () -> copyLinkAddress(menuLink));
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.
@@ -2674,10 +2681,11 @@ public final class TerminalView extends Region {
         if (buffer == null) return;
         if (e.getButton() == MouseButton.MIDDLE) {
             // Middle-click pastes the PRIMARY selection, as on every X11 terminal — read through
-            // wl-paste or xclip, since JavaFX's Clipboard is CLIPBOARD and nothing else. Where there
-            // is no PRIMARY (macOS, Windows) or no tool to read it, the clipboard. Reached only when
-            // the program did not take the press, or Shift bypassed it.
-            PrimarySelection.get(this::pasteText, this::paste);
+            // wl-paste or xclip, since JavaFX's Clipboard is CLIPBOARD and nothing else, and the
+            // clipboard where no tool can read it. On macOS and Windows, which have no PRIMARY, it
+            // pastes nothing (OS-04, Pauta 6.0.1). Reached only when the program did not take the
+            // press, or Shift bypassed it.
+            if (PrimarySelection.exists()) PrimarySelection.get(this::pasteText, this::paste);
             e.consume();
             return;
         }
@@ -3139,21 +3147,29 @@ public final class TerminalView extends Region {
         }
     }
 
-    /** Set once the shell has reported a directory where a report wins; the OS's answers then stop. */
-    private volatile boolean directoryReported;
+    /** Whether the OS's answer for this tab's process means anything: not for WSL's launcher. */
+    private volatile boolean osKnowsDirectory = true;
+
+    /** Set once the OS has answered for this tab; a shell's report is then left alone. */
+    private volatile boolean osAnsweredDirectory;
+
+    /** Whether the OS is the one to ask where this tab's shell is, as a new tab that inherits does. */
+    boolean osKnowsDirectory() {
+        return osKnowsDirectory;
+    }
 
     /**
-     * Where the shell says it is — believed only on Windows.
+     * Where the shell says it is — believed where the OS has no answer, on every OS alike.
      *
-     * <p>On Linux and macOS {@code ProcessCwd} reads the shell's real directory, which a prompt
-     * cannot get wrong and which every shell has whether or not it was set up to report one — and an
-     * OSC 7 from a shell inside {@code ssh} would otherwise claim this tab for another machine's
-     * directory. On Windows the OS can be asked too, but a WSL tab's process is {@code wsl.exe},
-     * whose directory is not the Linux shell's; there the shell's own report wins once it has made
-     * one. See {@link com.termina.pty.ProcessCwd#reportedDirectoryWins}.
+     * <p>{@code ProcessCwd} reads the shell's real directory, which a prompt cannot get wrong and
+     * which every shell has whether or not it was set up to report one — and an OSC 7 from a shell
+     * inside {@code ssh} would otherwise claim this tab for another machine's directory. A WSL
+     * tab's process is {@code wsl.exe}, whose directory is not the Linux shell's; there, and in a
+     * tab the OS has not answered for, the shell's own report is the directory. See {@link
+     * com.termina.pty.ProcessCwd#reportFillsIn}.
      */
     private void onDirectoryReported(String payload) {
-        if (!com.termina.pty.ProcessCwd.reportedDirectoryWins()) return;
+        if (!com.termina.pty.ProcessCwd.reportFillsIn(osKnowsDirectory, osAnsweredDirectory)) return;
         com.termina.term.OscSequences.localDirectory(
                         payload,
                         com.termina.link.LocalHost::isLocal,
@@ -3162,17 +3178,16 @@ public final class TerminalView extends Region {
     }
 
     private void reportedDirectory(String path) {
-        directoryReported = true;
         display.setCwd(path);
     }
 
     /**
      * The directory an OSC {@code 9;9} reports, ConEmu's form, which Windows shells set up for
      * Windows Terminal emit instead of OSC 7. Held to the same rules: a directory on this machine
-     * that exists, and only where a report wins.
+     * that exists, and only where the OS has no answer.
      */
     private void onWindowsDirectoryReported(String path) {
-        if (!com.termina.pty.ProcessCwd.reportedDirectoryWins()) return;
+        if (!com.termina.pty.ProcessCwd.reportFillsIn(osKnowsDirectory, osAnsweredDirectory)) return;
         // Not a share: asking whether \\host\share is a directory is a connection to the host
         // the sequence named, as for OSC 7.
         if (com.termina.link.LinkPaths.isUnc(path)) return;
@@ -3785,7 +3800,7 @@ public final class TerminalView extends Region {
 
     /** Where scans run: a virtual thread each, interrupted when superseded. */
     private static final java.util.concurrent.Executor SEARCHES =
-            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+            com.termina.term.TerminalExecutors.virtual("termina-search");
 
     /**
      * Rows {@code [from, to)} as they were numbered when the search began, copied under the lock.

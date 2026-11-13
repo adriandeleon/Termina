@@ -70,7 +70,7 @@ class ShellStartFxTest {
                         return view != null
                                 && place.toString()
                                         .equals(TerminalWindow.directoryOf(
-                                                onFx(() -> view.getSession().pid()), ""));
+                                                onFx(() -> view.getSession().pid()), "", true));
                     } catch (Exception e) {
                         return false;
                     }

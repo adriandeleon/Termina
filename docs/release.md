@@ -13,6 +13,12 @@ that section, under the install instructions in `.github/release-notes-install.m
 pom still carries `-SNAPSHOT` — artifacts labelled with a version they were not built from are worse
 than no artifacts. A tag with a suffix (`v1.0.0-rc1`) publishes as a pre-release.
 
+Before tagging, make a pass with a screen reader (ACC-07, Pauta 6.0.1), on the build that is
+about to be released: with **Narrator** on Windows and with **VoiceOver** on macOS, open the Command
+Palette, run a command, and move through Settings, listening for each control's name and role. CI's
+smoke test starts the app with nobody there to listen, so this is a step of its own and a person's.
+Record the pass in `pauta.json`'s `checked` list, with the version it was made on.
+
 After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
 source says it is one: the update check treats a snapshot as the release it leads up to, and never
 offers it the release it is already ahead of.

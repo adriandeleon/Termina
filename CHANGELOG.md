@@ -36,6 +36,18 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Focus Menu Bar** (Ctrl+Shift+F10) puts the keyboard in the menu bar and opens its first menu,
+  so the arrow keys walk it. A plain F10 and a lone Alt, which do this in most apps, belong to the
+  program running in the terminal.
+- **Interface zoom.** Settings ▸ Appearance ▸ Window ▸ Interface zoom, from 80% to 200%, makes the
+  menus, the tab strip, the status bar, the palette and every other window larger or smaller, at
+  once. Zoom Interface In, Zoom Interface Out and Reset Interface Zoom are in the palette and can be
+  given shortcuts on the Keyboard page. The terminal's text is not touched: Zoom In, Zoom Out and
+  Actual Size, and their shortcuts, are still its own.
+- **`termina-cli.exe`, on Windows.** `Termina.exe` is a window program and has no console, so
+  `--help`, `--version` and `--report` printed nothing in the terminal they were typed in. The
+  installer now carries a second launcher that prints there; with no such option it opens a window
+  as `Termina.exe` does.
 - **Help ▸ Pauta Conformance.** A window that says which edition of
   [Pauta](https://pauta-project.dev/) Termina follows and how far it has got: Complete, Core or
   Partial, and under that every rule it does not meet yet, each with a one-line reason, a link to
@@ -105,6 +117,45 @@ done.
 
 ### Changed
 
+- **The status bar is shown, and on Windows and Linux the menu bar is in the title bar, unless you
+  turn them off.** Both were options that started off. If you never changed either you will see
+  both after this update: a row under the terminal that says what the last command reported, where
+  a dialog used to appear, and one row at the top holding the menus, the title and the window
+  buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
+  had already chosen is left as it is.
+- **Closing the Command Palette gives the keyboard back to where it was.** Opened from the find
+  bar's field, it returns there; it used to return to the terminal every time.
+- **The menu bar and the tab strip are one band**, on one background with no line between them, and
+  a menu is a card with rounder corners and a deeper shadow.
+- **Command Palette is the first row of the Help menu**, where the guidelines put it; it was in View.
+- **The Message Log follows the key bindings.** The shortcut bound to Copy copies its selected
+  lines, as Ctrl+C (Cmd+C) still does. Ctrl+G no longer closes it: Escape does, and so does going
+  back to the window behind.
+- **The visual bell does not flash while the system asks for reduced motion.** The tab is still
+  marked.
+- **About shows an available update in bold amber and a failed check in red**; the links keep the
+  accent color.
+- **Removing a profile says that it cannot be undone**, and Sync Anyway is drawn as the dangerous
+  button it is. Clear Scrollback is red in the Edit menu, as it was in the right-click menu.
+- **Shortcut names are not translated.** Ctrl and Shift read the same in every language; a few
+  German, Spanish, French and Italian strings said Strg, Umschalt, Mayús, Maj or Maiusc.
+- **A middle-click pastes nothing on macOS and Windows.** It pasted the clipboard there. On Linux
+  it pastes the primary selection, as before; the three systems differ in this and it is Linux's
+  alone.
+- **A tab's folder is read the same way on every system.** The operating system is asked where the
+  shell is, and what the shell reports about itself (OSC 7, OSC 9;9) fills in only where the system
+  has no answer, which is a WSL tab. On Windows a report used to win over the system's answer for
+  every tab.
+- **Every menu row has an icon.** About half of the menu bar's rows had an empty icon column, and
+  Copy Link Address borrowed Copy's. Each command a menu lists now has a picture of its own, in the
+  bar, the right-click menus, a tab's menu, the two logs' and the profile list's.
+- **Zoom In, Zoom Out and Actual Size are rows of the View menu**, each with its icon and its
+  shortcut, on every system as they already were on macOS. The row of four buttons is the
+  right-click menu's alone.
+- **File ▸ New Tab With lists the first nine profiles**, the ones with a shortcut. A tenth onwards
+  is in the tab strip's drop-down and the palette, as all of them are.
+- **The coverage floors are one set of numbers in the build.** No Windows profile lowers them; the
+  Windows CI runner passes its own on its command line.
 - **Termina follows Pauta 6.0.1** (it named 2.0.2), and says "working toward" it: the rules it does
   not meet yet are listed in Help ▸ Pauta Conformance, and the README's badge carries the same
   word. The list is `pauta.json`, and a test holds it, the README and About to one answer.

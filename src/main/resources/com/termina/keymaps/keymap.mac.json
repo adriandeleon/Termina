@@ -22,6 +22,7 @@
     "zoomOut": "Shortcut+Minus",
     "actualSize": "Shortcut+0",
     "fullScreen": "Ctrl+Meta+F",
+    "focusMenuBar": "Shortcut+Shift+F10",
     "hideMenuBar": "Shortcut+Shift+M",
     "nextTab": "Shortcut+Shift+Close Bracket",
     "previousTab": "Shortcut+Shift+Open Bracket",

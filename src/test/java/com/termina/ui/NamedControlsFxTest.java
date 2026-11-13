@@ -75,6 +75,7 @@ class NamedControlsFxTest {
         Thread.sleep(300);
 
         List<String> unnamed = new ArrayList<>();
+        List<String> unglyphed = new ArrayList<>();
         int checked = onFx(() -> {
             // Every window the app has, each in the state that shows the most.
             windows.showSettings(window.stage());
@@ -109,20 +110,31 @@ class NamedControlsFxTest {
                 unnamed.addAll(NamedControls.unnamed(root));
                 // A control's own right-click menu: the two logs', the profile list's.
                 unnamed.addAll(NamedControls.unnamedMenus(root));
+                unglyphed.addAll(NamedControls.menusWithoutGlyph(root));
                 count += NamedControls.checked(root);
             }
 
             // The menus that hang off no control: the bar's, a tab's and the terminal's.
             for (Menu menu : window.menuBarForTest().getMenus()) {
                 unnamed.addAll(NamedControls.unnamedRows(menu.getItems()));
+                // The macOS screen menu bar draws no icons: its rows are outside MENU-14.
+                if (!TerminalWindow.SYSTEM_MENU_BAR) {
+                    javafx.event.Event.fireEvent(menu, new javafx.event.Event(Menu.ON_SHOWING));
+                    unglyphed.addAll(NamedControls.rowsWithoutGlyph(menu.getItems()));
+                }
             }
             for (Tab tab : window.tabsForTest()) {
-                unnamed.addAll(NamedControls.unnamedRows(tab.getContextMenu().getItems()));
+                unnamed.addAll(NamedControls.unnamedRows(window.tabMenuItemsForTest(tab)));
+                unglyphed.addAll(NamedControls.rowsWithoutGlyph(window.tabMenuItemsForTest(tab)));
             }
+            unglyphed.addAll(NamedControls.rowsWithoutGlyph(window.profileMenuItemsForTest()));
             TerminalView view = window.activeTerminal();
             if (view != null)
                 unnamed.addAll(
                         NamedControls.unnamedRows(view.contextMenuForTest().getItems()));
+            if (view != null)
+                unglyphed.addAll(
+                        NamedControls.rowsWithoutGlyph(view.contextMenuForTest().getItems()));
             for (Window open : List.copyOf(Window.getWindows())) {
                 if (before.contains(open)) continue;
                 if (open.isShowing() && open instanceof javafx.stage.Stage && open != window.stage()) open.hide();
@@ -130,6 +142,8 @@ class NamedControlsFxTest {
             return count;
         });
         assertEquals(List.of(), unnamed.stream().distinct().toList());
+        // MENU-14 (Pauta 6.0.1): every row of every menu the app draws carries a glyph.
+        assertEquals(List.of(), unglyphed.stream().distinct().toList());
         assertTrue(checked >= 80, "controls and cells looked at: " + checked);
     }
 

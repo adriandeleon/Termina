@@ -19,6 +19,14 @@ class PrimarySelectionTest {
         return Path.of("/usr/bin", name).toString();
     }
 
+    @org.junit.jupiter.api.Test
+    void onlyLinuxHasAPrimarySelectionForAMiddleClickToPaste() {
+        // OS-04 (Pauta 6.0.1): the X11 primary selection on Linux, and nothing on the other two.
+        org.junit.jupiter.api.Assertions.assertTrue(PrimarySelection.existsOn("Linux"));
+        org.junit.jupiter.api.Assertions.assertFalse(PrimarySelection.existsOn("Mac OS X"));
+        org.junit.jupiter.api.Assertions.assertFalse(PrimarySelection.existsOn("Windows 11"));
+    }
+
     private static Function<String, Path> installed(String... names) {
         Set<String> present = Set.of(names);
         return name -> present.contains(name) ? Path.of("/usr/bin", name) : null;

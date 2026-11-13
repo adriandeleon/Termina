@@ -101,7 +101,8 @@ made with, since copying a highlight over redrawn text would produce something n
 **Copy on select** is a setting on Terminal → Input, off by default. On Linux every selection is
 also the **PRIMARY** selection, and a middle-click pastes PRIMARY, as on any X11 terminal. JavaFX
 cannot reach PRIMARY at all, so both go through `wl-paste`/`wl-copy` under Wayland or `xclip`/`xsel`
-under X11; without one of them, and on macOS and Windows, middle-click pastes the clipboard.
+under X11; without one of them, middle-click pastes the clipboard. On macOS and Windows, which
+have no PRIMARY, a middle-click pastes nothing.
 
 ### Mouse reporting
 
@@ -184,7 +185,7 @@ is developed on.
 
 ### The menu bar in the title bar
 
-An option (Appearance → Window, off by default) merges the two rows: the window draws its own
+An option (Appearance → Window, on by default since 0.15) merges the two rows: the window draws its own
 title bar, with the menus at the left, the title in the middle and the window buttons at the right,
 and the terminal gains the row the native title bar took. It is JavaFX 27's extended stage style —
 `StageStyle.EXTENDED`, with a `HeaderBar` at the top of the scene in place of the system's title
@@ -208,6 +209,21 @@ cases the checkbox is disabled with the reason on its row. The decision is
 One thing a capture cannot show: the window buttons are an overlay JavaFX draws outside the scene
 graph, so a scene snapshot has the menus and the title but a blank where the buttons are. The
 layout report prints the system insets JavaFX reserved for them instead.
+
+### The interface zoom
+
+Settings ▸ Appearance ▸ Window has **Interface zoom**, 80% to 200% in steps of ten, and the palette
+has Zoom Interface In, Zoom Interface Out and Reset Interface Zoom (no shortcut by default; the
+Keyboard page gives them one). It scales the chrome and nothing else: the menu bar and every menu,
+the tab strip, the status bar, the palette, and the Settings, About, log and other windows, at
+once and with no restart. The terminal's text keeps its own size and its own zoom, which is what
+`Ctrl+=`, `Ctrl+-` and `Ctrl+0` change.
+
+At 100% the stylesheets are the bundled files. At any other zoom each window gets a copy with
+every length multiplied, the theme's 14 px root size among them, so every font follows one size;
+the copies are made on a worker before the setting changes. Sizes fixed in code follow through
+`UiZoom` (see `docs/gotchas.md`). A menu draws its titles in Inter 14 px and its shortcuts in
+Inter 11 px times the zoom, whatever it was opened from.
 
 ### The tab strip
 
@@ -419,11 +435,11 @@ does for the cursor and the selection, with no hook to have it do the same for a
 - **The clipboard (OSC 52).** A program can put text on the clipboard; it is how vim and tmux copy
   across SSH. Programs can never *read* it — that would hand the clipboard to anything on the far
   side of an `ssh` that asked — and Terminal → Input turns writing off too.
-- **The directory (OSC 7, and ConEmu's OSC 9;9).** Believed only on Windows, and only for a
-  directory on this machine that exists. Elsewhere the OS is asked instead, so a shell inside `ssh`
-  cannot claim the tab for another machine's path. Windows is asked too — the directory is read out
-  of the shell process's own parameters — but a WSL tab's process is `wsl.exe`, whose directory is
-  not the Linux shell's, so there a shell's report wins and WSL's launchers are never asked.
+- **The directory (OSC 7, and ConEmu's OSC 9;9).** The OS is asked where the shell is, on every
+  system, so a shell inside `ssh` cannot claim the tab for another machine's path. A report fills in
+  only where the OS has no answer, and only for a directory on this machine that exists: a WSL
+  tab, whose process is `wsl.exe` and not the Linux shell (WSL's launchers are never asked), and a
+  tab the OS has not answered for.
 - **Notifications (OSC 9, OSC 777).** `printf '\e]777;notify;Build;done\a'` (urxvt's form, which
   foot, kitty and WezTerm read too) or `printf '\e]9;done\a'` (iTerm2's). The tab is marked with a
   magenta dot that outranks the bell's, and the message goes to the desktop unless you are looking
@@ -670,6 +686,11 @@ termina [options] [-e command [args...]]
 `--help` and `--version` are answered before the toolkit starts, so they work without a display —
 `--version` is what ends up in a bug report. An unknown option is refused rather than ignored, since
 an option that is silently dropped looks exactly like one that exists and does nothing.
+
+On Windows, type them at `termina-cli.exe`, which the installer puts beside `Termina.exe`.
+`Termina.exe` is a window program with no console, so what it prints never reaches the terminal it
+was started from; `termina-cli.exe` is the same program built as a console one. With no such option
+it opens a window like the other.
 
 `-e` takes the rest of the line, which is xterm's convention and why it has to come last: `-e ls -l`
 passes `-l` to `ls` rather than rejecting it here. The command replaces the shell rather than running

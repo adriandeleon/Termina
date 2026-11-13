@@ -129,10 +129,8 @@ final class Confirm {
      */
     static void style(javafx.scene.control.DialogPane pane) {
         if (pane.lookup(".button-bar") instanceof ButtonBar bar) bar.setButtonOrder(BUTTON_ORDER);
-        var css = Confirm.class.getResource("/com/termina/styles/app.css");
-        if (css != null && !pane.getStylesheets().contains(css.toExternalForm())) {
-            pane.getStylesheets().add(css.toExternalForm());
-        }
+        String css = UiZoom.sheet("app.css");
+        if (!pane.getStylesheets().contains(css)) pane.getStylesheets().add(css);
         var font = Confirm.class.getResource("/com/termina/styles/ui-font.css");
         if (font != null && !pane.getStylesheets().contains(font.toExternalForm())) {
             pane.getStylesheets().add(font.toExternalForm());
