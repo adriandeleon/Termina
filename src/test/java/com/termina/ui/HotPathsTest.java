@@ -28,7 +28,7 @@ class HotPathsTest {
      */
     @Test
     void theScrollBarIsUpdatedAfterTheFrameReleasesTheBuffer() throws IOException {
-        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        String view = terminalView();
         int start = view.indexOf("    private void paint(GraphicsContext g, double w, double h) {");
         assertTrue(start > 0, "the paint method is where this test looks");
         int end = view.indexOf("\n    }\n", start);
@@ -61,7 +61,7 @@ class HotPathsTest {
 
         for (int index = 0; index < 16; index++) assertEquals(theme.ansi()[index], theme.ansi(index));
 
-        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        String view = terminalView();
         assertTrue(view.contains("if (paletteApplied && palette.equals(this.palette)) return;"), "and the pane asks");
     }
 
@@ -73,7 +73,7 @@ class HotPathsTest {
      */
     @Test
     void whatAWriteOrAFrameOnlyReadsIsWorkedOutWhenItChanges() throws IOException {
-        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        String view = terminalView();
         assertTrue(
                 view.contains("session.setTypeAheadWanted(() -> typeAheadAllowed && programPredicts);"),
                 "a write reads two fields");
@@ -88,6 +88,12 @@ class HotPathsTest {
         assertTrue(draw > 0, "the method that washes the matches is where this test looks");
         String drawing = view.substring(draw, view.indexOf("\n    }\n", draw));
         assertTrue(drawing.contains("searchWash") && !drawing.contains("withAlpha("), "the frame reads the colour");
+    }
+
+    /** The view's source with one kind of line ending: a Windows checkout has the other. */
+    private static String terminalView() throws IOException {
+        return Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"))
+                .replace("\r\n", "\n");
     }
 
     private static int count(String text, String part) {

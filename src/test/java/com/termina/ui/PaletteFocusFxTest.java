@@ -120,7 +120,8 @@ class PaletteFocusFxTest {
             return new String[] {before, after};
         });
         String y = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+Y").getDisplayText();
-        String t = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+T").getDisplayText();
+        // New Tab's own default, which is Cmd+T on macOS and Ctrl+Shift+T elsewhere.
+        String t = MenuAction.appChord(javafx.scene.input.KeyCode.T).getDisplayText();
         String p = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+P").getDisplayText();
         String x = javafx.scene.input.KeyCombination.valueOf("Alt+X").getDisplayText();
         assertEquals(t + " " + p, seen[0]);

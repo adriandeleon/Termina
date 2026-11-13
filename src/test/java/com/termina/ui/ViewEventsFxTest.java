@@ -62,23 +62,19 @@ class ViewEventsFxTest {
         waitFor(() -> started(window), "the shell");
         TerminalView view = onFx(window::activeTerminal);
         onFx(() -> {
-            view.getSession().sendString("printf 'one two three\\nhttps://example.com/x\\n'\r");
+            view.getSession().sendString(SCRIPT);
             return null;
         });
         // The line as printed, not as typed: the echo of the command has it inside quotes.
-        waitFor(() -> hasLine(view, "https://example.com/x"), "the printed lines");
+        waitFor(view, () -> hasLine(view, "https://example.com/x"), "the printed lines");
 
         for (boolean programHasTheMouse : new boolean[] {false, true}) {
             if (programHasTheMouse) {
                 onFx(() -> {
-                    // Any-motion reporting with SGR coordinates, as a full-screen program asks.
-                    // And a word after them, put together by printf so the echo does not have it:
-                    // the emulator reads in order, so the word on screen means the modes are set.
-                    view.getSession().sendString(ABANDON_LINE);
-                    view.getSession().sendString("printf '\\033[?1049h\\033[?1003h\\033[?1006hmouse-%s' on\r");
+                    view.getSession().sendString(NEXT);
                     return null;
                 });
-                waitFor(() -> screen(view).contains("mouse-on"), "the program to take the mouse");
+                waitFor(view, () -> screen(view).contains("mouse-on"), "the program to take the mouse");
             }
             onFx(() -> {
                 for (int x = 5; x < 300; x += 37) {
@@ -132,14 +128,13 @@ class ViewEventsFxTest {
             });
         }
         // Keys, at the view: plain and with Alt as Meta, then under the kitty keyboard protocol.
-        for (String mode : new String[] {"", "printf '\\033[>1u'\r"}) {
-            if (!mode.isEmpty()) {
+        for (boolean kitty : new boolean[] {false, true}) {
+            if (kitty) {
                 onFx(() -> {
-                    view.getSession().sendString(ABANDON_LINE);
-                    view.getSession().sendString(mode);
+                    view.getSession().sendString(NEXT);
                     return null;
                 });
-                waitFor(() -> kittyFlags(view) != 0, "the kitty keyboard flags to be set");
+                waitFor(view, () -> kittyFlags(view) != 0, "the kitty keyboard flags to be set");
             }
             onFx(() -> {
                 view.setAltIsMeta(true);
@@ -160,16 +155,12 @@ class ViewEventsFxTest {
             });
         }
 
-        // Prompt marks, then a resize: the marks follow their lines through the reflow. Back on
-        // the main screen first, and the mouse given back: marks are not kept on the other one.
+        // Prompt marks, then a resize: the marks follow their lines through the reflow.
         onFx(() -> {
-            view.getSession().sendString(ABANDON_LINE);
-            view.getSession()
-                    .sendString(
-                            "printf '\\033[<u\\033[?1003l\\033[?1049l\\033]133;A\\007$ \\033]133;B\\007\\n\\033]133;C\\007out\\n\\033]133;D;0\\007'\r");
+            view.getSession().sendString(NEXT);
             return null;
         });
-        waitFor(() -> hasLine(view, "out") && marked(view), "the marked prompt and its output");
+        waitFor(view, () -> hasLine(view, "out") && marked(view), "the marked prompt and its output");
         int columns = columns(view);
         onFx(() -> {
             window.stage().setWidth(window.stage().getWidth() - 160);
@@ -212,12 +203,31 @@ class ViewEventsFxTest {
     }
 
     /**
-     * Ctrl+C, before each command typed after the keys and clicks: they leave the shell's line
-     * editor mid-chord (an Escape waiting for its letter, function keys it spelled out), and a
-     * command typed onto that is not the command. Found when the fixed waits here became waits for
-     * what each command does: the mouse modes had never been set.
+     * Everything the shell is asked to do, typed once, at the prompt it starts with. Between its
+     * steps the shell reads lines and throws them away until one says {@code next}, so the keys
+     * and mouse reports the test fires go to that reader and never to the shell's line editor.
+     *
+     * <p>Two shorter ways were tried and both lost commands. Typed at the prompt, a mouse report is
+     * {@code 35;1;1M} to bash, three commands, and the next Enter ran dozens of them (CI's Ubuntu
+     * runner, and an empty home folder here). With a program reading and Ctrl+C to end it, the
+     * command typed after the Ctrl+C was sometimes gone by the time the prompt was back (a full
+     * build here, never the test on its own). Nothing is typed at a returning prompt now.
+     *
+     * <p>The steps: two lines to point at; any-motion mouse reporting with SGR coordinates on the
+     * other screen, as a full-screen program asks, with a word after the modes that printf puts
+     * together, so the echo of this line does not have it and the word on screen means the modes
+     * are set; the kitty keyboard protocol; then all of that undone, since prompt marks are not
+     * kept on the other screen, and a marked prompt with its output.
      */
-    private static final String ABANDON_LINE = "\u0003";
+    private static final String SCRIPT = "w() { while IFS= read -r l; do [ \"$l\" = next ] && break; done; }; "
+            + "printf 'one two three\\nhttps://example.com/x\\n'; w; "
+            + "printf '\\033[?1049h\\033[?1003h\\033[?1006hmouse-%s' on; w; "
+            + "printf '\\033[>1u'; w; "
+            + "printf '\\033[<u\\033[?1003l\\033[?1049l"
+            + "\\033]133;A\\007$ \\033]133;B\\007\\n\\033]133;C\\007out\\n\\033]133;D;0\\007'\r";
+
+    /** Ends the line the keys left unfinished, then the line that moves {@link #SCRIPT} on a step. */
+    private static final String NEXT = "\rnext\r";
 
     private static String screen(TerminalView view) {
         try {
@@ -268,9 +278,18 @@ class ViewEventsFxTest {
     }
 
     private static void waitFor(BooleanSupplier condition, String what) throws InterruptedException {
+        waitFor(null, condition, what);
+    }
+
+    /** As above, and a failure shows what {@code view} had on screen: the shell's side of the story. */
+    private static void waitFor(TerminalView view, BooleanSupplier condition, String what) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
-            if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
+            if (System.nanoTime() > deadline) {
+                String shown =
+                        view == null ? "" : "; on screen:\n" + screen(view).strip();
+                throw new AssertionError("timed out waiting for " + what + shown);
+            }
             Await.frame();
         }
     }

@@ -436,7 +436,27 @@ is broken.
   mouse-reporting half of the test had never had the mouse. Waiting for what each command does
   (`mouse-on` on screen, the kitty flags set) found it at once. `testing.Await` waits on frames,
   `testing.Signal` on a listener the code under test fires, and `TestsDoNotSleepTest` keeps sleeps
-  out, by any of their spellings. A command typed after synthetic keys starts with Ctrl+C.
+  out, by any of their spellings.
+- **Keys and mouse reports fired at a shell's prompt are commands.** The same test's first repair
+  was a Ctrl+C before each command, and it passed here and on macOS and failed on CI's Ubuntu. A
+  mouse report is `ESC [ < 35;1;1M`; bash's line editor swallows the first three bytes and keeps
+  `35;1;1M`, which is three commands, and the Enter the test fires next runs dozens of them. With
+  the system's own `/etc/bash.bashrc`, where a helper looks up each command that is not found,
+  the Ctrl+C did not clear them: the screen ended in `1m[Aprintf: command not found`, the next
+  real command joined to the end of the junk. A start-up file of one's own had hidden it on the
+  machine it was written on; `HOME` pointed at an empty folder reproduces it every time. The
+  second repair gave the keys a `cat` to read them and ended it with Ctrl+C, and that lost the
+  command typed after the Ctrl+C in a full build and never on its own: the screen showed the
+  command echoed, then a prompt, and nothing run. So nothing is typed at a returning prompt. The
+  test types one line at the first prompt, its steps separated by a loop that reads lines until
+  one says `next`, and moves it on by sending that line. A timeout there prints the screen,
+  which is what showed each of these.
+- **A test that stands in for another system still runs on this one's file system.** `DoctorTest`
+  asks about Linux from a Windows runner, where `Path.of("/bin/bash")` has no drive, so is not
+  absolute, and prints with backslashes: three tests failed on their first Windows run. Paths in
+  such a test are made by `Path`, never written out. And a test that reads source and looks for
+  `"\n    }\n"` finds nothing in a Windows checkout; replace `\r\n` on reading, as `HotPathsTest`
+  now does.
 - **A word a test waits for must not be in the command that prints it.** The echo of the typed
   command puts it on screen before the command has run. `printf 'mouse-%s' on` prints `mouse-on`
   and is echoed as `mouse-%s' on`; a line that must *equal* the output works too.

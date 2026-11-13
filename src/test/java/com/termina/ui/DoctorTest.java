@@ -66,7 +66,21 @@ class DoctorTest {
     }
 
     private static final Path CONFIG = Path.of("/home/someone/.termina");
-    private static final String BASH = "/bin/bash";
+    private static final String BASH = onThisHost("/bin/bash");
+
+    /**
+     * A path as the system the tests run on writes it, and absolute there. The checks are asked
+     * about Linux and macOS from a Windows runner too, where {@code /bin/bash} has no drive, so
+     * is not absolute, and prints with backslashes.
+     */
+    private static String onThisHost(String path) {
+        return Path.of(path).toAbsolutePath().toString();
+    }
+
+    /** What a row says of a tool the {@link Fake} found: the path it gave, as this host prints it. */
+    private static String found(String path) {
+        return Path.of(path).toString();
+    }
 
     private static Fake complete() {
         Fake machine = new Fake();
@@ -101,8 +115,9 @@ class DoctorTest {
         assertEquals(List.of("shell", "config", "git", "gh", "selection", "notifications", "opener"), ids(linux));
         assertEquals(0, Doctor.failures(linux));
         assertEquals(
-                "/opt/homebrew/bin/git — git version 2.47.1", row(linux, "git").detail());
-        assertEquals("/opt/homebrew/bin/gh", row(linux, "gh").detail(), "a tool that says nothing is its path");
+                found("/opt/homebrew/bin/git") + " — git version 2.47.1",
+                row(linux, "git").detail());
+        assertEquals(found("/opt/homebrew/bin/gh"), row(linux, "gh").detail(), "a tool that says nothing is its path");
         for (Check row : linux) {
             assertNull(row.fixKey(), row.id());
             assertNull(row.link(), row.id());
@@ -144,7 +159,7 @@ class DoctorTest {
         wayland.env.clear();
         wayland.env.put("WAYLAND_DISPLAY", "wayland-0");
         assertEquals(
-                "/usr/bin/wl-copy",
+                found("/usr/bin/wl-copy"),
                 row(Doctor.run(Os.Kind.LINUX, wayland, "", BASH, CONFIG), "selection")
                         .detail());
         wayland.tools.removeAll(List.of("wl-copy", "wl-paste", "xclip"));
@@ -157,25 +172,27 @@ class DoctorTest {
         noLibnotify.tools.remove("notify-send");
         Check viaBus = row(Doctor.run(Os.Kind.LINUX, noLibnotify, "", BASH, CONFIG), "notifications");
         assertEquals(Status.OK, viaBus.status());
-        assertEquals("/usr/bin/gdbus", viaBus.detail());
+        assertEquals(found("/usr/bin/gdbus"), viaBus.detail());
     }
 
     @Test
     void aShellThatCannotRunAndAFolderThatCannotBeWrittenAreProblems() {
         Fake machine = complete();
-        Check configured = row(Doctor.run(Os.Kind.LINUX, machine, "/usr/bin/fsh", BASH, CONFIG), "shell");
+        String fsh = onThisHost("/usr/bin/fsh");
+        String fish = onThisHost("/usr/bin/fish");
+        Check configured = row(Doctor.run(Os.Kind.LINUX, machine, fsh, BASH, CONFIG), "shell");
         assertEquals(Status.PROBLEM, configured.status(), "the settings name a shell that is not there");
-        assertEquals("/usr/bin/fsh", configured.detail());
+        assertEquals(fsh, configured.detail());
         assertEquals("doctor.fix.shell", configured.fixKey());
 
-        machine.executable.add(Path.of("/usr/bin/fish"));
+        machine.executable.add(Path.of(fish));
         assertEquals(
                 Status.OK,
-                row(Doctor.run(Os.Kind.LINUX, machine, "/usr/bin/fish", "/usr/bin/fish", CONFIG), "shell")
+                row(Doctor.run(Os.Kind.LINUX, machine, fish, fish, CONFIG), "shell")
                         .status());
         assertEquals(
                 Status.PROBLEM,
-                row(Doctor.run(Os.Kind.LINUX, machine, "", "/bin/nothing", CONFIG), "shell")
+                row(Doctor.run(Os.Kind.LINUX, machine, "", onThisHost("/bin/nothing"), CONFIG), "shell")
                         .status());
         assertEquals(
                 Status.PROBLEM,
