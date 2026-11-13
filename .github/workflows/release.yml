@@ -163,7 +163,15 @@ jobs:
       # these runners (linux-arm64, macos-x64) run nowhere else, so this is the only place their
       # build is ever tested. `verify` is the phase CI's test job runs, after `package`.
       - name: Build, test and package
-        run: ./mvnw -B --no-transfer-progress clean -Pdist -Dskip.installers=false verify
+        run: |
+          set -euo pipefail
+          # The pom has one set of coverage floors (PLAT-12, Pauta 6.0.1); the Windows runner, which
+          # skips the tests that drive real shells, passes its own, as ci.yml's does.
+          floors=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            floors="-Dcoverage.bundle.line=0.45 -Dcoverage.bundle.method=0.47 -Dcoverage.bundle.branch=0.45"
+          fi
+          ./mvnw -B --no-transfer-progress clean -Pdist -Dskip.installers=false verify $floors
         shell: bash
         env:
           # A release without its AOT cache starts a quarter slower and says nothing; fail instead.

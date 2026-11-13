@@ -184,7 +184,7 @@ is developed on.
 
 ### The menu bar in the title bar
 
-An option (Appearance → Window, off by default) merges the two rows: the window draws its own
+An option (Appearance → Window, on by default since 0.15) merges the two rows: the window draws its own
 title bar, with the menus at the left, the title in the middle and the window buttons at the right,
 and the terminal gains the row the native title bar took. It is JavaFX 27's extended stage style —
 `StageStyle.EXTENDED`, with a `HeaderBar` at the top of the scene in place of the system's title
@@ -670,6 +670,11 @@ termina [options] [-e command [args...]]
 `--help` and `--version` are answered before the toolkit starts, so they work without a display —
 `--version` is what ends up in a bug report. An unknown option is refused rather than ignored, since
 an option that is silently dropped looks exactly like one that exists and does nothing.
+
+On Windows, type them at `termina-cli.exe`, which the installer puts beside `Termina.exe`.
+`Termina.exe` is a window program with no console, so what it prints never reaches the terminal it
+was started from; `termina-cli.exe` is the same program built as a console one. With no such option
+it opens a window like the other.
 
 `-e` takes the rest of the line, which is xterm's convention and why it has to come last: `-e ls -l`
 passes `-l` to `ls` rather than rejecting it here. The command replaces the shell rather than running

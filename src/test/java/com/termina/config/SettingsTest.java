@@ -29,6 +29,9 @@ class SettingsTest {
         assertTrue(settings.altIsMeta());
         assertTrue(settings.bell());
         assertEquals("", settings.shell());
+        // WIN-01 and WIN-03 (Pauta 6.0.1): shown, and in the title bar, unless the user says otherwise.
+        assertTrue(settings.showStatusBar());
+        assertTrue(settings.menuBarInTitleBar());
     }
 
     @Test

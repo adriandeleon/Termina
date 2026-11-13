@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -147,5 +148,51 @@ class WorkflowRulesTest {
         assertTrue(pom.contains("<coverage.bundle.method>0.90</coverage.bundle.method>"), "method floor");
         assertTrue(pom.contains("<element>BUNDLE</element>"), "a whole-build rule");
         assertTrue(pom.contains("<minimum>${coverage.bundle.line}</minimum>"), "the rule reads the floor");
+    }
+
+    @Test
+    void noProfileThatActivatesByOsOrJdkTouchesTheCoverageGate() throws IOException {
+        // PLAT-12 (Pauta 6.0.1): the pom has one set of floors. A runner that measures lower says
+        // so on its own command line, in the workflow, where the choice can be read.
+        String pom = read(Path.of("pom.xml"));
+        java.util.regex.Matcher profile =
+                java.util.regex.Pattern.compile("(?s)<profile>(.*?)</profile>").matcher(pom);
+        int byOs = 0;
+        while (profile.find()) {
+            String body = profile.group(1);
+            if (!body.contains("<os>") && !body.contains("<jdk>")) continue;
+            byOs++;
+            assertFalse(body.contains("coverage.bundle."), "an OS profile sets a coverage floor");
+            assertFalse(body.contains("jacoco.skip"), "an OS profile skips JaCoCo");
+            assertFalse(body.contains("jacoco-check"), "an OS profile touches the check");
+        }
+        assertTrue(byOs >= 3, "the per-OS profiles were read: " + byOs);
+        for (String workflow : List.of(".github/workflows/ci.yml", ".github/workflows/release.yml")) {
+            assertTrue(
+                    read(Path.of(workflow)).contains("-Dcoverage.bundle.line=0.45"),
+                    workflow + " passes the Windows runner's floors");
+        }
+    }
+
+    @Test
+    void theWindowsImageCarriesAConsoleLauncher() throws IOException {
+        // CLI-11 (Pauta 6.0.1): Termina.exe has no console, so --help, --version and --report need a
+        // launcher that does; it runs the same entry point, because it names no other.
+        String launcher = read(Path.of("packaging/windows/termina-cli.properties"));
+        assertTrue(launcher.lines().anyMatch("win-console=true"::equals), launcher);
+        assertFalse(
+                launcher.contains("main-class") || launcher.contains("module="), "it has an entry point of its own");
+        assertFalse(launcher.lines().anyMatch(line -> line.startsWith("arguments=")), "it adds arguments");
+        String pom = read(Path.of("pom.xml"));
+        int windows = pom.indexOf("<id>os-windows</id>");
+        int linux = pom.indexOf("<id>os-linux</id>");
+        assertTrue(windows > 0 && linux > windows, "the profiles are where this test looks");
+        String profile = pom.substring(windows, linux);
+        assertTrue(profile.contains("<name>termina-cli</name>"), "the Windows profile adds the launcher");
+        assertTrue(profile.contains("packaging/windows/termina-cli.properties"), "from this file");
+        assertFalse(pom.substring(linux).contains("termina-cli"), "no other platform gets one");
+        assertTrue(
+                read(Path.of(".github/workflows/ci.yml")).contains("termina-cli.exe --version"),
+                "CI runs it on the Windows image");
     }
 }

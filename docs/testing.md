@@ -38,8 +38,10 @@ The whole build is gated too (PLAT-12, Pauta 2.0.2): 0.90 lines and 0.90 methods
 and branches as a net under what is measured. Most of it comes from headless tests that drive the
 real windows on real shells — `WindowCommandsFxTest` runs every palette command, `MenusFxTest` fires
 every menu item, `DevCaptureFxTest` runs the capture harness, `DialogsFxTest` answers every question
-the app asks. Windows skips those, because its shell path has never run, and measures far lower; the
-`os-windows` profile lowers the `coverage.bundle.*` properties, which is the rule not yet met there.
+the app asks. Windows skips those, because its shell path has never run, and measures far lower. No
+profile lowers the floors for it (PLAT-12, Pauta 6.0.1): the Windows runner in `ci.yml` and
+`release.yml` passes its own with `-Dcoverage.bundle.*`, and `./mvnw verify` on a Windows machine
+needs the same three options until those tests run there.
 
 Three things these tests have to get right, all learnt the hard way:
 

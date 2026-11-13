@@ -36,6 +36,10 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **`termina-cli.exe`, on Windows.** `Termina.exe` is a window program and has no console, so
+  `--help`, `--version` and `--report` printed nothing in the terminal they were typed in. The
+  installer now carries a second launcher that prints there; with no such option it opens a window
+  as `Termina.exe` does.
 - **Help ▸ Pauta Conformance.** A window that says which edition of
   [Pauta](https://pauta-project.dev/) Termina follows and how far it has got: Complete, Core or
   Partial, and under that every rule it does not meet yet, each with a one-line reason, a link to
@@ -105,6 +109,14 @@ done.
 
 ### Changed
 
+- **The status bar is shown, and on Windows and Linux the menu bar is in the title bar, unless you
+  turn them off.** Both were options that started off. If you never changed either you will see
+  both after this update: a row under the terminal that says what the last command reported, where
+  a dialog used to appear, and one row at the top holding the menus, the title and the window
+  buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
+  had already chosen is left as it is.
+- **The coverage floors are one set of numbers in the build.** No Windows profile lowers them; the
+  Windows CI runner passes its own on its command line.
 - **Termina follows Pauta 6.0.1** (it named 2.0.2), and says "working toward" it: the rules it does
   not meet yet are listed in Help ▸ Pauta Conformance, and the README's badge carries the same
   word. The list is `pauta.json`, and a test holds it, the README and About to one answer.

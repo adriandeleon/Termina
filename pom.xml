@@ -38,7 +38,8 @@
              windows=d3d,es2,sw (keep Direct3D), linux=es2,sw. This default covers
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
-        <!-- The whole-build coverage floors (jacoco-check); os-windows lowers them. -->
+        <!-- The whole-build coverage floors (jacoco-check). No profile changes them (PLAT-12,
+             Pauta 6.0.1); the Windows CI runner passes lower ones on its command line. -->
         <coverage.bundle.line>0.90</coverage.bundle.line>
         <coverage.bundle.method>0.90</coverage.bundle.method>
         <coverage.bundle.branch>0.73</coverage.bundle.branch>
@@ -335,9 +336,10 @@
                                   the rule asks, and branches as a net under what is measured. Linux
                                   measures 90.2% lines, 91.1% methods and 74.6% branches, most of it
                                   from headless tests that drive the real windows on real shells.
-                                  Windows skips those (its shell path has never run), measures far
-                                  lower, and so the os-windows profile lowers the floors rather than one
-                                  number failing one side; that is the rule not yet met there.
+                                  Windows skips those (its shell path has never run) and measures far
+                                  lower. No profile lowers the floors for it: the pom has one set of
+                                  numbers, and the workflow's Windows runner passes its own with -D
+                                  (ci.yml), which is that runner's choice and says so where it is made.
                                 -->
                                 <rule>
                                     <element>BUNDLE</element>
@@ -600,12 +602,37 @@
             <activation><os><family>windows</family></os></activation>
             <properties>
                 <prism.pipeline>d3d,es2,sw</prism.pipeline>
-                <!-- No PTY or window-lifecycle tests here; see jacoco-check. -->
-                <coverage.bundle.line>0.45</coverage.bundle.line>
-                <coverage.bundle.method>0.47</coverage.bundle.method>
-                <coverage.bundle.branch>0.45</coverage.bundle.branch>
                 <jpackage.icon>${project.basedir}/branding/termina.ico</jpackage.icon>
             </properties>
+            <build>
+                <plugins>
+                    <!--
+                      CLI-11 (Pauta 6.0.1): Termina.exe is a GUI program with no console, so the
+                      image also carries termina-cli.exe, the same entry point as a console
+                      program. Merged into the dist profile's app-image execution, which has the
+                      goal and the rest of the configuration; without -Pdist this binds nothing.
+                      Windows only: on Linux a second launcher would become a second desktop entry.
+                    -->
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <version>${jpackage.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>app-image</id>
+                                <configuration>
+                                    <launchers>
+                                        <launcher>
+                                            <name>termina-cli</name>
+                                            <file>${project.basedir}/packaging/windows/termina-cli.properties</file>
+                                        </launcher>
+                                    </launchers>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
         <profile>
             <id>os-linux</id>

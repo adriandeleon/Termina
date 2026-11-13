@@ -2,6 +2,8 @@
 
 Recorded: 2026-11-07. Supersedes [0006](0006-no-status-bar.md).
 
+**The default was reversed by [0010](0010-status-bar-and-title-bar-menus-on-by-default.md): the bar is on unless hidden.**
+
 ## Context
 
 [0006](0006-no-status-bar.md) left the status bar out, because every row that is not the terminal

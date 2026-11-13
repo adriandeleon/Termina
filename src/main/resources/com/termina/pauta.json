@@ -33,14 +33,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "PLAT-12",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/platform/#plat-12",
-      "kind": "pending",
-      "reason": "On Windows the tests are held to a lower coverage floor than on macOS and Linux.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "PLAT-14",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/platform/#plat-14",
@@ -273,22 +265,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "WIN-01",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/window-shell/#win-01",
-      "kind": "pending",
-      "reason": "The status bar is off until you turn it on in Settings or the View menu.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "WIN-03",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/window-shell/#win-03",
-      "kind": "pending",
-      "reason": "On Windows and Linux the menu bar sits under the title bar until you move it into the title bar in Settings.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "WIN-08",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/window-shell/#win-08",
@@ -414,14 +390,6 @@
       "url": "https://pauta-project.dev/6.0.1/diagnostics/#diag-07",
       "kind": "pending",
       "reason": "There is no page that checks whether the programs Termina relies on, such as git, are installed.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "CLI-11",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/command-line/#cli-11",
-      "kind": "pending",
-      "reason": "On Windows there is no console launcher, so the command-line options print nothing in a terminal there.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

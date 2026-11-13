@@ -161,7 +161,7 @@ class ConfigArchiveTest {
         Settings settings = new Settings(file);
         settings.load();
         settings.setThemeId("solarized");
-        settings.setShowStatusBar(true);
+        settings.setShowStatusBar(false);
         int[] heard = {0};
         settings.addOnChange(() -> heard[0]++);
 
@@ -170,12 +170,12 @@ class ConfigArchiveTest {
         settings.replaceStored(next);
 
         assertEquals("dracula", settings.themeId());
-        assertFalse(settings.showStatusBar(), "a preference the zip lacks goes back to its default");
+        assertTrue(settings.showStatusBar(), "a preference the zip lacks goes back to its default");
         assertEquals(1, heard[0]);
         Settings reread = new Settings(file);
         reread.load();
         assertEquals("dracula", reread.themeId());
-        assertFalse(reread.showStatusBar());
+        assertTrue(reread.showStatusBar());
     }
 
     @Test

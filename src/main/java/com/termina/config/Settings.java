@@ -969,11 +969,13 @@ public final class Settings {
      * Put the menu bar in the title bar: one row holds the menus, the window title and the window
      * buttons, and the terminal gains the row the native title bar took.
      *
-     * <p>Off by default. Applies to windows opened after the change — a stage's style is fixed
-     * when it is first shown — and never on macOS, where the menus are in the screen menu bar.
+     * <p>On by default (WIN-03, Pauta 6.0.1); turning it off falls back to a decorated window
+     * with the menu bar under its title bar. Applies to windows opened after the change — a
+     * stage's style is fixed when it is first shown — and never on macOS, where the menus are in
+     * the screen menu bar.
      */
     public boolean menuBarInTitleBar() {
-        return readBoolean(MENU_BAR_IN_TITLE_BAR, false);
+        return readBoolean(MENU_BAR_IN_TITLE_BAR, true);
     }
 
     public void setMenuBarInTitleBar(boolean inTitleBar) {
@@ -1005,11 +1007,12 @@ public final class Settings {
     }
 
     /**
-     * Show the status bar under the terminal. Off by default: it costs the terminal a row, and
-     * every message it would show also reaches a dialog or the Message Log without it.
+     * Show the status bar under the terminal. On by default (WIN-01, Pauta 6.0.1): a message goes
+     * to its echo area and not to a dialog. It costs the terminal a row, which is why it can be
+     * hidden; hidden, a message is a dialog again, and the Message Log has every one either way.
      */
     public boolean showStatusBar() {
-        return readBoolean(SHOW_STATUS_BAR, false);
+        return readBoolean(SHOW_STATUS_BAR, true);
     }
 
     public void setShowStatusBar(boolean show) {
