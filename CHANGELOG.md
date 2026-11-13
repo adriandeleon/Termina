@@ -36,6 +36,13 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Help ▸ Pauta Conformance.** A window that says which edition of
+  [Pauta](https://pauta-project.dev/) Termina follows and how far it has got: Complete, Core or
+  Partial, and under that every rule it does not meet yet, each with a one-line reason, a link to
+  the rule and a link to the issue that tracks it. Copy as text puts the list on the clipboard as
+  Markdown. About says the same in one line, which opens the window, and the block that Copy
+  Details and Report a Problem include now carries it. Also in the palette: Pauta Conformance,
+  Pauta Conformance in the Docs and Copy Pauta Conformance.
 - **Quit.** File ▸ Quit Termina, and the Quit Termina command in the palette, close every window
   and end the app. If a program is still running in any tab of any window it asks first, once,
   with Cancel as the default. The macOS application menu's Quit and the Dock's now ask that one
@@ -88,8 +95,8 @@ done.
   menu and the palette, bindable on the Keyboard page, and greyed with the reason while they would
   close nothing. Close Tabs to the Left is new, on a tab's menu too. Configure Profiles is a command
   as well, and opens Settings on the Profiles page.
-- **About names the Pauta edition Termina is built to, and what it runs on.** A "Built to Pauta
-  2.0.2" link to that edition's guidelines, the Java and JavaFX versions, and a Copy details button
+- **About names the Pauta edition Termina follows, and what it runs on.** A "Working toward Pauta
+  6.0.1" link to that edition's guidelines ("Built to" once every MUST is met), the Java and JavaFX versions, and a Copy details button
   that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
   JavaFX, OS) for a bug report. A "Source code and releases" link is always there, not only when
   an update is.
@@ -98,6 +105,9 @@ done.
 
 ### Changed
 
+- **Termina follows Pauta 6.0.1** (it named 2.0.2), and says "working toward" it: the rules it does
+  not meet yet are listed in Help ▸ Pauta Conformance, and the README's badge carries the same
+  word. The list is `pauta.json`, and a test holds it, the README and About to one answer.
 - **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
   a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
   default button, and the red action runs only from itself: a click, or Tab to it and Space.

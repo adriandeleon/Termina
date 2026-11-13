@@ -11,7 +11,7 @@
   <img alt="Java" src="https://img.shields.io/badge/Java-25-orange">
   <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-27-blue">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey">
-  <a href="https://pauta-project.dev/2.0.2/"><img alt="Built to Pauta 2.0.2" src="https://img.shields.io/badge/Pauta-2.0.2-5b6ee1"></a>
+  <a href="https://termina-project.dev/docs/pauta/"><img alt="Pauta 6.0.1, conformance Partial" src="https://img.shields.io/badge/Pauta-6.0.1%20%C2%B7%20Partial-d29922"></a>
 </p>
 
 <p align="center">
@@ -25,6 +25,8 @@ renders the emulated screen to a canvas.
 [user docs](https://termina-project.dev/docs/), [keybindings](https://termina-project.dev/keybindings/),
 [news](https://termina-project.dev/news/) and the [blog](https://termina-project.dev/blog/).
 The site's source is [adriandeleon/termina-website](https://github.com/adriandeleon/termina-website).
+
+Working toward [Pauta (the adl desktop apps guidelines)](https://pauta-project.dev/), edition [6.0.1](https://pauta-project.dev/6.0.1/), [Pauta conformance: Partial](https://termina-project.dev/docs/pauta/).
 
 Status: **early**. It is used on macOS and Linux. Windows is built, packaged and tested in CI on
 every commit, but nobody has opened a window there yet.

@@ -204,6 +204,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
                                        # logging path, to check the debug log captures them
   -Dtermina.captureShortcuts=true      # photograph the Keyboard Shortcuts window (or =<query>)
   -Dtermina.captureAbout=true          # ...the About window
+  -Dtermina.capturePauta=true          # ...the Pauta Conformance window
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful

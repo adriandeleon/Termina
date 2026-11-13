@@ -38,7 +38,13 @@ class AppInfoTest {
     void agentsAndReadmeNameTheSameEdition() throws IOException {
         String edition = pomEdition();
         String agents = Files.readString(Path.of("AGENTS.md"));
-        assertTrue(agents.contains("built to Pauta " + edition), "AGENTS.md does not name Pauta " + edition);
+        assertTrue(agents.contains("Pauta " + edition), "AGENTS.md does not name Pauta " + edition);
+        // PAUTA-17 (Pauta 6.0.1): both files of rules at that edition's address, and no other.
+        assertTrue(agents.contains("https://pauta-project.dev/" + edition + "/llms-full.txt"));
+        assertFalse(agents.contains("pauta-project.dev/latest"), "AGENTS.md links latest/");
+        Matcher other =
+                Pattern.compile("pauta-project\\.dev/(\\d+\\.\\d+\\.\\d+)/").matcher(agents);
+        while (other.find()) assertEquals(edition, other.group(1), "AGENTS.md links another edition");
         assertTrue(agents.contains("https://pauta-project.dev/" + edition + "/llms.txt"));
         String readme = Files.readString(Path.of("README.md"));
         assertTrue(readme.contains("Pauta-" + edition), "README badge does not name Pauta " + edition);

@@ -55,6 +55,7 @@ class WindowCommandsFxTest {
             "help.website", // a browser
             "help.sourceCode", // a browser
             "help.pautaRules", // a browser
+            "help.pautaDocs", // a browser
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
             "app.quit", // ends the app, and the toolkit the other tests share

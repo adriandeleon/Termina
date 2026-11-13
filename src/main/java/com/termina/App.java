@@ -80,6 +80,9 @@ public final class App extends Application {
         // Here, off the FX thread: whether the configured shell can run is asked of the disk, and
         // the first menu the window builds wants the answer (PERF-01, Pauta 6.0.1).
         com.termina.shell.ShellProfiles.warm(settings.shell(), java.util.List.of());
+        // And the bundled list of Pauta exceptions, which About and the Pauta window show: read
+        // here once, so neither reads a file when it opens.
+        PautaConformance.warm();
 
         // Before the stylesheet and before any window: CSS naming a font that is not yet registered
         // does not wait for it, it silently resolves to the system face. Only what the first window

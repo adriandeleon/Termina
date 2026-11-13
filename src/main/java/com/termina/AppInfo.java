@@ -137,7 +137,11 @@ public final class AppInfo {
         lines.add(NAME + " " + VERSION);
         if (!BUILD_TIME.isBlank()) lines.add("Built: " + BUILD_TIME);
         if (!COMMIT.isBlank()) lines.add("Commit: " + COMMIT);
-        if (!PAUTA_EDITION.isBlank()) lines.add("Pauta: " + PAUTA_EDITION);
+        if (!PAUTA_EDITION.isBlank()) {
+            lines.add("Pauta: " + PAUTA_EDITION);
+            // Right after the edition (ABOUT-09, Pauta 6.0.1): how fully, and how many exceptions.
+            lines.add(PautaConformance.environmentLine(PautaConformance.exceptions()));
+        }
         lines.add("Java: " + javaVersion());
         String fx = javaFxVersion();
         if (!fx.isBlank()) lines.add("JavaFX: " + fx);

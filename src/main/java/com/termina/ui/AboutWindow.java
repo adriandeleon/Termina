@@ -47,10 +47,18 @@ public final class AboutWindow {
     private UpdateService.@Nullable Outcome answer;
 
     public AboutWindow(Settings settings, Consumer<String> openLink) {
+        this(settings, openLink, () -> {});
+    }
+
+    /** @param showPauta opens the Pauta window, as the {@code help.pauta} command does */
+    public AboutWindow(Settings settings, Consumer<String> openLink, Runnable showPauta) {
         this.settings = settings;
         this.openLink = openLink;
+        this.showPauta = showPauta;
         build();
     }
+
+    private final Runnable showPauta;
 
     /**
      * @param update the newer release, or null when none is known
@@ -147,9 +155,18 @@ public final class AboutWindow {
         // The numbered edition's page, never latest/: a newer edition may hold rules this build
         // does not meet. Absent from an unfiltered build rather than linking nowhere.
         if (!AppInfo.PAUTA_EDITION.isBlank()) {
-            Hyperlink pauta = new Hyperlink(tr("about.pauta", AppInfo.PAUTA_EDITION));
+            // "Working toward" at Partial: an edition whose MUSTs are not all met is not one the
+            // app is built to (ABOUT-09, Pauta 6.0.1). The conformance is the helper's, never typed.
+            com.termina.PautaConformance.Conformance conformance = com.termina.PautaConformance.conformance();
+            boolean partial = conformance == com.termina.PautaConformance.Conformance.PARTIAL;
+            Hyperlink pauta =
+                    new Hyperlink(tr(partial ? "about.pautaWorkingToward" : "about.pauta", AppInfo.PAUTA_EDITION));
             pauta.setOnAction(e -> openLink.accept(AppInfo.pautaUrl()));
-            links.getChildren().add(pauta);
+            // Right after it: the conformance, which opens the Pauta window as help.pauta does.
+            Hyperlink conformanceLink =
+                    new Hyperlink(tr("about.pautaConformance", PautaWindow.conformanceName(conformance)));
+            conformanceLink.setOnAction(e -> showPauta.run());
+            links.getChildren().addAll(pauta, conformanceLink);
         }
 
         // Everything --version prints, for a bug report. In the content rather than the button

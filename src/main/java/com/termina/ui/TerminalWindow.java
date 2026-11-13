@@ -3059,6 +3059,11 @@ public final class TerminalWindow {
                 item("command.help.sourceCode", () -> windows.openLink(com.termina.AppInfo.RELEASES_PAGE)),
                 // The edition's own page, never latest/ (PWIN-04 names the id).
                 item("command.help.pautaRules", () -> windows.openLink(com.termina.AppInfo.pautaUrl())),
+                // The Pauta window, the docs page it links and its Copy as text (PWIN-01, PWIN-06,
+                // PWIN-07, Pauta 6.0.1).
+                item("command.help.pauta", () -> windows.showPauta(stage)),
+                item("command.help.pautaDocs", () -> windows.openLink(PautaWindow.DOCS_PAGE)),
+                item("command.help.copyPauta", PautaWindow::copyMarkdown),
                 item("command.reportProblem", () -> windows.showReportProblem(stage)),
                 MenuAction.of(tr("command.help.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
                         .describedAs(description("command.help.about"))

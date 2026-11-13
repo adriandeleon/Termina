@@ -149,6 +149,7 @@ final class MenuBarModel {
                         "view.messageLog",
                         "debugLog",
                         "reportProblem",
+                        "help.pauta",
                         SEPARATOR,
                         "help.about"),
                 // What the two log windows' buttons and right-click rows do (KBD-01): palette and
@@ -166,7 +167,9 @@ final class MenuBarModel {
                         "help.copyDetails",
                         "help.website",
                         "help.sourceCode",
-                        "help.pautaRules"));
+                        "help.pautaRules",
+                        "help.pautaDocs",
+                        "help.copyPauta"));
 
         return List.of(file, edit, view, window, help);
     }

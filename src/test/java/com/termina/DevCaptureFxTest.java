@@ -123,6 +123,7 @@ class DevCaptureFxTest {
                 Map.of("termina.captureSettings", "font", "termina.captureSettingsKeys", "newTab:C-S-y"));
         runs.put("the shortcut reference", Map.of("termina.captureShortcuts", "true"));
         runs.put("the about window", Map.of("termina.captureAbout", "true"));
+        runs.put("the pauta window", Map.of("termina.capturePauta", "true"));
         runs.put(
                 "what programs say: prompt marks, links, notifications, the clipboard",
                 Map.of(

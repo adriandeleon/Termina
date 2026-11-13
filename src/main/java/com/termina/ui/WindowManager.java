@@ -414,8 +414,26 @@ public final class WindowManager {
     /** The About window, made on first use. */
     private AboutWindow aboutWindow() {
         AboutWindow about = aboutWindow;
-        if (about == null) aboutWindow = about = new AboutWindow(settings, openLink);
+        if (about == null) {
+            aboutWindow = about = new AboutWindow(settings, openLink, () -> showPauta(frontWindow()));
+        }
         return about;
+    }
+
+    private @Nullable PautaWindow pautaWindow;
+
+    /** The Pauta window (PWIN-01): what {@code help.pauta} and About's conformance link open. */
+    void showPauta(Window from) {
+        PautaWindow window = pautaWindow;
+        if (window == null) pautaWindow = window = new PautaWindow(openLink);
+        window.show(from);
+    }
+
+    /** For the development capture hook. */
+    public javafx.scene.Scene showPautaForCapture(Window owner) {
+        showPauta(owner);
+        PautaWindow window = pautaWindow;
+        return window == null ? owner.getScene() : window.scene();
     }
 
     // ---------------------------------------------------------------- updates

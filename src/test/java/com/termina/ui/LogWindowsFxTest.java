@@ -216,6 +216,76 @@ class LogWindowsFxTest {
         assertTrue(log.unreadErrors() == 0);
     }
 
+    /**
+     * MENU-10 (Pauta 6.0.1): a right-click selects first, so the menu that opens is the clicked
+     * row's and Copy acts on that row, not on the one that was selected before.
+     */
+    @Test
+    void aRightClickOnAnotherRowOfTheMessageLogSelectsItFirst() throws Exception {
+        MessageLog log = new MessageLog();
+        List<String> seen = onFx(() -> {
+            log.add(MessageLog.Severity.INFO, "first said");
+            log.add(MessageLog.Severity.INFO, "second said");
+            log.add(MessageLog.Severity.INFO, "third said");
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 300, 200));
+            owner.show();
+            MessageLogWindow window = new MessageLogWindow(log);
+            window.show(owner);
+            window.scene().getRoot().applyCss();
+            window.scene().getRoot().layout();
+            @SuppressWarnings("unchecked")
+            javafx.scene.control.ListView<MessageLog.Entry> list = (javafx.scene.control.ListView<MessageLog.Entry>)
+                    window.scene().lookup(".list-view");
+            list.getSelectionModel().clearAndSelect(0);
+            List<String> out = new java.util.ArrayList<>();
+            out.add(list.getSelectionModel().getSelectedItem().text());
+            // The row holding the oldest message, pressed with the secondary button.
+            list.applyCss();
+            list.layout();
+            for (javafx.scene.Node node : list.lookupAll(".list-cell")) {
+                if (node instanceof javafx.scene.control.ListCell<?> cell
+                        && cell.getItem() instanceof MessageLog.Entry entry
+                        && entry.text().equals("first said")) {
+                    // In the scene's coordinates: the event's own are worked out from them
+                    // for whatever it is fired at.
+                    javafx.geometry.Point2D at = cell.localToScene(5, 5);
+                    javafx.event.Event.fireEvent(
+                            cell,
+                            new javafx.scene.input.MouseEvent(
+                                    javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+                                    at.getX(),
+                                    at.getY(),
+                                    at.getX(),
+                                    at.getY(),
+                                    javafx.scene.input.MouseButton.SECONDARY,
+                                    1,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    true,
+                                    false,
+                                    true,
+                                    false,
+                                    null));
+                }
+            }
+            out.add(list.getSelectionModel().getSelectedItems().stream()
+                    .map(MessageLog.Entry::text)
+                    .toList()
+                    .toString());
+            window.copy();
+            out.add(Clipboard.getSystemClipboard().getString().strip().replaceAll("^\\S+\\s+", ""));
+            window.scene().getWindow().hide();
+            owner.hide();
+            return out;
+        });
+        assertEquals(List.of("third said", "[first said]", "first said"), seen);
+    }
+
     private static <T> T onFx(java.util.concurrent.Callable<T> work) throws Exception {
         CompletableFuture<T> result = new CompletableFuture<>();
         Platform.runLater(() -> {

@@ -80,6 +80,7 @@ class SecondaryWindowsFxTest {
             windows.showDebugLog(owner);
             windows.showReportProblem(owner);
             windows.showAbout(owner);
+            windows.showPauta(owner);
             ShortcutsWindow shortcuts = new ShortcutsWindow();
             shortcuts.show(owner, List.of());
             shortcuts.setQueryForCapture("tab");
@@ -113,6 +114,10 @@ class SecondaryWindowsFxTest {
                                 new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false));
                 if (window.isShowing()) window.hide();
             }
+            // About's conformance link opens the Pauta window again, after the sweep had closed it.
+            for (Window left : List.copyOf(Window.getWindows())) {
+                if (!before.contains(left) && left != owner && left.isShowing()) left.hide();
+            }
             owner.hide();
             return count;
         });
@@ -121,6 +126,9 @@ class SecondaryWindowsFxTest {
         // ABOUT-02 (Pauta 6.0.1): the home page, and the source and releases, with no update to show.
         assertTrue(links.contains(com.termina.AppInfo.HOMEPAGE), links::toString);
         assertTrue(links.contains(com.termina.AppInfo.RELEASES_PAGE), links::toString);
+        // PWIN-07: the Pauta window's two links, and About's edition link, to this edition's rules.
+        assertTrue(links.contains(com.termina.AppInfo.pautaUrl()), links::toString);
+        assertTrue(links.contains(PautaWindow.DOCS_PAGE), links::toString);
     }
 
     @Test

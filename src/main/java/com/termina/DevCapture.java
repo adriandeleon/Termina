@@ -1041,6 +1041,10 @@ final class DevCapture {
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
         }
+        // -Dtermina.capturePauta=true opens Help → Pauta Conformance.
+        if (System.getProperty("termina.capturePauta") != null) {
+            return windows.showPautaForCapture(window.stage());
+        }
         if (System.getProperty("termina.captureProfiles") != null) {
             System.out.println("[capture] profiles " + window.profileMenuForCapture());
             javafx.stage.Window popup = window.stage().getScene().getWindow();
