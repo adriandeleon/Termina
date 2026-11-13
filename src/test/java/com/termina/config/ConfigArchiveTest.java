@@ -89,7 +89,7 @@ class ConfigArchiveTest {
         Path config = dir.resolve("config");
         Map<String, String> settings = Map.of(
                 "theme", "dracula",
-                "keys.newTab", "Ctrl+Shift+N",
+                "keys.file.newTab", "Ctrl+Shift+N",
                 "profile.1.name", "zsh",
                 "window.x", "40",
                 "sync.repository", "git@example.com:me/dotfiles.git");
@@ -125,14 +125,14 @@ class ConfigArchiveTest {
         Map<String, String> here = Map.of(
                 "theme", "solarized",
                 "font.size", "15",
-                "keys.newTab", "Ctrl+Shift+Y",
+                "keys.file.newTab", "Ctrl+Shift+Y",
                 "profile.1.name", "fish",
                 "window.x", "100",
                 "sync.repository", "git@here:me/dots.git");
         Map<String, String> zip = Map.of(
                 "theme", "dracula",
-                "keys.newTab", "Ctrl+Shift+N",
-                "keys.closeTab", "none",
+                "keys.file.newTab", "Ctrl+Shift+N",
+                "keys.file.closeTab", "none",
                 "profile.1.name", "zsh",
                 "window.x", "999",
                 "sync.repository", "git@there:me/dots.git");
@@ -140,8 +140,8 @@ class ConfigArchiveTest {
         Map<String, String> merged = ConfigArchive.merge(here, zip, EnumSet.of(Part.KEY_BINDINGS));
 
         Map<String, String> expected = new HashMap<>(here);
-        expected.put("keys.newTab", "Ctrl+Shift+N");
-        expected.put("keys.closeTab", "none");
+        expected.put("keys.file.newTab", "Ctrl+Shift+N");
+        expected.put("keys.file.closeTab", "none");
         assertEquals(expected, merged);
     }
 

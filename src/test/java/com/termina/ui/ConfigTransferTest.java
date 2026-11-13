@@ -98,7 +98,7 @@ class ConfigTransferTest {
         com.termina.config.Settings settings = new com.termina.config.Settings(dir.resolve("config/settings.json"));
         settings.load();
         settings.setThemeId("editora-light");
-        settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+Y"));
+        settings.replaceKeyBindings(Map.of("file.newTab", "Shortcut+Shift+Y"));
         settings.flush();
         ConfigTransfer transfer = new ConfigTransfer(settings);
         java.util.List<String> reports = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -123,14 +123,14 @@ class ConfigTransferTest {
 
         // Changed here since the export; the import brings the bindings back and leaves the theme.
         settings.setThemeId("editora-dark");
-        settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+U"));
+        settings.replaceKeyBindings(Map.of("file.newTab", "Shortcut+Shift+U"));
         onFx(() -> {
             transfer.importZip(zip, report, scan -> java.util.EnumSet.of(Part.KEY_BINDINGS));
             return null;
         });
         waitFor(() -> reports.size() >= 2);
         assertTrue(reports.get(1).startsWith("INFO"), reports.toString());
-        assertEquals("Shortcut+Shift+Y", settings.values().get("keys.newTab"));
+        assertEquals("Shortcut+Shift+Y", settings.values().get("keys.file.newTab"));
         assertEquals("editora-dark", settings.themeId());
 
         // Not a zip: refused, with the reason.

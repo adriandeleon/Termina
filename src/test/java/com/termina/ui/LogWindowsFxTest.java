@@ -140,7 +140,7 @@ class LogWindowsFxTest {
                                 Messages.tr("debuglog.refresh"),
                                 Messages.tr("debuglog.export"),
                                 Messages.tr("debuglog.clear"),
-                                Messages.tr("command.reportProblem")),
+                                Messages.tr("command.help.reportProblem")),
                         true,
                         true,
                         "later",

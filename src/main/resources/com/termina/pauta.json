@@ -73,14 +73,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "KBD-02",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-02",
-      "kind": "pending",
-      "reason": "Most commands still have ids without an area in front, such as newTab.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "KBD-04",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-04",

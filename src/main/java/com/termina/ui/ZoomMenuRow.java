@@ -59,12 +59,12 @@ final class ZoomMenuRow {
         Region spacer = new Region();
         HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
 
-        Button out = button("−", "zoomOut", actions::zoomOut);
-        Button in = button("+", "zoomIn", actions::zoomIn);
+        Button out = button("−", "view.zoomOut", actions::zoomOut);
+        Button in = button("+", "view.zoomIn", actions::zoomIn);
 
         // Not a Label: the percentage is the reset control, and a reader who does not know that
         // still gets the number. Styled flat so it reads as a value rather than a third button.
-        Button reset = button("", "actualSize", actions::reset);
+        Button reset = button("", "view.actualSize", actions::reset);
         reset.getStyleClass().add("zoom-value");
         reset.setGraphic(percent);
 
@@ -72,7 +72,7 @@ final class ZoomMenuRow {
         // you do two or three times to find the right size; going full screen is done once, and a
         // menu left sitting over the newly full-screen window reads as nothing having happened —
         // the menu being the thing you are looking at. Firefox's panel behaves the same way.
-        Button fullScreen = button("⤢", "fullScreen", () -> {
+        Button fullScreen = button("⤢", "view.fullScreen", () -> {
             actions.toggleFullScreen();
             if (item != null && item.getParentPopup() != null)
                 item.getParentPopup().hide();

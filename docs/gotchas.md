@@ -275,7 +275,7 @@ is broken.
   key binding (`keys.palette.show`, which was `keys.commandPalette` until the command took the id
   Pauta names), the line it had when it was the only chord that could change.
 - **Every binding has two lists: the defaults and the chords in force.** `TerminalWindow.table`
-  holds each command on its default chord, by a stable id (`newTab` — the catalogue key without
+  holds each command on its default chord, by a stable id (`file.newTab` — the catalogue key without
   `command.`), and `register` still throws on two *defaults* on one chord. `bindings`, which the key
   filter runs, is derived from it by `Keybindings.resolve` against the stored `keys.*` block on
   every `applySettings`, along with each menu row's chord, the palette chip and the tab

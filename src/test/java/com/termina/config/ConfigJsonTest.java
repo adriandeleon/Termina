@@ -20,7 +20,7 @@ class ConfigJsonTest {
                 "ui.showMenuBar", "false",
                 "profile.1.name", "007",
                 "terminal.shell", "C:\\Windows\\System32\\wsl.exe",
-                "keys.newTab", "Shortcut+Shift+T");
+                "keys.file.newTab", "Shortcut+Shift+T");
         ConfigJson.Document read = ConfigJson.read(ConfigJson.write(values));
         assertEquals(ConfigJson.SCHEMA_VERSION, read.schemaVersion());
         assertEquals(values, read.values());

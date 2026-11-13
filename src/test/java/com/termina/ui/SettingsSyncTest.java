@@ -62,11 +62,11 @@ class SettingsSyncTest {
 
     @Test
     void aSummaryNamesConflictsByWhatTheCommandDoes() {
-        SyncReport report =
-                new SyncReport(SyncReport.Status.OK, List.of("copy"), List.of("newTab"), List.of("newTab"), "");
-        String text = SettingsSync.summary(report, id -> id.equals("newTab") ? "New Tab" : id);
+        SyncReport report = new SyncReport(
+                SyncReport.Status.OK, List.of("edit.copy"), List.of("file.newTab"), List.of("file.newTab"), "");
+        String text = SettingsSync.summary(report, id -> id.equals("file.newTab") ? "New Tab" : id);
         assertTrue(text.contains("New Tab"), text);
-        assertFalse(text.contains("newTab"), text);
+        assertFalse(text.contains("file.newTab"), text);
 
         SyncReport quiet = new SyncReport(SyncReport.Status.OK, List.of(), List.of(), List.of(), "");
         assertFalse(SettingsSync.summary(quiet, id -> id).isBlank());

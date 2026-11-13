@@ -42,12 +42,12 @@ class WindowRulesPureTest {
 
     @Test
     void theReferenceListsProfileChordsOnlyForProfilesThatExist() {
-        assertTrue(WindowRules.listsProfileChord("newTabProfile1", 1));
-        assertFalse(WindowRules.listsProfileChord("newTabProfile2", 1));
-        assertTrue(WindowRules.listsProfileChord("newTabProfile9", 9));
+        assertTrue(WindowRules.listsProfileChord("file.newTabProfile1", 1));
+        assertFalse(WindowRules.listsProfileChord("file.newTabProfile2", 1));
+        assertTrue(WindowRules.listsProfileChord("file.newTabProfile9", 9));
         // Everything that is not a profile chord is listed as before.
-        assertTrue(WindowRules.listsProfileChord("newTab", 0));
-        assertTrue(WindowRules.listsProfileChord("goToTab9", 0));
+        assertTrue(WindowRules.listsProfileChord("file.newTab", 0));
+        assertTrue(WindowRules.listsProfileChord("tab.goTo9", 0));
         assertTrue(WindowRules.listsProfileChord(null, 0));
     }
 }

@@ -1693,7 +1693,7 @@ public final class SettingsWindow {
         return tr("settings.defaultProfile.desc", chord == null ? labelOf(NEW_TAB) : chord.getDisplayText());
     }
 
-    private static final String NEW_TAB = "newTab";
+    private static final String NEW_TAB = "file.newTab";
 
     private @Nullable Label defaultProfileHint;
 
@@ -1706,7 +1706,7 @@ public final class SettingsWindow {
     }
 
     /** {@code TerminalWindow.PROFILE_CHORD_ID}; the commands are that plus 1 to 9. */
-    private static final String PROFILE_CHORD = "newTabProfile";
+    private static final String PROFILE_CHORD = "file.newTabProfile";
 
     private @Nullable Label profilesHint;
 

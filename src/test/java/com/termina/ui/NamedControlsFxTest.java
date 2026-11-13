@@ -87,7 +87,7 @@ class NamedControlsFxTest {
             windows.showReportProblem(window.stage());
             windows.debugLog(window.stage()).find();
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("keyboardShortcuts".equals(row.id())) row.action().run();
+                if ("help.keyboardShortcuts".equals(row.id())) row.action().run();
             }
             // And the palette, over the terminal: its field and the rows it lists.
             for (MenuAction row : window.runnablePaletteRowsForTest()) {

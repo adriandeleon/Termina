@@ -165,9 +165,9 @@ class PaletteFocusFxTest {
 
         String[] seen = onFx(() -> {
             run(window, "palette.show");
-            String before = window.paletteChordForTest("newTab") + " " + window.paletteOpenerForTest();
-            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y", "palette.show", "Alt+X"));
-            String after = window.paletteChordForTest("newTab") + " " + window.paletteOpenerForTest();
+            String before = window.paletteChordForTest("file.newTab") + " " + window.paletteOpenerForTest();
+            settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Shortcut+Shift+Y", "palette.show", "Alt+X"));
+            String after = window.paletteChordForTest("file.newTab") + " " + window.paletteOpenerForTest();
             run(window, "palette.show");
             settings.replaceKeyBindings(java.util.Map.of());
             return new String[] {before, after};
@@ -249,7 +249,7 @@ class PaletteFocusFxTest {
         waitFor(() -> started(window), "the shell to start");
 
         String shown = onFx(() -> {
-            run(window, "focusMenuBar");
+            run(window, "view.focusMenuBar");
             javafx.scene.control.Menu first = window.menuBarForTest().getMenus().getFirst();
             boolean open = first.isShowing();
             boolean focused = window.menuBarForTest().isFocused();
@@ -263,8 +263,8 @@ class PaletteFocusFxTest {
             settings.setShowMenuBar(false);
             return null;
         });
-        assertFalse(onFx(
-                () -> window.runnablePaletteRowsForTest().stream().anyMatch(row -> "focusMenuBar".equals(row.id()))));
+        assertFalse(onFx(() ->
+                window.runnablePaletteRowsForTest().stream().anyMatch(row -> "view.focusMenuBar".equals(row.id()))));
         onFx(() -> {
             settings.setShowMenuBar(true);
             return null;

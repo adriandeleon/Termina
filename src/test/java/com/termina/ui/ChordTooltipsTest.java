@@ -58,13 +58,13 @@ class ChordTooltipsTest {
 
             @Override
             public KeyCombination chordOf(String id) {
-                return "zoomIn".equals(id) ? zoomIn[0] : null;
+                return "view.zoomIn".equals(id) ? zoomIn[0] : null;
             }
         };
 
         Map<String, String> first = onFx(() -> new ZoomMenuRow(actions).tooltips());
-        assertEquals("Zoom In (" + zoomIn[0].getDisplayText() + ")", first.get("zoomIn"));
-        assertEquals("Zoom Out", first.get("zoomOut"), "an unbound command shows its title alone");
+        assertEquals("Zoom In (" + zoomIn[0].getDisplayText() + ")", first.get("view.zoomIn"));
+        assertEquals("Zoom Out", first.get("view.zoomOut"), "an unbound command shows its title alone");
 
         // Rebound on the Keyboard page: the next open shows the new chord.
         Map<String, String> moved = onFx(() -> {
@@ -73,7 +73,7 @@ class ChordTooltipsTest {
             row.refresh();
             return row.tooltips();
         });
-        assertEquals("Zoom In (" + zoomIn[0].getDisplayText() + ")", moved.get("zoomIn"));
+        assertEquals("Zoom In (" + zoomIn[0].getDisplayText() + ")", moved.get("view.zoomIn"));
     }
 
     /**
@@ -97,7 +97,7 @@ class ChordTooltipsTest {
             });
             java.util.List<String> unbound = new java.util.ArrayList<>(bar.arrowTooltips());
             unbound.add(bar.regexTooltip());
-            bar.showChords(id -> "findNext".equals(id) ? next : "findRegex".equals(id) ? regex : null);
+            bar.showChords(id -> "find.next".equals(id) ? next : "find.regex".equals(id) ? regex : null);
             java.util.List<String> bound = new java.util.ArrayList<>(bar.arrowTooltips());
             bound.add(bar.regexTooltip());
             return java.util.List.of(unbound, bound);

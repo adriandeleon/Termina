@@ -10,10 +10,10 @@ import org.jspecify.annotations.Nullable;
 final class WindowRules {
 
     /** The first part of a profile chord's command id: {@code newTabProfile3}. */
-    static final String PROFILE_CHORD_ID = "newTabProfile";
+    static final String PROFILE_CHORD_ID = "file.newTabProfile";
 
     /** The first part of a tab chord's command id: {@code goToTab3}. */
-    static final String TAB_CHORD_ID = "goToTab";
+    static final String TAB_CHORD_ID = "tab.goTo";
 
     /** Tab and profile chords run 1 to 9; 9 is the last tab, however many there are. */
     static final int TAB_CHORD_COUNT = 9;
@@ -130,11 +130,11 @@ final class WindowRules {
      */
     static @Nullable String uiZoomUnavailableKey(String id, int percent) {
         return switch (id) {
-            case "uiZoomIn" ->
+            case "view.uiZoomIn" ->
                 percent >= com.termina.config.Settings.MAX_UI_ZOOM ? "palette.disabled.uiZoomLargest" : null;
-            case "uiZoomOut" ->
+            case "view.uiZoomOut" ->
                 percent <= com.termina.config.Settings.MIN_UI_ZOOM ? "palette.disabled.uiZoomSmallest" : null;
-            case "uiZoomReset" ->
+            case "view.uiZoomReset" ->
                 percent == com.termina.config.Settings.DEFAULT_UI_ZOOM ? "palette.disabled.uiZoomDefault" : null;
             default -> null;
         };
@@ -147,7 +147,7 @@ final class WindowRules {
      * and a closed tab can be reopened.
      */
     static boolean isDestructive(@Nullable String id) {
-        return "clearScrollback".equals(id);
+        return "edit.clearScrollback".equals(id);
     }
 
     /** Which profile a numbered profile command opens, 1 to 9; 0 for any other id. */
@@ -209,7 +209,7 @@ final class WindowRules {
      */
     static boolean yieldsToTextField(@Nullable String id) {
         return switch (id == null ? "" : id) {
-            case "copy", "paste", "selectAll", "reopenClosedTab" -> true;
+            case "edit.copy", "edit.paste", "edit.selectAll", "file.reopenClosedTab" -> true;
             default -> false;
         };
     }

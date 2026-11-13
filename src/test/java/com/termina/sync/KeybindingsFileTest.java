@@ -27,16 +27,16 @@ class KeybindingsFileTest {
     @Test
     void theSameBindingsAreTheSameBytesWhateverOrderTheyCameIn() {
         Map<String, String> a = new LinkedHashMap<>();
-        a.put("newTab", "Ctrl+Shift+Y");
-        a.put("closeTab", "none");
+        a.put("file.newTab", "Ctrl+Shift+Y");
+        a.put("file.closeTab", "none");
         Map<String, String> b = new LinkedHashMap<>();
-        b.put("closeTab", "none");
-        b.put("newTab", "Ctrl+Shift+Y");
+        b.put("file.closeTab", "none");
+        b.put("file.newTab", "Ctrl+Shift+Y");
 
         String text = KeybindingsFile.text(KeybindingsFile.OTHER_PATH, a);
         assertEquals(text, KeybindingsFile.text(KeybindingsFile.OTHER_PATH, b));
-        assertTrue(text.indexOf("closeTab=none") < text.indexOf("newTab=Ctrl+Shift+Y"), text);
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"), KeybindingsFile.entries(text));
+        assertTrue(text.indexOf("file.closeTab=none") < text.indexOf("file.newTab=Ctrl+Shift+Y"), text);
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", "none"), KeybindingsFile.entries(text));
     }
 
     @Test
@@ -49,6 +49,7 @@ class KeybindingsFileTest {
 
     @Test
     void aHandEditedFileIsReadLeniently() {
+        // The ids as an older Termina wrote them, before each had its area: read as today's.
         String text = "﻿# a comment\r\n"
                 + "! also a comment\r\n"
                 + "\n"
@@ -58,14 +59,15 @@ class KeybindingsFileTest {
                 + "copy=\n"
                 + "bad id=Ctrl+B\n"
                 + "paste=Ctrl+Shift+V\n";
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y", "paste", "Ctrl+Shift+V"), KeybindingsFile.entries(text));
+        assertEquals(
+                Map.of("file.newTab", "Ctrl+Shift+Y", "edit.paste", "Ctrl+Shift+V"), KeybindingsFile.entries(text));
     }
 
     @Test
     void aChordCannotSmuggleInAnotherLine() {
-        Map<String, String> bindings = Map.of("newTab", "Ctrl+Y\nevil=Ctrl+E", "paste", "Ctrl+Shift+V");
+        Map<String, String> bindings = Map.of("file.newTab", "Ctrl+Y\nevil=Ctrl+E", "edit.paste", "Ctrl+Shift+V");
         assertEquals(
-                Map.of("paste", "Ctrl+Shift+V"),
+                Map.of("edit.paste", "Ctrl+Shift+V"),
                 KeybindingsFile.entries(KeybindingsFile.text(KeybindingsFile.OTHER_PATH, bindings)));
     }
 
@@ -77,7 +79,7 @@ class KeybindingsFileTest {
     void anOldIdIsReadAsTheCommandsNewOne() {
         String theirs = "commandPalette=Alt+X\nabout=none\nnewTab=Ctrl+Shift+Y\n";
         Map<String, String> read = KeybindingsFile.entries(theirs);
-        assertEquals(Map.of("palette.show", "Alt+X", "help.about", "none", "newTab", "Ctrl+Shift+Y"), read);
+        assertEquals(Map.of("palette.show", "Alt+X", "help.about", "none", "file.newTab", "Ctrl+Shift+Y"), read);
         String written = KeybindingsFile.text(KeybindingsFile.OTHER_PATH, read);
         assertTrue(written.contains("palette.show=Alt+X\n"), written);
         assertFalse(written.contains("commandPalette"), written);

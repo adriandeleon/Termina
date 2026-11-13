@@ -2698,30 +2698,30 @@ public final class TerminalView extends Region {
     }
 
     private ContextItems buildContextMenu() {
-        MenuItem copyItem = commandItem("copy", MenuIcons.copy(), this::copySelection);
-        MenuItem pasteItem = commandItem("paste", MenuIcons.paste(), this::paste);
-        MenuItem openLinkItem = commandItem("openLink", MenuIcons.openLink(), () -> openLink(menuLink));
+        MenuItem copyItem = commandItem("edit.copy", MenuIcons.copy(), this::copySelection);
+        MenuItem pasteItem = commandItem("edit.paste", MenuIcons.paste(), this::paste);
+        MenuItem openLinkItem = commandItem("link.open", MenuIcons.openLink(), () -> openLink(menuLink));
         // The right-clicked link, not the one under the pointer now: the menu can be raised from
         // the keyboard. The commands of the same names act on the pointer's.
         MenuItem copyLinkItem =
-                commandItem("copyLinkAddress", MenuIcons.command("copyLinkAddress"), () -> copyLinkAddress(menuLink));
+                commandItem("link.copyAddress", MenuIcons.command("link.copyAddress"), () -> copyLinkAddress(menuLink));
 
         // The link rows are always listed, greyed where there is no link (KBD-04): a group of their
         // own after the selection's, not at the top, where two greyed rows would open every menu.
         SeparatorMenuItem linkSeparator = new SeparatorMenuItem();
 
         List<MenuItem> items = new ArrayList<>(List.of(
-                commandItem("newTab", MenuIcons.newTab(), () -> runCommand.accept("newTab")),
-                commandItem("newWindow", MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
+                commandItem("file.newTab", MenuIcons.newTab(), () -> runCommand.accept("file.newTab")),
+                commandItem("file.newWindow", MenuIcons.newWindow(), () -> runCommand.accept("file.newWindow")),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
-                commandItem("selectAll", MenuIcons.selectAll(), this::selectAll),
+                commandItem("edit.selectAll", MenuIcons.selectAll(), this::selectAll),
                 linkSeparator,
                 openLinkItem,
                 copyLinkItem,
                 new SeparatorMenuItem(),
-                dangerous(commandItem("clearScrollback", MenuIcons.clear(), this::clearScrollback))));
+                dangerous(commandItem("edit.clearScrollback", MenuIcons.clear(), this::clearScrollback))));
 
         if (zoomActions != null) {
             // The same row the View menu carries, built again: a Node cannot be in two menus.
@@ -2743,7 +2743,7 @@ public final class TerminalView extends Region {
             // draws its tick in the graphic column, and an icon there either fights it or hides it.
             menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
             menuBarItem.setOnAction(e -> toggleMenuBar.run());
-            MenuChords.command(menuBarItem, "hideMenuBar");
+            MenuChords.command(menuBarItem, "view.toggleMenuBar");
             String noBar = WindowRules.menuBarToggleUnavailableKey(!menuBarToggleAvailable);
             MenuReasons.set(menuBarItem, noBar == null ? null : tr(noBar));
             items.add(new SeparatorMenuItem());
@@ -2752,7 +2752,7 @@ public final class TerminalView extends Region {
 
         items.add(new SeparatorMenuItem());
         items.add(commandItem("palette.show", MenuIcons.commandPalette(), () -> runCommand.accept("palette.show")));
-        items.add(commandItem("settings", MenuIcons.settings(), () -> runCommand.accept("settings")));
+        items.add(commandItem("settings.show", MenuIcons.settings(), () -> runCommand.accept("settings.show")));
         items.add(MenuChords.command(
                 item(
                         tr("command.help.about", com.termina.AppInfo.NAME),

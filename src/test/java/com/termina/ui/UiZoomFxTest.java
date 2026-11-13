@@ -158,23 +158,23 @@ class UiZoomFxTest {
         TerminalWindow window = onFx(() -> windows.openWindow(null));
         waitFor(() -> started(window), "the shell to start");
 
-        assertFalse(runnable(window, "uiZoomReset"), "nothing to reset at 100%");
-        run(window, "uiZoomIn");
+        assertFalse(runnable(window, "view.uiZoomReset"), "nothing to reset at 100%");
+        run(window, "view.uiZoomIn");
         waitFor(() -> settings.uiZoom() == 110, "the zoom to go up a step");
         waitFor(() -> UiZoom.percent() == 110, "the app to follow");
-        run(window, "uiZoomIn");
+        run(window, "view.uiZoomIn");
         waitFor(() -> settings.uiZoom() == 120, "another step");
-        run(window, "uiZoomOut");
+        run(window, "view.uiZoomOut");
         waitFor(() -> settings.uiZoom() == 110, "a step back");
-        assertTrue(runnable(window, "uiZoomReset"));
-        run(window, "uiZoomReset");
+        assertTrue(runnable(window, "view.uiZoomReset"));
+        run(window, "view.uiZoomReset");
         waitFor(() -> settings.uiZoom() == 100, "back to the default");
         waitFor(() -> UiZoom.percent() == 100, "the app to follow");
 
         // The terminal's own zoom is another setting and other commands, with the chords.
         assertEquals(Settings.DEFAULT_FONT_SIZE, settings.fontSize());
-        assertTrue(Keymap.defaultFor("zoomIn") != null, "Ctrl+= stays the terminal text's");
-        for (String id : List.of("uiZoomIn", "uiZoomOut", "uiZoomReset")) {
+        assertTrue(Keymap.defaultFor("view.zoomIn") != null, "Ctrl+= stays the terminal text's");
+        for (String id : List.of("view.uiZoomIn", "view.uiZoomOut", "view.uiZoomReset")) {
             assertTrue(Keymap.defaultFor(id) == null, id + " has no chord by default");
         }
 

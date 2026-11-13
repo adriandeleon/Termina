@@ -71,9 +71,9 @@ class DialogsFxTest {
         // Rename Tab: cancelled, then named.
         onFx(() -> {
             DialogAnswers.next(false, "ignored");
-            row(window, "renameTab").action().run();
+            row(window, "tab.rename").action().run();
             DialogAnswers.next(true, "build");
-            row(window, "renameTab").action().run();
+            row(window, "tab.rename").action().run();
             return null;
         });
         assertEquals("build", onFx(() -> {
@@ -87,9 +87,9 @@ class DialogsFxTest {
             content.putString("echo one\necho two\n");
             Clipboard.getSystemClipboard().setContent(content);
             DialogAnswers.next(false, null);
-            row(window, "paste").action().run();
+            row(window, "edit.paste").action().run();
             DialogAnswers.next(true, null);
-            row(window, "paste").action().run();
+            row(window, "edit.paste").action().run();
             return null;
         });
 
@@ -124,7 +124,7 @@ class DialogsFxTest {
         int answered = DialogAnswers.answered();
         onFx(() -> {
             DialogAnswers.next(false, null);
-            row(window, "closeTab").action().run();
+            row(window, "file.closeTab").action().run();
             return null;
         });
         // The prompt comes once the process table has been read, off the FX thread.
@@ -135,7 +135,7 @@ class DialogsFxTest {
         onFx(() -> {
             settings.setShowStatusBar(false);
             DialogAnswers.next(true, null);
-            row(window, "syncNow").action().run();
+            row(window, "sync.now").action().run();
             settings.setShowStatusBar(true);
             return null;
         });
@@ -190,7 +190,7 @@ class DialogsFxTest {
         Settings settings = new Settings(dir.resolve("settings.json"));
         settings.load();
         settings.setFontSize(17);
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Shortcut+Shift+Y"));
         // Close Tab on New Tab's own chord: resetting New Tab then has to ask to take it back.
         KeyCodeHolder.taken(settings);
         ShellProfiles profiles = new ShellProfiles(settings, "System shell");
@@ -211,8 +211,9 @@ class DialogsFxTest {
                     settings,
                     profiles,
                     List.of(
-                            new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")),
-                            new Keybindings.Command("closeTab", "File", "Close Tab", Keymap.defaultFor("closeTab"))),
+                            new Keybindings.Command("file.newTab", "File", "New Tab", Keymap.defaultFor("file.newTab")),
+                            new Keybindings.Command(
+                                    "file.closeTab", "File", "Close Tab", Keymap.defaultFor("file.closeTab"))),
                     null);
             settingsWindow.show(owner);
             settingsWindow.importTheme(theme);
@@ -234,14 +235,14 @@ class DialogsFxTest {
             press(window, "settings.keys.resetAll", false);
             return null;
         });
-        assertTrue(settings.values().containsKey("keys.closeTab"), "Cancel kept Close Tab's binding");
+        assertTrue(settings.values().containsKey("keys.file.closeTab"), "Cancel kept Close Tab's binding");
         onFx(() -> {
             press(window, "settings.keys.resetAll", true);
             settings.setFontSize(17);
             press(window, "settings.reset", false);
             return null;
         });
-        assertFalse(settings.values().containsKey("keys.closeTab"), "Reset All cleared it");
+        assertFalse(settings.values().containsKey("keys.file.closeTab"), "Reset All cleared it");
         assertEquals(17, settings.fontSize(), "Cancel kept the font size");
         onFx(() -> {
             press(window, "settings.reset", true);
@@ -320,10 +321,10 @@ class DialogsFxTest {
     /** A binding that puts Close Tab on New Tab's default chord. */
     private static final class KeyCodeHolder {
         static void taken(Settings settings) {
-            javafx.scene.input.KeyCombination home = Keymap.defaultFor("newTab");
+            javafx.scene.input.KeyCombination home = Keymap.defaultFor("file.newTab");
             if (home == null) return;
             java.util.Map<String, String> bindings = new java.util.HashMap<>(settings.keyBindings());
-            bindings.put("closeTab", home.getName());
+            bindings.put("file.closeTab", home.getName());
             settings.replaceKeyBindings(bindings);
         }
     }

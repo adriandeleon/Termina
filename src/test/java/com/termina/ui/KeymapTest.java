@@ -63,7 +63,7 @@ class KeymapTest {
     @Test
     void theFileReadsAsIdToChord() throws Exception {
         Map<String, String> read = Keymap.parse(
-                "{\"schemaVersion\": 1, \"comment\": \"x\", \"bindings\": {\"newTab\": \"Shortcut+Shift+T\"}}");
-        assertEquals(Map.of("newTab", "Shortcut+Shift+T"), read);
+                "{\"schemaVersion\": 1, \"comment\": \"x\", \"bindings\": {\"file.newTab\": \"Shortcut+Shift+T\"}}");
+        assertEquals(Map.of("file.newTab", "Shortcut+Shift+T"), read);
     }
 }

@@ -114,7 +114,7 @@ class SettingsSaveTest {
         AtomicInteger saves = new AtomicInteger();
         Settings settings = deferred(dir, scheduler, saves);
 
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         settings.setLastUpdateCheck(1_700_000_000_000L);
         settings.setProfileStyle("p1", new Settings.ProfileStyle("Menlo", 14.0, ""));
         settings.forgetProfile("p1");

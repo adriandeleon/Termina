@@ -153,7 +153,7 @@ class ChromeHabitsTest {
         assertEquals(null, WindowRules.focusMenuBarUnavailableKey(false, true));
         assertEquals("palette.disabled.menuBarHidden", WindowRules.focusMenuBarUnavailableKey(false, false));
         assertEquals("settings.showMenuBar.mac", WindowRules.focusMenuBarUnavailableKey(true, true));
-        assertTrue(Keymap.defaultFor("focusMenuBar") != null, "bound by default");
+        assertTrue(Keymap.defaultFor("view.focusMenuBar") != null, "bound by default");
     }
 
     @Test

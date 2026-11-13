@@ -112,9 +112,9 @@ class RemainingPathsFxTest {
         try {
             List<String> keys = List.of(
                     "command.help.documentation",
-                    "command.whatsNew",
-                    "command.exportConfiguration",
-                    "command.renameTab");
+                    "command.help.whatsNew",
+                    "command.settings.exportConfiguration",
+                    "command.tab.rename");
             onFx(() -> {
                 for (javafx.scene.control.Menu menu : window.menuBarForTest().getMenus()) {
                     for (MenuItem item : new ArrayList<>(menu.getItems())) {
@@ -179,7 +179,7 @@ class RemainingPathsFxTest {
         onFx(() -> {
             window.openTab();
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("splitRight".equals(row.id())) row.action().run();
+                if ("pane.splitRight".equals(row.id())) row.action().run();
             }
             return null;
         });
@@ -187,10 +187,10 @@ class RemainingPathsFxTest {
         onFx(() -> {
             window.tabsForTest().get(0).getTabPane().getSelectionModel().select(0);
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("closeTabsToTheRight".equals(row.id())) row.action().run();
+                if ("file.closeTabsToTheRight".equals(row.id())) row.action().run();
             }
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("reopenClosedTab".equals(row.id())) row.action().run();
+                if ("file.reopenClosedTab".equals(row.id())) row.action().run();
             }
             return null;
         });
@@ -198,7 +198,7 @@ class RemainingPathsFxTest {
         // Close Tab in a split tab closes the active pane, not the tab.
         onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("closeTab".equals(row.id())) row.action().run();
+                if ("file.closeTab".equals(row.id())) row.action().run();
             }
             return null;
         });
@@ -206,7 +206,7 @@ class RemainingPathsFxTest {
         // A split, and the shell in one pane exits: the pane goes, the tab stays.
         onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("splitRight".equals(row.id())) row.action().run();
+                if ("pane.splitRight".equals(row.id())) row.action().run();
             }
             return null;
         });

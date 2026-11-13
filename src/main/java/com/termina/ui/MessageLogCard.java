@@ -133,7 +133,7 @@ final class MessageLogCard {
             }
         });
         list.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (copies(e, chords.apply("copy"), chords.apply("messageLog.copy"))) {
+            if (copies(e, chords.apply("edit.copy"), chords.apply("messageLog.copy"))) {
                 copy();
                 e.consume();
             }

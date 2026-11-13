@@ -63,7 +63,7 @@ class TabBarFxTest {
         assertTrue(onFx(() -> hidden(window)), "hidden, with three tabs open");
         assertFalse(settings.showTabBar());
         assertEquals(3, tabs(window), "the tabs are still there");
-        assertEquals(Messages.tr("command.showTabBar"), label(window));
+        assertEquals(Messages.tr("command.view.toggleTabBar"), label(window));
         run(window);
         assertFalse(onFx(() -> hidden(window)), "and back");
         assertTrue(settings.showTabBar());
@@ -83,7 +83,7 @@ class TabBarFxTest {
 
     private static String label(TerminalWindow window) throws Exception {
         return onFx(() -> window.runnablePaletteRowsForTest().stream()
-                .filter(row -> "showTabBar".equals(row.id()))
+                .filter(row -> "view.toggleTabBar".equals(row.id()))
                 .findFirst()
                 .orElseThrow()
                 .label());
@@ -92,7 +92,7 @@ class TabBarFxTest {
     private static void run(TerminalWindow window) throws Exception {
         onFx(() -> {
             window.runnablePaletteRowsForTest().stream()
-                    .filter(row -> "showTabBar".equals(row.id()))
+                    .filter(row -> "view.toggleTabBar".equals(row.id()))
                     .findFirst()
                     .orElseThrow()
                     .action()

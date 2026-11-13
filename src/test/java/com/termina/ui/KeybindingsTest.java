@@ -24,10 +24,10 @@ class KeybindingsTest {
     /** New Tab, Close Tab, the palette, and Rename Tab, which has no chord of its own. */
     static Map<String, KeyCombination> defaults() {
         Map<String, KeyCombination> defaults = new LinkedHashMap<>();
-        defaults.put("newTab", NEW_TAB);
-        defaults.put("closeTab", CLOSE_TAB);
+        defaults.put("file.newTab", NEW_TAB);
+        defaults.put("file.closeTab", CLOSE_TAB);
         defaults.put("palette.show", PALETTE);
-        defaults.put("renameTab", null);
+        defaults.put("tab.rename", null);
         return defaults;
     }
 
@@ -42,30 +42,30 @@ class KeybindingsTest {
 
     @Test
     void aStoredChordReplacesTheDefault() {
-        Map<String, KeyCombination> on = Keybindings.resolve(defaults(), Map.of("newTab", "Ctrl+Shift+Y"), false);
-        assertEquals(ctrlShift(KeyCode.Y), on.get("newTab"));
-        assertEquals(CLOSE_TAB, on.get("closeTab"));
+        Map<String, KeyCombination> on = Keybindings.resolve(defaults(), Map.of("file.newTab", "Ctrl+Shift+Y"), false);
+        assertEquals(ctrlShift(KeyCode.Y), on.get("file.newTab"));
+        assertEquals(CLOSE_TAB, on.get("file.closeTab"));
     }
 
     @Test
     void aCommandWithNoDefaultCanBeGivenOne() {
         assertEquals(
                 ctrlShift(KeyCode.R),
-                Keybindings.resolve(defaults(), Map.of("renameTab", "Ctrl+Shift+R"), false)
-                        .get("renameTab"));
+                Keybindings.resolve(defaults(), Map.of("tab.rename", "Ctrl+Shift+R"), false)
+                        .get("tab.rename"));
     }
 
     @Test
     void noneUnbinds() {
-        Map<String, KeyCombination> on = Keybindings.resolve(defaults(), Map.of("newTab", "none"), false);
-        assertTrue(on.containsKey("newTab"));
-        assertNull(on.get("newTab"));
+        Map<String, KeyCombination> on = Keybindings.resolve(defaults(), Map.of("file.newTab", "none"), false);
+        assertTrue(on.containsKey("file.newTab"));
+        assertNull(on.get("file.newTab"));
     }
 
     @Test
     void anUnreadableOrBlankLineIsTheDefault() {
         // Hand-edited: clamp on read, as every other setting does.
-        Map<String, String> stored = Map.of("newTab", "Banana+X", "closeTab", "  ", "palette.show", "Ctrl+");
+        Map<String, String> stored = Map.of("file.newTab", "Banana+X", "file.closeTab", "  ", "palette.show", "Ctrl+");
         assertEquals(defaults(), Keybindings.resolve(defaults(), stored, false));
     }
 
@@ -86,24 +86,25 @@ class KeybindingsTest {
     void aStoredChordTakesADefaultFromTheCommandThatHadIt() {
         // The user put Close Tab on New Tab's chord: New Tab has lost it, rather than the edit
         // silently not applying because New Tab came first in the table.
-        Map<String, KeyCombination> on = Keybindings.resolve(defaults(), Map.of("closeTab", "Shortcut+Shift+T"), false);
-        assertTrue(Keybindings.same(NEW_TAB, on.get("closeTab"), false));
-        assertNull(on.get("newTab"));
+        Map<String, KeyCombination> on =
+                Keybindings.resolve(defaults(), Map.of("file.closeTab", "Shortcut+Shift+T"), false);
+        assertTrue(Keybindings.same(NEW_TAB, on.get("file.closeTab"), false));
+        assertNull(on.get("file.newTab"));
     }
 
     @Test
     void twoStoredLinesOnOneChordKeepTheFirstAndTheSecondFallsBack() {
         Map<String, String> stored = new LinkedHashMap<>();
-        stored.put("newTab", "Ctrl+Shift+Y");
-        stored.put("closeTab", "Ctrl+Shift+Y");
+        stored.put("file.newTab", "Ctrl+Shift+Y");
+        stored.put("file.closeTab", "Ctrl+Shift+Y");
         Map<String, KeyCombination> on = Keybindings.resolve(defaults(), stored, false);
-        assertEquals(ctrlShift(KeyCode.Y), on.get("newTab"));
-        assertEquals(CLOSE_TAB, on.get("closeTab"));
+        assertEquals(ctrlShift(KeyCode.Y), on.get("file.newTab"));
+        assertEquals(CLOSE_TAB, on.get("file.closeTab"));
     }
 
     @Test
     void noChordEndsUpOnTwoCommands() {
-        Map<String, String> stored = Map.of("palette.show", "Ctrl+Shift+W", "renameTab", "Alt+X");
+        Map<String, String> stored = Map.of("palette.show", "Ctrl+Shift+W", "tab.rename", "Alt+X");
         Map<String, KeyCombination> on = Keybindings.resolve(defaults(), stored, false);
         java.util.Set<KeyCombination> seen = new java.util.HashSet<>();
         for (KeyCombination chord : on.values()) {
@@ -115,7 +116,7 @@ class KeybindingsTest {
     void tableOrderIsKept() {
         assertEquals(
                 java.util.List.copyOf(defaults().keySet()),
-                java.util.List.copyOf(Keybindings.resolve(defaults(), Map.of("renameTab", "Alt+R"), false)
+                java.util.List.copyOf(Keybindings.resolve(defaults(), Map.of("tab.rename", "Alt+R"), false)
                         .keySet()));
     }
 

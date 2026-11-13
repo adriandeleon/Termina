@@ -41,11 +41,11 @@ class WindowCommandsFxTest {
 
     /** Commands left out, by id, and why. */
     private static final Set<String> SKIPPED = Set.of(
-            "checkForUpdates", // the network
+            "help.checkForUpdates", // the network
             "help.documentation", // a browser
-            "whatsNew", // a browser
-            "exportConfiguration", // writes to the real home folder
-            "importConfiguration", // a file chooser
+            "help.whatsNew", // a browser
+            "settings.exportConfiguration", // writes to the real home folder
+            "settings.importConfiguration", // a file chooser
             "debugLog.export", // a file chooser
             "settings.importTheme", // a file chooser
             "settings.reset", // a question
@@ -57,18 +57,18 @@ class WindowCommandsFxTest {
             "help.sourceCode", // a browser
             "help.pautaRules", // a browser
             "help.pautaDocs", // a browser
-            "uiZoomIn", // the zoom is the whole app's, and every other test expects 100%: UiZoomFxTest's
-            "uiZoomOut",
-            "uiZoomReset",
-            "renameTab", // a modal dialog
-            "closeWindow", // WindowLifecycleTest's
+            "view.uiZoomIn", // the zoom is the whole app's, and every other test expects 100%: UiZoomFxTest's
+            "view.uiZoomOut",
+            "view.uiZoomReset",
+            "tab.rename", // a modal dialog
+            "file.closeWindow", // WindowLifecycleTest's
             "app.quit", // ends the app, and the toolkit the other tests share
-            "showTabBar", // TabBarFxTest's: hidden, a later test's tab headers are not there to find
-            "showStatusBar"); // turning the bar off makes every later report a modal dialog
+            "view.toggleTabBar", // TabBarFxTest's: hidden, a later test's tab headers are not there to find
+            "view.toggleStatusBar"); // turning the bar off makes every later report a modal dialog
 
     /** Run last, in this order: they take tabs away from the commands before them. */
     private static final List<String> LAST =
-            List.of("closeTabsToTheLeft", "closeTabsToTheRight", "closeOtherTabs", "closeTab");
+            List.of("file.closeTabsToTheLeft", "file.closeTabsToTheRight", "file.closeOtherTabs", "file.closeTab");
 
     @TempDir
     Path dir;

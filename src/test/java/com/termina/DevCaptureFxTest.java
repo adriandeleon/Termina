@@ -122,7 +122,7 @@ class DevCaptureFxTest {
                         Map.entry("termina.captureResizeTo", "900,600")));
         runs.put(
                 "the settings window",
-                Map.of("termina.captureSettings", "font", "termina.captureSettingsKeys", "newTab:C-S-y"));
+                Map.of("termina.captureSettings", "font", "termina.captureSettingsKeys", "file.newTab:C-S-y"));
         runs.put("the shortcut reference", Map.of("termina.captureShortcuts", "true"));
         runs.put("the about window", Map.of("termina.captureAbout", "true"));
         runs.put("the pauta window", Map.of("termina.capturePauta", "true"));
@@ -253,7 +253,7 @@ class DevCaptureFxTest {
         Files.createDirectories(config);
         Files.writeString(
                 config.resolve("settings.json"),
-                "{\n  \"schemaVersion\" : 1,\n  \"settings\" : {\n    \"keys.newTab\" : \"Shortcut+Shift+Y\"\n  }\n}\n");
+                "{\n  \"schemaVersion\" : 1,\n  \"settings\" : {\n    \"keys.file.newTab\" : \"Shortcut+Shift+Y\"\n  }\n}\n");
         Path zip = dir.resolve("config.zip");
         com.termina.config.ConfigArchive.export(config, zip);
         runCapture(

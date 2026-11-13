@@ -85,21 +85,21 @@ final class SearchBar extends HBox {
      * each is named with that command's title and shows its chord (TBAR-03, Pauta 6.0.1).
      */
     private final javafx.beans.property.StringProperty olderTip =
-            new javafx.beans.property.SimpleStringProperty(tr("command.findNext"));
+            new javafx.beans.property.SimpleStringProperty(tr("command.find.next"));
 
     private final javafx.beans.property.StringProperty newerTip =
-            new javafx.beans.property.SimpleStringProperty(tr("command.findPrevious"));
+            new javafx.beans.property.SimpleStringProperty(tr("command.find.previous"));
 
     private final javafx.beans.property.StringProperty regexTip =
-            new javafx.beans.property.SimpleStringProperty(tr("command.findRegex"));
+            new javafx.beans.property.SimpleStringProperty(tr("command.find.regex"));
 
     /** Re-reads the chords: each time the bar opens and whenever the key bindings change. */
     void showChords(
             java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
                     chordOf) {
-        olderTip.set(IconNames.withChord(tr("command.findNext"), chordOf.apply("findNext")));
-        newerTip.set(IconNames.withChord(tr("command.findPrevious"), chordOf.apply("findPrevious")));
-        regexTip.set(IconNames.withChord(tr("command.findRegex"), chordOf.apply("findRegex")));
+        olderTip.set(IconNames.withChord(tr("command.find.next"), chordOf.apply("find.next")));
+        newerTip.set(IconNames.withChord(tr("command.find.previous"), chordOf.apply("find.previous")));
+        regexTip.set(IconNames.withChord(tr("command.find.regex"), chordOf.apply("find.regex")));
     }
 
     /** The arrows' tooltips, older first: for tests. */

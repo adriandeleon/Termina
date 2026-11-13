@@ -175,7 +175,7 @@ class SecondaryWindowsFxTest {
                                 Messages.tr("debuglog.copy"),
                                 Messages.tr("debuglog.clear"),
                                 Messages.tr("debuglog.export"),
-                                Messages.tr("command.reportProblem"))),
+                                Messages.tr("command.help.reportProblem"))),
                 logs::toString);
     }
 

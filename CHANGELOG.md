@@ -138,6 +138,12 @@ done.
 
 ### Changed
 
+- **Every command's id has its area in front**: `file.newTab`, `edit.copy`, `tab.next`,
+  `pane.splitRight`, `view.zoomIn`, `sync.now`. Nothing on screen changes. The ids are what
+  `settings.json` keeps your key bindings under (`keys.file.newTab`) and what settings sync
+  writes; both are carried forward when read, and `settings.json` moves to schema version 3. A
+  computer still on an older Termina does not know the new ids, so update every computer that
+  shares a sync repository.
 - **The Message Log opens inside the window**, as a card over the terminal just above the status
   bar, not as a window of its own. Escape, a click outside it or its own command closes it, and
   the keyboard goes back to the terminal. It keeps the newest 200 messages of the session; it

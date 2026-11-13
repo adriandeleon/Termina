@@ -61,9 +61,9 @@ class TabRangesTest {
 
     @Test
     void theIdsAreTheCommandsIds() {
-        assertEquals(TabRanges.CLOSE_OTHERS, TerminalWindow.idOf("command.closeOtherTabs"));
-        assertEquals(TabRanges.CLOSE_LEFT, TerminalWindow.idOf("command.closeTabsToTheLeft"));
-        assertEquals(TabRanges.CLOSE_RIGHT, TerminalWindow.idOf("command.closeTabsToTheRight"));
+        assertEquals(TabRanges.CLOSE_OTHERS, TerminalWindow.idOf("command.file.closeOtherTabs"));
+        assertEquals(TabRanges.CLOSE_LEFT, TerminalWindow.idOf("command.file.closeTabsToTheLeft"));
+        assertEquals(TabRanges.CLOSE_RIGHT, TerminalWindow.idOf("command.file.closeTabsToTheRight"));
     }
 
     /** KBD-04: a tab at the edge cannot move past it, and the menu and the palette say so. */

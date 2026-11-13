@@ -108,7 +108,7 @@ public final class TerminalWindow {
      * which is iTerm2's "Undo Close"; Ctrl+Shift+Z elsewhere, where the browsers' Ctrl+Shift+T is
      * already New Tab.
      */
-    private final MenuAction reopenAction = item("command.reopenClosedTab", this::reopenClosedTab);
+    private final MenuAction reopenAction = item("command.file.reopenClosedTab", this::reopenClosedTab);
 
     /**
      * The bulk closes, as commands on the selected tab (TABS-01, Pauta 2.0.2): in the File menu and
@@ -117,37 +117,37 @@ public final class TerminalWindow {
      * each with the reason while it would close nothing.
      */
     private final MenuAction closeOthersAction =
-            item("command.closeOtherTabs", () -> withActiveTab(this::closeOtherTabs));
+            item("command.file.closeOtherTabs", () -> withActiveTab(this::closeOtherTabs));
 
     private final MenuAction closeLeftAction =
-            item("command.closeTabsToTheLeft", () -> withActiveTab(this::closeTabsToTheLeft));
+            item("command.file.closeTabsToTheLeft", () -> withActiveTab(this::closeTabsToTheLeft));
 
     /**
      * Shows or hides the status bar (WIN-01): the setting, as a command. Off by default; the menu
      * and the palette say which way it will go.
      */
-    private final MenuAction statusBarAction = item("command.showStatusBar", this::toggleStatusBar);
+    private final MenuAction statusBarAction = item("command.view.toggleStatusBar", this::toggleStatusBar);
 
     /** Hide Tab Bar, or Show Tab Bar: named for the way it will go, like the status bar's. */
-    private final MenuAction tabBarAction = item("command.showTabBar", this::toggleTabBar);
+    private final MenuAction tabBarAction = item("command.view.toggleTabBar", this::toggleTabBar);
 
     private final MenuAction closeRightAction =
-            item("command.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
+            item("command.file.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
 
     /** Pins or unpins the selected tab; the menus and the palette say which it will do. */
-    private final MenuAction pinAction = item("command.pinTab", () -> withActiveTab(this::togglePin));
+    private final MenuAction pinAction = item("command.tab.pin", () -> withActiveTab(this::togglePin));
 
     /**
      * The commands that need the shell's prompt marks, greyed in the palette until there are some.
      * Terminal.app's Cmd+Up and Cmd+Down on macOS.
      */
     private final MenuAction previousPromptAction =
-            item("command.previousPrompt", () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)));
+            item("command.view.previousPrompt", () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(true)));
 
     private final MenuAction nextPromptAction =
-            item("command.nextPrompt", () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)));
+            item("command.view.nextPrompt", () -> withActiveTerminal(terminal -> terminal.jumpToPrompt(false)));
     private final MenuAction selectOutputAction =
-            item("command.selectLastOutput", () -> withActiveTerminal(TerminalView::selectLastOutput));
+            item("command.edit.selectLastOutput", () -> withActiveTerminal(TerminalView::selectLastOutput));
 
     /**
      * Set when a scene binding has just run on KEY_PRESSED, so the KEY_TYPED that follows it is
@@ -840,10 +840,11 @@ public final class TerminalWindow {
         profileMenu.getItems().add(new SeparatorMenuItem());
         // The command's own glyph, the one its File menu row wears (ICON-20, Pauta 6.0.1): the gear
         // is Settings'.
-        MenuItem configure = new MenuItem(tr("command.configureProfiles"), MenuIcons.forCommand("configureProfiles"));
+        MenuItem configure = new MenuItem(
+                tr("command.settings.configureProfiles"), MenuIcons.forCommand("settings.configureProfiles"));
         configure.setOnAction(e -> windows.showProfileSettings(stage));
         // Its chord cell, like the profile rows' above it (MENU-15); empty while it has none.
-        configure.setAccelerator(chordOf("configureProfiles"));
+        configure.setAccelerator(chordOf("settings.configureProfiles"));
         profileMenu.getItems().add(configure);
         profileMenu.show(profileButton, javafx.geometry.Side.BOTTOM, 0, 0);
     }
@@ -1603,12 +1604,13 @@ public final class TerminalWindow {
 
     /** The rows of {@code tab}'s menu, made on its first showing, and what each showing sets. */
     private void fillTabMenu(ContextMenu menu, Tab tab) {
-        MenuItem closeOthers = tabItem("closeOtherTabs", MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
-        MenuItem closeLeft = tabItem("closeTabsToTheLeft", MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
-        MenuItem closeRight = tabItem("closeTabsToTheRight", MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
-        MenuItem pin = tabItem("pinTab", MenuIcons.pin(), () -> togglePin(tab));
-        MenuItem moveLeft = tabItem("moveTabLeft", MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
-        MenuItem moveRight = tabItem("moveTabRight", MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
+        MenuItem closeOthers = tabItem("file.closeOtherTabs", MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
+        MenuItem closeLeft = tabItem("file.closeTabsToTheLeft", MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
+        MenuItem closeRight =
+                tabItem("file.closeTabsToTheRight", MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
+        MenuItem pin = tabItem("tab.pin", MenuIcons.pin(), () -> togglePin(tab));
+        MenuItem moveLeft = tabItem("tab.moveLeft", MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
+        MenuItem moveRight = tabItem("tab.moveRight", MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
 
         Menu newTabAs = new Menu(tr("menu.newTabProfile"), MenuIcons.newTab());
         newTabAs.getItems().add(new MenuItem(""));
@@ -1616,14 +1618,14 @@ public final class TerminalWindow {
 
         menu.getItems()
                 .setAll(
-                        tabItem("newTab", MenuIcons.newTab(), this::openTab),
+                        tabItem("file.newTab", MenuIcons.newTab(), this::openTab),
                         newTabAs,
-                        tabItem("duplicateTab", MenuIcons.duplicate(), () -> duplicateTab(tab)),
+                        tabItem("tab.duplicate", MenuIcons.duplicate(), () -> duplicateTab(tab)),
                         new SeparatorMenuItem(),
-                        tabItem("renameTab", MenuIcons.rename(), () -> renameTab(tab)),
+                        tabItem("tab.rename", MenuIcons.rename(), () -> renameTab(tab)),
                         pin,
                         new SeparatorMenuItem(),
-                        tabItem("closeTab", MenuIcons.close(), () -> closeTab(tab)),
+                        tabItem("file.closeTab", MenuIcons.close(), () -> closeTab(tab)),
                         closeOthers,
                         closeLeft,
                         closeRight,
@@ -1749,7 +1751,7 @@ public final class TerminalWindow {
 
     /** "Pin Tab" or "Unpin Tab", for what the command would do to {@code tab}. */
     private static String pinLabel(@Nullable Tab tab) {
-        return tab != null && isPinned(tab) ? tr("menu.unpinTab") : tr("command.pinTab");
+        return tab != null && isPinned(tab) ? tr("menu.unpinTab") : tr("command.tab.pin");
     }
 
     /** Sets the mark without moving the tab: for a tab coming back where it was. */
@@ -2939,7 +2941,7 @@ public final class TerminalWindow {
         // The commands, by id; then the bar, assembled from MenuBarModel's ids (MENU-01). Nothing
         // below decides what a row does, is called or whether it can run: that is the registry's.
         Map<String, MenuAction> defined = menuCommands();
-        menuBarToggle = defined.get("hideMenuBar");
+        menuBarToggle = defined.get("view.toggleMenuBar");
         for (MenuBarModel.Menu spec : MenuBarModel.menus()) {
             String title = tr(spec.titleKey());
             Menu menu = new Menu(title);
@@ -3051,13 +3053,13 @@ public final class TerminalWindow {
     private Map<String, MenuAction> menuCommands() {
         List<MenuAction> all = new ArrayList<>(List.of(
                 // File.
-                item("command.newTab", this::openTab),
-                item("command.newWindow", () -> windows.openWindow(this)),
-                item("command.closeTab", this::closeCurrentTab),
+                item("command.file.newTab", this::openTab),
+                item("command.file.newWindow", () -> windows.openWindow(this)),
+                item("command.file.closeTab", this::closeCurrentTab),
                 closeOthersAction,
                 closeLeftAction,
                 closeRightAction,
-                item("command.closeWindow", this::close),
+                item("command.file.closeWindow", this::close),
                 // Every window, asking once (WIN-13, WIN-14, Pauta 6.0.1). No chord of its own:
                 // on macOS Cmd+Q is the system's and arrives as close requests, and elsewhere
                 // every chord left is one a shell might want.
@@ -3065,49 +3067,49 @@ public final class TerminalWindow {
                 reopenAction,
                 // Ctrl+, off macOS, Windows Terminal's: no shell binding can receive it, since Ctrl+,
                 // has no control byte in the legacy encoding and arrives as a plain comma.
-                item("command.settings", () -> windows.showSettings(stage)),
+                item("command.settings.show", () -> windows.showSettings(stage)),
                 // No chord by default: an occasional command, and every free chord is one the shell
                 // might want. The Keyboard page can give it one.
-                item("command.syncNow", () -> windows.syncSettingsNow(this::report)),
-                item("command.configureProfiles", () -> windows.showProfileSettings(stage)),
+                item("command.sync.now", () -> windows.syncSettingsNow(this::report)),
+                item("command.settings.configureProfiles", () -> windows.showProfileSettings(stage)),
                 // Palette and Settings ▸ Advanced only (SET-12, Pauta 2.0.2): occasional, and a File
                 // menu row each would crowd the commands people use daily.
-                item("command.exportConfiguration", () -> windows.exportConfiguration(this::report)),
-                item("command.importConfiguration", () -> windows.importConfiguration(stage, this::report)),
+                item("command.settings.exportConfiguration", () -> windows.exportConfiguration(this::report)),
+                item("command.settings.importConfiguration", () -> windows.importConfiguration(stage, this::report)),
                 // Edit.
-                item("command.copy", () -> withActiveTerminal(TerminalView::copySelection)),
-                item("command.paste", () -> withActiveTerminal(TerminalView::paste)),
-                item("command.selectAll", () -> withActiveTerminal(TerminalView::selectAll)),
-                item("command.clearScrollback", () -> withActiveTerminal(TerminalView::clearScrollback)),
+                item("command.edit.copy", () -> withActiveTerminal(TerminalView::copySelection)),
+                item("command.edit.paste", () -> withActiveTerminal(TerminalView::paste)),
+                item("command.edit.selectAll", () -> withActiveTerminal(TerminalView::selectAll)),
+                item("command.edit.clearScrollback", () -> withActiveTerminal(TerminalView::clearScrollback)),
                 item("command.find.show", () -> withActiveTerminal(TerminalView::showSearchOrStep)),
                 // GNOME Terminal's pair off macOS, Ctrl+Shift+G and H; the system's Cmd+G and
                 // Cmd+Shift+G on it, where Cmd+H would hide the application.
-                item("command.findNext", () -> withActiveTerminal(terminal -> terminal.findNext(true))),
-                item("command.findPrevious", () -> withActiveTerminal(terminal -> terminal.findNext(false))),
+                item("command.find.next", () -> withActiveTerminal(terminal -> terminal.findNext(true))),
+                item("command.find.previous", () -> withActiveTerminal(terminal -> terminal.findNext(false))),
                 // No chord by default, and no menu row: the find bar's switch is the row. It is here
                 // so the keyboard can reach a switch that is out of the Tab order (FIND-16).
-                item("command.findRegex", () -> withActiveTerminal(TerminalView::toggleSearchRegex)),
+                item("command.find.regex", () -> withActiveTerminal(TerminalView::toggleSearchRegex)),
                 previousPromptAction,
                 nextPromptAction,
                 selectOutputAction,
                 // The right-click menu's link rows, for the link under the pointer (KBD-01).
-                item("command.openLink", () -> withLinkUnderPointer(TerminalView::openLinkUnderPointer)),
-                item("command.copyLinkAddress", () -> withLinkUnderPointer(TerminalView::copyLinkUnderPointer)),
+                item("command.link.open", () -> withLinkUnderPointer(TerminalView::openLinkUnderPointer)),
+                item("command.link.copyAddress", () -> withLinkUnderPointer(TerminalView::copyLinkUnderPointer)),
                 // View. EQUALS, not PLUS: on every common layout + is Shift+=, so the key JavaFX
                 // reports for Ctrl and that key is EQUALS, and a menu saying "Ctrl++" named a chord
                 // no keyboard produces. PLUS and the numeric keypad's ADD stay accepted in onKeyPressed.
-                item("command.zoomIn", () -> zoom(1)),
-                item("command.zoomOut", () -> zoom(-1)),
-                item("command.actualSize", this::resetZoom),
-                item("command.fullScreen", this::toggleFullScreen),
+                item("command.view.zoomIn", () -> zoom(1)),
+                item("command.view.zoomOut", () -> zoom(-1)),
+                item("command.view.actualSize", this::resetZoom),
+                item("command.view.fullScreen", this::toggleFullScreen),
                 // The keyboard's way into the in-window bar (MENU-17, Pauta 6.0.1): a plain F10 and a
                 // lone Alt belong to the program in the terminal.
-                item("command.focusMenuBar", this::focusMenuBar),
+                item("command.view.focusMenuBar", this::focusMenuBar),
                 // The UI zoom (WIN-12, Pauta 6.0.1): the chrome, not the terminal's text, which
                 // keeps Ctrl+=, Ctrl+- and Ctrl+0. No chord of their own by default.
-                item("command.uiZoomIn", () -> UiZoom.change(settings, UiZoom.in(settings.uiZoom()))),
-                item("command.uiZoomOut", () -> UiZoom.change(settings, UiZoom.out(settings.uiZoom()))),
-                item("command.uiZoomReset", () -> UiZoom.change(settings, Settings.DEFAULT_UI_ZOOM)),
+                item("command.view.uiZoomIn", () -> UiZoom.change(settings, UiZoom.in(settings.uiZoom()))),
+                item("command.view.uiZoomOut", () -> UiZoom.change(settings, UiZoom.out(settings.uiZoom()))),
+                item("command.view.uiZoomReset", () -> UiZoom.change(settings, Settings.DEFAULT_UI_ZOOM)),
                 // "Hide", not a checkbox: the in-window bar's menu can only be opened while the bar
                 // is showing. The way back is the right-click menu, which carries a checkbox.
                 // Defined everywhere and in a menu only where there is a bar to hide: under a system
@@ -3115,7 +3117,7 @@ public final class TerminalWindow {
                 // Registered on every OS and unavailable, with its reason, under a system menu
                 // bar (OS-01, Pauta 6.0.1); a chord runs a command whatever the registry says of
                 // it, so the action checks too.
-                item("command.hideMenuBar", () -> {
+                item("command.view.toggleMenuBar", () -> {
                     if (WindowRules.offersMenuBarToggle(SYSTEM_MENU_BAR)) {
                         settings.setShowMenuBar(!settings.showMenuBar());
                     }
@@ -3125,43 +3127,43 @@ public final class TerminalWindow {
                 // Listed in the palette like any other command (PAL-02, Pauta 2.0.2).
                 paletteAction,
                 // Window.
-                item("command.nextTab", () -> selectRelativeTab(1)),
-                item("command.previousTab", () -> selectRelativeTab(-1)),
+                item("command.tab.next", () -> selectRelativeTab(1)),
+                item("command.tab.previous", () -> selectRelativeTab(-1)),
                 // Dragging is the usual way, but a tab strip that can only be reordered by mouse is
                 // unreachable from the keyboard entirely.
-                item("command.moveTabLeft", () -> moveSelectedTab(-1)),
-                item("command.moveTabRight", () -> moveSelectedTab(1)),
+                item("command.tab.moveLeft", () -> moveSelectedTab(-1)),
+                item("command.tab.moveRight", () -> moveSelectedTab(1)),
                 // No chords: neither has one anywhere else, and a tab's own menu is where the hand
                 // goes. They are here for the palette, and so the keyboard can reach them at all.
-                item("command.renameTab", () -> withActiveTab(this::renameTab)),
-                item("command.duplicateTab", () -> withActiveTab(this::duplicateTab)),
+                item("command.tab.rename", () -> withActiveTab(this::renameTab)),
+                item("command.tab.duplicate", () -> withActiveTab(this::duplicateTab)),
                 pinAction,
                 // iTerm2's Cmd+D and Cmd+Shift+D on macOS; Terminator's Ctrl+Shift+E and O
                 // elsewhere, where Ctrl+Shift+D would be the pair's odd one out.
-                item("command.splitRight", () -> splitActivePane(javafx.geometry.Orientation.HORIZONTAL)),
-                item("command.splitDown", () -> splitActivePane(javafx.geometry.Orientation.VERTICAL)),
+                item("command.pane.splitRight", () -> splitActivePane(javafx.geometry.Orientation.HORIZONTAL)),
+                item("command.pane.splitDown", () -> splitActivePane(javafx.geometry.Orientation.VERTICAL)),
                 // iTerm2's Cmd+Shift+Enter, and the same with Ctrl elsewhere — Ctrl+Shift+Z, tmux's
                 // idea, is too close to an editor's redo to take from a program.
-                item("command.maximizePane", this::toggleMaximizePane),
-                item("command.movePaneToNewTab", () -> {
+                item("command.pane.maximize", this::toggleMaximizePane),
+                item("command.pane.moveToNewTab", () -> {
                     Tab tab = tabs.getSelectionModel().getSelectedItem();
                     TerminalView pane = tab == null ? null : groupOf(tab).active();
                     if (pane != null) movePaneToNewTab(pane);
                 }),
                 // MENU-09 (Pauta 2.0.2): the current tab's own menu, from the keyboard. Palette and
                 // Keyboard page only; every item on it is also a command of its own.
-                item("command.tabMenu", this::showTabMenu),
+                item("command.tab.menu", this::showTabMenu),
                 // Help. Documentation first (DOCS-06).
                 item("command.help.documentation", () -> windows.openLink(com.termina.AppInfo.DOCUMENTATION)),
-                item("command.whatsNew", () -> windows.openLink(com.termina.AppInfo.releaseNotesUrl())),
+                item("command.help.whatsNew", () -> windows.openLink(com.termina.AppInfo.releaseNotesUrl())),
                 // Cmd+/ on macOS (Cmd+Shift+/ is the system's own Help search); Ctrl+Shift+/
                 // elsewhere, which is the "?" key under the usual modifier: keymap.json.
-                item("command.keyboardShortcuts", this::showShortcuts),
+                item("command.help.keyboardShortcuts", this::showShortcuts),
                 // The update check, or the release page once there is an update: one command whose
                 // label says which (currentLabel).
-                item("command.checkForUpdates", this::checkOrOpenUpdate),
+                item("command.help.checkForUpdates", this::checkOrOpenUpdate),
                 item("command.view.messageLog", this::showMessageLog),
-                item("command.debugLog", () -> windows.showDebugLog(stage)),
+                item("command.help.debugLog", () -> windows.showDebugLog(stage)),
                 // What the two log windows' buttons and right-click rows do, as commands (KBD-01,
                 // Pauta 6.0.1): no rows of their own, the windows being where they are used.
                 item("command.debugLog.find", () -> windows.debugLog(stage).find()),
@@ -3184,7 +3186,7 @@ public final class TerminalWindow {
                 item("command.help.pauta", () -> windows.showPauta(stage)),
                 item("command.help.pautaDocs", () -> windows.openLink(PautaWindow.DOCS_PAGE)),
                 item("command.help.copyPauta", PautaWindow::copyMarkdown),
-                item("command.reportProblem", () -> windows.showReportProblem(stage)),
+                item("command.help.reportProblem", () -> windows.showReportProblem(stage)),
                 // The Doctor and its Copy as text (DIAG-07, Pauta 6.0.1).
                 item("command.help.doctor", () -> windows.showDoctor(stage)),
                 item("command.help.copyDoctor", windows::copyDoctor),
@@ -3196,7 +3198,7 @@ public final class TerminalWindow {
         // elsewhere, where Ctrl+Alt+arrows switch workspaces in GNOME and Ctrl+Shift+arrows are
         // already Move Tab and the prompt jumps.
         for (PaneGroup.Direction direction : PaneGroup.Direction.values()) {
-            String key = "command.focusPane" + direction.name().charAt(0)
+            String key = "command.pane.focus" + direction.name().charAt(0)
                     + direction.name().substring(1).toLowerCase(java.util.Locale.ROOT);
             all.add(item(key, () -> focusPane(direction)));
         }
@@ -3282,8 +3284,8 @@ public final class TerminalWindow {
                     chordOf(paletteAction.id()),
                     palette.isShowing() ? paletteRows(new java.util.IdentityHashMap<>()) : List.of());
         }
-        newTabTipText.set(withChord("command.newTab", "tooltip.newTab", chordOf("newTab")));
-        closeTabTipText.set(withChord("command.closeTab", "tooltip.closeTab", chordOf("closeTab")));
+        newTabTipText.set(withChord("command.file.newTab", "tooltip.newTab", chordOf("file.newTab")));
+        closeTabTipText.set(withChord("command.file.closeTab", "tooltip.closeTab", chordOf("file.closeTab")));
     }
 
     /** "New Tab (Ctrl+Shift+T)", or "New Tab" once the user has taken its chord away. */
@@ -3394,7 +3396,8 @@ public final class TerminalWindow {
      * a screen menu bar may draw its items before any ON_SHOWING reaches them.
      */
     private void refreshUpdateItem() {
-        for (MenuItem item : itemsFor("checkForUpdates")) MenuRows.setTitle(item, registry.label("checkForUpdates"));
+        for (MenuItem item : itemsFor("help.checkForUpdates"))
+            MenuRows.setTitle(item, registry.label("help.checkForUpdates"));
         // The status bar's link to the release (DIAG-09, Pauta 6.0.1), the same action as the row.
         var update = windows.availableUpdate();
         statusBar.showUpdate(update == null ? null : update.version(), windows::openReleasePage);
@@ -3452,7 +3455,7 @@ public final class TerminalWindow {
     }
 
     private String statusBarLabel() {
-        return settings.showStatusBar() ? tr("menu.hideStatusBar") : tr("command.showStatusBar");
+        return settings.showStatusBar() ? tr("menu.hideStatusBar") : tr("command.view.toggleStatusBar");
     }
 
     /** Places or removes the status bar, as the setting says. */
@@ -3551,17 +3554,18 @@ public final class TerminalWindow {
     private String currentLabel(String id, String standing) {
         if (id.equals(pinAction.id())) return pinLabel(tabs.getSelectionModel().getSelectedItem());
         if (id.equals(statusBarAction.id())) return statusBarLabel();
-        if (id.equals(tabBarAction.id())) return tr(settings.showTabBar() ? "menu.hideTabBar" : "command.showTabBar");
+        if (id.equals(tabBarAction.id()))
+            return tr(settings.showTabBar() ? "menu.hideTabBar" : "command.view.toggleTabBar");
         MenuAction toggle = menuBarToggle;
         if (toggle != null && id.equals(toggle.id())) {
-            return tr(settings.showMenuBar() ? "command.hideMenuBar" : "menu.showMenuBar");
+            return tr(settings.showMenuBar() ? "command.view.toggleMenuBar" : "menu.showMenuBar");
         }
-        if ("closeTab".equals(id) && activeTabIsSplit()) return tr("menu.closePane");
+        if ("file.closeTab".equals(id) && activeTabIsSplit()) return tr("menu.closePane");
         // One command, named for the way it will go, as the button in Settings is.
         if (SettingsActions.Action.SYNC_CONNECT.id().equals(id) && settings.syncEnabled()) {
             return tr("menu.syncDisconnect");
         }
-        if ("checkForUpdates".equals(id)) {
+        if ("help.checkForUpdates".equals(id)) {
             var update = windows.availableUpdate();
             if (update != null) return tr("menu.updateAvailable", update.version());
         }
@@ -3580,28 +3584,28 @@ public final class TerminalWindow {
         SettingsActions.Action settingsAction = SettingsActions.Action.byId(id);
         if (settingsAction != null) return windows.settingsActionUnavailable(settingsAction);
         String noMenuBarToHide = WindowRules.menuBarToggleUnavailableKey(SYSTEM_MENU_BAR);
-        if ("hideMenuBar".equals(id) && noMenuBarToHide != null) return tr(noMenuBarToHide);
+        if ("view.toggleMenuBar".equals(id) && noMenuBarToHide != null) return tr(noMenuBarToHide);
         for (MenuAction marked : List.of(previousPromptAction, nextPromptAction, selectOutputAction)) {
             if (id.equals(marked.id()) && !promptMarksAvailable()) return tr("palette.disabled.noPromptMarks");
         }
         for (MenuAction bulk : List.of(closeOthersAction, closeLeftAction, closeRightAction)) {
             if (id.equals(bulk.id())) return bulkCloseUnavailable(bulk);
         }
-        if ("moveTabLeft".equals(id) || "moveTabRight".equals(id)) {
+        if ("tab.moveLeft".equals(id) || "tab.moveRight".equals(id)) {
             String atTheEdge = TabRanges.moveUnavailable(
-                    "moveTabLeft".equals(id) ? -1 : 1,
+                    "tab.moveLeft".equals(id) ? -1 : 1,
                     tabs.getSelectionModel().getSelectedIndex(),
                     tabs.getTabs().size());
             if (atTheEdge != null) return tr(atTheEdge);
         }
-        if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
+        if (("link.open".equals(id) || "link.copyAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
         }
         if ("help.copyDoctor".equals(id)) {
             String notRun = windows.copyDoctorUnavailableKey();
             if (notRun != null) return tr(notRun);
         }
-        if ("focusMenuBar".equals(id)) {
+        if ("view.focusMenuBar".equals(id)) {
             String noBar = WindowRules.focusMenuBarUnavailableKey(SYSTEM_MENU_BAR, settings.showMenuBar());
             if (noBar != null) return tr(noBar);
         }
@@ -3721,7 +3725,7 @@ public final class TerminalWindow {
         // while Zoom In is still there, since a user who moved it did not ask for a second chord.
         if (e.isShortcutDown()
                 && (e.getCode() == KeyCode.PLUS || e.getCode() == KeyCode.ADD)
-                && Keybindings.same(chordOf("zoomIn"), defaultChords().get("zoomIn"), MAC)) {
+                && Keybindings.same(chordOf("view.zoomIn"), defaultChords().get("view.zoomIn"), MAC)) {
             zoom(1);
             e.consume();
         }
@@ -3925,9 +3929,10 @@ public final class TerminalWindow {
             if (id != null && registry.contains(id)) {
                 String description = row.description();
                 MenuAction toggle = menuBarToggle;
-                if ("closeTab".equals(id) && activeTabIsSplit()) description = description("menu.closePane");
+                if ("file.closeTab".equals(id) && activeTabIsSplit()) description = description("menu.closePane");
                 if (toggle != null && id.equals(toggle.id())) {
-                    description = description(settings.showMenuBar() ? "command.hideMenuBar" : "menu.showMenuBar");
+                    description =
+                            description(settings.showMenuBar() ? "command.view.toggleMenuBar" : "menu.showMenuBar");
                 }
                 row = new MenuAction(
                         registry.label(id), row.accelerator(), row.action(), description, row.keywords(), id);

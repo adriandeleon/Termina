@@ -26,7 +26,6 @@ A test fails when this list and that file disagree.
 - [ ] **[DOCS-03](https://pauta-project.dev/6.0.1/documentation/#docs-03)** The Documentation command opens the newest user guide, not the one for the version you are running.
 - [ ] **[DOCS-04](https://pauta-project.dev/6.0.1/documentation/#docs-04)** The website's What's New page is written by hand, and nothing checks the command names and shortcuts the guide quotes.
 - [ ] **[DOCS-18](https://pauta-project.dev/6.0.1/documentation/#docs-18)** The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's.
-- [ ] **[KBD-02](https://pauta-project.dev/6.0.1/keyboard/#kbd-02)** Most commands still have ids without an area in front, such as newTab.
 - [ ] **[KBD-04](https://pauta-project.dev/6.0.1/keyboard/#kbd-04)** On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.
 - [ ] **[ACC-09](https://pauta-project.dev/6.0.1/accessibility/#acc-09)** Termina does not follow Windows' high-contrast mode.
 - [ ] **[WIN-15](https://pauta-project.dev/6.0.1/window-shell/#win-15)** On macOS, Settings is in the File menu and not in the application menu.

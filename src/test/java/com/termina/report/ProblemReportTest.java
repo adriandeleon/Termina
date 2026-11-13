@@ -23,7 +23,7 @@ class ProblemReportTest {
                         "terminal.shell", "/home/jdoe/bin/fish",
                         "profile.1.name", "prod",
                         "profile.1.command", "ssh deploy@prod-db",
-                        "keys.newTab", "Shortcut+Shift+Y",
+                        "keys.file.newTab", "Shortcut+Shift+Y",
                         "sync.repository", "https://bob:tok@github.com/b/s.git"),
                 "WARNING one\nSEVERE two",
                 REDACT);

@@ -55,7 +55,7 @@ public final class Settings {
     /** Whether keystrokes are predicted while SSH is in the foreground and its echo is slow. */
     public static final String TYPE_AHEAD = "terminal.typeAhead";
     /**
-     * The user's key bindings, one key per command: {@code keys.newTab=Ctrl+Shift+Y}, in {@code
+     * The user's key bindings, one key per command: {@code keys.file.newTab=Ctrl+Shift+Y}, in {@code
      * KeyCombination} notation. See {@link #keyBindings()}.
      */
     public static final String KEYS_PREFIX = "keys.";

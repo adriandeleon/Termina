@@ -3,6 +3,7 @@ package com.termina.ui;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCombination;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -14,7 +15,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The macOS screen menu bar's rows (MENU-02): plain text with the chord after the title, no icon and
  * no accelerator. The in-window rows are drawn, and checked in {@link MenusFxTest}.
  */
+@Tag("fx")
 class MenuRowsTest {
+
+    /**
+     * A separator is a control, and a control's class needs the toolkit: without this the test
+     * passed only when another had started it, and failed in a run that leaves the fx tests out.
+     */
+    @org.junit.jupiter.api.BeforeAll
+    static void startToolkit() {
+        System.setProperty("glass.platform", "Headless");
+        try {
+            javafx.application.Platform.startup(() -> {});
+        } catch (IllegalStateException alreadyRunning) {
+            // Another test in the same JVM got there first, which is the same outcome.
+        }
+        javafx.application.Platform.setImplicitExit(false);
+    }
 
     @Test
     void aSystemRowIsTextWithTheChordAfterTheTitle() {

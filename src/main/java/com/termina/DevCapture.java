@@ -348,7 +348,7 @@ final class DevCapture {
                 case "close" -> window.closeActivePaneForCapture();
                 case "max" -> window.toggleMaximizePaneForCapture();
                 case "move" -> window.moveActivePaneForCapture(-1);
-                case "closeTab" -> window.closeSelectedTabForCapture();
+                case "file.closeTab" -> window.closeSelectedTabForCapture();
                 case "reopen" -> window.reopenClosedTab();
                 case "styles" -> System.out.println("[capture] styles " + window.paneStyleReport());
                 default -> {

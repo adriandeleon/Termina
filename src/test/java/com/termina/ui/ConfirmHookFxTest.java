@@ -44,7 +44,7 @@ class ConfirmHookFxTest {
         Settings settings = new Settings(dir.resolve("settings.json"));
         settings.load();
         settings.setUpdateCheck(false);
-        settings.replaceKeyBindings(Map.of("newTab", "Ctrl+Alt+T"));
+        settings.replaceKeyBindings(Map.of("file.newTab", "Ctrl+Alt+T"));
         java.util.Set<Window> before = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         onFx(() -> before.addAll(Window.getWindows()));
         WindowManager windows = onFx(() -> new WindowManager(settings));
@@ -64,7 +64,7 @@ class ConfirmHookFxTest {
                 return open;
             });
             assertEquals(List.of(Questions.resetAllKeys()), asked);
-            assertEquals(Map.of("newTab", "Ctrl+Alt+T"), settings.keyBindings());
+            assertEquals(Map.of("file.newTab", "Ctrl+Alt+T"), settings.keyBindings());
 
             // Allowed: they are reset, and still nothing opened.
             onFx(() -> {

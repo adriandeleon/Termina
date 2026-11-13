@@ -181,8 +181,8 @@ class MessagesTest {
     @Test
     void aTranslationIsActuallyUsed() {
         Messages.init("es");
-        assertEquals("Copiar", Messages.tr("command.copy"));
+        assertEquals("Copiar", Messages.tr("command.edit.copy"));
         Messages.init("en");
-        assertEquals("Copy", Messages.tr("command.copy"));
+        assertEquals("Copy", Messages.tr("command.edit.copy"));
     }
 }
