@@ -658,9 +658,7 @@ final class DevCapture {
         boolean plain = parts.length > 2 && "plain".equalsIgnoreCase(parts[2].trim());
         // "alt" fires Alt+key on every platform, Option+key on a Mac.
         boolean alt = parts.length > 2 && "alt".equalsIgnoreCase(parts[2].trim());
-        boolean mac = System.getProperty("os.name", "")
-                .toLowerCase(java.util.Locale.ROOT)
-                .startsWith("mac");
+        boolean mac = com.termina.Os.isMac();
         javafx.scene.input.KeyEvent event = new javafx.scene.input.KeyEvent(
                 javafx.scene.input.KeyEvent.KEY_PRESSED,
                 "",

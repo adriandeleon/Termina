@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -737,11 +738,37 @@ public final class SettingsWindow {
         status.setVisible(false);
         status.setManaged(false);
         PauseTransition debounce = new PauseTransition(Duration.millis(300));
-        debounce.setOnFinished(
-                e -> showValidation(status, field.isDisabled() ? null : validationKey(check.apply(field.getText()))));
+        debounce.setOnFinished(e -> checkPath(
+                field, check, verdict -> showValidation(status, field.isDisabled() ? null : validationKey(verdict))));
         field.textProperty().addListener((o, old, text) -> debounce.playFromStart());
         field.disabledProperty().addListener((o, was, disabled) -> debounce.playFromStart());
         return new VBox(2, field, status);
+    }
+
+    /**
+     * Where a path is checked: the question is the disk's (does it exist, can it run), so it is
+     * asked on a thread of its own and never on the FX thread (PERF-01, Pauta 6.0.1). A virtual
+     * thread each; a check is one or two file-system calls.
+     */
+    private static final java.util.concurrent.Executor PATH_CHECKS =
+            java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * Checks what {@code field} holds now, off the FX thread, and hands the verdict back on it.
+     * A verdict for text the field no longer holds is dropped: the check for what it holds now
+     * is already on its way.
+     */
+    private static void checkPath(
+            TextField field,
+            java.util.function.Function<String, ShellLauncher.PathStatus> check,
+            java.util.function.Consumer<ShellLauncher.PathStatus> then) {
+        String text = field.getText();
+        PATH_CHECKS.execute(() -> {
+            ShellLauncher.PathStatus verdict = check.apply(text);
+            Platform.runLater(() -> {
+                if (java.util.Objects.equals(text, field.getText())) then.accept(verdict);
+            });
+        });
     }
 
     /** Shows what is wrong with a field's value under it, or takes the line away for null. */
@@ -1052,7 +1079,7 @@ public final class SettingsWindow {
             if (loading) return;
             write(() -> settings.setShowMenuBar(value));
         });
-        boolean mac = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+        boolean mac = com.termina.Os.isMac();
         // Disabled rather than hidden on macOS: a setting that silently does nothing is worse than
         // one that says why it cannot.
         showMenuBar.setDisable(mac);
@@ -1295,9 +1322,18 @@ public final class SettingsWindow {
         // nothing is marked and the setting keeps what it had (SET-04, Pauta 6.0.1).
         Runnable commitShell = () -> {
             if (loading) return;
-            ShellLauncher.PathStatus verdict = ShellLauncher.validateShellPath(shellField.getText());
-            showValidation(shellStatus, validationKey(verdict));
-            if (commits(verdict)) write(() -> settings.setShell(shellField.getText()));
+            String typed = shellField.getText();
+            // The disk is asked on a worker, which also resolves the command the menus will want
+            // for this spelling; the write follows on the FX thread, a moment after the key.
+            java.util.function.Function<String, ShellLauncher.PathStatus> check = text -> {
+                ShellLauncher.PathStatus verdict = ShellLauncher.validateShellPath(text);
+                if (commits(verdict)) com.termina.shell.ShellProfiles.warm(text, List.of());
+                return verdict;
+            };
+            checkPath(shellField, check, verdict -> {
+                showValidation(shellStatus, validationKey(verdict));
+                if (commits(verdict)) write(() -> settings.setShell(typed));
+            });
         };
         shellField.focusedProperty().addListener((o, was, focused) -> {
             if (!focused) commitShell.run();
@@ -1960,21 +1996,31 @@ public final class SettingsWindow {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
         if (profileName.getText().isBlank() || profileCommand.getText().isBlank()) return;
+        String name = profileName.getText().trim();
+        String command = profileCommand.getText();
+        String directory = profileDirectory.getText();
+        // Whether the command and the folder are there is the disk's to say, so it is asked on a
+        // worker (PERF-01, Pauta 6.0.1) and the edit is made back here with the two answers.
+        PATH_CHECKS.execute(() -> {
+            boolean commandPasses = commits(ShellLauncher.validateCommand(command));
+            boolean directoryPasses = commits(ShellLauncher.validateDirectory(directory));
+            Platform.runLater(
+                    () -> applyProfileEdit(selected.id(), name, command, commandPasses, directory, directoryPasses));
+        });
+    }
 
+    /** The edit itself, on the FX thread, once the worker has said which of the two paths pass. */
+    private void applyProfileEdit(
+            String id, String name, String command, boolean commandPasses, String directory, boolean directoryPasses) {
         List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
         boolean changed = false;
         for (int i = 0; i < user.size(); i++) {
-            if (!user.get(i).id().equals(selected.id())) continue;
+            if (!user.get(i).id().equals(id)) continue;
             // A command or a directory that is marked is not written (SET-04, Pauta 6.0.1): the
             // profile keeps the one it had, and the mark under the field says why.
-            com.termina.shell.Profile edited =
-                    user.get(i).withName(profileName.getText().trim());
-            if (commits(ShellLauncher.validateCommand(profileCommand.getText()))) {
-                edited = edited.withCommandLine(profileCommand.getText());
-            }
-            if (commits(ShellLauncher.validateDirectory(profileDirectory.getText()))) {
-                edited = edited.withWorkingDirectory(profileDirectory.getText());
-            }
+            com.termina.shell.Profile edited = user.get(i).withName(name);
+            if (commandPasses) edited = edited.withCommandLine(command);
+            if (directoryPasses) edited = edited.withWorkingDirectory(directory);
             if (edited.equals(user.get(i))) return;
             user.set(i, edited);
             changed = true;
@@ -1982,7 +2028,10 @@ public final class SettingsWindow {
         }
         if (!changed) return;
         write(() -> profiles.setUserProfiles(user));
-        refreshProfileList(selected.id());
+        // The list is redrawn around the profile that was edited, unless the user has since gone
+        // to another: the answer came a moment after the key, and the selection is theirs.
+        com.termina.shell.Profile now = editing;
+        refreshProfileList(now == null ? id : now.id());
     }
 
     private void addUserProfile() {
@@ -2488,7 +2537,7 @@ public final class SettingsWindow {
     }
 
     private static String shortcutName() {
-        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac") ? "Cmd" : "Ctrl";
+        return com.termina.Os.isMac() ? "Cmd" : "Ctrl";
     }
 
     // ---------------------------------------------------------------- state

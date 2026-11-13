@@ -80,8 +80,7 @@ public final class ShellDiscovery {
      * it belongs on a background thread. {@link ShellProfiles} is what arranges that.
      */
     public static List<Profile> discover() {
-        boolean windows =
-                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+        boolean windows = com.termina.Os.isWindows();
         Predicate<Path> executable = Files::isExecutable;
         if (windows) {
             return onWindows(

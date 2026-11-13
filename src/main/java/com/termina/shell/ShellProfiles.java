@@ -63,6 +63,13 @@ public final class ShellProfiles {
         this.systemName = systemName == null || systemName.isBlank()
                 ? com.termina.i18n.Messages.tr("profile.systemShell")
                 : systemName;
+        // A shell setting or a profile changed from anywhere, the palette or a sync included: its
+        // answers are worked out on a worker before the next menu asks for them.
+        settings.addOnChange(() -> {
+            String shell = settings.shell();
+            List<Profile> user = userProfiles();
+            WARMER.execute(() -> warm(shell, user));
+        });
     }
 
     /** Runs discovery once, off the toolkit thread, and reports back through {@code onDone}. */
@@ -83,6 +90,14 @@ public final class ShellProfiles {
                         found = List.of();
                     }
                     List<Profile> result = found;
+                    // Here, on this thread: the merge the toolkit thread runs next asks for these.
+                    try {
+                        List<Profile> known = new ArrayList<>(result);
+                        known.addAll(userProfiles());
+                        warm(settings.shell(), known);
+                    } catch (RuntimeException e) {
+                        // Unwarmed is slower, not wrong.
+                    }
                     dispatch.accept(() -> {
                         discovered = result;
                         discoveryFinished = true;
@@ -115,7 +130,37 @@ public final class ShellProfiles {
 
     /** Every profile on offer, in menu order. */
     public List<Profile> all() {
-        return merge(systemProfile(), discovered, userProfiles(), hiddenIds(), ShellProfiles::realExecutable);
+        return merge(systemProfile(), discovered, userProfiles(), hiddenIds(), this::realExecutableNow);
+    }
+
+    /** Whether the caller is on the toolkit thread, where the disk is never asked; nowhere, until told. */
+    private volatile java.util.function.BooleanSupplier onToolkitThread = () -> false;
+
+    /**
+     * Says which thread must not wait on the disk (PERF-01, Pauta 6.0.1). On it, a question nobody
+     * has answered yet, a shell setting or a profile's program not seen before, gets what is
+     * assumed without asking, and the real answer is worked out on a worker for the next caller.
+     * A menu is built each time it shows, so the assumption lasts until the next showing at most.
+     */
+    public void neverAskTheDiskOn(java.util.function.BooleanSupplier toolkitThread) {
+        this.onToolkitThread = toolkitThread;
+    }
+
+    private String realExecutableNow(String executable) {
+        String known = REAL_EXECUTABLES.get(executable);
+        if (known != null) return known;
+        if (!onToolkitThread.getAsBoolean()) return realExecutable(executable);
+        WARMER.execute(() -> realExecutable(executable));
+        return executable;
+    }
+
+    private List<String> systemCommandNow(String shellSetting) {
+        String key = shellSetting == null ? "" : shellSetting;
+        List<String> known = SYSTEM_COMMANDS.get(key);
+        if (known != null) return known;
+        if (!onToolkitThread.getAsBoolean()) return systemCommand(key);
+        WARMER.execute(() -> systemCommand(key));
+        return ShellLauncher.assumedShellCommand(key);
     }
 
     /** Resolved once per spelling: {@link #all} runs whenever a menu is built. */
@@ -140,7 +185,7 @@ public final class ShellProfiles {
      * screen that can hide it.
      */
     public List<Profile> allIncludingHidden() {
-        return merge(systemProfile(), discovered, userProfiles(), Set.of(), ShellProfiles::realExecutable);
+        return merge(systemProfile(), discovered, userProfiles(), Set.of(), this::realExecutableNow);
     }
 
     /**
@@ -151,8 +196,47 @@ public final class ShellProfiles {
      * and the setting cannot disagree about what "your shell" means.
      */
     public Profile systemProfile() {
-        return Profile.of(SYSTEM_ID, systemName, ShellLauncher.shellCommand(settings.shell()), Profile.Source.SYSTEM);
+        return Profile.of(SYSTEM_ID, systemName, systemCommandNow(settings.shell()), Profile.Source.SYSTEM);
     }
+
+    /**
+     * The system shell's command for each spelling of the shell setting, resolved once.
+     *
+     * <p>{@link #all} runs on the toolkit thread whenever a menu is built, and resolving the
+     * command asks the disk whether the configured shell can run (PERF-01, Pauta 6.0.1). So the
+     * answer is kept, and worked out ahead of time on other threads wherever that can be arranged
+     * ({@link #warm}): as the settings are read at startup, by discovery, when the setting
+     * changes, and by the Settings window as it checks a path. A spelling nobody warmed is
+     * resolved where it is first asked for, once, unless that is the toolkit thread, which gets an
+     * assumption ({@link #neverAskTheDiskOn}). The launch itself asks again, off the toolkit thread,
+     * so a shell removed since is found out there.
+     */
+    private static final Map<String, List<String>> SYSTEM_COMMANDS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static List<String> systemCommand(String shellSetting) {
+        String key = shellSetting == null ? "" : shellSetting;
+        return SYSTEM_COMMANDS.computeIfAbsent(key, ShellLauncher::shellCommand);
+    }
+
+    /**
+     * Answers ahead of time what the toolkit thread would otherwise ask the disk for: the system
+     * shell's command for {@code shellSetting}, and the real file behind each profile's program.
+     * Called on a worker; safe on any thread.
+     */
+    public static void warm(String shellSetting, List<Profile> profiles) {
+        systemCommand(shellSetting);
+        for (Profile profile : profiles) {
+            if (!profile.command().isEmpty()) realExecutable(profile.command().get(0));
+        }
+    }
+
+    /** One thread for the warm-ups a settings change asks for; they are small and rare. */
+    private static final java.util.concurrent.Executor WARMER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+                Thread thread = new Thread(task, "termina-profiles-warm");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     public static final String SYSTEM_ID = "system";
 

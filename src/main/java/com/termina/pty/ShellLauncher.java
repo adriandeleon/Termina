@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -29,11 +28,11 @@ public final class ShellLauncher {
     private static final String TERM = "xterm-256color";
 
     public static boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+        return com.termina.Os.isWindows();
     }
 
     private static boolean isMac() {
-        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+        return com.termina.Os.isMac();
     }
 
     /**
@@ -56,6 +55,30 @@ public final class ShellLauncher {
      */
     public static List<String> shellCommand(String override) {
         return shellCommand(override, false);
+    }
+
+    /**
+     * What {@link #shellCommand(String)} answers when every file it asks about is there, worked
+     * out without asking the disk: for a caller on the toolkit thread that has not been told the
+     * real answer yet (PERF-01, Pauta 6.0.1). The real one follows from a worker; this one is
+     * never what a shell is started from.
+     */
+    public static List<String> assumedShellCommand(String override) {
+        return assumedShellCommand(override, com.termina.Os.current(), System::getenv);
+    }
+
+    static List<String> assumedShellCommand(String override, com.termina.Os.Kind os, Function<String, String> env) {
+        boolean windows = os == com.termina.Os.Kind.WINDOWS;
+        if (override != null && !override.isBlank()) {
+            return windows ? List.of(override.trim()) : List.of(override.trim(), "-l");
+        }
+        if (windows) {
+            String comspec = env.apply("COMSPEC");
+            return List.of(comspec != null && !comspec.isBlank() ? comspec : "cmd.exe");
+        }
+        String shell = env.apply("SHELL");
+        if (shell == null || shell.isBlank()) shell = os == com.termina.Os.Kind.MAC ? "/bin/zsh" : "/bin/bash";
+        return List.of(shell, "-l");
     }
 
     /**

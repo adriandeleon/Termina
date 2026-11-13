@@ -1729,8 +1729,7 @@ public final class TerminalView extends Region {
     /** One row's worth of an underline: a line index and the slots it covers. */
     private record LinkSpan(int line, int fromSlot, int toSlot) {}
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * How far to look either side for the rest of a wrapped line.
@@ -3134,12 +3133,7 @@ public final class TerminalView extends Region {
             }
             case com.termina.term.OscSequences.CLIPBOARD -> {
                 if (!clipboardWrites) return;
-                com.termina.term.OscSequences.clipboardText(payload)
-                        .ifPresent(text -> Platform.runLater(() -> {
-                            ClipboardContent content = new ClipboardContent();
-                            content.putString(text);
-                            Clipboard.getSystemClipboard().setContent(content);
-                        }));
+                com.termina.term.OscSequences.clipboardText(payload).ifPresent(clipboardTexts::add);
             }
             default -> {}
         }
@@ -3210,13 +3204,28 @@ public final class TerminalView extends Region {
      * would otherwise fill the screen with bubbles. Every one still marks the tab.
      */
     private void onNotification(com.termina.term.OscSequences.Notification notification) {
-        Platform.runLater(() -> {
+        notifications.add(notification);
+    }
+
+    /**
+     * The emulator thread's notifications, handed to the FX thread a frame apart and not one
+     * {@code runLater} each (PERF-07, Pauta 6.0.1): a loop printing OSC 9 arrives as batches.
+     */
+    private final FxBatch<com.termina.term.OscSequences.Notification> notifications = new FxBatch<>(batch -> {
+        for (com.termina.term.OscSequences.Notification notification : batch) {
             long now = System.currentTimeMillis();
             boolean post = now - lastNotifiedMs >= NOTIFY_INTERVAL_MS;
             if (post) lastNotifiedMs = now;
             onNotify.accept(notification, post);
-        });
-    }
+        }
+    });
+
+    /** OSC 52 writes, batched the same way: of several in one frame the last is the clipboard's. */
+    private final FxBatch<String> clipboardTexts = new FxBatch<>(batch -> {
+        ClipboardContent content = new ClipboardContent();
+        content.putString(batch.get(batch.size() - 1));
+        Clipboard.getSystemClipboard().setContent(content);
+    });
 
     /** Records a mark at the cursor, in coordinates that survive scrolling. */
     private void onPromptMark(com.termina.term.OscSequences.PromptMark mark) {

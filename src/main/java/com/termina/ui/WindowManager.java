@@ -75,6 +75,7 @@ public final class WindowManager {
         this.settings = settings;
         this.configTransfer = new ConfigTransfer(settings);
         this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
+        this.profiles.neverAskTheDiskOn(Platform::isFxApplicationThread);
         // Nothing to do when it finishes: every menu that lists profiles is built when it is shown,
         // so the next one to open picks up whatever discovery found. The callback exists because a
         // menu already on screen when the answer lands would otherwise keep the shorter list.
@@ -82,9 +83,16 @@ public final class WindowManager {
         settings.addOnChange(this::applySettingsEverywhere);
         // An uncaught exception is recorded in the Debug Log first; this says so where the user is
         // looking, never as a dialog with a stack trace in it (DIAG-04).
-        DebugLog.onUncaught(error -> javafx.application.Platform.runLater(() -> messages.add(
-                MessageLog.Severity.ERROR,
-                tr("status.uncaughtError", error.getClass().getSimpleName()))));
+        // In batches a frame apart, not a runLater for each (PERF-07): a thread that throws in a
+        // loop throws at its own pace.
+        FxBatch<Throwable> uncaught = new FxBatch<>(errors -> {
+            for (Throwable error : errors) {
+                messages.add(
+                        MessageLog.Severity.ERROR,
+                        tr("status.uncaughtError", error.getClass().getSimpleName()));
+            }
+        });
+        DebugLog.onUncaught(uncaught::add);
         // The desktop's light or dark, for the theme that follows it. Re-applied whatever the
         // stored theme, because a profile can follow the system while the default does not; the
         // desktop changes its scheme a few times a day at most.

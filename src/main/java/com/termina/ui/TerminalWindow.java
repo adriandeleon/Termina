@@ -45,8 +45,7 @@ import static com.termina.i18n.Messages.tr;
 /** One window: a menu bar over a tab strip, each tab a terminal with its own shell. */
 public final class TerminalWindow {
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * Whether the menus go to the screen menu bar rather than into the window.

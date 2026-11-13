@@ -28,13 +28,10 @@ public final class ProcessCwd {
 
     private ProcessCwd() {}
 
-    private static final boolean LINUX =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+    private static final boolean LINUX = com.termina.Os.isLinux();
+    private static final boolean MAC = com.termina.Os.isMac();
 
-    private static final boolean WINDOWS =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+    private static final boolean WINDOWS = com.termina.Os.isWindows();
 
     /** True where {@link #of(long)} can ever return a value, so callers can skip polling entirely. */
     public static boolean isSupported() {
@@ -49,11 +46,11 @@ public final class ProcessCwd {
      * directories — and a report is ignored.
      */
     public static boolean reportedDirectoryWins() {
-        return reportedDirectoryWins(System.getProperty("os.name", ""));
+        return reportedDirectoryWins(com.termina.Os.name());
     }
 
     static boolean reportedDirectoryWins(String os) {
-        return os.toLowerCase(Locale.ROOT).startsWith("windows");
+        return com.termina.Os.of(os) == com.termina.Os.Kind.WINDOWS;
     }
 
     /**

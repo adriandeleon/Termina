@@ -3,7 +3,6 @@ package com.termina.ui;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import javafx.scene.input.KeyCode;
@@ -60,8 +59,7 @@ public record MenuAction(
      */
     public static final KeyCombination DEFAULT_PALETTE_CHORD = shiftChord(KeyCode.P);
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * The chord for opening the profile numbered {@code digit} in a new tab.

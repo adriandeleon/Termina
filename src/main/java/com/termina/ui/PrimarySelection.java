@@ -41,8 +41,7 @@ final class PrimarySelection {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(2);
 
-    private static final boolean LINUX =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("linux");
+    private static final boolean LINUX = com.termina.Os.isLinux();
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "primary-selection");

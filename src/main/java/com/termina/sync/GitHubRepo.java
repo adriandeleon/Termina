@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -32,8 +31,7 @@ public final class GitHubRepo {
 
     private static final int MAX_BYTES = 1024 * 1024;
 
-    private static final boolean WINDOWS =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    private static final boolean WINDOWS = com.termina.Os.isWindows();
 
     /** The repository named by the address {@code gh repo create} prints. */
     private static final Pattern WEB_URL =

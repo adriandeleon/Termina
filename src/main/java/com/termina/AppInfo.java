@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.module.ModuleDescriptor;
 import java.util.List;
-import java.util.Locale;
 import java.util.Properties;
 
 /**
@@ -142,8 +141,7 @@ public final class AppInfo {
         lines.add("Java: " + javaVersion());
         String fx = javaFxVersion();
         if (!fx.isBlank()) lines.add("JavaFX: " + fx);
-        lines.add("OS: " + System.getProperty("os.name", "?") + " " + System.getProperty("os.version", "") + " ("
-                + System.getProperty("os.arch", "?").toLowerCase(Locale.ROOT) + ")");
+        lines.add("OS: " + Os.description());
         return List.copyOf(lines);
     }
 }

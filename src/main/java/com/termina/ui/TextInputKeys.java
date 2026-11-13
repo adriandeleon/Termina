@@ -1,6 +1,5 @@
 package com.termina.ui;
 
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -25,8 +24,7 @@ import org.jspecify.annotations.Nullable;
  */
 final class TextInputKeys {
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /** The Emacs editing chords, in {@link KeyChord} tokens, and what each does to the field. */
     static final Map<String, Consumer<TextInputControl>> EMACS = Map.ofEntries(

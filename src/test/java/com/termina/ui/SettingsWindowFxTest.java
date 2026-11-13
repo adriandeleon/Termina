@@ -113,6 +113,9 @@ class SettingsWindowFxTest {
         Path shell = java.nio.file.Files.writeString(dir.resolve("a-shell"), "#!/bin/sh\n");
         assertTrue(shell.toFile().setExecutable(true));
 
+        TextField[] fields = new TextField[1];
+        SettingsWindow[] windowHolder = new SettingsWindow[1];
+        Stage[] ownerHolder = new Stage[1];
         List<String> stored = onFx(() -> {
             Stage owner = new Stage();
             owner.setScene(new Scene(new StackPane(), 400, 300));
@@ -143,33 +146,57 @@ class SettingsWindowFxTest {
             enter(branch, "trunk");
             out.add(settings.syncRepository());
 
-            enter(shellField, shell.toString());
-            out.add(settings.shell());
-            enter(shellField, dir.resolve("no-such-shell").toString());
-            out.add(settings.shell());
-            enter(shellField, "");
-            out.add(settings.shell());
+            fields[0] = shellField;
+            windowHolder[0] = window;
+            ownerHolder[0] = owner;
+            return out;
+        });
 
-            // A profile's command and directory, the same: marked, and the profile keeps its own.
+        // The paths are checked off the FX thread (PERF-01, Pauta 6.0.1), so each answer, and the
+        // write that follows a good one, comes a moment after the key.
+        TextField shellField = fields[0];
+        onFx(() -> enter(shellField, shell.toString()));
+        waitFor(() -> shell.toString().equals(settings.shell()), "the shell path to be written");
+        stored.add(settings.shell());
+        onFx(() -> enter(shellField, dir.resolve("no-such-shell").toString()));
+        Thread.sleep(400);
+        stored.add(settings.shell());
+        onFx(() -> enter(shellField, ""));
+        waitFor(() -> settings.shell().isEmpty(), "the shell path to be cleared");
+        stored.add(settings.shell());
+
+        // A profile's command and directory, the same: marked, and the profile keeps its own.
+        TextField[] profileFields = onFx(() -> {
+            SettingsWindow window = windowHolder[0];
             for (Region page : window.pagesForTest()) {
                 for (javafx.scene.control.Button button : find(page, javafx.scene.control.Button.class)) {
                     if (com.termina.i18n.Messages.tr("settings.profileAdd").equals(button.getText())) button.fire();
                 }
             }
-            TextField command = field(window, "wsl.exe -d Ubuntu");
-            TextField directory = field(window, com.termina.i18n.Messages.tr("settings.profileDirectory.prompt"));
-            enter(command, shell + " --login");
-            out.add(profiles.userProfiles().get(0).commandLine());
-            enter(command, dir.resolve("no-such-program") + " --login");
-            out.add(profiles.userProfiles().get(0).commandLine());
-            enter(command, shell + " --login");
-            enter(directory, dir.toString());
-            out.add(profiles.userProfiles().get(0).workingDirectory());
-            enter(directory, dir.resolve("no-such-folder").toString());
-            out.add(profiles.userProfiles().get(0).workingDirectory());
-            window.scene().getWindow().hide();
-            owner.hide();
-            return out;
+            return new TextField[] {
+                field(window, "wsl.exe -d Ubuntu"),
+                field(window, com.termina.i18n.Messages.tr("settings.profileDirectory.prompt"))
+            };
+        });
+        TextField command = profileFields[0];
+        TextField directory = profileFields[1];
+        onFx(() -> enter(command, shell + " --login"));
+        waitFor(() -> (shell + " --login").equals(userProfile(profiles).commandLine()), "the command to be written");
+        stored.add(userProfile(profiles).commandLine());
+        onFx(() -> enter(command, dir.resolve("no-such-program") + " --login"));
+        Thread.sleep(400);
+        stored.add(userProfile(profiles).commandLine());
+        onFx(() -> enter(command, shell + " --login"));
+        onFx(() -> enter(directory, dir.toString()));
+        waitFor(() -> dir.toString().equals(userProfile(profiles).workingDirectory()), "the folder to be written");
+        stored.add(userProfile(profiles).workingDirectory());
+        onFx(() -> enter(directory, dir.resolve("no-such-folder").toString()));
+        Thread.sleep(400);
+        stored.add(userProfile(profiles).workingDirectory());
+        onFx(() -> {
+            windowHolder[0].scene().getWindow().hide();
+            ownerHolder[0].hide();
+            return null;
         });
         assertEquals(
                 List.of(
@@ -221,9 +248,26 @@ class SettingsWindowFxTest {
         throw new AssertionError("no field with the prompt " + prompt);
     }
 
-    private static void enter(TextField field, String text) {
+    private static Void enter(TextField field, String text) {
         field.setText(text);
         field.fireEvent(new ActionEvent());
+        return null;
+    }
+
+    private static com.termina.shell.Profile userProfile(ShellProfiles profiles) {
+        try {
+            return onFx(() -> profiles.userProfiles().get(0));
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void waitFor(java.util.function.BooleanSupplier condition, String what) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
+            Thread.sleep(25);
+        }
     }
 
     /** Works every control under {@code node}; counts switches, choices, steppers, sliders, fields. */

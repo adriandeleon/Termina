@@ -275,4 +275,35 @@ class ShellProfilesTest {
         org.junit.jupiter.api.Assertions.assertEquals(
                 "", com.termina.pty.LaunchOptions.ofShell("/bin/sh").profileId());
     }
+
+    /**
+     * PERF-01 (Pauta 6.0.1): on the toolkit thread a shell setting nobody has resolved yet is
+     * answered by assumption, with no file asked about, and the real answer follows from a worker.
+     */
+    @Test
+    void onTheToolkitThreadAnUnseenShellSettingIsAssumedAndResolvedBehindIt(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
+        com.termina.config.Settings settings = new com.termina.config.Settings(dir.resolve("settings.json"));
+        settings.load();
+        String missing = dir.resolve("no-such-shell-" + System.nanoTime()).toString();
+        settings.setShell(missing);
+        var profiles = new ShellProfiles(settings, "Default Shell");
+        List<String> real = com.termina.pty.ShellLauncher.shellCommand(missing);
+        List<String> assumed = com.termina.pty.ShellLauncher.assumedShellCommand(missing);
+        assertTrue(!real.equals(assumed), "a path that is not there resolves to something else: " + real);
+
+        profiles.neverAskTheDiskOn(() -> true);
+        assertEquals(assumed, profiles.systemProfile().command(), "no file asked about here");
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (!profiles.systemProfile().command().equals(real) && System.nanoTime() < deadline) Thread.sleep(10);
+        assertEquals(real, profiles.systemProfile().command(), "the worker's answer, for the next caller");
+
+        // Off the toolkit thread there is nothing to assume: the disk is asked where it stands.
+        String other = dir.resolve("another-missing-" + System.nanoTime()).toString();
+        settings.setShell(other);
+        profiles.neverAskTheDiskOn(() -> false);
+        assertEquals(
+                com.termina.pty.ShellLauncher.shellCommand(other),
+                profiles.systemProfile().command());
+    }
 }

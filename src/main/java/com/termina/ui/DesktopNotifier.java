@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -71,8 +70,8 @@ final class DesktopNotifier {
      * @param find a program's absolute path, or null when it is not installed
      */
     static @Nullable Command command(String os, String title, String body, Function<String, @Nullable Path> find) {
-        String name = os == null ? "" : os.toLowerCase(Locale.ROOT);
-        if (name.startsWith("mac")) {
+        com.termina.Os.Kind kind = com.termina.Os.of(os);
+        if (kind == com.termina.Os.Kind.MAC) {
             return new Command(
                     List.of(
                             "/usr/bin/osascript",
@@ -86,7 +85,7 @@ final class DesktopNotifier {
                             body),
                     Map.of());
         }
-        if (name.startsWith("windows")) {
+        if (kind == com.termina.Os.Kind.WINDOWS) {
             String encoded = Base64.getEncoder().encodeToString(WINDOWS_SCRIPT.getBytes(StandardCharsets.UTF_16LE));
             return new Command(
                     List.of("powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded),
@@ -157,7 +156,7 @@ final class DesktopNotifier {
         WORKER.execute(() -> {
             String failure;
             try {
-                failure = run(command(System.getProperty("os.name"), title, body, SystemTools::find));
+                failure = run(command(com.termina.Os.name(), title, body, SystemTools::find));
             } catch (Exception e) {
                 // No daemon, a sandbox that refuses the bus, a tool that went away.
                 LOG.log(java.util.logging.Level.WARNING, "desktop notification not shown: " + e, e);

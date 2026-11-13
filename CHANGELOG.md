@@ -134,6 +134,16 @@ done.
 - **Configure Profiles has one icon.** Its row under the new-tab chevron wore the Settings gear.
 - **`--add-exports`, `--add-opens` and `-p` on the command line are skipped with their values**, not
   refused as unknown options: a launcher can leave them among the program's arguments.
+- **The last disk work is off the window's thread.** Listening for other launches (a stale socket
+  file removed, a new one bound) and the fonts registered after the first frame each have a thread
+  of their own; the profile list no longer asks the disk whether each shell can run every time a
+  menu is built, but keeps the answers, worked out on a worker; Settings checks a shell path, a
+  profile's command and its folder on a worker, so the mark and the save come a moment after the
+  key; and settings sync writes its backup on its own thread.
+- **A program that floods desktop notifications or clipboard writes no longer queues one piece of
+  work each for the window.** They, and uncaught errors, reach it in batches a frame apart.
+- **One place says which operating system this is** (`com.termina.Os`); twenty classes worked it
+  out for themselves, in three spellings. No behaviour changes.
 - **Nothing that touches the disk or the process table runs on the window's thread any more**, so a
   slow disk or a hung network mount cannot freeze the window. A new tab appears at once and its
   shell a moment later; the close prompt, the scrollback search and the check behind a hovered

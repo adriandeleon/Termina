@@ -131,11 +131,31 @@ public final class Fonts {
         return java.util.Set.copyOf(LOADED);
     }
 
+    /** Whether every bundled family is registered, so there is nothing left to read. */
+    public static synchronized boolean restLoaded() {
+        return LOADED.containsAll(BUNDLED_MONO);
+    }
+
     /** Registers every bundled family not loaded yet; answers whether any was. */
     public static synchronized boolean loadRest() {
         boolean any = false;
         for (String family : BUNDLED_MONO) any |= ensure(family);
         return any;
+    }
+
+    /**
+     * Registers the rest on a thread of its own, never the FX thread (PERF-01, Pauta 6.0.1): a
+     * font file read after the first frame is a frame that waits on the disk. {@code whenAny}
+     * runs on that thread if a family was registered, for whoever caches the list of them.
+     */
+    public static void loadRestInBackground(Runnable whenAny) {
+        Thread worker = new Thread(
+                () -> {
+                    if (loadRest()) whenAny.run();
+                },
+                "termina-fonts");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private static void loadFiles(List<String> files) {

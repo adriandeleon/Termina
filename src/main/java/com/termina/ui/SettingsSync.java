@@ -634,11 +634,17 @@ final class SettingsSync {
 
         @Override
         public boolean apply(Map<String, String> expected, Map<String, String> changes) throws IOException {
+            // Three steps, so the backup's files are written here on the sync worker and not
+            // inside the FX thread's turn (PERF-01, Pauta 6.0.1): read what is there, copy it
+            // aside, then apply, unless the bindings moved again in between. A copy made for an
+            // apply that is then refused is one spare backup set, pruned with the rest.
+            String before = onFx(SettingsSync.this::renderKeybindings);
+            if (!Objects.equals(before, expected.get(path))) return false;
+            if (!changes.containsKey(path)) return true;
+            if (before != null) backup(Map.of(path, before));
             return Boolean.TRUE.equals(onFx(() -> {
                 String current = renderKeybindings();
-                if (!Objects.equals(current, expected.get(path))) return false;
-                if (!changes.containsKey(path)) return true;
-                if (current != null) backup(Map.of(path, current));
+                if (!Objects.equals(current, before)) return false;
                 applying = true;
                 try {
                     String text = changes.get(path);

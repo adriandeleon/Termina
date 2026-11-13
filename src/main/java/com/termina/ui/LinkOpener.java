@@ -81,7 +81,7 @@ final class LinkOpener implements LinkActions {
         if (argv.isEmpty()) {
             // No command configured, so the position has nowhere to go: `open` and `xdg-open` take
             // a file and nothing else. The file still opens, at the top.
-            argv = OpenCommand.systemOpen(System.getProperty("os.name", ""), file.toString());
+            argv = OpenCommand.systemOpen(com.termina.Os.name(), file.toString());
         }
         launch(argv);
     }

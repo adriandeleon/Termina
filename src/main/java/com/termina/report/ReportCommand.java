@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 import com.termina.AppInfo;
 import com.termina.config.Settings;
@@ -102,10 +101,9 @@ public final class ReportCommand {
 
     /** Hands the address to the platform's own opener, and does not wait for it. */
     private static boolean open(String url) {
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        List<String> command = os.contains("win")
-                ? List.of("rundll32", "url.dll,FileProtocolHandler", url)
-                : os.contains("mac") ? List.of("open", url) : List.of("xdg-open", url);
+        // The same command a clicked link runs: one place says how each system opens an address.
+        List<String> command = com.termina.link.OpenCommand.systemOpen(com.termina.Os.name(), url);
+        if (command.isEmpty()) return false;
         try {
             new ProcessBuilder(command)
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD)
