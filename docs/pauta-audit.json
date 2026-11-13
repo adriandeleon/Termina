@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 21 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 18 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 21 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 18 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 21 entries link issue #92, read with `gh issue view`: open, and naming each of the 21 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 18 entries link issue #92, read with `gh issue view`: open, and naming each of the 18 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 21 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 18 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 21 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 18 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -497,7 +497,7 @@
       "id": "PERF-08",
       "level": "MUST",
       "status": "pass",
-      "evidence": "read the 60 lines of the first grep and the 39 of the second outside DevCapture: the painter draws visible rows only (src/main/java/com/termina/ui/TerminalView.java:1066), the per-frame scans are over lists capped at 1000 matches and 2000 marks, text listeners debounce or filter in memory; growing lists are ListViews (src/main/java/com/termina/ui/MessageLogWindow.java:34, src/main/java/com/termina/ui/SettingsWindow.java:1553); no violation found (TerminalView's handlers skimmed, not read line by line)"
+      "evidence": "read the 60 lines of the first grep and the 39 of the second outside DevCapture: the painter draws visible rows only (src/main/java/com/termina/ui/TerminalView.java:1066), the per-frame scans are over lists capped at 1000 matches and 2000 marks, text listeners debounce or filter in memory; growing lists are ListViews (src/main/java/com/termina/ui/MessageLogCard.java:75, src/main/java/com/termina/ui/SettingsWindow.java:1553); no violation found (TerminalView's handlers skimmed, not read line by line)"
     },
     {
       "id": "PERF-09",
@@ -527,7 +527,7 @@
       "id": "PERF-13",
       "level": "MUST",
       "status": "pass",
-      "evidence": "WINDOW_HIDDEN clears the tab list and runs dispose() (src/main/java/com/termina/ui/TerminalWindow.java:373, :2035); each pane's close() stops the painter, the cwd watcher and the session with its executors (src/main/java/com/termina/ui/TerminalView.java:685, src/main/java/com/termina/term/TerminalSession.java:254); update and message-log listeners removed (:2822, src/main/java/com/termina/ui/MessageLogWindow.java:100); test src/test/java/com/termina/ui/WindowLifecycleTest.java:50"
+      "evidence": "WINDOW_HIDDEN clears the tab list and runs dispose() (src/main/java/com/termina/ui/TerminalWindow.java:373, :2035); each pane's close() stops the painter, the cwd watcher and the session with its executors (src/main/java/com/termina/ui/TerminalView.java:685, src/main/java/com/termina/term/TerminalSession.java:254); update and message-log listeners removed (:2822, src/main/java/com/termina/ui/MessageLogCard.java:252); test src/test/java/com/termina/ui/WindowLifecycleTest.java:50"
     },
     {
       "id": "PERF-14",
@@ -772,8 +772,8 @@
     {
       "id": "WIN-08",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The tabs you had open are not restored at the next launch."
+      "status": "pass",
+      "evidence": "the window's size, place and maximized flag were restored already; the tabs open when the application ends are now written too, as one value (session.tabs) in the session-state file beside them (src/main/java/com/termina/config/Settings.java:856-875, a state key at :318), in the form Reopen Closed Tab keeps a closed window in: each pane's profile and directory, the split, the names, the pins and the tab in front (src/main/java/com/termina/ui/SessionStore.java:110 kept, :212 read). The last window's tabs are written as it closes and the front window's on Quit (src/main/java/com/termina/ui/WindowManager.java:222, :974; src/main/java/com/termina/ui/TerminalWindow.java:395, :2059), and the first window of the next launch opens with them (src/main/java/com/termina/ui/WindowManager.java:187; read off the FX thread at src/main/java/com/termina/App.java:161). A setting turns it off (src/main/java/com/termina/ui/SettingsWindow.java:1357). src/test/java/com/termina/ui/SessionStoreTest.java:49 writes a session and reads it back and :129 holds it to the state file, src/test/java/com/termina/ui/SessionRestoreFxTest.java:51 opens tabs in a real window, quits and finds them in the next first window, and src/test/java/com/termina/AppStartFxTest.java starts the application itself on a stored session. One window is restored, and a program a tab was started to run is not run again (docs/decisions/0011) (fixed in 3af07ed)"
     },
     {
       "id": "WIN-09",
@@ -1109,19 +1109,19 @@
       "id": "TABS-13",
       "level": "MUST",
       "status": "limited",
-      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a window of its own"
+      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a card over the terminal that a press outside closes, not a panel docked beside it"
     },
     {
       "id": "TABS-15",
       "level": "SHOULD",
       "status": "limited",
-      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a window of its own"
+      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a card over the terminal that a press outside closes, not a panel docked beside it"
     },
     {
       "id": "TABS-19",
       "level": "SHOULD",
       "status": "limited",
-      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a window of its own"
+      "evidence": "no tool panels: nothing docks at an edge of the main window but the status bar, which is chrome (src/main/java/com/termina/ui/TerminalWindow.java:3218); split panes are content and the Message Log is a card over the terminal that a press outside closes, not a panel docked beside it"
     },
     {
       "id": "TABS-16",
@@ -1175,7 +1175,7 @@
       "id": "MENU-15",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every menu the app draws has a chord cell filled from the keymap in force: the bar's rows have a chord label (src/main/java/com/termina/ui/MenuRows.java), and each right-click row that runs a command names it and shows its accelerator text, set as the menu shows and empty for an unbound command (src/main/java/com/termina/ui/MenuChords.java:40): a tab's (src/main/java/com/termina/ui/TerminalWindow.java:1593), the terminal's (src/main/java/com/termina/ui/TerminalView.java:2386), the Debug Log's, the Message Log's and the profile list's (src/main/java/com/termina/ui/DebugLogWindow.java:110, src/main/java/com/termina/ui/MessageLogWindow.java:114, src/main/java/com/termina/ui/SettingsWindow.java:1766), and the profile drop-down's rows (src/main/java/com/termina/ui/TerminalWindow.java:823). Both columns are drawn in the keyboard colour, -state-key, at 11px (src/main/resources/com/termina/styles/app.css:747-758). Held by src/test/java/com/termina/ui/MenuChordsTest.java, src/test/java/com/termina/ui/MenusFxTest.java:273 and src/test/java/com/termina/ui/StyleContrastTest.java:208; seen in a headless capture of the terminal's menu. The size does not scale: there is no UI zoom (MENU-16, WIN-12) (fixed in be081c5)"
+      "evidence": "every menu the app draws has a chord cell filled from the keymap in force: the bar's rows have a chord label (src/main/java/com/termina/ui/MenuRows.java), and each right-click row that runs a command names it and shows its accelerator text, set as the menu shows and empty for an unbound command (src/main/java/com/termina/ui/MenuChords.java:40): a tab's (src/main/java/com/termina/ui/TerminalWindow.java:1593), the terminal's (src/main/java/com/termina/ui/TerminalView.java:2386), the Debug Log's, the Message Log's and the profile list's (src/main/java/com/termina/ui/DebugLogWindow.java:110, src/main/java/com/termina/ui/MessageLogCard.java:159, src/main/java/com/termina/ui/SettingsWindow.java:1766), and the profile drop-down's rows (src/main/java/com/termina/ui/TerminalWindow.java:823). Both columns are drawn in the keyboard colour, -state-key, at 11px (src/main/resources/com/termina/styles/app.css:747-758). Held by src/test/java/com/termina/ui/MenuChordsTest.java, src/test/java/com/termina/ui/MenusFxTest.java:273 and src/test/java/com/termina/ui/StyleContrastTest.java:208; seen in a headless capture of the terminal's menu. The size does not scale: there is no UI zoom (MENU-16, WIN-12) (fixed in be081c5)"
     },
     {
       "id": "MENU-16",
@@ -1223,7 +1223,7 @@
       "id": "MENU-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every list, tab, terminal and read-only console with actions has a right-click menu whose rows are commands: a tab's (src/main/java/com/termina/ui/TerminalWindow.java), the terminal's (src/main/java/com/termina/ui/TerminalView.java), the Message Log's list and the Debug Log's text (src/main/java/com/termina/ui/MessageLogWindow.java:98, src/main/java/com/termina/ui/DebugLogWindow.java:106), and now Settings' profile list, with Add and Remove (src/main/java/com/termina/ui/SettingsWindow.java:1723; settings.addProfile, settings.removeProfile); the Settings sidebar only navigates and the palette's list is an overlay; held by src/test/java/com/termina/ui/WindowManagerFxTest.java:182 and src/test/java/com/termina/ui/LogWindowsFxTest.java (fixed in ef3fdfa)"
+      "evidence": "every list, tab, terminal and read-only console with actions has a right-click menu whose rows are commands: a tab's (src/main/java/com/termina/ui/TerminalWindow.java), the terminal's (src/main/java/com/termina/ui/TerminalView.java), the Message Log's list and the Debug Log's text (src/main/java/com/termina/ui/MessageLogCard.java:160, src/main/java/com/termina/ui/DebugLogWindow.java:106), and now Settings' profile list, with Add and Remove (src/main/java/com/termina/ui/SettingsWindow.java:1723; settings.addProfile, settings.removeProfile); the Settings sidebar only navigates and the palette's list is an overlay; held by src/test/java/com/termina/ui/WindowManagerFxTest.java:182 and src/test/java/com/termina/ui/LogWindowsFxTest.java (fixed in ef3fdfa)"
     },
     {
       "id": "MENU-06",
@@ -1481,7 +1481,7 @@
       "id": "DIAG-01",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/MessageLog.java:27 (cap 500), :50-56 (newest first, oldest dropped), :129-130 (HH:mm:ss), memory only; the echo area shows only the log's latest (src/main/java/com/termina/ui/StatusBar.java:53-58); Esc and Clear at src/main/java/com/termina/ui/MessageLogWindow.java:87 and :70-71; src/test/java/com/termina/ui/MessageLogTest.java:19, :30, :54"
+      "evidence": "src/main/java/com/termina/ui/MessageLog.java:30 (cap 200), :53-58 (newest first, oldest dropped), :127-133 (HH:mm:ss), memory only; the echo area shows only the log's latest (src/main/java/com/termina/ui/StatusBar.java:53-58); Esc and Clear at src/main/java/com/termina/ui/MessageLogCard.java:205 and :312; src/test/java/com/termina/ui/MessageLogTest.java:19, :30, :54"
     },
     {
       "id": "DIAG-02",
@@ -1576,8 +1576,8 @@
     {
       "id": "CLI-04",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "reopens nothing from its last session: the state file holds only the window's place and size and the update check's memory (src/main/java/com/termina/config/Settings.java:288-297); Reopen Closed Tab is within a session"
+      "status": "manual",
+      "evidence": "the app reopens the last session's tabs now (WIN-08), and takes --no-session (src/main/java/com/termina/cli/CommandLine.java:87, in the usage text and the README), which keeps the stored tabs from being read for that launch (src/main/java/com/termina/App.java:160; the rule at src/main/java/com/termina/ui/SessionStore.java:74, held by src/test/java/com/termina/ui/SessionStoreTest.java and src/test/java/com/termina/cli/CommandLineTest.java). Left for a person: launch with --no-session after a run that left tabs open, and find one tab, or only the one the command line names"
     },
     {
       "id": "CLI-05",
@@ -1630,8 +1630,8 @@
     {
       "id": "CLI-10",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "pending in pauta.json. Every place that starts a process now gives it the login shell's PATH through one helper once that PATH is known (src/main/java/com/termina/process/ChildPath.java:37, published at src/main/java/com/termina/ui/LoginShellPath.java; src/test/java/com/termina/process/ChildPathTest.java holds every site), so gh, git and a link's command always get it. Not met for the desktop's own tools (xclip, wl-copy, notify-send, gdbus, hostname): they are started without asking the login shell, by design (src/main/java/com/termina/ui/SystemTools.java:15-18), and get the inherited PATH until a sync or a clicked link has asked"
+      "status": "pass",
+      "evidence": "the login shell's PATH is asked for once, on a thread of its own after the first frame (src/main/java/com/termina/App.java:248; src/main/java/com/termina/ui/LoginShellPath.java:52), and published for every process started from then on, the desktop's own helpers included (src/main/java/com/termina/process/ChildPath.java, applied at each of the sites src/test/java/com/termina/process/ChildPathTest.java holds); Windows, which has no login shell, is left with the inherited one (:43). src/test/java/com/termina/ui/LoginShellPathTest.java:33 asks and finds the published PATH, and :50 holds the call to the after-first-frame work. A program started in the moment before the answer arrives, 261 ms in a headless run here, still gets the inherited PATH (fixed in 3af07ed)"
     },
     {
       "id": "INTL-01",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (21 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (18 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2117,7 +2117,7 @@
       "id": "FIND-03",
       "level": "MUST",
       "status": "pass",
-      "evidence": "the app's main content is not a list; its one log shown as a list, the Message Log, has a filter field over it (src/main/java/com/termina/ui/MessageLogWindow.java:107) whose text listener narrows the entries as it is typed (:50, refresh :153, every word typed has to be in the line: src/main/java/com/termina/ui/TextFind.java:74); Escape in the field empties it, and from an empty one goes back to the list (:52); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:152 (fixed in 32baadd)"
+      "evidence": "the app's main content is not a list; its one log shown as a list, the Message Log, has a filter field over it (src/main/java/com/termina/ui/MessageLogCard.java:76) whose text listener narrows the entries as it is typed (:107, refresh :281, every word typed has to be in the line: src/main/java/com/termina/ui/TextFind.java:74); Escape in the field empties it, and from an empty one goes back to the list (:109); held by src/test/java/com/termina/ui/LogWindowsFxTest.java:152 (fixed in 32baadd)"
     },
     {
       "id": "FIND-04",
@@ -2200,8 +2200,8 @@
     {
       "id": "MLOG-08",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The Message Log opens as a window of its own, not as a card over the terminal, and keeps 500 messages."
+      "status": "pass",
+      "evidence": "the log is a card added to the window's overlay host with its backdrop, and no Stage (src/main/java/com/termina/ui/MessageLogCard.java:241; built per window at src/main/java/com/termina/ui/TerminalWindow.java:3311), aligned to the bottom left with the status bar's height under it (:239), 773 wide with a list 336 high at the default zoom and both times the interface zoom (WIDTH :45, LIST_HEIGHT :48, sizeAt), over the newest 200 messages (src/main/java/com/termina/ui/MessageLog.java:30). src/test/java/com/termina/ui/LogWindowsFxTest.java:296 lays it out in a 1200 by 800 window and reads 773 and 336, 8 px from the left and 8 above the bar, with no window opened, and holds the cap and the absence of a Stage in the source; src/test/java/com/termina/ui/PaletteFocusFxTest.java:103 opens it in a real terminal window. Seen in a headless capture (fixed in 3af07ed)"
     },
     {
       "id": "MLOG-02",
@@ -2213,13 +2213,13 @@
       "id": "MLOG-03",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the Message Log closes on Escape (src/main/java/com/termina/ui/MessageLogWindow.java:133) and on going back to the window behind, its press outside; the fixed Ctrl+G is gone, and Termina's one key table binds no cancel command for a chord to be read from (src/main/resources/com/termina/keymaps/keymap.json), which the rule leaves at Escape and the press outside. src/test/java/com/termina/ui/ChromeHabitsTest.java:114 fails a fixed G in the window (fixed in d67554b)"
+      "evidence": "the Message Log's card closes on Escape (src/main/java/com/termina/ui/MessageLogCard.java:205), on a press on the backdrop behind it (:179) and on the chord bound to the command that opened it (:206); there is no fixed Ctrl+G, and Termina's one key table binds no cancel command for a chord to be read from (src/main/resources/com/termina/keymaps/keymap.json), which the rule leaves at Escape and the press outside. src/test/java/com/termina/ui/LogWindowsFxTest.java:296 presses each and :400 holds the rule; src/test/java/com/termina/ui/ChromeHabitsTest.java:114 fails a fixed G in the card (fixed in d67554b)"
     },
     {
       "id": "MLOG-04",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the Message Log copies the selected entries on C with the platform's shortcut modifier, whatever the bindings say, and on the chords the bindings in force give Copy and the log's own Copy command, read from them (src/main/java/com/termina/ui/MessageLogWindow.java:93, :158). src/test/java/com/termina/ui/ChromeHabitsTest.java:94 presses each (fixed in d67554b)"
+      "evidence": "the Message Log copies the selected entries on C with the platform's shortcut modifier, whatever the bindings say, and on the chords the bindings in force give Copy and the log's own Copy command, read from them (src/main/java/com/termina/ui/MessageLogCard.java:136, :219). src/test/java/com/termina/ui/ChromeHabitsTest.java:94 presses each (fixed in d67554b)"
     },
     {
       "id": "MLOG-05",
@@ -2231,7 +2231,7 @@
       "id": "MLOG-06",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/MessageLogWindow.java:120-127: showing the log refreshes it and calls markRead (src/main/java/com/termina/ui/MessageLog.java:82-86); clear zeroes the count (src/main/java/com/termina/ui/MessageLog.java:88-93); src/test/java/com/termina/ui/MessageLogTest.java:54"
+      "evidence": "src/main/java/com/termina/ui/MessageLogCard.java:228-246: showing the log refreshes it, and refresh calls markRead (:292; src/main/java/com/termina/ui/MessageLog.java:85); clear zeroes the count (src/main/java/com/termina/ui/MessageLog.java:91); src/test/java/com/termina/ui/MessageLogTest.java:54, and src/test/java/com/termina/ui/PaletteFocusFxTest.java:103 opens the card over an unread error and reads a count of 0"
     },
     {
       "id": "MLOG-07",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 21 pending entries (5 MUST, 16 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 18 pending entries (5 MUST, 13 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2466,6 +2466,7 @@
     "Two more pending SHOULDs were settled on 2026-11-12, in an eighth batch, in df9f4d6: CONF-12, PERF-21 now pass, and their entries are out of pauta.json.",
     "One more pending SHOULD was settled on 2026-11-12, in a ninth batch, in f8e4411: the Doctor is built, so DIAG-07 is now for a person to check in the running app, and its entry is out of pauta.json.",
     "Two more pending SHOULDs were settled and one narrowed on 2026-11-13, in a tenth batch, in 6f2fa27: QUAL-07, PERF-09 now pass, and their entries are out of pauta.json. DOCS-18 stays pending for the website alone: the README's hero is now a dark and a light picture at 2× from the capture hook.",
-    "Two of the three optional rules not met were settled on 2026-11-13, in an eleventh batch, in a6026f5: REPO-08, DOCS-11 now pass. They were optional, so neither had an entry in pauta.json; WIN-10 is the one optional rule left not met."
+    "Two of the three optional rules not met were settled on 2026-11-13, in an eleventh batch, in a6026f5: REPO-08, DOCS-11 now pass. They were optional, so neither had an entry in pauta.json; WIN-10 is the one optional rule left not met.",
+    "Three more pending SHOULDs were settled on 2026-11-13, in a twelfth batch, in 3af07ed: WIN-08, MLOG-08, CLI-10 now pass, and their entries are out of pauta.json. PAL-06 was looked at and left: following the bindings there means leaving the key table the palette shares with Editora."
   ]
 }
