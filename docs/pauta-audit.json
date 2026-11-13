@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 64 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 52 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 64 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 52 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 64 entries link issue #92, read with `gh issue view`: open, and naming each of the 64 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 52 entries link issue #92, read with `gh issue view`: open, and naming each of the 52 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 64 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 52 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 64 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 52 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -310,8 +310,8 @@
     {
       "id": "DOCS-07",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The Help menu does not start with the Command Palette, which is in the View menu."
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/MenuBarModel.java:146: Help runs Command Palette, Documentation, What's New, Keyboard Shortcuts, Check for Updates, Message Log, Debug Log, Report a Problem, Pauta Conformance, About: Pauta's order, with no Welcome page to list and What's New, which is Termina's own, beside the documentation. src/test/java/com/termina/ui/MenuBarModelTest.java:60 holds the order and that the palette's row is in no other menu (fixed in d67554b)"
     },
     {
       "id": "DOCS-08",
@@ -388,8 +388,8 @@
     {
       "id": "QUAL-04",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Nothing checks that the testing guide quotes the same coverage floors as the build."
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/WorkflowRulesTest.java:154 reads the whole-build floors from pom.xml and fails when docs/testing.md quotes other numbers, or quotes them twice (fixed in d67554b)"
     },
     {
       "id": "QUAL-05",
@@ -466,8 +466,8 @@
     {
       "id": "PERF-04",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Some background threads have no name, which makes a thread dump harder to read."
+      "status": "pass",
+      "evidence": "every thread is named and a daemon: the platform pools through one factory (src/main/java/com/termina/term/TerminalExecutors.java:32), and the five virtual-thread executors through TerminalExecutors.virtual, which names each thread (:44; termina-shell-start, termina-link-check, termina-search, termina-close-check, termina-path-check). src/test/java/com/termina/ui/ChromeHabitsTest.java:48 fails a stock unnamed virtual executor anywhere in the source. The settings flush is a shutdown hook, which the JVM runs whatever its daemon flag (fixed in d67554b)"
     },
     {
       "id": "PERF-05",
@@ -712,8 +712,8 @@
     {
       "id": "ACC-04",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The visual bell flashes even when the operating system asks for reduced motion."
+      "status": "pass",
+      "evidence": "the one animation that flashes part of the UI, the visual bell, starts through src/main/java/com/termina/ui/Motion.java:31, which reads the OS's reduced-motion preference as each one starts (:18): reduced, the bell does not flash and its timer goes straight to its end (src/main/java/com/termina/ui/TerminalView.java:715, :719). The other timers only wait (a debounce, a settle) and move nothing. src/test/java/com/termina/ui/ChromeHabitsTest.java:61 holds the decision and that the bell goes through it (fixed in d67554b)"
     },
     {
       "id": "ACC-05",
@@ -952,8 +952,8 @@
     {
       "id": "TBAR-14",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A greyed row's tooltip in the Command Palette takes a second to appear, longer than the other tooltips."
+      "status": "pass",
+      "evidence": "every tooltip is made by one factory that sets the 400 ms delay (src/main/java/com/termina/ui/IconNames.java:30): the icon buttons', a tab's folder and the palette's greyed-row reason. src/test/java/com/termina/ui/ChromeHabitsTest.java:41 fails a `new Tooltip(` or a `setShowDelay(` outside it (fixed in d67554b)"
     },
     {
       "id": "TBAR-06",
@@ -1264,8 +1264,8 @@
     {
       "id": "MENU-12",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Clear Scrollback in the menu bar and the rows that close tabs are not drawn in the danger color."
+      "status": "pass",
+      "evidence": "a row that discards carries the `danger` class, which colors its text -color-danger-fg: Clear Scrollback in the menu bar (src/main/java/com/termina/ui/TerminalWindow.java:3523, from WindowRules.isDestructive, src/main/java/com/termina/ui/WindowRules.java:127; src/main/resources/com/termina/styles/app.css:67) as in the terminal's menu (src/main/java/com/termina/ui/TerminalView.java:2510), Clear in the two logs' and Remove in the profile list's. The rows that close tabs are not destructive rows: a closed tab can be reopened and closing asks first when something runs (CONF-01), and the reference app styles none of its close rows so. src/test/java/com/termina/ui/MenusFxTest.java reads every bar row's class against the rule, and src/test/java/com/termina/ui/MenuBarModelTest.java:92 holds the rule (fixed in d67554b)"
     },
     {
       "id": "MENU-13",
@@ -1708,8 +1708,8 @@
     {
       "id": "INTL-13",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The names of modifier keys are translated in some languages."
+      "status": "pass",
+      "evidence": "no catalog value writes a modifier in another language: the German, Spanish, French and Italian strings that said Strg, Umschalt, Mayús, Maj and Maiusc say Ctrl and Shift, and src/test/java/com/termina/ui/ChromeHabitsTest.java:71 looks for those words in every catalog. A chord is written out by JavaFX's KeyCombination display text, whose modifier names are constants (fixed in d67554b)"
     },
     {
       "id": "INTL-14",
@@ -1936,8 +1936,8 @@
     {
       "id": "ABOUT-10",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "About shows a newer version in the accent color and a failed update check in plain text, not in the warning and error colors."
+      "status": "pass",
+      "evidence": "the update-available line is bold in -state-amber (src/main/resources/com/termina/styles/app.css:183), which no other About style uses; up to date is -state-green (:154), a failed check -state-red (:156, chosen at src/main/java/com/termina/ui/AboutWindow.java:254), the last-checked line muted (:157), and the links keep the accent. src/test/java/com/termina/ui/AboutUpdateLineTest.java:16 reads the four rules and fails the amber anywhere else (fixed in d67554b)"
     },
     {
       "id": "ABOUT-05",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (64 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (52 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2086,14 +2086,14 @@
     {
       "id": "CONF-10",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The question before removing a profile does not say that it cannot be undone."
+      "status": "pass",
+      "evidence": "Remove Profile, which deletes for good, says \"This cannot be undone.\" (src/main/resources/com/termina/i18n/messages.properties:331, and the five other catalogs); Remove Theme, which can be imported again, does not. src/test/java/com/termina/ui/ChromeHabitsTest.java:121 fails the phrase anywhere else (fixed in d67554b)"
     },
     {
       "id": "CONF-11",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The Sync Anyway button is not drawn in the danger color."
+      "status": "pass",
+      "evidence": "Sync Anyway, the dangerous alternative beside Sync Now, is drawn in red (src/main/java/com/termina/ui/SettingsWindow.java:2326, the `danger` class) and shown only once a sync has stopped at NEEDS_CONFIRMATION (:2552) (fixed in d67554b)"
     },
     {
       "id": "CONF-12",
@@ -2212,14 +2212,14 @@
     {
       "id": "MLOG-03",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Ctrl+G closes the Message Log as a fixed key and does not follow the key bindings."
+      "status": "pass",
+      "evidence": "the Message Log closes on Escape (src/main/java/com/termina/ui/MessageLogWindow.java:133) and on going back to the window behind, its press outside; the fixed Ctrl+G is gone, and Termina's one key table binds no cancel command for a chord to be read from (src/main/resources/com/termina/keymaps/keymap.json), which the rule leaves at Escape and the press outside. src/test/java/com/termina/ui/ChromeHabitsTest.java:114 fails a fixed G in the window (fixed in d67554b)"
     },
     {
       "id": "MLOG-04",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Copying from the Message Log uses a fixed key and does not follow the key bindings."
+      "status": "pass",
+      "evidence": "the Message Log copies the selected entries on C with the platform's shortcut modifier, whatever the bindings say, and on the chords the bindings in force give Copy and the log's own Copy command, read from them (src/main/java/com/termina/ui/MessageLogWindow.java:93, :158). src/test/java/com/termina/ui/ChromeHabitsTest.java:94 presses each (fixed in d67554b)"
     },
     {
       "id": "MLOG-05",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 64 pending entries (5 MUST, 59 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 52 pending entries (5 MUST, 47 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2456,6 +2456,7 @@
     "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json.",
     "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json.",
     "Two of the three differences behind OS-04 were removed the same day (a middle-click pastes nothing outside Linux; a shell's reported folder fills in only where the OS has no answer, on every OS). The third, the key-binding sync files, keeps it pending.",
-    "Two more pending MUSTs were met on 2026-11-13, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json."
+    "Two more pending MUSTs were met on 2026-11-13, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json.",
+    "Twelve pending SHOULDs were met on 2026-11-13, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json."
   ]
 }
