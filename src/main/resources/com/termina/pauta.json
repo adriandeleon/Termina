@@ -273,14 +273,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "WIN-12",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/window-shell/#win-12",
-      "kind": "pending",
-      "reason": "There is no zoom for the menus, tabs and status bar; zooming changes the terminal text only.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "WIN-15",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/window-shell/#win-15",
@@ -310,14 +302,6 @@
       "url": "https://pauta-project.dev/6.0.1/tabs-and-panels/#tabs-12",
       "kind": "pending",
       "reason": "The tab bar can be hidden only while a window has a single tab.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-16",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-16",
-      "kind": "pending",
-      "reason": "The menus take their text size from the theme and do not scale, since there is no interface zoom yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
