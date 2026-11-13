@@ -17,8 +17,8 @@
     {
       "id": "OS-02",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "no one Os class: `grep -rl '\"os.name\"' src/main/java` lists 20 files (AppInfo.java:145, ui/TerminalWindow.java:50, ui/MenuAction.java:63, ui/Keybindings.java:33, pty/ShellLauncher.java:32, pty/ProcessCwd.java:32, shell/ShellDiscovery.java:84 and 13 more); none compares a separatorChar (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/Os.java is the one class that reads os.name (of, :29; current, isWindows, isMac, isLinux, name, and description for About and a problem report): `grep -rl '\"os.name\"' src/main/java` lists that file alone, the twenty that read it before now ask it, and the functions that take an OS name as a parameter turn it into a kind through Os.of; none compares a separator; src/test/java/com/termina/OsTest.java:44 keeps the grep as a test (fixed in 892280f)"
     },
     {
       "id": "OS-03",
@@ -30,7 +30,7 @@
       "id": "OS-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "read all 20 files that read os.name and their callers: src/main/java/com/termina/pty/ProcessCwd.java:55 believes a shell's reported folder on Windows only (ui/TerminalView.java:3140, ui/TerminalWindow.java:885); sync/KeybindingsFile.java:35 syncs key bindings in one file for macOS and another for Windows/Linux; ui/PrimarySelection.java:133 middle-click pastes the clipboard on macOS/Windows, where the row gives none (upgrade work: not in 2.0.2)"
+      "evidence": "every place the code tests the OS is now a call to src/main/java/com/termina/Os.java (25 calls in 20 files, read through): the macOS form of the chords and Cmd+click, the system menu bar and application menu, notifications, opening a link, the shells offered, native process and directory reads, and a program's path and arguments are on the table's rows or change nothing a user sees. Three are on no row: src/main/java/com/termina/pty/ProcessCwd.java believes a shell's reported folder (OSC 7) on Windows only; src/main/java/com/termina/sync/KeybindingsFile.java syncs key bindings in one file for macOS and another for Windows and Linux; src/main/java/com/termina/ui/PrimarySelection.java middle-click pastes the clipboard on macOS and Windows, where the row gives none (upgrade work: not in 2.0.2)"
     },
     {
       "id": "PAUTA-01",
@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 27 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, WIN-01, WIN-03, WIN-12, MENU-14, MENU-16, MENU-01, MENU-02) and so do the 65 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 24 MUSTs fail (OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, WIN-01, WIN-03, WIN-12, MENU-14, MENU-16, MENU-01, MENU-02) and so do the 65 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -449,8 +449,8 @@
     {
       "id": "PERF-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "start() deletes a stale socket file and binds the socket once the window is shown (src/main/java/com/termina/App.java:210 -> src/main/java/com/termina/instance/SingleInstance.java:95); fonts registered on the FX thread after the first frame (App.java:221 -> src/main/java/com/termina/ui/Fonts.java:141); Files.isExecutable on every profile-menu build (src/main/java/com/termina/ui/TerminalWindow.java:758 -> src/main/java/com/termina/pty/ShellLauncher.java:69) and from the Settings path check's timer (src/main/java/com/termina/ui/SettingsWindow.java:632); sync backup written inside runLater (src/main/java/com/termina/ui/SettingsSync.java:641). Read the 166 grep lines outside DevCapture"
+      "status": "pass",
+      "evidence": "the five places found are off the FX thread: listening for other launches deletes the stale socket and binds on a thread of its own (src/main/java/com/termina/App.java:154); the fonts left for after the first frame are registered by a worker (src/main/java/com/termina/App.java:163 -> src/main/java/com/termina/ui/Fonts.java:151), and the font picker no longer registers any on the FX thread (src/main/java/com/termina/ui/MonospaceFonts.java:72); the profile list keeps the system shell's command and each program's real file, worked out on workers (at startup src/main/java/com/termina/App.java:82, by discovery, on a settings change: src/main/java/com/termina/shell/ShellProfiles.java:214, :226), and on the FX thread an answer nobody has yet is assumed without the disk and resolved behind it (:145, wired at src/main/java/com/termina/ui/WindowManager.java:78; src/main/java/com/termina/pty/ShellLauncher.java:66); Settings checks a shell path, a profile's command and its folder on a virtual thread and applies the verdict back on the FX thread (src/main/java/com/termina/ui/SettingsWindow.java:761, :1323, :2013); the sync backup is written on the sync worker between two FX-thread turns (src/main/java/com/termina/ui/SettingsSync.java:644). Held by src/test/java/com/termina/shell/ShellProfilesTest.java:284, src/test/java/com/termina/pty/ShellLauncherTest.java and src/test/java/com/termina/ui/SettingsWindowFxTest.java. The settings are still read in App.init, after the toolkit starts: that is PERF-16's gap, not this rule's (fixed in 892280f)"
     },
     {
       "id": "PERF-02",
@@ -491,8 +491,8 @@
     {
       "id": "PERF-07",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "terminal output is drained once a pulse (src/main/java/com/termina/ui/TerminalView.java:350), but the emulator thread calls Platform.runLater once for each OSC 9/777 notification (src/main/java/com/termina/ui/TerminalView.java:3191) and each OSC 52 clipboard write (:3116), and each uncaught error gets a runLater of its own (src/main/java/com/termina/ui/WindowManager.java:85); the bell (:508) and titles are coalesced, these are not"
+      "status": "pass",
+      "evidence": "terminal output is drained once a pulse, and the streams beside it now reach the FX thread in batches at least 16 ms apart, never a runLater each (src/main/java/com/termina/ui/FxBatch.java:25): a program's OSC 9 and 777 notifications (src/main/java/com/termina/ui/TerminalView.java:3214), its OSC 52 clipboard writes (:3224, the last of a batch is the clipboard's) and uncaught errors (src/main/java/com/termina/ui/WindowManager.java:88); the bell and titles were coalesced already; held by src/test/java/com/termina/ui/FxBatchTest.java (fixed in 892280f)"
     },
     {
       "id": "PERF-08",
@@ -2451,6 +2451,7 @@
     "Two more were judged again the same day, after the fixes in ef3fdfa: KBD-01, MENU-05. MENU-12 and PWIN-04 were brought up to date with them; both still fail.",
     "Five more were judged again on 2026-11-12, after the tests and fixes in 55cb94f: ICON-09, ICON-10, ICON-11, ICON-12, ACC-01.",
     "Five more were judged again the same day, after the fixes in be081c5: WIN-13, WIN-14, SET-03, MENU-15, ICON-06.",
+    "Three more were judged again the same day, after the fixes in 892280f: OS-02, PERF-01, PERF-07. OS-04 was read again through the new Os class and still fails, for the three differences it names.",
     "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails."
   ]
 }
