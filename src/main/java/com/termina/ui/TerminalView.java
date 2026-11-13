@@ -2416,8 +2416,11 @@ public final class TerminalView extends Region {
         // moves underneath it. Copy and Paste depend on the selection and the clipboard; the
         // menu-bar checkbox on a setting the View menu, its own chord and the settings window can
         // all change while this menu sits built and invisible.
-        items.copy().setDisable(!hasSelection());
-        items.paste().setDisable(!Clipboard.getSystemClipboard().hasString());
+        // Greyed, never hidden, and each says why under the pointer (KBD-04, Pauta 6.0.1).
+        MenuReasons.set(items.copy(), hasSelection() ? null : tr("palette.disabled.noSelection"));
+        MenuReasons.set(
+                items.paste(),
+                Clipboard.getSystemClipboard().hasString() ? null : tr("palette.disabled.clipboardEmpty"));
         // The link items are the menu's answer to a gesture nobody was told about: they need no
         // modifier and they say what is there. Computed for the right-clicked cell, not the last
         // hovered one — the menu can be raised from the keyboard, and the pointer may be elsewhere.
@@ -2439,10 +2442,11 @@ public final class TerminalView extends Region {
 
     private double menuY;
 
+    /** The two link rows are always in the menu, greyed with the reason where there is no link. */
     private static void showLinkItems(ContextItems items, boolean onLink) {
-        items.openLink().setVisible(onLink);
-        items.copyLink().setVisible(onLink);
-        items.linkSeparator().setVisible(onLink);
+        String noLink = onLink ? null : tr("palette.disabled.noLinkUnderPointer");
+        MenuReasons.set(items.openLink(), noLink);
+        MenuReasons.set(items.copyLink(), noLink);
     }
 
     /** The right-click menu as built, for the test that fires its items. */
@@ -2533,20 +2537,20 @@ public final class TerminalView extends Region {
         MenuItem copyLinkItem =
                 commandItem("copyLinkAddress", MenuIcons.command("copyLinkAddress"), () -> copyLinkAddress(menuLink));
 
-        // Hidden together with the items they divide: a separator left behind when the pointer was
-        // not over a link is a rule across the top of the menu with nothing above it.
+        // The link rows are always listed, greyed where there is no link (KBD-04): a group of their
+        // own after the selection's, not at the top, where two greyed rows would open every menu.
         SeparatorMenuItem linkSeparator = new SeparatorMenuItem();
 
         List<MenuItem> items = new ArrayList<>(List.of(
-                openLinkItem,
-                copyLinkItem,
-                linkSeparator,
                 commandItem("newTab", MenuIcons.newTab(), () -> runCommand.accept("newTab")),
                 commandItem("newWindow", MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
                 commandItem("selectAll", MenuIcons.selectAll(), this::selectAll),
+                linkSeparator,
+                openLinkItem,
+                copyLinkItem,
                 new SeparatorMenuItem(),
                 dangerous(commandItem("clearScrollback", MenuIcons.clear(), this::clearScrollback))));
 
@@ -2571,7 +2575,8 @@ public final class TerminalView extends Region {
             menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
             menuBarItem.setOnAction(e -> toggleMenuBar.run());
             MenuChords.command(menuBarItem, "hideMenuBar");
-            menuBarItem.setDisable(!menuBarToggleAvailable);
+            String noBar = WindowRules.menuBarToggleUnavailableKey(!menuBarToggleAvailable);
+            MenuReasons.set(menuBarItem, noBar == null ? null : tr(noBar));
             items.add(new SeparatorMenuItem());
             items.add(menuBarItem);
         }
@@ -2587,6 +2592,7 @@ public final class TerminalView extends Region {
                 "help.about"));
 
         ContextMenu menu = OneMenu.installRightClick(new ContextMenu(items.toArray(MenuItem[]::new)));
+        menu.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN, e -> MenuReasons.attach(menu.getItems()));
         menu.setAutoHide(true);
         return new ContextItems(menu, openLinkItem, copyLinkItem, linkSeparator, copyItem, pasteItem, menuBarItem);
     }

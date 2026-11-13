@@ -122,6 +122,15 @@ done.
 
 ### Changed
 
+- **A greyed menu row says why.** Rest the pointer on a command a menu has greyed and a tooltip
+  gives the reason the command palette gives: no tab has been closed, this is the only tab, there
+  is no link under the pointer. In the menu bar's menus, a tab's menu and the terminal's
+  right-click menu; not in the macOS screen menu bar, whose rows are the system's.
+- **Open Link and Copy Link Address are always in the right-click menu,** greyed where there is no
+  link, in a group of their own after Select All. They used to appear at the top only over a link.
+- **Move Tab Left and Move Tab Right are greyed at the ends of the strip,** in the Window menu and
+  the palette as well as in a tab's own menu, and a tab's Close Other Tabs is greyed when every
+  other tab is pinned, as the palette's already was.
 - **A quicker start.** The settings are read on a thread of their own while JavaFX starts, not
   after it, and release builds carry their stylesheets precompiled, so they are loaded without
   being parsed.
@@ -362,6 +371,9 @@ done.
 
 ### Fixed
 
+- **Settings sync's `gh` is given the login shell's `PATH`,** as `git` already was: started from a
+  desktop launcher, a `gh` installed by Homebrew could be found and then fail to find `git`. The
+  link opener and the desktop's own tools (`xclip`, `notify-send`) get it too once it is known.
 - **A desktop notification that could not be shown says why in the Debug Log**: no `notify-send` or
   `gdbus` to post it with, a tool that did not answer in five seconds, or one that exited with an
   error. Only an exception was logged.

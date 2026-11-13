@@ -176,7 +176,7 @@ final class DesktopNotifier {
      */
     static @Nullable String run(@Nullable Command command) throws java.io.IOException, InterruptedException {
         if (command == null) return failure(false, false, 0);
-        ProcessBuilder builder = new ProcessBuilder(command.argv())
+        ProcessBuilder builder = com.termina.process.ChildPath.apply(new ProcessBuilder(command.argv()))
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                 .redirectError(ProcessBuilder.Redirect.DISCARD);
         builder.environment().putAll(command.environment());

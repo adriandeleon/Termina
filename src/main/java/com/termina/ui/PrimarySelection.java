@@ -122,7 +122,8 @@ final class PrimarySelection {
             Tools found = tools().orElse(null);
             if (found == null || latest == null) return;
             try {
-                CommandInput.write(new ProcessBuilder(found.write()), latest, TIMEOUT);
+                CommandInput.write(
+                        com.termina.process.ChildPath.apply(new ProcessBuilder(found.write())), latest, TIMEOUT);
             } catch (Exception e) {
                 // A selection that did not reach PRIMARY is not worth an error: the clipboard still
                 // has whatever it had, and the user can copy explicitly.
@@ -142,7 +143,10 @@ final class PrimarySelection {
             String text = null;
             if (found != null) {
                 try {
-                    text = CommandOutput.read(new ProcessBuilder(new ArrayList<>(found.read())), TIMEOUT)
+                    text = CommandOutput.read(
+                                    com.termina.process.ChildPath.apply(
+                                            new ProcessBuilder(new ArrayList<>(found.read()))),
+                                    TIMEOUT)
                             .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
                             .orElse(null);
                 } catch (Exception e) {

@@ -402,3 +402,25 @@ is broken.
 - **The stall sampler reads a window that is not drawing as stalled.** `-Dtermina.stallLog` beats
   once a frame, and a minimised or covered window may get no frames; the stack printed then is the
   event loop waiting, which is how to tell it from a real one.
+- **A control built on the test's own thread while the toolkit is starting deadlocks.** A test
+  that makes a `MenuItem` or a `ContextMenu` on its main thread just after `Platform.startup`
+  can hang for good: the FX thread is loading the default stylesheet, each thread holds one CSS
+  class's initialisation and waits for the other's, and nothing times out because neither is in
+  a wait a timeout sees. `jstack` shows both "waiting on the Class initialization monitor". Build
+  controls inside `onFx`.
+- **A disabled menu row takes no mouse events, so a tooltip on it never shows.** `MenuReasons`
+  watches the rows' parent instead, which does take them, and installs one tooltip there while
+  the pointer is over a greyed row with a reason (KBD-04, Pauta 6.0.1). A row greyed with a bare
+  `setDisable` has no reason to show; `ChromeHabitsTest` keeps the window and the view from
+  calling it. `MenuReasonsFxTest` drives a real pointer with `Robot`, which the headless glass
+  supports.
+- **A question's words are a `Questions.Question`, and `Confirm.answerWith` answers it with no
+  dialog** (CONF-12, Pauta 6.0.1). A test that wants the dialog's shape still shows it and
+  presses it through `DialogAnswers`; a test that wants what happens after the answer sets the
+  hook, and must give it back (`answerWith(null)`) or every later question in the JVM is answered
+  by it.
+- **The login shell's `PATH` reaches a started tool only once someone has asked for it.**
+  `LoginShellPath` starts the user's shell, which can take seconds, so it is asked only to find a
+  tool the user installed (git, gh, a link command). `process.ChildPath` hands its answer to
+  every process started afterwards and never asks itself: a middle-click's `xclip` before the
+  first sync or link click runs with the inherited `PATH` (CLI-10, pending for that reason).

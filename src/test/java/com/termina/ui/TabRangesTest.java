@@ -65,4 +65,19 @@ class TabRangesTest {
         assertEquals(TabRanges.CLOSE_LEFT, TerminalWindow.idOf("command.closeTabsToTheLeft"));
         assertEquals(TabRanges.CLOSE_RIGHT, TerminalWindow.idOf("command.closeTabsToTheRight"));
     }
+
+    /** KBD-04: a tab at the edge cannot move past it, and the menu and the palette say so. */
+    @Test
+    void aTabAtAnEdgeCannotMovePastIt() {
+        assertEquals("palette.disabled.firstTab", TabRanges.moveUnavailable(-1, 0, 3));
+        assertEquals("palette.disabled.lastTab", TabRanges.moveUnavailable(1, 2, 3));
+        assertNull(TabRanges.moveUnavailable(1, 0, 3));
+        assertNull(TabRanges.moveUnavailable(-1, 2, 3));
+        assertNull(TabRanges.moveUnavailable(-1, 1, 3));
+        // The only tab is both the first and the last.
+        assertEquals("palette.disabled.firstTab", TabRanges.moveUnavailable(-1, 0, 1));
+        assertEquals("palette.disabled.lastTab", TabRanges.moveUnavailable(1, 0, 1));
+        assertEquals("palette.disabled.noTab", TabRanges.moveUnavailable(1, -1, 3));
+        assertEquals("palette.disabled.noTab", TabRanges.moveUnavailable(-1, 3, 3));
+    }
 }

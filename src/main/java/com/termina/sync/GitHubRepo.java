@@ -125,6 +125,9 @@ public final class GitHubRepo {
                     .redirectOutput(out.toFile())
                     .redirectError(err.toFile())
                     .redirectInput(ProcessBuilder.Redirect.from(new java.io.File(WINDOWS ? "NUL" : "/dev/null")));
+            // gh starts git by name, and was found on the login shell's PATH, not the one this
+            // process was given: its child needs the same one (CLI-10, Pauta 6.0.1).
+            com.termina.process.ChildPath.apply(builder);
             Map<String, String> env = builder.environment();
             env.put("GH_PROMPT_DISABLED", "1");
             env.put("GH_NO_UPDATE_NOTIFIER", "1");

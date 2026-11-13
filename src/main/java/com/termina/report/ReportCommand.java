@@ -105,7 +105,7 @@ public final class ReportCommand {
         List<String> command = com.termina.link.OpenCommand.systemOpen(com.termina.Os.name(), url);
         if (command.isEmpty()) return false;
         try {
-            new ProcessBuilder(command)
+            com.termina.process.ChildPath.apply(new ProcessBuilder(command))
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
                     .start();

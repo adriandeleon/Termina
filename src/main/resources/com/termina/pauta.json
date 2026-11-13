@@ -89,14 +89,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "PERF-21",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-21",
-      "kind": "pending",
-      "reason": "Two earlier performance fixes have no test that would catch them coming back.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "KBD-02",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-02",
@@ -109,7 +101,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-04",
       "kind": "pending",
-      "reason": "A greyed menu row does not say why it cannot run; the Command Palette does.",
+      "reason": "On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -149,7 +141,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/command-line/#cli-10",
       "kind": "pending",
-      "reason": "A few helper programs are looked for without your login shell's search path.",
+      "reason": "The desktop's own helper programs (the clipboard, notifications) get your login shell's search path only once a sync or a clicked link has asked for it.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -174,14 +166,6 @@
       "url": "https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01",
       "kind": "pending",
       "reason": "There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "CONF-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/confirm-dialog/#conf-12",
-      "kind": "pending",
-      "reason": "The questions Settings asks cannot be answered by a test without the dialog being shown.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

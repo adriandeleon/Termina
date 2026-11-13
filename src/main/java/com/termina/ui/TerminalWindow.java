@@ -1631,12 +1631,16 @@ public final class TerminalWindow {
             int index = tabs.getTabs().indexOf(tab);
             int count = tabs.getTabs().size();
             pin.setText(pinLabel(tab));
-            closeOthers.setDisable(count < 2);
-            closeLeft.setDisable(index <= 0);
-            closeRight.setDisable(index < 0 || index >= count - 1);
-            moveLeft.setDisable(index <= 0);
-            moveRight.setDisable(index < 0 || index >= count - 1);
+            // Greyed with the reason the palette gives for the same command (KBD-04), which is
+            // also the same rule: a bulk close that would close only pinned tabs closes nothing.
+            List<Boolean> pinned = pinnedFlags();
+            MenuReasons.set(closeOthers, reason(TabRanges.unavailable(TabRanges.CLOSE_OTHERS, index, pinned)));
+            MenuReasons.set(closeLeft, reason(TabRanges.unavailable(TabRanges.CLOSE_LEFT, index, pinned)));
+            MenuReasons.set(closeRight, reason(TabRanges.unavailable(TabRanges.CLOSE_RIGHT, index, pinned)));
+            MenuReasons.set(moveLeft, reason(TabRanges.moveUnavailable(-1, index, count)));
+            MenuReasons.set(moveRight, reason(TabRanges.moveUnavailable(1, index, count)));
         });
+        menu.setOnShown(e -> MenuReasons.attach(menu.getItems()));
     }
 
     /** A row of a tab's menu: titled as command {@code id} is, and showing that command's chord. */
@@ -1668,6 +1672,11 @@ public final class TerminalWindow {
 
     private List<Boolean> pinnedFlags() {
         return tabs.getTabs().stream().map(TerminalWindow::isPinned).toList();
+    }
+
+    /** A reason's words for its catalogue key; null stays null. */
+    private static @Nullable String reason(@Nullable String key) {
+        return key == null ? null : tr(key);
     }
 
     /**
@@ -2353,47 +2362,18 @@ public final class TerminalWindow {
         preview.setAccessibleText(tr("dialog.pastePreview"));
         preview.setPrefRowCount(Math.min(12, Math.max(3, WindowRules.lineCount(text))));
         // Not the danger style: it sends text, it removes nothing.
-        return Confirm.ask(
-                stage,
-                com.termina.AppInfo.NAME,
-                large
-                        ? tr("dialog.pasteLarge", text.length())
-                        : tr("dialog.pasteMultiline", WindowRules.lineCount(text)),
-                large ? tr("dialog.pasteLargeDetail") : tr("dialog.pasteMultilineDetail"),
-                tr("dialog.paste"),
-                new Confirm.Options(false, false, preview));
+        return Confirm.ask(stage, Questions.paste(text.length(), WindowRules.lineCount(text), large), preview);
     }
 
     private boolean askBeforeClosing(List<String> running, int tabCount) {
         // It ends a running program: the danger style (CONF-03), and Cancel is the default, so
         // dismissing the dialog by any route — Enter included — keeps the program alive.
-        return Confirm.ask(
-                stage,
-                com.termina.AppInfo.NAME,
-                tabCount == 1 ? tr("dialog.closeRunning") : tr("dialog.closeRunningTabs"),
-                runningSummary(running),
-                tr("dialog.closeAnyway"),
-                new Confirm.Options(true, true, null));
+        return Confirm.ask(stage, Questions.closeRunning(running, tabCount));
     }
 
     /** The same question for the whole application: the button names the action, Quit (CONF-01). */
     private boolean askBeforeQuitting(List<String> running) {
-        return Confirm.ask(
-                stage,
-                com.termina.AppInfo.NAME,
-                tr("dialog.quitRunning", com.termina.AppInfo.NAME),
-                runningSummary(running),
-                tr("dialog.quit"),
-                new Confirm.Options(true, true, null));
-    }
-
-    /** Names a few, then counts: a dialog listing forty processes is not telling anyone anything. */
-    private static String runningSummary(List<String> running) {
-        if (running.size() <= RunningProgram.MAX_NAMED) {
-            return tr("dialog.closeRunningDetail", String.join(", ", running));
-        }
-        List<String> named = running.subList(0, RunningProgram.MAX_NAMED);
-        return tr("dialog.closeRunningMore", String.join(", ", named), running.size() - RunningProgram.MAX_NAMED);
+        return Confirm.ask(stage, Questions.quitRunning(running));
     }
 
     private void moveTabBy(Tab tab, int delta) {
@@ -2979,7 +2959,10 @@ public final class TerminalWindow {
         // Every menu, as it opens, names and greys its items as the registry says (MENU-01): the
         // bar holds no rule of its own about what can run. A handler, not setOnShowing, which the
         // View menu's zoom row and the File menu's profile submenu use.
-        for (Menu menu : bar.getMenus()) menu.addEventHandler(Menu.ON_SHOWING, e -> refreshItems(menu));
+        for (Menu menu : bar.getMenus()) {
+            menu.addEventHandler(Menu.ON_SHOWING, e -> refreshItems(menu));
+            menu.addEventHandler(Menu.ON_SHOWN, e -> MenuReasons.attach(menu.getItems()));
+        }
         return bar;
     }
 
@@ -3012,6 +2995,7 @@ public final class TerminalWindow {
         Menu newTabAs = MenuRows.submenu(title, MenuIcons.newTab(), SYSTEM_MENU_BAR);
         for (MenuAction action : numbered) newTabAs.getItems().add(menuItem(action));
         newTabAs.addEventHandler(Menu.ON_SHOWING, e -> refreshProfileRows(newTabAs));
+        newTabAs.addEventHandler(Menu.ON_SHOWN, e -> MenuReasons.attach(newTabAs.getItems()));
         return newTabAs;
     }
 
@@ -3551,6 +3535,13 @@ public final class TerminalWindow {
         for (MenuAction bulk : List.of(closeOthersAction, closeLeftAction, closeRightAction)) {
             if (id.equals(bulk.id())) return bulkCloseUnavailable(bulk);
         }
+        if ("moveTabLeft".equals(id) || "moveTabRight".equals(id)) {
+            String atTheEdge = TabRanges.moveUnavailable(
+                    "moveTabLeft".equals(id) ? -1 : 1,
+                    tabs.getSelectionModel().getSelectedIndex(),
+                    tabs.getTabs().size());
+            if (atTheEdge != null) return tr(atTheEdge);
+        }
         if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
         }
@@ -3579,7 +3570,8 @@ public final class TerminalWindow {
         for (MenuItem item : menu.getItems()) {
             if (!(item.getUserData() instanceof String id) || !registry.contains(id)) continue;
             MenuRows.setTitle(item, registry.label(id));
-            item.setDisable(registry.unavailable(id) != null);
+            // Greyed with the palette's reason, which the row shows under the pointer (KBD-04).
+            MenuReasons.set(item, registry.unavailable(id));
         }
         // After the titles: a relabelled row (Pin Tab, Unpin Tab) can be the menu's widest.
         MenuRows.alignChords(menu.getItems());

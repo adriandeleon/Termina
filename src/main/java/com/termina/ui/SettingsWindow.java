@@ -434,13 +434,7 @@ public final class SettingsWindow {
             }
             case SYNC_REMOVE_CREDENTIALS -> {
                 // The token in the address may be the only copy the user has of it.
-                if (sync != null
-                        && Confirm.ask(
-                                stage,
-                                tr("settings.sync.removeCredentials"),
-                                tr("settings.sync.removeCredentials.confirmTitle"),
-                                tr("settings.sync.removeCredentials.confirmDetail"),
-                                tr("settings.sync.removeCredentials"))) {
+                if (sync != null && Confirm.ask(stage, Questions.removeSyncCredentials())) {
                     sync.removeCredentialsFromUrl();
                 }
             }
@@ -471,12 +465,7 @@ public final class SettingsWindow {
      * held the user's profiles, and "put the font back" is what most people mean by it.
      */
     private void confirmReset() {
-        if (!Confirm.ask(
-                stage,
-                tr("settings.reset"),
-                tr("settings.reset.confirmTitle"),
-                tr("settings.reset.confirmDetail"),
-                tr("settings.reset.confirm"))) {
+        if (!Confirm.ask(stage, Questions.resetSettings())) {
             return;
         }
         // One reload, here: the write's own broadcast is not taken as a reason for another.
@@ -966,12 +955,7 @@ public final class SettingsWindow {
         ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
         if (chosen == null || chosen.isBuiltIn()) return;
         // Deletes the imported file, and nothing brings it back but importing it again.
-        if (!Confirm.ask(
-                stage,
-                tr("settings.removeTheme.button"),
-                tr("settings.removeTheme.confirmTitle", chosen.displayName()),
-                tr("settings.removeTheme.confirmDetail"),
-                tr("settings.removeTheme.button"))) {
+        if (!Confirm.ask(stage, Questions.removeTheme(chosen.displayName()))) {
             return;
         }
         // Off the FX thread, like the import: a file deleted and a folder re-read (PERF-01, Pauta
@@ -1615,12 +1599,7 @@ public final class SettingsWindow {
         // taken() names a holder only for a command that has a default chord to take back.
         if (holder != null && home != null) {
             // It takes the chord from another command, which is left with none (CONF-01).
-            if (!Confirm.ask(
-                    stage,
-                    tr("settings.keys.reset"),
-                    tr("settings.keys.resetTaken.title", home.getDisplayText()),
-                    tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)),
-                    tr("settings.keys.reset"))) {
+            if (!Confirm.ask(stage, Questions.resetKeyTaken(home.getDisplayText(), labelOf(holder), labelOf(id)))) {
                 return;
             }
         }
@@ -1628,12 +1607,7 @@ public final class SettingsWindow {
     }
 
     private void confirmResetKeys() {
-        if (!Confirm.ask(
-                stage,
-                tr("settings.keys.resetAll"),
-                tr("settings.keys.resetAll.confirmTitle"),
-                tr("settings.keys.resetAll.confirmDetail"),
-                tr("settings.keys.resetAll"))) {
+        if (!Confirm.ask(stage, Questions.resetAllKeys())) {
             return;
         }
         writeKeys(Map.of());
@@ -2105,12 +2079,7 @@ public final class SettingsWindow {
     private void removeSelectedProfile() {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
-        if (!Confirm.ask(
-                stage,
-                tr("settings.profileRemove"),
-                tr("settings.profileRemove.confirmTitle", selected.name()),
-                tr("settings.profileRemove.confirmDetail"),
-                tr("settings.profileRemove"))) {
+        if (!Confirm.ask(stage, Questions.removeProfile(selected.name()))) {
             return;
         }
         // Its style, the default and the hidden entry go with it: the next profile added may get its id.

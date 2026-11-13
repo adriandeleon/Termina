@@ -411,4 +411,19 @@ class ChromeHabitsTest {
         assertEquals(List.of("settings.profileRemove.confirmDetail"), saying);
         assertTrue(english.getProperty("settings.profileRemove.confirmDetail").endsWith("This cannot be undone."));
     }
+
+    /**
+     * KBD-04 (Pauta 6.0.1): a menu row is greyed through {@code MenuReasons.set}, which keeps why;
+     * a bare {@code setDisable} on one is a row that cannot run and does not say so. The window
+     * and the view build every menu and disable nothing else, so neither calls it at all.
+     */
+    @Test
+    void aMenuRowIsGreyedWithItsReasonNeverBare() throws IOException {
+        for (String file : List.of("TerminalWindow.java", "TerminalView.java")) {
+            String source = Files.readString(Path.of("src/main/java/com/termina/ui/" + file));
+            assertFalse(source.contains(".setDisable("), file + " greys something with no reason");
+        }
+        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        assertFalse(view.contains("openLink().setVisible("), "the link rows are greyed, not hidden");
+    }
 }

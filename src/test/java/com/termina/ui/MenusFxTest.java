@@ -207,6 +207,10 @@ class MenusFxTest {
         waitFor(() -> started(window), "the shell");
 
         assertTrue(onFx(() -> itemOpened(window, "reopenClosedTab").isDisable()), "nothing closed yet: greyed");
+        // And says why, in the palette's words (KBD-04, Pauta 6.0.1).
+        assertEquals(
+                Messages.tr("palette.disabled.nothingToReopen"),
+                onFx(() -> MenuReasons.of(itemOpened(window, "reopenClosedTab"))));
         onFx(() -> {
             window.openTab();
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
@@ -215,6 +219,7 @@ class MenusFxTest {
             return null;
         });
         assertTrue(onFx(() -> !itemOpened(window, "reopenClosedTab").isDisable()), "a tab closed: available");
+        assertEquals(null, onFx(() -> MenuReasons.of(itemOpened(window, "reopenClosedTab"))));
 
         String before = onFx(() -> MenuRows.titleOf(itemOpened(window, "pinTab")));
         onFx(() -> {
@@ -568,6 +573,92 @@ class MenusFxTest {
     /** What an item says: a row's title, or the text of anything else. */
     private static @org.jspecify.annotations.Nullable String text(MenuItem item) {
         return MenuRows.isRow(item) ? MenuRows.titleOf(item) : item.getText();
+    }
+
+    /**
+     * KBD-04 (Pauta 6.0.1): a command that cannot run is listed greyed with its reason, in the bar,
+     * a tab's menu and the terminal's, and none is taken out of its menu.
+     */
+    @Test
+    void aGreyedRowOfAnyMenuSaysWhyAndNoneIsHidden() throws Exception {
+        Settings settings = new Settings(dir.resolve("reasons.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        settings.setConfirmClose(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell");
+
+        // The bar, every menu and submenu opened: one tab, so several rows cannot run.
+        List<String> bar = onFx(() -> {
+            List<String> greyed = new ArrayList<>();
+            for (Menu menu : window.menuBarForTest().getMenus()) {
+                javafx.event.Event.fireEvent(menu, new javafx.event.Event(Menu.ON_SHOWING));
+                for (MenuItem item : menu.getItems()) {
+                    List<MenuItem> rows = List.of(item);
+                    if (item instanceof Menu sub) {
+                        javafx.event.Event.fireEvent(sub, new javafx.event.Event(Menu.ON_SHOWING));
+                        rows = sub.getItems();
+                    }
+                    for (MenuItem row : rows) {
+                        if (row instanceof SeparatorMenuItem || !row.isDisable()) continue;
+                        greyed.add(row.getUserData() + "=" + MenuReasons.of(row));
+                    }
+                }
+            }
+            return greyed;
+        });
+        assertTrue(bar.size() >= 5, "rows greyed in a window with one tab: " + bar);
+        for (String row : bar) assertTrue(!row.endsWith("=null"), "greyed with no reason: " + row);
+        assertTrue(bar.contains("moveTabLeft=" + Messages.tr("palette.disabled.firstTab")), bar.toString());
+        assertTrue(bar.contains("closeOtherTabs=" + Messages.tr("palette.disabled.onlyTab")), bar.toString());
+
+        // A tab's own menu, for the tab it was opened on.
+        java.util.Map<String, String> tabMenu = onFx(() -> {
+            java.util.Map<String, String> greyed = new java.util.TreeMap<>();
+            for (MenuItem row : window.tabMenuItemsForTest(window.tabsForTest().getFirst())) {
+                if (row.isDisable()) greyed.put(String.valueOf(MenuChords.commandOf(row)), MenuReasons.of(row));
+            }
+            return greyed;
+        });
+        assertEquals(
+                java.util.Map.of(
+                        "closeOtherTabs", Messages.tr("palette.disabled.onlyTab"),
+                        "closeTabsToTheLeft", Messages.tr("palette.disabled.noTabsLeft"),
+                        "closeTabsToTheRight", Messages.tr("palette.disabled.noTabsRight"),
+                        "moveTabLeft", Messages.tr("palette.disabled.firstTab"),
+                        "moveTabRight", Messages.tr("palette.disabled.lastTab")),
+                tabMenu);
+
+        // The terminal's, raised where there is no link and nothing is selected: the link rows
+        // are in it, greyed, where they used to be left out.
+        TerminalView view = onFx(window::activeTerminal);
+        java.util.Map<String, String> terminal = onFx(() -> {
+            javafx.geometry.Point2D at = view.localToScreen(40, 40);
+            javafx.event.Event.fireEvent(
+                    view,
+                    new javafx.scene.input.ContextMenuEvent(
+                            javafx.scene.input.ContextMenuEvent.CONTEXT_MENU_REQUESTED,
+                            40,
+                            40,
+                            at.getX(),
+                            at.getY(),
+                            true,
+                            null));
+            java.util.Map<String, String> rows = new java.util.TreeMap<>();
+            for (MenuItem row : view.contextMenuForTest().getItems()) {
+                String id = MenuChords.commandOf(row);
+                if (id == null) continue;
+                rows.put(id, row.isVisible() + "/" + row.isDisable() + "/" + MenuReasons.of(row));
+            }
+            view.contextMenuForTest().hide();
+            return rows;
+        });
+        String noLink = "true/true/" + Messages.tr("palette.disabled.noLinkUnderPointer");
+        assertEquals(noLink, terminal.get("openLink"));
+        assertEquals(noLink, terminal.get("copyLinkAddress"));
+        assertEquals("true/true/" + Messages.tr("palette.disabled.noSelection"), terminal.get("copy"));
+        assertEquals("true/false/null", terminal.get("selectAll"));
     }
 
     /** The bar's item for command {@code id}, after its menu has opened. */
