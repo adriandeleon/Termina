@@ -102,6 +102,8 @@ final class CommandPalette {
         setOpener(Keymap.defaultFor("palette.show"));
         input.getStyleClass().add("palette-input");
         input.setPromptText(tr("palette.prompt"));
+        // Named for a screen reader, which reads no prompt (ACC-01, Pauta 6.0.1).
+        input.setAccessibleText(tr("palette.prompt"));
         input.textProperty().addListener((o, was, now) -> filter(now));
         HBox inputRow = new HBox(9, prefixChip, input);
         inputRow.setAlignment(Pos.CENTER_LEFT);
@@ -110,6 +112,7 @@ final class CommandPalette {
 
         list.setItems(items);
         list.getStyleClass().add("palette-list");
+        list.setAccessibleText(tr("palette.list"));
         list.setPlaceholder(new Label(tr("palette.empty")));
         // A whole number of rows: a fixed pixel height cut the last row in half.
         list.setFixedCellSize(ROW_HEIGHT);

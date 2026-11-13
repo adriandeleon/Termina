@@ -206,6 +206,13 @@ done.
   kept the colours Editora later darkened, which read below 4.5:1 on their tinted backgrounds. The
   About credits, the settings path and the Settings sidebar headings move from the faintest text
   colour to the muted one for the same reason.
+- **Every control has a name a screen reader can read.** The menu bar's rows were announced as
+  nothing, being drawn from an icon, a title and a shortcut rather than as text; so were the find
+  bars' and the palette's fields, the search fields of Settings and Keyboard Shortcuts, the lists
+  in Settings, the Message Log and the palette, the text of the Debug Log and of Report a Problem,
+  the window opacity slider, the field of the Rename Tab and other prompts, and the preview in the
+  paste question. A test now opens every window, menu and dialog and fails on a control without
+  one.
 - **Icon-only buttons have names a screen reader can read.** The new-tab and profile buttons, the
   tabs' close buttons, the find bar's buttons and the zoom row's buttons carried a tooltip and
   nothing else.

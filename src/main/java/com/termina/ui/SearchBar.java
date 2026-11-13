@@ -52,6 +52,8 @@ final class SearchBar extends HBox {
 
         field.getStyleClass().add("search-field");
         field.setPromptText(tr("search.prompt"));
+        // A prompt is not a name: a screen reader asks for the accessible text (ACC-01).
+        field.setAccessibleText(tr("search.prompt"));
         field.textProperty().addListener((o, was, now) -> fireQuery());
         field.addEventFilter(KeyEvent.KEY_PRESSED, this::onKey);
         HBox.setHgrow(field, Priority.ALWAYS);

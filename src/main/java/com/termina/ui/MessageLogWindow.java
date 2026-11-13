@@ -45,6 +45,7 @@ final class MessageLogWindow {
         this.log = log;
         list.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         list.setPlaceholder(noEntries);
+        list.setAccessibleText(tr("messagelog.title"));
         filter.setPromptText(tr("messagelog.filter"));
         filter.setAccessibleText(tr("messagelog.filter"));
         filter.textProperty().addListener((o, was, now) -> refresh());

@@ -184,6 +184,10 @@ final class MenuRows {
         HBox.setMargin(chord, new Insets(0, 0, 0, 18));
         box.setAlignment(Pos.CENTER_LEFT);
         box.setMaxWidth(Double.MAX_VALUE);
+        // A row drawn from its own nodes reads as nothing unless it says what it is: JavaFX names
+        // such a row from its content's accessible text (ACC-01, Pauta 6.0.1). Bound, so a row
+        // that is relabelled, Pin Tab to Unpin Tab, is read as what it now says.
+        box.accessibleTextProperty().bind(title.textProperty());
         return box;
     }
 }

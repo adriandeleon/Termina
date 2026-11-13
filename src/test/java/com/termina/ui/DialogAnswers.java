@@ -37,6 +37,7 @@ final class DialogAnswers {
      * @param uiFont whether the scene or the pane carried the interface font's stylesheet
      * @param buttonOrder the button bar's order string
      * @param cancelLeftmost whether the cancelling button was drawn left of every other
+     * @param unnamed the controls in it a screen reader would announce as nothing (ACC-01)
      */
     record Seen(
             String header,
@@ -47,7 +48,8 @@ final class DialogAnswers {
             boolean cancelIsDefault,
             boolean uiFont,
             String buttonOrder,
-            boolean cancelLeftmost) {}
+            boolean cancelLeftmost,
+            List<String> unnamed) {}
 
     private static final List<Seen> SEEN = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -100,7 +102,8 @@ final class DialogAnswers {
                 cancelIsDefault,
                 uiFont,
                 order,
-                cancelLeftmost);
+                cancelLeftmost,
+                NamedControls.unnamed(pane));
     }
 
     private DialogAnswers() {}

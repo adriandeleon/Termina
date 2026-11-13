@@ -59,15 +59,12 @@ final class ReportProblemWindow {
         HBox buttons = new HBox(8, copy, spacer, close, open);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
-        VBox root = new VBox(
-                8,
-                intro,
-                new Label(tr("report.environment")),
-                environment,
-                new Label(tr("report.report")),
-                report,
-                status,
-                buttons);
+        // Each field's label names it for a screen reader too (ACC-01).
+        Label environmentLabel = new Label(tr("report.environment"));
+        environmentLabel.setLabelFor(environment);
+        Label reportLabel = new Label(tr("report.report"));
+        reportLabel.setLabelFor(report);
+        VBox root = new VBox(8, intro, environmentLabel, environment, reportLabel, report, status, buttons);
         root.setPadding(new Insets(14));
         Scene scene = new Scene(root, 760, 560);
         var css = ReportProblemWindow.class.getResource("/com/termina/styles/app.css");

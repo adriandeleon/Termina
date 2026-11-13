@@ -299,6 +299,8 @@ public final class SettingsWindow {
         }
 
         search.setPromptText(tr("settings.search"));
+        search.setAccessibleText(tr("settings.search"));
+        sidebar.setAccessibleText(tr("settings.sidebar"));
         // Focused on open, and the theme hides a focused field's prompt: settings.css keeps it.
         search.getStyleClass().add("settings-search");
         search.textProperty().addListener((o, old, value) -> filter(value));
@@ -1103,6 +1105,7 @@ public final class SettingsWindow {
                 tr("settings.windowOpacity"),
                 tr("settings.windowOpacity.desc"),
                 opacityControl,
+                windowOpacity,
                 "opacity transparent transparency see through alpha blur");
 
         VBox languageSection = section(page, tr("settings.section.language"));
@@ -1649,6 +1652,7 @@ public final class SettingsWindow {
         profileList.setPrefHeight(340);
         profileList.setMinHeight(140);
         profileList.setCellFactory(l -> new ProfileCell(true));
+        profileList.setAccessibleText(tr("settings.section.profiles"));
         profileList.getSelectionModel().selectedItemProperty().addListener((o, old, value) -> {
             // Committed before the form is repopulated, and against the profile the form was
             // showing rather than the one now selected. Clicking another row moves focus to the

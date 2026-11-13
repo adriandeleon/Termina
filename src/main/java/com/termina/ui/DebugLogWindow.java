@@ -56,6 +56,7 @@ final class DebugLogWindow {
         text.setEditable(false);
         text.setWrapText(false);
         text.getStyleClass().add("debug-log-text");
+        text.setAccessibleText(tr("debuglog.title"));
         VBox.setVgrow(text, Priority.ALWAYS);
 
         path.getStyleClass().add("settings-path");
@@ -150,6 +151,7 @@ final class DebugLogWindow {
         findBar.setAlignment(Pos.CENTER_LEFT);
         findField.getStyleClass().add("search-field");
         findField.setPromptText(tr("search.prompt"));
+        findField.setAccessibleText(tr("search.prompt"));
         HBox.setHgrow(findField, Priority.ALWAYS);
         // Searched as it is typed (FIND-02), a moment after the last key.
         findTyping.setOnFinished(e -> runFind());

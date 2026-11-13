@@ -88,6 +88,8 @@ final class ZoomMenuRow {
         HBox.setMargin(fullScreen, new Insets(0, 0, 0, FULL_SCREEN_GAP));
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("zoom-row");
+        // The row's own name; each button in it has one of its own (ACC-01).
+        row.setAccessibleText(tr("menu.zoom"));
 
         item = new CustomMenuItem(row);
         // Without this the menu closes on the first press and the next step needs the menu reopened.

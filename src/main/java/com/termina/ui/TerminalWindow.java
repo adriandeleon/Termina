@@ -2256,6 +2256,7 @@ public final class TerminalWindow {
         preview.setEditable(false);
         preview.setWrapText(false);
         preview.getStyleClass().add("paste-preview");
+        preview.setAccessibleText(tr("dialog.pastePreview"));
         preview.setPrefRowCount(Math.min(12, Math.max(3, WindowRules.lineCount(text))));
         // Not the danger style: it sends text, it removes nothing.
         return Confirm.ask(

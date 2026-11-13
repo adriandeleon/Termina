@@ -106,6 +106,13 @@ final class Confirm {
                 .setAll(
                         new ButtonType(action, ButtonBar.ButtonData.OK_DONE),
                         new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE));
+        // The field has no label of its own: what the prompt asks is its name (ACC-01).
+        String asks = dialog.getHeaderText() != null && !dialog.getHeaderText().isBlank()
+                ? dialog.getHeaderText()
+                : dialog.getContentText() != null && !dialog.getContentText().isBlank()
+                        ? dialog.getContentText()
+                        : dialog.getTitle();
+        if (dialog.getEditor().getAccessibleText() == null) dialog.getEditor().setAccessibleText(asks);
         style(dialog.getDialogPane());
     }
 

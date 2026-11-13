@@ -147,6 +147,8 @@ class DialogsFxTest {
         assertTrue(seen.size() >= atLeast, "dialogs answered: " + seen);
         for (DialogAnswers.Seen dialog : seen) {
             assertTrue(dialog.uiFont(), "no interface font on " + dialog);
+            // ACC-01 (Pauta 6.0.1): every button and field of a dialog has a name.
+            assertEquals(List.of(), dialog.unnamed(), "unnamed controls on " + dialog);
             // WIN-11 (Pauta 6.0.1): one order on every OS, and Cancel drawn left of every action.
             assertEquals(Confirm.BUTTON_ORDER, dialog.buttonOrder(), "the OS's button order on " + dialog);
             assertTrue(dialog.cancelLeftmost(), "Cancel is not the leftmost button on " + dialog);
