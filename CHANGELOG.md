@@ -13,6 +13,11 @@ done.
 
 ### Added
 
+- **Help ▸ Doctor** checks what Termina relies on: the shell it starts, its settings folder, Git
+  and the GitHub CLI for settings sync, and on Linux the tools for the selection clipboard,
+  notifications and opening links. Each row says OK, Missing, Optional or Problem in words, with
+  what was found, and a row that is not OK says what to install and links to it. Check Again
+  re-runs it; Copy as text gives the rows for a bug report.
 - **`--dev`** keeps a separate set of settings in `~/.termina-dev`, so a build being tried out never
   touches the ones in daily use. `--config-dir` still takes precedence, and `--dev` wins over
   `TERMINA_CONFIG_DIR`: what is typed on the command line is the more specific instruction.

@@ -79,6 +79,7 @@ class MenuBarModelTest {
                         "view.messageLog",
                         "debugLog",
                         "reportProblem",
+                        "help.doctor",
                         "help.pauta",
                         "help.about"),
                 help);

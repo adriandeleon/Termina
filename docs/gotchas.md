@@ -424,3 +424,9 @@ is broken.
   tool the user installed (git, gh, a link command). `process.ChildPath` hands its answer to
   every process started afterwards and never asks itself: a middle-click's `xclip` before the
   first sync or link click runs with the inherited `PATH` (CLI-10, pending for that reason).
+- **The Doctor's checks are a parameter, and its real ones are bounded.** `Doctor.run` takes the
+  machine as `Probes`, so a missing tool and each OS's rows are tested from Linux
+  (`DoctorTest`). The real probes look in the system's directories first and ask the login shell
+  only for what is not there, for at most eight seconds: `LoginShellPath` has been seen never to
+  return inside some runs, and a Doctor that says "Checking…" for good diagnoses nothing. The
+  tests that fire every menu row and palette command open the Doctor too, with the real probes.

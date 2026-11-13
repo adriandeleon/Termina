@@ -69,6 +69,6 @@ class ChildPathTest {
             }
         }
         assertEquals(List.of(), bare);
-        assertEquals(12, starts, "every place a process is started; a new one is looked at here");
+        assertEquals(13, starts, "every place a process is started; a new one is looked at here");
     }
 }

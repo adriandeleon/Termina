@@ -438,6 +438,35 @@ public final class WindowManager {
         window.show(from);
     }
 
+    private @Nullable DoctorWindow doctorWindow;
+
+    /** The Doctor (DIAG-07): what {@code help.doctor} opens, checking again each time. */
+    void showDoctor(Window from) {
+        DoctorWindow window = doctorWindow;
+        if (window == null) doctorWindow = window = new DoctorWindow(openLink, settings);
+        window.show(from);
+    }
+
+    /** Why the Doctor's report cannot be copied now, as a catalogue key, or null when it can. */
+    @Nullable
+    String copyDoctorUnavailableKey() {
+        DoctorWindow window = doctorWindow;
+        return WindowRules.copyDoctorUnavailableKey(window != null && window.hasRows());
+    }
+
+    /** What {@code help.copyDoctor} does: the rows the Doctor last showed, as text. */
+    void copyDoctor() {
+        DoctorWindow window = doctorWindow;
+        if (window != null) window.copyAsText();
+    }
+
+    /** For the development capture hook. */
+    public javafx.scene.Scene showDoctorForCapture(Window owner) {
+        showDoctor(owner);
+        DoctorWindow window = doctorWindow;
+        return window == null ? owner.getScene() : window.scene();
+    }
+
     /** For the development capture hook. */
     public javafx.scene.Scene showPautaForCapture(Window owner) {
         showPauta(owner);

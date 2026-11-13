@@ -129,14 +129,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "DIAG-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/diagnostics/#diag-07",
-      "kind": "pending",
-      "reason": "There is no page that checks whether the programs Termina relies on, such as git, are installed.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "CLI-10",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/command-line/#cli-10",

@@ -207,6 +207,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureShortcuts=true      # photograph the Keyboard Shortcuts window (or =<query>)
   -Dtermina.captureAbout=true          # ...the About window
   -Dtermina.capturePauta=true          # ...the Pauta Conformance window
+  -Dtermina.captureDoctor=true         # ...the Doctor; its checks run on a worker, so add
+                                       #    -Dtermina.captureAfterCommandMs=12000 to see the rows
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful

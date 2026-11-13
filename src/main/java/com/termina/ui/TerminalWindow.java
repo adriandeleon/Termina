@@ -3159,6 +3159,9 @@ public final class TerminalWindow {
                 item("command.help.pautaDocs", () -> windows.openLink(PautaWindow.DOCS_PAGE)),
                 item("command.help.copyPauta", PautaWindow::copyMarkdown),
                 item("command.reportProblem", () -> windows.showReportProblem(stage)),
+                // The Doctor and its Copy as text (DIAG-07, Pauta 6.0.1).
+                item("command.help.doctor", () -> windows.showDoctor(stage)),
+                item("command.help.copyDoctor", windows::copyDoctor),
                 MenuAction.of(tr("command.help.about", com.termina.AppInfo.NAME), () -> windows.showAbout(stage))
                         .describedAs(description("command.help.about"))
                         .withId("help.about")));
@@ -3544,6 +3547,10 @@ public final class TerminalWindow {
         }
         if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
+        }
+        if ("help.copyDoctor".equals(id)) {
+            String notRun = windows.copyDoctorUnavailableKey();
+            if (notRun != null) return tr(notRun);
         }
         if ("focusMenuBar".equals(id)) {
             String noBar = WindowRules.focusMenuBarUnavailableKey(SYSTEM_MENU_BAR, settings.showMenuBar());

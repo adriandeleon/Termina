@@ -81,6 +81,7 @@ class NamedControlsFxTest {
             windows.showSettings(window.stage());
             windows.showAbout(window.stage());
             windows.showPauta(window.stage());
+            windows.showDoctor(window.stage());
             windows.showReportProblem(window.stage());
             windows.debugLog(window.stage()).find();
             windows.showMessageLog(window.stage());

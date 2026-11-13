@@ -327,6 +327,9 @@ public final class MenuIcons {
     /** reportProblem: a warning triangle. */
     private static final String REPORTPROBLEM = "M8 2.2L14.6 13.4H1.4zM8 6.8v3M8 11.6v.2";
 
+    /** help.doctor: a cross in a box, the sign on a first-aid kit. */
+    private static final String HELP_DOCTOR = "M2.5 2.5h11v11h-11zM8 5v6M5 8h6";
+
     /** help.pauta: Material's checklist. */
     private static final String HELP_PAUTA =
             "M22 7l-1.41-1.41L13 13.17l-2.59-2.58L9 12l4 4 9-9zM3 5h11v2H3V5zm0 6h7v2H3v-2zm0 6h7" + "v2H3v-2z";
@@ -421,6 +424,7 @@ public final class MenuIcons {
         add("view.messageLog", () -> line(VIEW_MESSAGELOG));
         add("debugLog", () -> line(DEBUGLOG));
         add("reportProblem", () -> line(REPORTPROBLEM));
+        add("help.doctor", () -> line(HELP_DOCTOR));
         add("help.pauta", () -> of(HELP_PAUTA));
         add("debugLog.refresh", () -> of(DEBUGLOG_REFRESH));
         add("debugLog.export", () -> line(DEBUGLOG_EXPORT));

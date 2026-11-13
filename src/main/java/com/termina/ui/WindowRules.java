@@ -81,6 +81,11 @@ final class WindowRules {
         return open > 1 && requested >= open;
     }
 
+    /** Why the Doctor's report cannot be copied, or null when it can: there is none before it has checked. */
+    static @Nullable String copyDoctorUnavailableKey(boolean hasRows) {
+        return hasRows ? null : "palette.disabled.doctorNotRun";
+    }
+
     /** The catalogue key of why the menu bar cannot be hidden here, or null when it can. */
     static @Nullable String menuBarToggleUnavailableKey(boolean systemMenuBar) {
         return offersMenuBarToggle(systemMenuBar) ? null : "settings.showMenuBar.mac";

@@ -1025,6 +1025,11 @@ final class DevCapture {
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
         }
+        // -Dtermina.captureDoctor=true opens Help → Doctor; the checks run on a worker, so give
+        // the capture a moment (captureAfterCommandMs) to photograph the rows and not "Checking…".
+        if (System.getProperty("termina.captureDoctor") != null) {
+            return windows.showDoctorForCapture(window.stage());
+        }
         // -Dtermina.capturePauta=true opens Help → Pauta Conformance.
         if (System.getProperty("termina.capturePauta") != null) {
             return windows.showPautaForCapture(window.stage());
