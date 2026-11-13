@@ -209,6 +209,8 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.capturePauta=true          # ...the Pauta Conformance window
   -Dtermina.captureDoctor=true         # ...the Doctor; its checks run on a worker, so add
                                        #    -Dtermina.captureAfterCommandMs=12000 to see the rows
+  -Dtermina.captureScale=2             # write the picture at twice the window's size, as a display
+                                       # of twice the density shows it (one to four)
 ```
 
 Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
@@ -218,6 +220,19 @@ while it runs the user's profile, so a count taken too early reads high.
 
 `scripts/dev-run.sh` wraps all of this: it builds the module path itself, so any `-D` can be passed
 through (`mvn javafx:run` cannot take ad-hoc options — the plugin's are fixed in the pom).
+
+### The README's pictures
+
+`scripts/screenshots.sh` retakes the README's hero, dark (`docs/screenshot.png`) and light
+(`docs/screenshot-light.png`), at 2×. It runs the capture hook on the headless platform, so no
+window opens, with a configuration folder and a shell start-up file of its own, so nothing of your
+desktop or your prompt is in the picture. Run it after any change to how the window looks, and use
+`-Dtermina.captureScale=2` for a picture meant for the website or a bug report.
+
+At a scale above 1 the scene is drawn through a transform, which keeps everything made of nodes
+sharp. The terminal is a canvas, which is a bitmap: for the run, each view's canvas is given the
+larger picture's pixels, drawn at the scale, and shown at its layout size, as a display of that
+density would have it. Without that it is the window's own pixels stretched.
 
 ## Diagnosing a freeze
 

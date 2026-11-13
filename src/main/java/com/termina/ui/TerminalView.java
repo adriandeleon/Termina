@@ -36,12 +36,12 @@ import javafx.util.Duration;
 
 import com.jediterm.core.compatibility.Point;
 import com.jediterm.terminal.CursorShape;
-import com.jediterm.terminal.StyledTextConsumer;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.emulator.mouse.MouseEventProcessingSettings;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.CharBuffer;
 import com.jediterm.terminal.model.SelectionUtil;
+import com.jediterm.terminal.model.TerminalLine;
 import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.util.CharUtils;
@@ -126,6 +126,15 @@ public final class TerminalView extends Region {
      * from the palette's blue so it suits a light theme as well as a dark one.
      */
     private Color selectionWash = washFor(Theme.EDITORA_DARK.palette());
+
+    /** The unfocused cursor's colour: derived when the palette is set, read by every frame. */
+    private Color cursorDimmed = dimmedCursorOf(Theme.EDITORA_DARK.palette());
+
+    private static Color dimmedCursorOf(TerminalPalette palette) {
+        // An imported scheme may name its cursor colour; the built-ins draw it in the foreground.
+        Color colour = palette.cursor() != null ? palette.cursor() : palette.foreground();
+        return colour.deriveColor(0, 1, 1, CursorDraw.UNFOCUSED_ALPHA);
+    }
 
     /** Preferred cursor shape. A program can still override it with DECSCUSR while running. */
     private Settings.CursorShape preferredCursor = Settings.CursorShape.BLOCK;
@@ -608,6 +617,7 @@ public final class TerminalView extends Region {
         directoryFrom = null;
         int startColumns = columns;
         int startRows = rows;
+        STARTING.incrementAndGet();
         SHELL_STARTS.execute(() -> {
             com.termina.pty.LaunchOptions resolved =
                     directory == null ? options : options.withWorkingDirectory(directory.get());
@@ -617,18 +627,26 @@ public final class TerminalView extends Region {
             } catch (IOException | RuntimeException e) {
                 IOException failure = e instanceof IOException io ? io : new IOException(e.getMessage(), e);
                 Platform.runLater(() -> {
-                    if (!viewClosed) onFailed.accept(failure);
+                    try {
+                        if (!viewClosed) onFailed.accept(failure);
+                    } finally {
+                        STARTING.decrementAndGet();
+                    }
                 });
                 return;
             }
             Platform.runLater(() -> {
-                if (viewClosed) {
-                    process.destroy();
-                    return;
+                try {
+                    if (viewClosed) {
+                        process.destroy();
+                        return;
+                    }
+                    launchOptions = resolved;
+                    attach(process, startColumns, startRows);
+                    onStarted.run();
+                } finally {
+                    STARTING.decrementAndGet();
                 }
-                launchOptions = resolved;
-                attach(process, startColumns, startRows);
-                onStarted.run();
             });
         });
     }
@@ -636,6 +654,19 @@ public final class TerminalView extends Region {
     /** Where shells are started: a virtual thread each. */
     private static final java.util.concurrent.Executor SHELL_STARTS =
             com.termina.term.TerminalExecutors.virtual("termina-shell-start");
+
+    /** Shell starts asked for and not yet handed back to the FX thread, over every view. */
+    private static final java.util.concurrent.atomic.AtomicInteger STARTING =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * How many shell starts are on their way. A test waits for none, which is the moment a view
+     * closed before its shell arrived has been handed the process and ended it; a guessed time is
+     * the alternative (QUAL-07, Pauta 6.0.1).
+     */
+    static int shellsStarting() {
+        return STARTING.get();
+    }
 
     /**
      * Where the shell should start, worked out when it starts rather than now: the directory a new
@@ -828,6 +859,7 @@ public final class TerminalView extends Region {
         paletteApplied = true;
         this.palette = palette;
         this.selectionWash = washFor(palette);
+        this.cursorDimmed = dimmedCursorOf(palette);
         this.searchWash = withAlpha(palette.ansi(3), SEARCH_ALPHA);
         this.searchStrong = withAlpha(palette.ansi(3), CURRENT_MATCH_ALPHA);
         styleScrollBar(palette);
@@ -1035,8 +1067,10 @@ public final class TerminalView extends Region {
         double w = getWidth();
         double h = getHeight();
         double barWidth = scrollBarWidth();
-        canvas.setWidth(Math.max(0, w - barWidth));
-        canvas.setHeight(h);
+        double scale = renderScale;
+        canvas.setWidth(Math.max(0, w - barWidth) * scale);
+        canvas.setHeight(h * scale);
+        fitCanvasTo(scale);
         canvas.relocate(0, 0);
         if (barWidth > 0) scrollBar.resizeRelocate(w - barWidth, 0, barWidth, h);
         layoutSearchBar(w - barWidth);
@@ -1088,12 +1122,53 @@ public final class TerminalView extends Region {
 
     private void render() {
         GraphicsContext g = canvas.getGraphicsContext2D();
-        double w = canvas.getWidth();
-        double h = canvas.getHeight();
-        renderedWidth = w;
-        renderedHeight = h;
-        if (w <= 0 || h <= 0) return;
+        renderedWidth = canvas.getWidth();
+        renderedHeight = canvas.getHeight();
+        if (renderedWidth <= 0 || renderedHeight <= 0) return;
+        double scale = renderScale;
+        if (scale == 1) {
+            paint(g, renderedWidth, renderedHeight);
+            return;
+        }
+        // The capture hook's 2×: the same frame, on a canvas with that many pixels a side.
+        g.save();
+        try {
+            g.scale(scale, scale);
+            paint(g, renderedWidth / scale, renderedHeight / scale);
+        } finally {
+            g.restore();
+        }
+    }
 
+    /**
+     * Canvas pixels to a layout pixel: 1, but for a capture at 2× (DOCS-18, Pauta 6.0.1). A
+     * snapshot can be asked to scale the scene, and everything drawn from nodes comes out sharp at
+     * the larger size; a canvas is a bitmap, and comes out as its own pixels stretched. So for a
+     * capture the canvas is given the pixels and drawn at the scale, and shown at its layout size,
+     * as a display of that density would have it.
+     */
+    private static double renderScale = 1;
+
+    /** Sets the scale every view draws at from its next layout on. For the capture hook. */
+    public static void setRenderScale(double scale) {
+        renderScale = Math.max(1, scale);
+    }
+
+    /** What shows a canvas of {@code scale} pixels to the layout pixel at its layout size. */
+    private javafx.scene.transform.@Nullable Scale canvasFit;
+
+    private void fitCanvasTo(double scale) {
+        if (scale == 1 && canvasFit == null) return; // the only case outside a capture
+        if (canvasFit == null) {
+            canvasFit = new javafx.scene.transform.Scale(1, 1, 0, 0);
+            canvas.getTransforms().add(canvasFit);
+        }
+        canvasFit.setX(1 / scale);
+        canvasFit.setY(1 / scale);
+    }
+
+    /** One frame, in layout pixels. */
+    private void paint(GraphicsContext g, double w, double h) {
         g.setFontSmoothingType(FontSmoothingType.GRAY);
         g.setFill(palette.background());
         g.fillRect(0, 0, w, h);
@@ -1113,7 +1188,7 @@ public final class TerminalView extends Region {
                 // x arrives as an index into the line's char[], which is not its column: see
                 // RunColumns. Translating here rather than inside drawRun keeps every consumer
                 // callback on the same footing, including the background-only one.
-                buffer.processHistoryAndScreenLines(scrollOrigin, rows, runDrawer(g, new RunColumns()));
+                drawRows(buffer);
                 if (selectionToVerify && !dragging) {
                     selectionToVerify = false;
                     dropSelectionIfRewritten();
@@ -1136,27 +1211,119 @@ public final class TerminalView extends Region {
         updateScrollBar();
     }
 
-    /** Draws each style run it is handed at its row: {@code y - startRow}, against the scroll origin. */
-    private StyledTextConsumer runDrawer(GraphicsContext g, RunColumns columns) {
-        return new StyledTextConsumer() {
-            @Override
-            public void consume(int x, int y, TextStyle style, CharBuffer characters, int startRow) {
-                // One copy of the run per frame, shared by the column bookkeeping and the draw.
-                String text = characters.toString();
-                int column = columns.columnOf(y, x, text);
-                drawRun(g, column, y - startRow, style, text, columns.lastCells());
-            }
+    /** Where each run of the row being drawn starts; one for every frame, reset before each pass. */
+    private final RunColumns runColumns = new RunColumns();
 
-            @Override
-            public void consumeNul(int x, int y, int nulIndex, TextStyle style, CharBuffer characters, int startRow) {
+    /** The strings the frames draw, kept between them: a screen that has not changed copies none. */
+    private final RunText runText = new RunText();
+
+    /**
+     * Draws the style runs of one row, handed to it one at a time by the line itself. One for the
+     * life of the view, like what it reads (PERF-09, Pauta 6.0.1): a frame makes no consumer, no
+     * column counter and, for text it has drawn before, no string.
+     */
+    private final class RowPainter implements java.util.function.Consumer<TerminalLine.TextEntry> {
+
+        /** The view's row being drawn, and the slot in its line the next run starts at. */
+        private int row;
+
+        private int slot;
+
+        void row(int row) {
+            this.row = row;
+            slot = 0;
+        }
+
+        @Override
+        public void accept(TerminalLine.TextEntry entry) {
+            GraphicsContext g = canvas.getGraphicsContext2D();
+            CharBuffer characters = entry.getText();
+            if (characters.isNul()) {
                 // Cells past the last written column. Only the background is meaningful —
                 // drawing NUL as text would paint boxes across every short line.
-                drawBackground(g, columns.columnOf(y, x, characters), y - startRow, characters.length(), style);
+                int column = runColumns.columnOf(row, slot, characters);
+                drawBackground(g, column, row, characters.length(), entry.getStyle());
+            } else {
+                String text = runText.of(characters);
+                int column = runColumns.columnOf(row, slot, text);
+                drawRun(g, column, row, entry.getStyle(), text, runColumns.lastCells());
             }
+            slot += entry.getLength();
+        }
+    }
 
-            @Override
-            public void consumeQueue(int x, int y, int nulIndex, int startRow) {}
-        };
+    private final RowPainter rowPainter = new RowPainter();
+
+    /**
+     * Draws the rows in view, from the scrollback and the screen. Caller holds the lock.
+     *
+     * <p>The buffer's own walk ({@code processHistoryAndScreenLines}) does the same and was what
+     * this called, but it builds a stream, an optional and an iterator for every row it visits:
+     * measured, most of what a repaint of an unchanged screen still allocated once the strings were
+     * kept. The lines are read where it reads them, and each hands over its own runs.
+     */
+    private void drawRows(TerminalTextBuffer text) {
+        var history = text.getHistoryLinesStorage();
+        var screen = text.getScreenLinesStorage();
+        int historySize = history.getSize();
+        int screenSize = screen.getSize();
+        runColumns.reset();
+        for (int row = 0; row < rows; row++) {
+            int line = scrollOrigin + row;
+            TerminalLine runs;
+            if (line < 0) {
+                int index = historySize + line;
+                if (index < 0) continue; // above the oldest line kept
+                runs = history.get(index);
+            } else {
+                if (line >= screenSize) break; // rows the shell has not written to yet
+                runs = screen.get(line);
+            }
+            rowPainter.row(row);
+            runs.forEachEntry(rowPainter);
+        }
+    }
+
+    /** One line's text, put together for a frame without copying it when it has not changed. */
+    private final class LineReader implements java.util.function.Consumer<TerminalLine.TextEntry> {
+
+        private final StringBuilder characters = new StringBuilder(256);
+        private boolean ended;
+
+        String read(TerminalLine line) {
+            characters.setLength(0);
+            ended = false;
+            line.forEachEntry(this);
+            return runText.of(characters);
+        }
+
+        @Override
+        public void accept(TerminalLine.TextEntry entry) {
+            // As TerminalLine.getText has it: the text ends at the first unwritten cell.
+            if (ended || entry.isNul()) {
+                ended = true;
+                return;
+            }
+            characters.append(entry.getText());
+        }
+    }
+
+    private final LineReader lineReader = new LineReader();
+
+    /**
+     * {@link #lineTextAt} for the painter: the same text, as the string kept for it from the frame
+     * before. The line's own {@code getText} builds a new one each time it is asked, and the
+     * cursor and every selected row asked each frame. Caller holds the lock.
+     */
+    private String paintedLineText(int row) {
+        if (buffer == null) return "";
+        try {
+            var line = buffer.getLine(row);
+            return line == null ? "" : lineReader.read(line);
+        } catch (RuntimeException e) {
+            // Out of range: the row scrolled away between the event and this read.
+            return "";
+        }
     }
 
     /**
@@ -1171,7 +1338,9 @@ public final class TerminalView extends Region {
         if (row < 0 || row >= rows) return;
         g.setFill(palette.background());
         g.fillRect(0, row * lineHeight, Math.min(width, columns * charWidth), lineHeight);
-        prediction.line().process(prediction.row(), runDrawer(g, new RunColumns()), scrollOrigin);
+        runColumns.reset(); // the row has been drawn once this frame: its columns start over
+        rowPainter.row(row);
+        prediction.line().forEachEntry(rowPainter);
     }
 
     /** The prediction, unless there is no session or a full-screen program owns the screen. */
@@ -1299,7 +1468,7 @@ public final class TerminalView extends Region {
      */
     private void drawCodePoint(
             GraphicsContext g, int codePoint, double x, double baseline, Font face, @Nullable Font iconFace) {
-        String glyph = new String(Character.toChars(codePoint));
+        String glyph = runText.of(codePoint);
         if (iconFace == null || !IconFont.isPrivateUse(codePoint)) {
             g.fillText(glyph, x, baseline);
             return;
@@ -1356,7 +1525,7 @@ public final class TerminalView extends Region {
         if (row < 0 || row >= rows) return;
         // The x is a slot, not a column: see CursorDraw. Where the predictor expects the cursor once
         // the far end catches up, it is a slot in the predicted line, which is the one drawn.
-        String text = lineTextAt(cursorRow);
+        String text = paintedLineText(cursorRow);
         int slot = display.getCursorX();
         com.termina.term.TypeAheadModel.Prediction prediction = predictionToDraw();
         if (prediction != null && prediction.row() == cursorRow && prediction.cursor() >= 0) {
@@ -1369,7 +1538,7 @@ public final class TerminalView extends Region {
         double y = row * lineHeight;
         // An imported scheme may name its cursor colour; the built-ins draw it in the foreground.
         Color colour = palette.cursor() != null ? palette.cursor() : palette.foreground();
-        Color dimmed = colour.deriveColor(0, 1, 1, CursorDraw.UNFOCUSED_ALPHA);
+        Color dimmed = cursorDimmed;
 
         CursorDraw.Look look = CursorDraw.look(effectiveCursorShape(), cursorFocused());
         switch (look) {
@@ -3052,15 +3221,18 @@ public final class TerminalView extends Region {
         }
     }
 
+    /** Where the selection crosses the row being drawn: the painter's, filled in for each row. */
+    private final int[] selectionSpan = new int[2];
+
     /** Paints the selection over the text as a translucent wash. */
     private void drawSelection(GraphicsContext g) {
         TerminalSelection current = selection;
         if (current == null) return;
         g.setFill(selectionWash);
+        int[] span = selectionSpan;
         if (rectangular) {
             for (int row = 0; row < rows; row++) {
-                int[] span = SelectionGeometry.blockOnRow(current, scrollOrigin + row);
-                if (span == null) continue;
+                if (!SelectionGeometry.blockOnRow(current, scrollOrigin + row, span)) continue;
                 g.fillRect(span[0] * charWidth, row * lineHeight, (span[1] - span[0]) * charWidth, lineHeight);
             }
             return;
@@ -3069,10 +3241,11 @@ public final class TerminalView extends Region {
             int line = scrollOrigin + row;
             // Ours, not TerminalSelection.intersect: that one counts the end column in, and the
             // copy does not, so the highlight was a cell wider than the text it stood for.
-            int[] span = SelectionGeometry.onRow(current, line, slotsInRow(line));
-            if (span == null) continue;
+            // Asked first with no line read: most rows in view are outside the selection.
+            if (!SelectionGeometry.onRow(current, line, Integer.MAX_VALUE, span)) continue;
+            String text = paintedLineText(line);
+            if (!SelectionGeometry.onRow(current, line, Math.max(columns, text.length()), span)) continue;
             // The span is in slots; the rectangle is in columns.
-            String text = lineTextAt(line);
             double x = ColumnMap.columnAt(text, span[0]);
             double to = ColumnMap.columnAt(text, span[1]);
             g.fillRect(x * charWidth, row * lineHeight, (to - x) * charWidth, lineHeight);

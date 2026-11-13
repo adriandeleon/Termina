@@ -22,6 +22,7 @@ import javafx.stage.Stage;
 
 import com.termina.config.Settings;
 import com.termina.shell.ShellProfiles;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -159,7 +160,7 @@ class SettingsWindowFxTest {
         waitFor(() -> shell.toString().equals(settings.shell()), "the shell path to be written");
         stored.add(settings.shell());
         onFx(() -> enter(shellField, dir.resolve("no-such-shell").toString()));
-        Thread.sleep(400);
+        awaitMarked(shellField);
         stored.add(settings.shell());
         onFx(() -> enter(shellField, ""));
         waitFor(() -> settings.shell().isEmpty(), "the shell path to be cleared");
@@ -184,14 +185,14 @@ class SettingsWindowFxTest {
         waitFor(() -> (shell + " --login").equals(userProfile(profiles).commandLine()), "the command to be written");
         stored.add(userProfile(profiles).commandLine());
         onFx(() -> enter(command, dir.resolve("no-such-program") + " --login"));
-        Thread.sleep(400);
+        awaitMarked(command);
         stored.add(userProfile(profiles).commandLine());
         onFx(() -> enter(command, shell + " --login"));
         onFx(() -> enter(directory, dir.toString()));
         waitFor(() -> dir.toString().equals(userProfile(profiles).workingDirectory()), "the folder to be written");
         stored.add(userProfile(profiles).workingDirectory());
         onFx(() -> enter(directory, dir.resolve("no-such-folder").toString()));
-        Thread.sleep(400);
+        awaitMarked(directory);
         stored.add(userProfile(profiles).workingDirectory());
         onFx(() -> {
             windowHolder[0].scene().getWindow().hide();
@@ -248,6 +249,26 @@ class SettingsWindowFxTest {
         throw new AssertionError("no field with the prompt " + prompt);
     }
 
+    /**
+     * Waits for the line under a path field that says what is wrong with it. The check behind the
+     * mark starts after the one the commit made, so by then the commit has had its answer, and two
+     * frames more let the write it would have made happen.
+     */
+    private static void awaitMarked(TextField field) throws InterruptedException {
+        waitFor(
+                () -> {
+                    try {
+                        return onFx(() -> field.getParent() instanceof javafx.scene.layout.VBox box
+                                && box.getChildren().size() > 1
+                                && box.getChildren().get(1).isVisible());
+                    } catch (Exception e) {
+                        return false;
+                    }
+                },
+                "the mark under the field");
+        Await.frames(2);
+    }
+
     private static Void enter(TextField field, String text) {
         field.setText(text);
         field.fireEvent(new ActionEvent());
@@ -266,7 +287,7 @@ class SettingsWindowFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(25);
+            Await.frame();
         }
     }
 
@@ -305,7 +326,7 @@ class SettingsWindowFxTest {
         });
         // The UI zoom is written a moment later, once its stylesheets are ready on a worker.
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (settings.uiZoom() == Settings.DEFAULT_UI_ZOOM && System.nanoTime() < deadline) Thread.sleep(20);
+        while (settings.uiZoom() == Settings.DEFAULT_UI_ZOOM && System.nanoTime() < deadline) Await.frame();
         settings.flush();
 
         int changed = 0;

@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.scene.text.Font;
 
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -66,7 +67,7 @@ class DeferredFontsTest {
         assertTrue(first.get(10, TimeUnit.SECONDS).contains(Fonts.BUNDLED_MONO.getFirst()), "the default family");
 
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
-        while (!Fonts.restLoaded() && System.nanoTime() < deadline) Thread.sleep(20);
+        while (!Fonts.restLoaded() && System.nanoTime() < deadline) Await.frame();
         assertTrue(Fonts.restLoaded(), "the worker registered the rest");
 
         // The worker forgets the cached list just after its last family is in: asked until whole.
@@ -76,7 +77,7 @@ class DeferredFontsTest {
             Platform.runLater(() -> listed.complete(MonospaceFonts.available()));
             families = listed.get(10, TimeUnit.SECONDS);
             if (families.containsAll(Fonts.BUNDLED_MONO)) break;
-            Thread.sleep(20);
+            Await.frame();
         }
         assertTrue(families.containsAll(Fonts.BUNDLED_MONO), families::toString);
     }

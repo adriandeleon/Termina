@@ -12,6 +12,7 @@ import java.util.function.BooleanSupplier;
 import javafx.application.Platform;
 
 import com.termina.config.Settings;
+import com.termina.testing.Await;
 import com.termina.ui.TerminalView;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -264,6 +266,64 @@ class DevCaptureFxTest {
                         "termina.capturePressKey", "TAB,false"));
     }
 
+    /**
+     * DOCS-18 (Pauta 6.0.1): asked for 2×, the picture has twice the window's pixels each way, and
+     * the terminal is drawn with that many, not drawn at the window's size and stretched: a canvas
+     * is a bitmap, so while the run lasts it has the pixels of the larger picture.
+     */
+    @org.junit.jupiter.api.Test
+    void aCaptureAtTwoHasTwiceThePixelsAndTheTerminalDrawsThem() throws Exception {
+        runCapture("at-one", Map.of());
+        java.awt.image.BufferedImage plain =
+                javax.imageio.ImageIO.read(dir.resolve("capture.png").toFile());
+        Files.delete(dir.resolve("capture.png"));
+        runCapture("at-two", Map.of("termina.captureScale", "2"));
+        java.awt.image.BufferedImage doubled =
+                javax.imageio.ImageIO.read(dir.resolve("capture.png").toFile());
+        assertEquals(2 * plain.getWidth(), doubled.getWidth());
+        assertEquals(2 * plain.getHeight(), doubled.getHeight());
+
+        // The view by itself: its canvas takes the pixels, and is shown at the size it is laid out.
+        double[] sizes = onFx(() -> {
+            TerminalView view = new TerminalView(13);
+            javafx.stage.Stage stage = new javafx.stage.Stage();
+            stage.setScene(new javafx.scene.Scene(new javafx.scene.layout.StackPane(view), 400, 300));
+            stage.show();
+            try {
+                DevCapture.drawAtScale(2);
+                view.getScene().getRoot().applyCss();
+                view.getScene().getRoot().layout();
+                javafx.scene.canvas.Canvas canvas = view.getChildrenUnmodifiable().stream()
+                        .filter(javafx.scene.canvas.Canvas.class::isInstance)
+                        .map(javafx.scene.canvas.Canvas.class::cast)
+                        .findFirst()
+                        .orElseThrow();
+                double pixels = canvas.getWidth();
+                double shown = canvas.getBoundsInParent().getWidth();
+                DevCapture.drawAtScale(1);
+                view.getScene().getRoot().layout();
+                return new double[] {view.getWidth(), pixels, shown, canvas.getWidth()};
+            } finally {
+                DevCapture.drawAtScale(1);
+                stage.hide();
+            }
+        });
+        assertEquals(2 * sizes[0], sizes[1], 0.01, "twice the pixels while the capture lasts");
+        assertEquals(sizes[0], sizes[2], 0.01, "shown at the size it is laid out");
+        assertEquals(sizes[0], sizes[3], 0.01, "and its own size again after");
+    }
+
+    /** The scale asked for is one to four; anything else, or nothing, is the window's own size. */
+    @org.junit.jupiter.api.Test
+    void theCaptureScaleIsOneToFour() {
+        assertEquals(1, DevCapture.scaleOf(null));
+        assertEquals(2, DevCapture.scaleOf("2"));
+        assertEquals(1.5, DevCapture.scaleOf(" 1.5 "));
+        assertEquals(1, DevCapture.scaleOf("0.5"));
+        assertEquals(1, DevCapture.scaleOf("8"));
+        assertEquals(1, DevCapture.scaleOf("two"));
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("names")
     void aCaptureRunCompletesAndWritesItsPicture(String name) throws Exception {
@@ -345,7 +405,7 @@ class DevCaptureFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

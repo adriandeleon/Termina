@@ -13,6 +13,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 
 import com.termina.config.Settings;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -64,16 +65,20 @@ class ViewEventsFxTest {
             view.getSession().sendString("printf 'one two three\\nhttps://example.com/x\\n'\r");
             return null;
         });
-        Thread.sleep(600);
+        // The line as printed, not as typed: the echo of the command has it inside quotes.
+        waitFor(() -> hasLine(view, "https://example.com/x"), "the printed lines");
 
         for (boolean programHasTheMouse : new boolean[] {false, true}) {
             if (programHasTheMouse) {
                 onFx(() -> {
                     // Any-motion reporting with SGR coordinates, as a full-screen program asks.
-                    view.getSession().sendString("printf '\\033[?1049h\\033[?1003h\\033[?1006h'\r");
+                    // And a word after them, put together by printf so the echo does not have it:
+                    // the emulator reads in order, so the word on screen means the modes are set.
+                    view.getSession().sendString(ABANDON_LINE);
+                    view.getSession().sendString("printf '\\033[?1049h\\033[?1003h\\033[?1006hmouse-%s' on\r");
                     return null;
                 });
-                Thread.sleep(500);
+                waitFor(() -> screen(view).contains("mouse-on"), "the program to take the mouse");
             }
             onFx(() -> {
                 for (int x = 5; x < 300; x += 37) {
@@ -130,10 +135,11 @@ class ViewEventsFxTest {
         for (String mode : new String[] {"", "printf '\\033[>1u'\r"}) {
             if (!mode.isEmpty()) {
                 onFx(() -> {
+                    view.getSession().sendString(ABANDON_LINE);
                     view.getSession().sendString(mode);
                     return null;
                 });
-                Thread.sleep(400);
+                waitFor(() -> kittyFlags(view) != 0, "the kitty keyboard flags to be set");
             }
             onFx(() -> {
                 view.setAltIsMeta(true);
@@ -154,24 +160,27 @@ class ViewEventsFxTest {
             });
         }
 
-        // Prompt marks, then a resize: the marks follow their lines through the reflow.
+        // Prompt marks, then a resize: the marks follow their lines through the reflow. Back on
+        // the main screen first, and the mouse given back: marks are not kept on the other one.
         onFx(() -> {
+            view.getSession().sendString(ABANDON_LINE);
             view.getSession()
                     .sendString(
-                            "printf '\\033[<u\\033]133;A\\007$ \\033]133;B\\007\\n\\033]133;C\\007out\\n\\033]133;D;0\\007'\r");
+                            "printf '\\033[<u\\033[?1003l\\033[?1049l\\033]133;A\\007$ \\033]133;B\\007\\n\\033]133;C\\007out\\n\\033]133;D;0\\007'\r");
             return null;
         });
-        Thread.sleep(500);
+        waitFor(() -> hasLine(view, "out") && marked(view), "the marked prompt and its output");
+        int columns = columns(view);
         onFx(() -> {
             window.stage().setWidth(window.stage().getWidth() - 160);
             return null;
         });
-        Thread.sleep(400);
+        waitFor(() -> columns(view) < columns, "the narrower grid to reach the shell");
         onFx(() -> {
             window.stage().setWidth(window.stage().getWidth() + 160);
             return null;
         });
-        Thread.sleep(300);
+        waitFor(() -> columns(view) == columns, "the grid to be as wide as it was");
         assertTrue(onFx(() -> view.isStarted()), "the view is still running");
     }
 
@@ -202,6 +211,51 @@ class ViewEventsFxTest {
                 null);
     }
 
+    /**
+     * Ctrl+C, before each command typed after the keys and clicks: they leave the shell's line
+     * editor mid-chord (an Escape waiting for its letter, function keys it spelled out), and a
+     * command typed onto that is not the command. Found when the fixed waits here became waits for
+     * what each command does: the mouse modes had never been set.
+     */
+    private static final String ABANDON_LINE = "\u0003";
+
+    private static String screen(TerminalView view) {
+        try {
+            return onFx(view::screenText);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** Whether a row on screen is exactly {@code line}. */
+    private static boolean hasLine(TerminalView view, String line) {
+        return screen(view).lines().anyMatch(row -> row.strip().equals(line));
+    }
+
+    private static int kittyFlags(TerminalView view) {
+        try {
+            return onFx(view::keyboardFlagsForCapture);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private static boolean marked(TerminalView view) {
+        try {
+            return onFx(view::hasPromptMarks);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static int columns(TerminalView view) {
+        try {
+            return onFx(() -> view.getSession().getTextBuffer().getWidth());
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     private static boolean started(TerminalWindow window) {
         try {
             return onFx(() -> {
@@ -217,7 +271,7 @@ class ViewEventsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

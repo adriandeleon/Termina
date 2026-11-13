@@ -15,7 +15,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Termina running a shell: two tabs, a git-aware prompt, and a directory listing with file-type icons and colour" width="820">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
+    <img src="docs/screenshot.png" alt="Termina running a shell: two tabs, and a directory listing with file-type icons and colour" width="900">
+  </picture>
 </p>
 
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and

@@ -29,7 +29,7 @@ class HotPathsTest {
     @Test
     void theScrollBarIsUpdatedAfterTheFrameReleasesTheBuffer() throws IOException {
         String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
-        int start = view.indexOf("    private void render() {");
+        int start = view.indexOf("    private void paint(GraphicsContext g, double w, double h) {");
         assertTrue(start > 0, "the paint method is where this test looks");
         int end = view.indexOf("\n    }\n", start);
         String render = view.substring(start, end);

@@ -13,6 +13,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -81,7 +82,8 @@ class MenuReasonsFxTest {
             moveOver(onFx(open::getStyleableNode));
             waitFor(() -> !tooltip.isShowing());
             moveOver(onFx(bare::getStyleableNode));
-            Thread.sleep(150);
+            // The tooltip's one-millisecond delay runs on frames; five of them is long past it.
+            Await.frames(5);
             assertFalse(onFx(tooltip::isShowing), "a row with no reason says nothing");
 
             // Available again: no longer greyed, and nothing left to say.
@@ -118,7 +120,7 @@ class MenuReasonsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (!onFx(condition)) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out");
-            Thread.sleep(20);
+            Await.frame();
         }
     }
 

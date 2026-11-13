@@ -430,3 +430,30 @@ is broken.
   only for what is not there, for at most eight seconds: `LoginShellPath` has been seen never to
   return inside some runs, and a Doctor that says "Checking…" for good diagnoses nothing. The
   tests that fire every menu row and palette command open the Doctor too, with the real probes.
+- **A test that sleeps hides what it was waiting for.** `ViewEventsFxTest` typed `printf` commands
+  after firing Escape and function keys at the shell, with a fixed sleep after each. The keys left
+  the line editor mid-chord, the commands were never run, and the sleeps passed all the same: the
+  mouse-reporting half of the test had never had the mouse. Waiting for what each command does
+  (`mouse-on` on screen, the kitty flags set) found it at once. `testing.Await` waits on frames,
+  `testing.Signal` on a listener the code under test fires, and `TestsDoNotSleepTest` keeps sleeps
+  out, by any of their spellings. A command typed after synthetic keys starts with Ctrl+C.
+- **A word a test waits for must not be in the command that prints it.** The echo of the typed
+  command puts it on screen before the command has run. `printf 'mouse-%s' on` prints `mouse-on`
+  and is echoed as `mouse-%s' on`; a line that must *equal* the output works too.
+- **JediTerm's `processHistoryAndScreenLines` allocates per row,** a stream, an optional and an
+  iterator in `TerminalLine.process`, whatever the consumer does. The painter reads the two line
+  stores itself and hands each line's entries to one long-lived consumer (`TerminalView.drawRows`);
+  what it does not get that way is JediTerm's own interval highlighting and its type-ahead line,
+  neither of which Termina uses. `RepaintAllocationFxTest` measures a repaint against an idle
+  frame through `ThreadMXBean.getThreadAllocatedBytes`, by reflection: the tests compile inside
+  the application's module, which does not read `java.management`.
+- **A snapshot scaled by a transform stretches a canvas.** Nodes are redrawn at the larger size
+  and come out sharp; a canvas is a bitmap at the screen's density, and the headless platform has
+  no density to set. For a capture at 2× each view's canvas is given twice the pixels, drawn
+  through `g.scale`, and shown through a `Scale` transform at its layout size
+  (`TerminalView.setRenderScale`). The scale is static and `DevCapture` puts it back to 1 when a
+  run ends, or every later test in the JVM would draw at 2.
+- **The Linux listing's screenshot is `docs/screenshot.png` on master, by URL.** It is in the
+  metainfo of packages already installed, so the dark hero keeps that path and only the light one
+  has a new name.
+

@@ -16,6 +16,7 @@ import javafx.scene.input.Clipboard;
 import javafx.stage.Stage;
 
 import com.termina.i18n.Messages;
+import com.termina.testing.Await;
 import com.termina.ui.Doctor.Check;
 import com.termina.ui.Doctor.Status;
 import org.junit.jupiter.api.BeforeAll;
@@ -147,7 +148,7 @@ class DoctorWindowFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (!condition.call()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out");
-            Thread.sleep(20);
+            Await.frame();
         }
     }
 

@@ -25,6 +25,40 @@ class RepositoryDocsTest {
         return Files.readString(Path.of(path)).replace("\r\n", "\n");
     }
 
+    /**
+     * DOCS-18 (Pauta 6.0.1): the README's hero comes in a dark and a light form, each with at
+     * least twice the pixels it is shown at, and one script retakes both from the real window.
+     */
+    @Test
+    void theHeroIsADarkAndALightPictureAtTwiceItsShownSize() throws IOException {
+        String readme = read("README.md");
+        java.util.regex.Matcher hero = java.util.regex.Pattern.compile(
+                        "<picture>\\s*<source media=\"\\(prefers-color-scheme: light\\)\" srcset=\"([^\"]+)\">"
+                                + "\\s*<img src=\"([^\"]+)\" alt=\"[^\"]+\" width=\"(\\d+)\">\\s*</picture>")
+                .matcher(readme);
+        assertTrue(hero.find(), "the README shows one picture to a light page and another to a dark one");
+        String light = hero.group(1);
+        String dark = hero.group(2);
+        int shownAt = Integer.parseInt(hero.group(3));
+        java.awt.image.BufferedImage lightPicture =
+                javax.imageio.ImageIO.read(Path.of(light).toFile());
+        java.awt.image.BufferedImage darkPicture =
+                javax.imageio.ImageIO.read(Path.of(dark).toFile());
+        assertTrue(darkPicture.getWidth() >= 2 * shownAt, dark + " is " + darkPicture.getWidth() + " wide");
+        assertTrue(lightPicture.getWidth() >= 2 * shownAt, light + " is " + lightPicture.getWidth() + " wide");
+        assertTrue(
+                darkPicture.getWidth() == lightPicture.getWidth()
+                        && darkPicture.getHeight() == lightPicture.getHeight(),
+                "the two are the same window");
+
+        String script = read("scripts/screenshots.sh");
+        assertTrue(script.contains(dark) && script.contains(light), "the script writes both");
+        assertTrue(script.contains("-Dtermina.captureScale=2"), "at 2×");
+        assertTrue(script.contains("-Dglass.platform=Headless"), "with no window on the desktop");
+        assertTrue(Files.isExecutable(Path.of("scripts/screenshots.sh")), "and can be run");
+        assertTrue(read("docs/testing.md").contains("scripts/screenshots.sh"), "and the testing notes say when");
+    }
+
     @Test
     void theContributorDocumentsExist() {
         List<String> missing = new ArrayList<>();

@@ -14,6 +14,7 @@ import javafx.scene.control.Tab;
 import javafx.stage.Window;
 
 import com.termina.config.Settings;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,8 @@ class NamedControlsFxTest {
             windows.announceUpdateForCapture("99.0.0"); // the status bar's link
             return null;
         });
-        Thread.sleep(300);
+        waitFor(() -> started(window), "the second tab's shell");
+        Await.frames(2); // and the strip and the find bar laid out
 
         List<String> unnamed = new ArrayList<>();
         List<String> unglyphed = new ArrayList<>();
@@ -163,7 +165,7 @@ class NamedControlsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

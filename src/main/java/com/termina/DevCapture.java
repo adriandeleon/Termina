@@ -96,6 +96,7 @@ final class DevCapture {
             com.termina.config.@Nullable Settings settings,
             Runnable finish) {
         String target = System.getProperty(CAPTURE_PROPERTY);
+        drawAtScale(scaleOf(System.getProperty("termina.captureScale")));
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
         long afterCommandMs = Long.getLong("termina.captureAfterCommandMs", 2000);
@@ -210,6 +211,7 @@ final class DevCapture {
                                         .replace("\n", "\\n") + "\"");
                     }
                     report(windows);
+                    drawAtScale(1); // what follows a run in the same process draws as it did before
                     finish.run();
                 });
                 settleFrame.play();
@@ -1505,8 +1507,57 @@ final class DevCapture {
                 null);
     }
 
+    /**
+     * {@code -Dtermina.captureScale=2} writes the image at twice the window's size, as a display
+     * of twice the density shows it (DOCS-18, Pauta 6.0.1): what the README and the website use.
+     * One to four; anything else, or nothing, is 1.
+     */
+    static double scaleOf(@Nullable String asked) {
+        if (asked == null) return 1;
+        try {
+            double scale = Double.parseDouble(asked.trim());
+            return scale >= 1 && scale <= 4 ? scale : 1;
+        } catch (NumberFormatException e) {
+            return 1;
+        }
+    }
+
+    /**
+     * Has every terminal draw at the capture's scale: set first, so a view made later starts at it,
+     * and the ones already in a window are laid out again, which is where a view takes it up.
+     */
+    static void drawAtScale(double scale) {
+        TerminalView.setRenderScale(scale);
+        for (javafx.stage.Window window : javafx.stage.Window.getWindows()) {
+            Scene scene = window.getScene();
+            if (scene != null) layOutTerminals(scene.getRoot());
+        }
+    }
+
+    private static void layOutTerminals(javafx.scene.Node node) {
+        if (node instanceof TerminalView view) view.requestLayout();
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) layOutTerminals(child);
+        }
+    }
+
+    /**
+     * The scene as an image, {@code scale} pixels to each of its own. At 1 it is the scene's own
+     * snapshot; above that the root is drawn through a transform, which is what makes text and
+     * shapes sharp at the larger size instead of stretched.
+     */
+    static WritableImage snapshot(Scene scene, double scale) {
+        if (scale == 1) return scene.snapshot(null);
+        javafx.scene.SnapshotParameters parameters = new javafx.scene.SnapshotParameters();
+        parameters.setTransform(javafx.scene.transform.Transform.scale(scale, scale));
+        parameters.setFill(scene.getFill());
+        parameters.setViewport(new javafx.geometry.Rectangle2D(
+                0, 0, Math.ceil(scene.getWidth() * scale), Math.ceil(scene.getHeight() * scale)));
+        return scene.getRoot().snapshot(parameters, null);
+    }
+
     private static void write(Scene scene, File target) throws IOException {
-        WritableImage image = scene.snapshot(null);
+        WritableImage image = snapshot(scene, scaleOf(System.getProperty("termina.captureScale")));
         int w = (int) image.getWidth();
         int h = (int) image.getHeight();
 

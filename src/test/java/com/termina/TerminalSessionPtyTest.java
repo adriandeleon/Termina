@@ -13,6 +13,7 @@ import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.pty.ShellLauncher;
 import com.termina.term.TerminalSession;
+import com.termina.testing.Signal;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,12 +43,13 @@ class TerminalSessionPtyTest {
         try {
             session.start();
             TerminalTextBuffer buffer = session.getTextBuffer();
+            Signal changed = changesOf(buffer);
 
             // A marker unlikely to appear in a prompt, MOTD, or shell startup noise.
             String marker = "TERMINA_PTY_OK_" + ProcessHandle.current().pid();
             // Wait for the shell to be ready to read before typing at it: a login shell sources the
             // user's profile first, and input sent before then is simply discarded.
-            assumeTrue(awaitReady(session), "shell did not start");
+            assumeTrue(awaitReady(session, changed), "shell did not start");
 
             // Typed repeatedly rather than once. First output is not the same as ready to read:
             // macOS bash prints a notice about zsh before it reaches its prompt, and anything sent
@@ -55,7 +57,7 @@ class TerminalSessionPtyTest {
             // lose the keystroke every time, where locally it never showed. A user with a slow
             // profile has exactly the same race.
             assertTrue(
-                    awaitTyping(session, buffer, "echo " + marker + "\r", marker),
+                    awaitTyping(session, buffer, changed, "echo " + marker + "\r", marker),
                     () -> "marker never appeared on screen. Screen was:\n" + screen(buffer));
         } finally {
             session.close();
@@ -69,14 +71,25 @@ class TerminalSessionPtyTest {
      * twice, and the assertion only cares that it appeared at all.
      */
     private static boolean awaitTyping(
-            TerminalSession session, TerminalTextBuffer buffer, String input, String expected)
+            TerminalSession session, TerminalTextBuffer buffer, Signal changed, String input, String expected)
             throws InterruptedException {
         Instant deadline = Instant.now().plus(TIMEOUT);
         while (Instant.now().isBefore(deadline)) {
             session.sendString(input);
-            if (await(buffer, expected, Duration.ofSeconds(2))) return true;
+            // The command echoes once as typed and once as output; two occurrences means the shell
+            // actually ran it rather than merely echoing the keystrokes back.
+            if (changed.await(() -> countOccurrences(screen(buffer), expected) >= 2, Duration.ofSeconds(2))) {
+                return true;
+            }
         }
         return false;
+    }
+
+    /** A signal the buffer fires on every change: what these waits look again on (QUAL-07). */
+    private static Signal changesOf(TerminalTextBuffer buffer) {
+        Signal changed = new Signal();
+        buffer.addModelListener(changed::fire);
+        return changed;
     }
 
     @Test
@@ -87,47 +100,23 @@ class TerminalSessionPtyTest {
         TerminalSession session = new TerminalSession(display, 80, 24, 5000, "");
         try {
             session.start();
-            assumeTrue(awaitReady(session), "shell did not start");
+            TerminalTextBuffer buffer = session.getTextBuffer();
+            Signal changed = changesOf(buffer);
+            assumeTrue(awaitReady(session, changed), "shell did not start");
             session.resize(100, 30);
 
-            TerminalTextBuffer buffer = session.getTextBuffer();
-            Instant deadline = Instant.now().plus(TIMEOUT);
-            while (Instant.now().isBefore(deadline)) {
-                if (buffer.getWidth() == 100 && buffer.getHeight() == 30) return;
-                Thread.sleep(50);
-            }
-            assertTrue(false, "buffer stayed " + buffer.getWidth() + "x" + buffer.getHeight());
+            assertTrue(
+                    changed.await(() -> buffer.getWidth() == 100 && buffer.getHeight() == 30, TIMEOUT),
+                    () -> "buffer stayed " + buffer.getWidth() + "x" + buffer.getHeight());
         } finally {
             session.close();
         }
     }
 
     /** True once the shell has written anything at all — i.e. it is up and has printed a prompt. */
-    private static boolean awaitReady(TerminalSession session) throws InterruptedException {
+    private static boolean awaitReady(TerminalSession session, Signal changed) throws InterruptedException {
         TerminalTextBuffer buffer = session.getTextBuffer();
-        Instant deadline = Instant.now().plus(TIMEOUT);
-        while (Instant.now().isBefore(deadline)) {
-            if (!screen(buffer).isBlank()) return true;
-            if (!session.isRunning()) return false;
-            Thread.sleep(50);
-        }
-        return false;
-    }
-
-    private static boolean await(TerminalTextBuffer buffer, String needle) throws InterruptedException {
-        return await(buffer, needle, TIMEOUT);
-    }
-
-    private static boolean await(TerminalTextBuffer buffer, String needle, Duration timeout)
-            throws InterruptedException {
-        Instant deadline = Instant.now().plus(timeout);
-        while (Instant.now().isBefore(deadline)) {
-            // The command echoes once as typed and once as output; two occurrences means the shell
-            // actually ran it rather than merely echoing the keystrokes back.
-            if (countOccurrences(screen(buffer), needle) >= 2) return true;
-            Thread.sleep(50);
-        }
-        return false;
+        return changed.await(() -> !screen(buffer).isBlank(), TIMEOUT);
     }
 
     private static int countOccurrences(String haystack, String needle) {

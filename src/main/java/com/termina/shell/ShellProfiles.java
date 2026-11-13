@@ -230,13 +230,15 @@ public final class ShellProfiles {
         }
     }
 
-    /** One thread for the warm-ups a settings change asks for; they are small and rare. */
-    private static final java.util.concurrent.Executor WARMER =
-            java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
-                Thread thread = new Thread(task, "termina-profiles-warm");
-                thread.setDaemon(true);
-                return thread;
-            });
+    /**
+     * One thread for the warm-ups a settings change asks for; they are small and rare. Not private:
+     * a test queues a task behind a warm-up to know it has ended.
+     */
+    static final java.util.concurrent.Executor WARMER = java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "termina-profiles-warm");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public static final String SYSTEM_ID = "system";
 

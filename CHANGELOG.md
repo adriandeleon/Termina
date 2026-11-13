@@ -127,6 +127,18 @@ done.
 
 ### Changed
 
+- **Repainting a screen that has not changed allocates almost nothing.** Each frame used to copy
+  every run of text on screen to a new string, and the emulator's own walk over the rows made more
+  for each row: about 12,700 bytes a frame on a full coloured screen, sixty times a second while a
+  cursor blinks or a selection is dragged. The text a frame draws is now kept from the frame
+  before, and the rows are read directly: about 900 bytes, measured by a test.
+- **The README's picture is the current window, dark and light, at 2×,** shown by the page's
+  colour scheme. `scripts/screenshots.sh` retakes both from the real window with no window opened
+  on the desktop, and `-Dtermina.captureScale=2` does the same for any capture.
+- **The tests wait for what they need instead of sleeping.** Fifty-five fixed and polling sleeps
+  are gone: a test waits on the next frame, on a signal the code under test fires, or on a
+  worker's own queue. Two of them had been hiding a test that typed its commands onto a
+  half-finished line, so the mouse modes it meant to exercise were never set.
 - **A greyed menu row says why.** Rest the pointer on a command a menu has greyed and a tooltip
   gives the reason the command palette gives: no tab has been closed, this is the only tab, there
   is no link under the pointer. In the menu bar's menus, a tab's menu and the terminal's

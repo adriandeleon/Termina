@@ -17,6 +17,7 @@ import javafx.scene.control.Tab;
 
 import com.termina.config.Settings;
 import com.termina.i18n.Messages;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -177,7 +178,7 @@ class MenusFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 
@@ -402,7 +403,7 @@ class MenusFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         boolean found = false;
         while (!found && System.nanoTime() < deadline) {
-            Thread.sleep(200);
+            Await.frame();
             found = onFx(() -> {
                 for (double y = 2; y < 200; y += 4) {
                     // The URL's row, not the prompt's: a path there is a link candidate too.

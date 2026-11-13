@@ -21,6 +21,7 @@ import javafx.stage.Stage;
 import com.termina.config.Settings;
 import com.termina.i18n.Messages;
 import com.termina.shell.ShellProfiles;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -107,13 +108,13 @@ class DialogsFxTest {
         assertEquals(9, settings.padding());
 
         // Closing a tab with a program running asks; Cancel keeps it.
-        onFx(() -> {
+        long busy = onFx(() -> {
             settings.setConfirmClose(true);
             TerminalView view = window.activeTerminal();
             if (view != null) view.getSession().sendString("sleep 30\r");
-            return null;
+            return view == null ? -1L : view.getSession().pid();
         });
-        Thread.sleep(800);
+        waitFor(() -> !com.termina.process.RunningProgram.in(busy).isEmpty(), "the program to be running");
         int tabs = onFx(() -> window.tabsForTest().size());
         int answered = DialogAnswers.answered();
         onFx(() -> {
@@ -213,7 +214,7 @@ class DialogsFxTest {
             return settingsWindow;
         });
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!settings.themeId().contains("night") && System.nanoTime() < deadline) Thread.sleep(50);
+        while (!settings.themeId().contains("night") && System.nanoTime() < deadline) Await.frame();
         assertTrue(settings.themeId().contains("night"), "the theme was imported and chosen: " + settings.themeId());
 
         // Each confirmation cancelled first (nothing changes), then confirmed.
@@ -295,7 +296,7 @@ class DialogsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

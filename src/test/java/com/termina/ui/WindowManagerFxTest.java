@@ -11,6 +11,7 @@ import javafx.application.Platform;
 
 import com.termina.config.Settings;
 import com.termina.pty.LaunchOptions;
+import com.termina.testing.Await;
 import com.termina.update.ReleaseInfo;
 import com.termina.update.UpdateCheck;
 import com.termina.update.UpdateService;
@@ -312,13 +313,13 @@ class WindowManagerFxTest {
         assertEquals(0, ended.get());
 
         // A program running in one of them: Quit asks, once, and Cancel keeps every window.
-        onFx(() -> {
+        long busy = onFx(() -> {
             settings.setConfirmClose(true);
             TerminalView view = second.activeTerminal();
             if (view != null) view.getSession().sendString("sleep 30\r");
-            return null;
+            return view == null ? -1L : view.getSession().pid();
         });
-        Thread.sleep(800);
+        waitFor(() -> !com.termina.process.RunningProgram.in(busy).isEmpty(), "the program to be running");
         int answered = DialogAnswers.answered();
         onFx(() -> {
             DialogAnswers.next(false, null);
@@ -326,7 +327,7 @@ class WindowManagerFxTest {
         });
         run(first, "app.quit");
         waitFor(() -> DialogAnswers.answered() > answered, "Quit's question, answered");
-        Thread.sleep(200);
+        Await.frames(3); // what a wrong answer would have closed, it would have closed by now
         assertEquals(2, size(windows), "Cancel kept the windows");
         DialogAnswers.Seen asked = DialogAnswers.seen().get(DialogAnswers.seen().size() - 1);
         assertEquals(com.termina.i18n.Messages.tr("dialog.quitRunning", com.termina.AppInfo.NAME), asked.header());
@@ -417,7 +418,7 @@ class WindowManagerFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 
@@ -476,7 +477,7 @@ class WindowManagerFxTest {
             } else if (System.nanoTime() - stableSince > java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(500)) {
                 return;
             }
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 }

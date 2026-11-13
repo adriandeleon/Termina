@@ -69,23 +69,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-18",
       "kind": "pending",
-      "reason": "The README shows one screenshot, not a light and a dark one, and screenshots are not captured at double size.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "QUAL-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-07",
-      "kind": "pending",
-      "reason": "Some tests wait a fixed time for the shell, which makes them slower than they need to be.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-09",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-09",
-      "kind": "pending",
-      "reason": "Drawing the terminal copies each run of text every frame.",
+      "reason": "The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
