@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 18 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 17 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 18 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 17 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 18 entries link issue #92, read with `gh issue view`: open, and naming each of the 18 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 17 entries link issue #92, read with `gh issue view`: open, and naming each of the 17 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 18 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 17 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 18 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 17 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -592,8 +592,8 @@
     {
       "id": "KBD-02",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Most commands still have ids without an area in front, such as newTab."
+      "status": "pass",
+      "evidence": "every command's id is an area and a name joined by a dot: the 76 that had none took the area of the menu they are in or of the thing they act on (file.newTab, edit.copy, tab.next, pane.splitRight, view.zoomIn, sync.now, help.reportProblem), in the catalogue's keys, where a command gets its id (src/main/java/com/termina/ui/TerminalWindow.java:3246), and in both default key maps (src/main/resources/com/termina/keymaps/keymap.json). What was stored or synced under a bare id still reaches its command: settings.json moves to schema 3 with a step that renames each keys.<id> (src/main/java/com/termina/config/ConfigJson.java:43, :54; src/main/java/com/termina/config/CommandIds.java:33, :155), and the synced files are read through the same table every time (src/main/java/com/termina/sync/KeybindingsFile.java:87). src/test/java/com/termina/config/CommandIdsTest.java:91 reads every command key of the catalogue and every binding of the key maps and fails on an id with no dot, and :65 holds the renames and the step. Driven headless: a schema 2 file with keys.newTab on Ctrl+Shift+Y opened a tab on that chord and not on the default it replaced (fixed in 60cf356)"
     },
     {
       "id": "KBD-03",
@@ -671,7 +671,7 @@
       "id": "KBD-15",
       "level": "MUST",
       "status": "pass",
-      "evidence": "the find bar's regular-expression switch stays out of the Tab order (src/main/java/com/termina/ui/SearchBar.java:65) and a registered command now does what it does, as FIND-16 allows: findRegex, Toggle Regular Expression (src/main/java/com/termina/ui/TerminalWindow.java:2931), in the palette and bindable; held by src/test/java/com/termina/ui/MenusFxTest.java:227 (fixed in 26adef2)"
+      "evidence": "the find bar's regular-expression switch stays out of the Tab order (src/main/java/com/termina/ui/SearchBar.java:65) and a registered command now does what it does, as FIND-16 allows: find.regex, Toggle Regular Expression (src/main/java/com/termina/ui/TerminalWindow.java:2931), in the palette and bindable; held by src/test/java/com/termina/ui/MenusFxTest.java:227 (fixed in 26adef2)"
     },
     {
       "id": "KBD-16",
@@ -779,13 +779,13 @@
       "id": "WIN-09",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "`zoomIn`, `zoomOut`, `actualSize` on Shortcut+Equals, Shortcut+Minus, Shortcut+0 in both keymaps (src/main/resources/com/termina/keymaps/keymap.json:21-23, keymap.mac.json:21-23); the level is the saved `font.zoom` (src/main/java/com/termina/config/Settings.java:690)."
+      "evidence": "`view.zoomIn`, `view.zoomOut`, `view.actualSize` on Shortcut+Equals, Shortcut+Minus, Shortcut+0 in both keymaps (src/main/resources/com/termina/keymaps/keymap.json:21-23, keymap.mac.json:21-23); the level is the saved `font.zoom` (src/main/java/com/termina/config/Settings.java:690)."
     },
     {
       "id": "WIN-12",
       "level": "MUST",
       "status": "pass",
-      "evidence": "one setting, `ui.zoom` (src/main/java/com/termina/config/Settings.java:755, 80 to 200%), scales the whole chrome: at any zoom but 100% every window gets its stylesheets with each length multiplied (src/main/java/com/termina/ui/UiZoom.java:357), the theme's one 14px root size among them (src/main/resources/com/termina/styles/editora-dark.css:119), so every font follows it; the sizes the code fixes are multiplied too, never left as absolute pixels (adopt, :189; the popups' rows bind theirs). A change restyles every open window at once (apply, :442; src/main/java/com/termina/ui/WindowManager.java:310-311), and the value is saved with the settings and applied before the first window (src/main/java/com/termina/App.java:137). Three registered commands move it, uiZoomIn, uiZoomOut and uiZoomReset (src/main/java/com/termina/ui/TerminalWindow.java:3010-3012), with ids of their own; Ctrl+=, Ctrl+- and Ctrl+0 stay the terminal text's (src/main/resources/com/termina/keymaps/keymap.json:21-23). src/test/java/com/termina/ui/UiZoomFxTest.java:66, :104 and :152 hold it in the running app, and src/test/java/com/termina/ui/UiZoomTest.java the arithmetic (fixed in 8a39ef5)"
+      "evidence": "one setting, `ui.zoom` (src/main/java/com/termina/config/Settings.java:755, 80 to 200%), scales the whole chrome: at any zoom but 100% every window gets its stylesheets with each length multiplied (src/main/java/com/termina/ui/UiZoom.java:357), the theme's one 14px root size among them (src/main/resources/com/termina/styles/editora-dark.css:119), so every font follows it; the sizes the code fixes are multiplied too, never left as absolute pixels (adopt, :189; the popups' rows bind theirs). A change restyles every open window at once (apply, :442; src/main/java/com/termina/ui/WindowManager.java:310-311), and the value is saved with the settings and applied before the first window (src/main/java/com/termina/App.java:137). Three registered commands move it, view.uiZoomIn, view.uiZoomOut and view.uiZoomReset (src/main/java/com/termina/ui/TerminalWindow.java:3010-3012), with ids of their own; Ctrl+=, Ctrl+- and Ctrl+0 stay the terminal text's (src/main/resources/com/termina/keymaps/keymap.json:21-23). src/test/java/com/termina/ui/UiZoomFxTest.java:66, :104 and :152 hold it in the running app, and src/test/java/com/termina/ui/UiZoomTest.java the arithmetic (fixed in 8a39ef5)"
     },
     {
       "id": "WIN-13",
@@ -947,7 +947,7 @@
       "id": "TBAR-03",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/SearchBar.java:95-100: the find bar's up arrow is named with Find Next's title and findNext's chord, the down arrow with Find Previous's and findPrevious's, and the switch with Toggle Regular Expression's, each read from the keymap in force and rebuilt when the bar opens and when the bindings change (src/main/java/com/termina/ui/TerminalWindow.java:3613 -> src/main/java/com/termina/ui/TerminalView.java:3556); the catalog's search.older and search.newer strings are gone; held by src/test/java/com/termina/ui/ChordTooltipsTest.java:84 and src/test/java/com/termina/ui/MenusFxTest.java:227 (fixed in 26adef2)"
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:95-100: the find bar's up arrow is named with Find Next's title and find.next's chord, the down arrow with Find Previous's and find.previous's, and the switch with Toggle Regular Expression's, each read from the keymap in force and rebuilt when the bar opens and when the bindings change (src/main/java/com/termina/ui/TerminalWindow.java:3613 -> src/main/java/com/termina/ui/TerminalView.java:3556); the catalog's search.older and search.newer strings are gone; held by src/test/java/com/termina/ui/ChordTooltipsTest.java:84 and src/test/java/com/termina/ui/MenusFxTest.java:227 (fixed in 26adef2)"
     },
     {
       "id": "TBAR-14",
@@ -1049,7 +1049,7 @@
       "id": "TABS-01",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/MenuBarModel.java:62-67 (closeTab, closeOtherTabs, closeTabsToTheLeft/Right, reopenClosedTab) and :118-126 (nextTab, previousTab, pinTab) are registered commands with menu rows and palette rows (src/main/java/com/termina/ui/TerminalWindow.java:2846-2849); every tab's right-click menu lists pin, close, close others, left, right (src/main/java/com/termina/ui/TerminalWindow.java:1564-1578)"
+      "evidence": "src/main/java/com/termina/ui/MenuBarModel.java:62-67 (file.closeTab, file.closeOtherTabs, file.closeTabsToTheLeft, file.closeTabsToTheRight, file.reopenClosedTab) and :118-126 (tab.next, tab.previous, tab.pin) are registered commands with menu rows and palette rows (src/main/java/com/termina/ui/TerminalWindow.java:2846-2849); every tab's right-click menu lists pin, close, close others, left, right (src/main/java/com/termina/ui/TerminalWindow.java:1564-1578)"
     },
     {
       "id": "TABS-02",
@@ -1103,7 +1103,7 @@
       "id": "TABS-12",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "a registered command, `showTabBar`, hides the tab header with any number of tabs open and shows it again, named Hide Tab Bar or Show Tab Bar for the way it will go (src/main/java/com/termina/ui/TerminalWindow.java:130, :3392); it writes the setting `ui.showTabBar` (src/main/java/com/termina/config/Settings.java:984), which the strip's rule obeys before the older single-tab one (src/main/java/com/termina/ui/WindowRules.java:107). It is a row of View (src/main/java/com/termina/ui/MenuBarModel.java:113) and of Settings. src/test/java/com/termina/ui/TabBarFxTest.java:46 hides the strip with three tabs open and brings it back, and src/test/java/com/termina/ui/TabBarVisibilityTest.java:38 holds the rule for one to twelve tabs (fixed in bf3faee)"
+      "evidence": "a registered command, `view.toggleTabBar`, hides the tab header with any number of tabs open and shows it again, named Hide Tab Bar or Show Tab Bar for the way it will go (src/main/java/com/termina/ui/TerminalWindow.java:130, :3392); it writes the setting `ui.showTabBar` (src/main/java/com/termina/config/Settings.java:984), which the strip's rule obeys before the older single-tab one (src/main/java/com/termina/ui/WindowRules.java:107). It is a row of View (src/main/java/com/termina/ui/MenuBarModel.java:113) and of Settings. src/test/java/com/termina/ui/TabBarFxTest.java:46 hides the strip with three tabs open and brings it back, and src/test/java/com/termina/ui/TabBarVisibilityTest.java:38 holds the rule for one to twelve tabs (fixed in bf3faee)"
     },
     {
       "id": "TABS-13",
@@ -1247,7 +1247,7 @@
       "id": "MENU-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/ViewKeys.java:46-47 reads the Menu key and Shift+F10, the same on every OS (:41, no Cmd form), and src/main/java/com/termina/ui/TerminalView.java:1454 shows the view's menu at the cursor (:2337); no list has a row menu; the tab's menu opens from the `tabMenu` command (src/main/java/com/termina/ui/TerminalWindow.java:1377); src/test/java/com/termina/ui/ViewKeysTest.java:82"
+      "evidence": "src/main/java/com/termina/ui/ViewKeys.java:46-47 reads the Menu key and Shift+F10, the same on every OS (:41, no Cmd form), and src/main/java/com/termina/ui/TerminalView.java:1454 shows the view's menu at the cursor (:2337); no list has a row menu; the tab's menu opens from the `tab.menu` command (src/main/java/com/termina/ui/TerminalWindow.java:1377); src/test/java/com/termina/ui/ViewKeysTest.java:82"
     },
     {
       "id": "MENU-10",
@@ -1427,7 +1427,7 @@
       "id": "SET-12",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/config/ConfigArchive.java:136 names the export termina-config-<yyyyMMdd-HHmmss>.zip and :166 zips the config folder; import reads one back and restores the ticked parts (:232, :327, :346); commands exportConfiguration and importConfiguration (src/main/java/com/termina/ui/TerminalWindow.java:2916-2917); src/test/java/com/termina/config/ConfigArchiveTest.java:38,44,88,124"
+      "evidence": "src/main/java/com/termina/config/ConfigArchive.java:136 names the export termina-config-<yyyyMMdd-HHmmss>.zip and :166 zips the config folder; import reads one back and restores the ticked parts (:232, :327, :346); commands settings.exportConfiguration and settings.importConfiguration (src/main/java/com/termina/ui/TerminalWindow.java:2916-2917); src/test/java/com/termina/config/ConfigArchiveTest.java:38,44,88,124"
     },
     {
       "id": "SET-13",
@@ -1463,7 +1463,7 @@
       "id": "SET-19",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/SettingsSync.java:284-287 runs five seconds after start, :305 after a local change, :279 on an interval; the `syncNow` command runs one on demand (src/main/java/com/termina/ui/TerminalWindow.java:2912, src/main/java/com/termina/ui/MenuBarModel.java:70); only the key bindings file is sent (src/main/java/com/termina/ui/SettingsSync.java:625-627), no window size or path"
+      "evidence": "src/main/java/com/termina/ui/SettingsSync.java:284-287 runs five seconds after start, :305 after a local change, :279 on an interval; the `sync.now` command runs one on demand (src/main/java/com/termina/ui/TerminalWindow.java:2912, src/main/java/com/termina/ui/MenuBarModel.java:70); only the key bindings file is sent (src/main/java/com/termina/ui/SettingsSync.java:625-627), no window size or path"
     },
     {
       "id": "SET-20",
@@ -1517,13 +1517,13 @@
       "id": "DIAG-10",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2984 registers checkForUpdates (Editora's help.checkForUpdates), a Help row at src/main/java/com/termina/ui/MenuBarModel.java:143; the automatic check returns at once while updates.check is off (src/main/java/com/termina/ui/WindowManager.java:331), switched at src/main/java/com/termina/ui/SettingsWindow.java:1973"
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2984 registers help.checkForUpdates (Editora's id), a Help row at src/main/java/com/termina/ui/MenuBarModel.java:143; the automatic check returns at once while updates.check is off (src/main/java/com/termina/ui/WindowManager.java:331), switched at src/main/java/com/termina/ui/SettingsWindow.java:1973"
     },
     {
       "id": "DIAG-06",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2987 registers reportProblem, a Help row at src/main/java/com/termina/ui/MenuBarModel.java:146; src/main/java/com/termina/report/ProblemReport.java:43-71 builds it from AppInfo.details() (version, Java, JavaFX, OS: src/main/java/com/termina/AppInfo.java:136-147), a settings summary and the last 200 Debug Log lines; src/test/java/com/termina/report/ProblemReportTest.java:18"
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:2987 registers help.reportProblem, a Help row at src/main/java/com/termina/ui/MenuBarModel.java:146; src/main/java/com/termina/report/ProblemReport.java:43-71 builds it from AppInfo.details() (version, Java, JavaFX, OS: src/main/java/com/termina/AppInfo.java:136-147), a settings summary and the last 200 Debug Log lines; src/test/java/com/termina/report/ProblemReportTest.java:18"
     },
     {
       "id": "DIAG-11",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (18 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (17 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2195,7 +2195,7 @@
       "id": "FIND-16",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/SearchBar.java:65: the regular-expression switch is not focus-traversable, and the registered command findRegex toggles its option, opening the bar first if it is closed (src/main/java/com/termina/ui/TerminalWindow.java:2931 -> src/main/java/com/termina/ui/TerminalView.java:3636); Next, Previous and Close are covered by Enter, Shift+Enter and Escape in the field; held by src/test/java/com/termina/ui/MenusFxTest.java:227 and src/test/java/com/termina/ui/ChordTooltipsTest.java:116 (fixed in 26adef2)"
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:65: the regular-expression switch is not focus-traversable, and the registered command find.regex toggles its option, opening the bar first if it is closed (src/main/java/com/termina/ui/TerminalWindow.java:2931 -> src/main/java/com/termina/ui/TerminalView.java:3636); Next, Previous and Close are covered by Enter, Shift+Enter and Escape in the field; held by src/test/java/com/termina/ui/MenusFxTest.java:227 and src/test/java/com/termina/ui/ChordTooltipsTest.java:116 (fixed in 26adef2)"
     },
     {
       "id": "MLOG-08",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 18 pending entries (5 MUST, 13 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 17 pending entries (5 MUST, 12 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2467,6 +2467,7 @@
     "One more pending SHOULD was settled on 2026-11-12, in a ninth batch, in f8e4411: the Doctor is built, so DIAG-07 is now for a person to check in the running app, and its entry is out of pauta.json.",
     "Two more pending SHOULDs were settled and one narrowed on 2026-11-13, in a tenth batch, in 6f2fa27: QUAL-07, PERF-09 now pass, and their entries are out of pauta.json. DOCS-18 stays pending for the website alone: the README's hero is now a dark and a light picture at 2× from the capture hook.",
     "Two of the three optional rules not met were settled on 2026-11-13, in an eleventh batch, in a6026f5: REPO-08, DOCS-11 now pass. They were optional, so neither had an entry in pauta.json; WIN-10 is the one optional rule left not met.",
-    "Three more pending SHOULDs were settled on 2026-11-13, in a twelfth batch, in 3af07ed: WIN-08, MLOG-08, CLI-10 now pass, and their entries are out of pauta.json. PAL-06 was looked at and left: following the bindings there means leaving the key table the palette shares with Editora."
+    "Three more pending SHOULDs were settled on 2026-11-13, in a twelfth batch, in 3af07ed: WIN-08, MLOG-08, CLI-10 now pass, and their entries are out of pauta.json. PAL-06 was looked at and left: following the bindings there means leaving the key table the palette shares with Editora.",
+    "One more pending SHOULD was settled on 2026-11-13, in a thirteenth batch, in 60cf356: KBD-02 now pass, and its entry is out of pauta.json. Twelve rows that named a command by its old id name it by the new one."
   ]
 }
