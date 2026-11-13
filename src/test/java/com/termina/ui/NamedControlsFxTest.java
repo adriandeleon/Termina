@@ -124,9 +124,8 @@ class NamedControlsFxTest {
                 }
             }
             for (Tab tab : window.tabsForTest()) {
-                unnamed.addAll(NamedControls.unnamedRows(tab.getContextMenu().getItems()));
-                unglyphed.addAll(
-                        NamedControls.rowsWithoutGlyph(tab.getContextMenu().getItems()));
+                unnamed.addAll(NamedControls.unnamedRows(window.tabMenuItemsForTest(tab)));
+                unglyphed.addAll(NamedControls.rowsWithoutGlyph(window.tabMenuItemsForTest(tab)));
             }
             unglyphed.addAll(NamedControls.rowsWithoutGlyph(window.profileMenuItemsForTest()));
             TerminalView view = window.activeTerminal();

@@ -459,6 +459,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+          cache: maven
 
       - name: List what will be released
         run: ls -la artifacts

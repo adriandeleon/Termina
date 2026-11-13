@@ -151,6 +151,28 @@ class WorkflowRulesTest {
     }
 
     @Test
+    void everyJavaSetupCachesMavensRepositoryAndTheReleaseHasItsListeningStep() throws IOException {
+        // REL-25 (Pauta 6.0.1): each setup-java step has cache: maven.
+        for (String workflow : List.of(".github/workflows/ci.yml", ".github/workflows/release.yml")) {
+            String text = read(Path.of(workflow));
+            java.util.regex.Matcher step = java.util.regex.Pattern.compile(
+                            "uses: actions/setup-java@[^\\n]*\\n((?:[ \\t]+[^\\n-][^\\n]*\\n)+)")
+                    .matcher(text);
+            int steps = 0;
+            while (step.find()) {
+                steps++;
+                assertTrue(step.group(1).contains("cache: maven"), workflow + ": a setup-java step without the cache");
+            }
+            assertTrue(steps >= 2, workflow + ": the setup-java steps were read: " + steps);
+        }
+        // ACC-07: the screen-reader pass is a step of its own in the release guide.
+        String release = read(Path.of("docs/release.md"));
+        assertTrue(
+                release.contains("Narrator") && release.contains("VoiceOver"),
+                "the release guide names both screen readers");
+    }
+
+    @Test
     void theTestingGuideQuotesTheFloorsTheBuildEnforces() throws IOException {
         // QUAL-04 (Pauta 6.0.1): a guide that quotes the floors is held to the pom's.
         String pom = read(Path.of("pom.xml"));

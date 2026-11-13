@@ -209,14 +209,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "ACC-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-07",
-      "kind": "pending",
-      "reason": "The release steps do not include a pass with a screen reader.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "ACC-08",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-08",
@@ -249,43 +241,11 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "TBAR-06",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/toolbars-and-tooltips/#tbar-06",
-      "kind": "pending",
-      "reason": "A thin line and a change of shade separate the menu bar from the tab strip.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "TABS-12",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/tabs-and-panels/#tabs-12",
       "kind": "pending",
       "reason": "The tab bar can be hidden only while a window has a single tab.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-18",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-18",
-      "kind": "pending",
-      "reason": "Right-click menus have the theme's own corners and shadow, smaller than the guidelines'.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-17",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-17",
-      "kind": "pending",
-      "reason": "No command or shortcut puts the keyboard in the menu bar.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-11",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-11",
-      "kind": "pending",
-      "reason": "Each tab's right-click menu is built with the tab, not the first time it is opened.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -321,14 +281,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "INTL-10",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/i18n/#intl-10",
-      "kind": "pending",
-      "reason": "Tab numbers are written without regard to the language's number format.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "INTL-12",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/i18n/#intl-12",
@@ -342,14 +294,6 @@
       "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-06",
       "kind": "pending",
       "reason": "The Command Palette's movement keys are fixed and do not follow the key bindings.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PAL-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-07",
-      "kind": "pending",
-      "reason": "Closing the Command Palette always returns to the terminal, even when it was opened from the find bar.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -406,14 +350,6 @@
       "url": "https://pauta-project.dev/6.0.1/release/#rel-19",
       "kind": "pending",
       "reason": "A change can still be merged without the format and test checks having passed.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "REL-25",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/release/#rel-25",
-      "kind": "pending",
-      "reason": "One step of the release build downloads its dependencies again where the others reuse them.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     }
   ]

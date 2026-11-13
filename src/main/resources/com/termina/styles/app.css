@@ -203,8 +203,23 @@
  * background is cleared so the two cannot show a seam. The title is muted, as a title is.
  */
 .header-bar {
-    -fx-background-color: -color-border-muted, -color-bg-subtle;
-    -fx-background-insets: 0, 0 0 1 0;
+    -fx-background-color: -color-bg-subtle;
+    -fx-background-insets: 0;
+}
+
+/*
+ * The bars at the top are one band (TBAR-06, Pauta 6.0.1): the menu bar and the tab strip share
+ * -color-bg-subtle, with no hairline and no change of ground between them. The theme draws a line
+ * under the menu bar and puts the strip on the default ground; both are taken back here. The line
+ * under the strip stays: it is where the band ends and the terminal begins.
+ */
+.menu-bar {
+    -fx-background-color: -color-bg-subtle;
+    -fx-background-insets: 0;
+}
+
+.tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: -color-border-default, -color-bg-subtle;
 }
 
 .header-bar > .menu-bar {
@@ -805,6 +820,10 @@
 .context-menu {
     -fx-font-family: "Inter";
     -fx-font-size: 14px;
+    /* The popup's card (MENU-18): a radius of 8, and a shadow of radius 16 at offset Y 16, the
+       offset no smaller than the radius, so the card reads as lifted and not as outlined. */
+    -fx-background-radius: 8px, 7px;
+    -fx-effect: dropshadow(three-pass-box, -color-shadow-default, 16, 0, 0, 16);
 }
 .context-menu .menu-item > .label,
 .context-menu .menu-item .menu-item-title {

@@ -36,6 +36,9 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Focus Menu Bar** (Ctrl+Shift+F10) puts the keyboard in the menu bar and opens its first menu,
+  so the arrow keys walk it. A plain F10 and a lone Alt, which do this in most apps, belong to the
+  program running in the terminal.
 - **Interface zoom.** Settings ▸ Appearance ▸ Window ▸ Interface zoom, from 80% to 200%, makes the
   menus, the tab strip, the status bar, the palette and every other window larger or smaller, at
   once. Zoom Interface In, Zoom Interface Out and Reset Interface Zoom are in the palette and can be
@@ -120,6 +123,10 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **Closing the Command Palette gives the keyboard back to where it was.** Opened from the find
+  bar's field, it returns there; it used to return to the terminal every time.
+- **The menu bar and the tab strip are one band**, on one background with no line between them, and
+  a menu is a card with rounder corners and a deeper shadow.
 - **Command Palette is the first row of the Help menu**, where the guidelines put it; it was in View.
 - **The Message Log follows the key bindings.** The shortcut bound to Copy copies its selected
   lines, as Ctrl+C (Cmd+C) still does. Ctrl+G no longer closes it: Escape does, and so does going

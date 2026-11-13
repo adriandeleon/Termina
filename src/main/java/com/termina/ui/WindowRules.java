@@ -86,6 +86,15 @@ final class WindowRules {
         return offersMenuBarToggle(systemMenuBar) ? null : "settings.showMenuBar.mac";
     }
 
+    /**
+     * Why the keyboard cannot be put in the menu bar, as a catalogue key, or null when it can: under
+     * a system menu bar there is none in the window, and a hidden one has nothing to walk.
+     */
+    static @Nullable String focusMenuBarUnavailableKey(boolean systemMenuBar, boolean showMenuBar) {
+        if (systemMenuBar) return "settings.showMenuBar.mac";
+        return showMenuBar ? null : "palette.disabled.menuBarHidden";
+    }
+
     /** Whether the tab strip is worth its row of chrome. */
     static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
         return !hideWhenSingle || tabCount > 1;

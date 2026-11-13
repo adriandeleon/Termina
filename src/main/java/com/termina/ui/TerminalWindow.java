@@ -1571,7 +1571,29 @@ public final class TerminalWindow {
      * this — so it appears on the header rather than on the terminal, and the tab it acts on is the
      * one that was clicked rather than whichever happens to be selected.
      */
+    /**
+     * A tab's menu, not built with the tab (MENU-11, Pauta 6.0.1): an empty shell until it is first
+     * asked for, when {@link #fillTabMenu} makes its rows and takes over the showing. Fifty tabs
+     * are then fifty shells and no rows. The one placeholder row is there because JavaFX does not
+     * show a menu that has no items, so an empty one could never be asked.
+     */
     private ContextMenu buildTabMenu(Tab tab) {
+        ContextMenu menu = new ContextMenu(new MenuItem(""));
+        OneMenu.installRightClick(menu);
+        menu.setOnShowing(e -> {
+            fillTabMenu(menu, tab);
+            // fillTabMenu installed the handler that sets each showing up; this first one too.
+            var perShow = menu.getOnShowing();
+            if (perShow != null) perShow.handle(e);
+        });
+        // The right-click that opened it focused the tab strip, and the guard left that alone while
+        // the menu was up. Closing a menu moves no focus, so the guard is asked again here.
+        menu.setOnHidden(e -> reclaimFocusIfUnclaimed());
+        return menu;
+    }
+
+    /** The rows of {@code tab}'s menu, made on its first showing, and what each showing sets. */
+    private void fillTabMenu(ContextMenu menu, Tab tab) {
         MenuItem closeOthers = tabItem("closeOtherTabs", MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
         MenuItem closeLeft = tabItem("closeTabsToTheLeft", MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
         MenuItem closeRight = tabItem("closeTabsToTheRight", MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
@@ -1583,22 +1605,22 @@ public final class TerminalWindow {
         newTabAs.getItems().add(new MenuItem(""));
         newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
 
-        ContextMenu menu = new ContextMenu(
-                tabItem("newTab", MenuIcons.newTab(), this::openTab),
-                newTabAs,
-                tabItem("duplicateTab", MenuIcons.duplicate(), () -> duplicateTab(tab)),
-                new SeparatorMenuItem(),
-                tabItem("renameTab", MenuIcons.rename(), () -> renameTab(tab)),
-                pin,
-                new SeparatorMenuItem(),
-                tabItem("closeTab", MenuIcons.close(), () -> closeTab(tab)),
-                closeOthers,
-                closeLeft,
-                closeRight,
-                new SeparatorMenuItem(),
-                moveLeft,
-                moveRight);
-        OneMenu.installRightClick(menu);
+        menu.getItems()
+                .setAll(
+                        tabItem("newTab", MenuIcons.newTab(), this::openTab),
+                        newTabAs,
+                        tabItem("duplicateTab", MenuIcons.duplicate(), () -> duplicateTab(tab)),
+                        new SeparatorMenuItem(),
+                        tabItem("renameTab", MenuIcons.rename(), () -> renameTab(tab)),
+                        pin,
+                        new SeparatorMenuItem(),
+                        tabItem("closeTab", MenuIcons.close(), () -> closeTab(tab)),
+                        closeOthers,
+                        closeLeft,
+                        closeRight,
+                        new SeparatorMenuItem(),
+                        moveLeft,
+                        moveRight);
         // Recomputed per show: how many tabs there are, and where this one sits, both change long
         // after the menu was built.
         menu.setOnShowing(e -> {
@@ -1613,10 +1635,6 @@ public final class TerminalWindow {
             moveLeft.setDisable(index <= 0);
             moveRight.setDisable(index < 0 || index >= count - 1);
         });
-        // The right-click that opened it focused the tab strip, and the guard left that alone while
-        // the menu was up. Closing a menu moves no focus, so the guard is asked again here.
-        menu.setOnHidden(e -> reclaimFocusIfUnclaimed());
-        return menu;
     }
 
     /** A row of a tab's menu: titled as command {@code id} is, and showing that command's chord. */
@@ -2654,6 +2672,31 @@ public final class TerminalWindow {
     private MenuBar menuBar;
 
     /** The window's tabs, for the test that fires each one's menu. */
+    /**
+     * Puts the keyboard in the menu bar and opens its first menu, as F10 does in an app whose F10
+     * is its own: the arrows then walk the bar, and Escape gives the keyboard back.
+     */
+    private void focusMenuBar() {
+        if (WindowRules.focusMenuBarUnavailableKey(SYSTEM_MENU_BAR, settings.showMenuBar()) != null) return;
+        if (menuBar.getMenus().isEmpty()) return;
+        menuBar.requestFocus();
+        menuBar.getMenus().getFirst().show();
+    }
+
+    /** A tab's menu as it would open now: built if this is its first asking, and set up for the showing. */
+    List<MenuItem> tabMenuItemsForTest(Tab tab) {
+        ContextMenu menu = tab.getContextMenu();
+        if (menu == null) return List.of();
+        javafx.event.Event.fireEvent(menu, new javafx.stage.WindowEvent(menu, javafx.stage.WindowEvent.WINDOW_SHOWING));
+        return List.copyOf(menu.getItems());
+    }
+
+    /** Whether a tab's menu has been built: not before it was first asked for (MENU-11). */
+    static boolean tabMenuBuilt(Tab tab) {
+        ContextMenu menu = tab.getContextMenu();
+        return menu != null && menu.getItems().size() > 1;
+    }
+
     /** The tab strip's profile drop-down, as it would open now. */
     List<MenuItem> profileMenuItemsForTest() {
         showProfileMenu();
@@ -3003,6 +3046,9 @@ public final class TerminalWindow {
                 item("command.zoomOut", () -> zoom(-1)),
                 item("command.actualSize", this::resetZoom),
                 item("command.fullScreen", this::toggleFullScreen),
+                // The keyboard's way into the in-window bar (MENU-17, Pauta 6.0.1): a plain F10 and a
+                // lone Alt belong to the program in the terminal.
+                item("command.focusMenuBar", this::focusMenuBar),
                 // The UI zoom (WIN-12, Pauta 6.0.1): the chrome, not the terminal's text, which
                 // keeps Ctrl+=, Ctrl+- and Ctrl+0. No chord of their own by default.
                 item("command.uiZoomIn", () -> UiZoom.change(settings, UiZoom.in(settings.uiZoom()))),
@@ -3452,6 +3498,10 @@ public final class TerminalWindow {
         }
         if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
+        }
+        if ("focusMenuBar".equals(id)) {
+            String noBar = WindowRules.focusMenuBarUnavailableKey(SYSTEM_MENU_BAR, settings.showMenuBar());
+            if (noBar != null) return tr(noBar);
         }
         String zoomLimit = WindowRules.uiZoomUnavailableKey(id, settings.uiZoom());
         if (zoomLimit != null) return tr(zoomLimit);

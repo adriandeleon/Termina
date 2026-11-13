@@ -103,7 +103,11 @@ class MenusFxTest {
         fired += fireAll(onFx(() -> new ArrayList<>(view.contextMenuForTest().getItems())), skipped, failures);
         for (Tab tab : onFx(() -> new ArrayList<>(window.tabsForTest()))) {
             if (tab.getContextMenu() == null) continue;
-            List<MenuItem> items = new ArrayList<>(tab.getContextMenu().getItems());
+            // MENU-11 (Pauta 6.0.1): a tab's menu is a shell until it is first asked for.
+            assertFalse(TerminalWindow.tabMenuBuilt(tab), "a tab's menu was built before anyone asked for it");
+            List<MenuItem> items = new ArrayList<>(onFx(() -> window.tabMenuItemsForTest(tab)));
+            assertTrue(TerminalWindow.tabMenuBuilt(tab), "asking for it builds it");
+            assertEquals(items, onFx(() -> window.tabMenuItemsForTest(tab)), "and builds it once");
             items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("command.closeTab")));
             fired += fireAll(items, skipped, failures);
         }

@@ -194,14 +194,54 @@ final class CommandPalette {
         this.disabledReason = disabledReason == null ? a -> null : disabledReason;
         input.clear();
         filter("");
+        // Where the keyboard was, to give it back on closing (PAL-07, Pauta 6.0.1).
+        focusBefore = host.getScene() == null ? null : host.getScene().getFocusOwner();
         host.getChildren().addAll(backdrop, card);
         input.requestFocus();
     }
 
+    /** The node that had the keyboard when the palette opened, or null. */
+    private javafx.scene.@Nullable Node focusBefore;
+
     void hide() {
         if (!isShowing()) return;
         host.getChildren().removeAll(backdrop, card);
-        onHidden.run();
+        javafx.scene.Node before = focusBefore;
+        focusBefore = null;
+        // A command the palette ran may already have put the keyboard somewhere of its own, a
+        // find bar's field: then it stays there. Otherwise back where it was, the find bar's
+        // field included, and to the terminal when that node is gone or cannot take it.
+        javafx.scene.Node now = host.getScene() == null ? null : host.getScene().getFocusOwner();
+        boolean stillOurs = now == null || now == input || isUnder(now, card);
+        if (stillOurs && returnsTo(before, host.getScene())) {
+            java.util.Objects.requireNonNull(before).requestFocus();
+        } else if (stillOurs) {
+            onHidden.run();
+        }
+    }
+
+    /**
+     * Whether closing gives the keyboard back to {@code before}: it is still in this scene, shown,
+     * enabled and able to take focus. Otherwise the terminal has it.
+     */
+    static boolean returnsTo(javafx.scene.@Nullable Node before, javafx.scene.@Nullable Scene scene) {
+        if (before == null || scene == null || before.getScene() != scene) return false;
+        if (!before.isFocusTraversable() && !(before instanceof javafx.scene.control.TextInputControl)) {
+            // The terminal itself is not focus-traversable and takes focus by request: it is the
+            // fallback, and reaching it through the fallback keeps one way of focusing it.
+            return false;
+        }
+        for (javafx.scene.Node node = before; node != null; node = node.getParent()) {
+            if (!node.isVisible() || node.isDisabled()) return false;
+        }
+        return true;
+    }
+
+    private static boolean isUnder(javafx.scene.Node node, javafx.scene.Node ancestor) {
+        for (javafx.scene.Node at = node; at != null; at = at.getParent()) {
+            if (at == ancestor) return true;
+        }
+        return false;
     }
 
     private boolean isEnabled(MenuAction action) {

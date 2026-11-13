@@ -113,7 +113,7 @@ final class MenuBarModel {
         viewRows.add("showStatusBar");
         // The UI zoom's three commands: palette and chord only. View's zoom rows are the
         // terminal text's, which is the zoom a terminal's user reaches for.
-        Menu view = new Menu("menu.view", viewRows, List.of("uiZoomIn", "uiZoomOut", "uiZoomReset"));
+        Menu view = new Menu("menu.view", viewRows, List.of("uiZoomIn", "uiZoomOut", "uiZoomReset", "focusMenuBar"));
 
         List<String> windowUnlisted = new ArrayList<>();
         for (String direction : List.of("Left", "Right", "Up", "Down")) windowUnlisted.add("focusPane" + direction);

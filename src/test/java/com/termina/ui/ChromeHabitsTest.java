@@ -118,6 +118,80 @@ class ChromeHabitsTest {
     }
 
     @Test
+    void anIdentifierIsNeverDigitGrouped() throws IOException {
+        // INTL-10 (Pauta 6.0.1): a tab's or a profile's number is an identifier, written {0,number,#}.
+        List<String> bare = new ArrayList<>();
+        try (Stream<Path> files = Files.list(Path.of("src/main/resources/com/termina/i18n"))) {
+            for (Path file :
+                    files.filter(f -> f.toString().endsWith(".properties")).toList()) {
+                Properties catalog = new Properties();
+                try (var in = Files.newBufferedReader(file)) {
+                    catalog.load(in);
+                }
+                for (String key : List.of(
+                        "palette.goToTab",
+                        "palette.movePaneToTab",
+                        "palette.disabled.noSuchTab",
+                        "palette.disabled.noSuchProfile",
+                        "statusbar.unread")) {
+                    String value = catalog.getProperty(key);
+                    if (value == null || !value.contains("{0,number,#}")) {
+                        bare.add(file.getFileName() + " " + key);
+                        continue;
+                    }
+                    String written = java.text.MessageFormat.format(value, 12345, "x");
+                    if (!written.contains("12345")) bare.add(file.getFileName() + " " + key + " groups its digits");
+                }
+            }
+        }
+        assertEquals(List.of(), bare);
+    }
+
+    @Test
+    void theKeyboardReachesTheMenuBarWhereThereIsOneToReach() {
+        // MENU-17 (Pauta 6.0.1): a command, since a plain F10 belongs to the program in the terminal.
+        assertEquals(null, WindowRules.focusMenuBarUnavailableKey(false, true));
+        assertEquals("palette.disabled.menuBarHidden", WindowRules.focusMenuBarUnavailableKey(false, false));
+        assertEquals("settings.showMenuBar.mac", WindowRules.focusMenuBarUnavailableKey(true, true));
+        assertTrue(Keymap.defaultFor("focusMenuBar") != null, "bound by default");
+    }
+
+    @Test
+    void theMenusCardAndTheTopBandAreTheGuidelines() throws IOException {
+        String css = Files.readString(Path.of("src/main/resources/com/termina/styles/app.css"))
+                .replaceAll("(?s)/\\*.*?\\*/", "");
+        // MENU-18 (Pauta 6.0.1): a radius of 8, and a shadow of radius 16 at offset Y 16.
+        String menu = rule(css, ".context-menu");
+        assertTrue(menu.contains("-fx-background-radius: 8px"), menu);
+        java.util.regex.Matcher shadow = java.util.regex.Pattern.compile(
+                        "dropshadow\\([^,]+,[^,]+,\\s*(\\d+),[^,]+,\\s*(\\d+),\\s*(\\d+)\\)")
+                .matcher(menu);
+        assertTrue(shadow.find(), menu);
+        assertEquals("16", shadow.group(1), "the shadow's radius");
+        assertTrue(
+                Integer.parseInt(shadow.group(3)) >= Integer.parseInt(shadow.group(1)),
+                "offset Y no smaller than the radius");
+        // TBAR-06: the menu bar, the title bar that holds it and the tab strip share one ground, with
+        // no hairline between them.
+        for (String selector : List.of(".menu-bar", ".header-bar")) {
+            String bar = rule(css, selector);
+            assertTrue(bar.contains("-fx-background-color: -color-bg-subtle;"), selector + ": " + bar);
+            assertFalse(bar.contains("-color-border"), selector + " draws a line");
+        }
+        assertTrue(rule(css, ".tab-pane > .tab-header-area > .tab-header-background")
+                .contains("-color-bg-subtle"));
+    }
+
+    /** The body of the first rule whose selector is exactly {@code selector}. */
+    private static String rule(String css, String selector) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                        "(?m)^" + java.util.regex.Pattern.quote(selector) + "\\s*\\{([^}]*)\\}")
+                .matcher(css);
+        assertTrue(m.find(), "no rule for " + selector);
+        return m.group(1);
+    }
+
+    @Test
     void cannotBeUndoneIsSaidOnlyWhereItIsTrue() throws IOException {
         Properties english = new Properties();
         try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {
