@@ -103,10 +103,13 @@ class WindowsCwdTest {
     }
 
     @Test
-    void aShellsOwnReportWinsOnWindowsOnly() {
-        assertTrue(ProcessCwd.reportedDirectoryWins("Windows 11"));
-        assertFalse(ProcessCwd.reportedDirectoryWins("Linux"));
-        assertFalse(ProcessCwd.reportedDirectoryWins("Mac OS X"));
+    void aShellsOwnReportFillsInOnlyWhereTheOsHasNoAnswer() {
+        // OS-04 (Pauta 6.0.1): no OS in the rule. A WSL tab, whose process is the launcher, and a
+        // tab the OS has not answered for, take the report; any other tab keeps the OS's answer.
+        assertTrue(ProcessCwd.reportFillsIn(false, false), "the launcher's tab");
+        assertTrue(ProcessCwd.reportFillsIn(false, true));
+        assertTrue(ProcessCwd.reportFillsIn(true, false), "the OS has said nothing yet");
+        assertFalse(ProcessCwd.reportFillsIn(true, true), "the OS has answered");
     }
 
     @Test

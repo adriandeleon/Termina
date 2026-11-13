@@ -13,7 +13,7 @@
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/same-on-every-os/#os-04",
       "kind": "pending",
-      "reason": "Three things still differ by operating system: which folder report a tab believes, the file key bindings sync through, and middle-click paste outside Linux.",
+      "reason": "Key bindings sync through one file for macOS and another for Windows and Linux, so a shortcut changed on a Mac is not changed on the others.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

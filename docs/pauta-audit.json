@@ -29,7 +29,7 @@
       "id": "OS-04",
       "level": "MUST",
       "status": "pending",
-      "evidence": "Three things still differ by operating system: which folder report a tab believes, the file key bindings sync through, and middle-click paste outside Linux."
+      "evidence": "Key bindings sync through one file for macOS and another for Windows and Linux, so a shortcut changed on a Mac is not changed on the others."
     },
     {
       "id": "PAUTA-01",
@@ -2454,6 +2454,7 @@
     "The conformance work was judged the same day, in a78d371: PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-15, ABOUT-09, PWIN-01, PWIN-03, PWIN-04, PWIN-05, PWIN-06, PWIN-07, WIN-04 and ABOUT-07 pass; PWIN-02, PWIN-08, MENU-10, PAUTA-08 are for a person to check in the running app; and the 73 rules with an entry are pending.",
     "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails.",
     "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json.",
-    "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json."
+    "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json.",
+    "Two of the three differences behind OS-04 were removed the same day (a middle-click pastes nothing outside Linux; a shell's reported folder fills in only where the OS has no answer, on every OS). The third, the key-binding sync files, keeps it pending."
   ]
 }

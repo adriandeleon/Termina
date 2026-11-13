@@ -34,6 +34,7 @@ None.
 - Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in "Unable to open DISPLAY". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails.
 - Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json.
 - Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json.
+- Two of the three differences behind OS-04 were removed the same day (a middle-click pastes nothing outside Linux; a shell's reported folder fills in only where the OS has no answer, on every OS). The third, the key-binding sync files, keeps it pending.
 
 ## Other failures
 
@@ -72,7 +73,7 @@ None.
 | ID | Level | Status | Evidence | Rule |
 |----|-------|--------|----------|------|
 | OS-03 | SHOULD | pending | No test yet runs Termina as each operating system and compares its commands, menus and settings. | https://pauta-project.dev/6.0.1/same-on-every-os/#os-03 |
-| OS-04 | MUST | pending | Three things still differ by operating system: which folder report a tab believes, the file key bindings sync through, and middle-click paste outside Linux. | https://pauta-project.dev/6.0.1/same-on-every-os/#os-04 |
+| OS-04 | MUST | pending | Key bindings sync through one file for macOS and another for Windows and Linux, so a shortcut changed on a Mac is not changed on the others. | https://pauta-project.dev/6.0.1/same-on-every-os/#os-04 |
 | PAUTA-13 | MUST | pending | The website has no page yet that lists the Pauta edition, the conformance and these exceptions. | https://pauta-project.dev/6.0.1/conformance/#pauta-13 |
 | PAUTA-14 | SHOULD | pending | The website cannot build its conformance page from this list yet. | https://pauta-project.dev/6.0.1/conformance/#pauta-14 |
 | PLAT-14 | SHOULD | pending | The settings file is read and written by hand-written code and not by the JSON library the guidelines name. | https://pauta-project.dev/6.0.1/platform/#plat-14 |

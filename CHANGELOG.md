@@ -115,6 +115,13 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **A middle-click pastes nothing on macOS and Windows.** It pasted the clipboard there. On Linux
+  it pastes the primary selection, as before; the three systems differ in this and it is Linux's
+  alone.
+- **A tab's folder is read the same way on every system.** The operating system is asked where the
+  shell is, and what the shell reports about itself (OSC 7, OSC 9;9) fills in only where the system
+  has no answer, which is a WSL tab. On Windows a report used to win over the system's answer for
+  every tab.
 - **Every menu row has an icon.** About half of the menu bar's rows had an empty icon column, and
   Copy Link Address borrowed Copy's. Each command a menu lists now has a picture of its own, in the
   bar, the right-click menus, a tab's menu, the two logs' and the profile list's.

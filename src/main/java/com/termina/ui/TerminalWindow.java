@@ -881,17 +881,19 @@ public final class TerminalWindow {
         if (terminal == null || !terminal.isStarted()) return null;
         String known = terminal.getDisplay().getCwd();
         long pid = terminal.getSession().pid();
-        return () -> directoryOf(pid, known);
+        boolean osKnows = terminal.osKnowsDirectory();
+        return () -> directoryOf(pid, known, osKnows);
     }
 
     /**
-     * The directory of the shell {@code pid}, on the worker that starts the new one. Where a shell's
-     * own report wins (Windows: see ProcessCwd), the directory the tab knows — reported, or polled
-     * from the OS until one was — is the answer. Elsewhere the OS, asked now.
+     * The directory of the shell {@code pid}, on the worker that starts the new one: the OS, asked
+     * now, on every OS alike (OS-04, Pauta 6.0.1). Where the process is not the shell (WSL's
+     * launcher: see ProcessCwd) the OS's answer would be the launcher's, so the directory the tab
+     * knows from the shell's own report is the answer; it is the fallback everywhere else.
      */
-    static String directoryOf(long pid, @Nullable String known) {
+    static String directoryOf(long pid, @Nullable String known, boolean osKnows) {
         String fallback = known == null ? "" : known;
-        if (com.termina.pty.ProcessCwd.reportedDirectoryWins() && !fallback.isBlank()) return fallback;
+        if (!osKnows) return fallback;
         return com.termina.pty.ProcessCwd.of(pid).orElse(fallback);
     }
 

@@ -101,7 +101,8 @@ made with, since copying a highlight over redrawn text would produce something n
 **Copy on select** is a setting on Terminal → Input, off by default. On Linux every selection is
 also the **PRIMARY** selection, and a middle-click pastes PRIMARY, as on any X11 terminal. JavaFX
 cannot reach PRIMARY at all, so both go through `wl-paste`/`wl-copy` under Wayland or `xclip`/`xsel`
-under X11; without one of them, and on macOS and Windows, middle-click pastes the clipboard.
+under X11; without one of them, middle-click pastes the clipboard. On macOS and Windows, which
+have no PRIMARY, a middle-click pastes nothing.
 
 ### Mouse reporting
 
@@ -419,11 +420,11 @@ does for the cursor and the selection, with no hook to have it do the same for a
 - **The clipboard (OSC 52).** A program can put text on the clipboard; it is how vim and tmux copy
   across SSH. Programs can never *read* it — that would hand the clipboard to anything on the far
   side of an `ssh` that asked — and Terminal → Input turns writing off too.
-- **The directory (OSC 7, and ConEmu's OSC 9;9).** Believed only on Windows, and only for a
-  directory on this machine that exists. Elsewhere the OS is asked instead, so a shell inside `ssh`
-  cannot claim the tab for another machine's path. Windows is asked too — the directory is read out
-  of the shell process's own parameters — but a WSL tab's process is `wsl.exe`, whose directory is
-  not the Linux shell's, so there a shell's report wins and WSL's launchers are never asked.
+- **The directory (OSC 7, and ConEmu's OSC 9;9).** The OS is asked where the shell is, on every
+  system, so a shell inside `ssh` cannot claim the tab for another machine's path. A report fills in
+  only where the OS has no answer, and only for a directory on this machine that exists: a WSL
+  tab, whose process is `wsl.exe` and not the Linux shell (WSL's launchers are never asked), and a
+  tab the OS has not answered for.
 - **Notifications (OSC 9, OSC 777).** `printf '\e]777;notify;Build;done\a'` (urxvt's form, which
   foot, kitty and WezTerm read too) or `printf '\e]9;done\a'` (iTerm2's). The tab is marked with a
   magenta dot that outranks the bell's, and the message goes to the desktop unless you are looking
