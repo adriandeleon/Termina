@@ -380,9 +380,12 @@ public final class WindowManager {
         quitting = true;
         // Dialogs and the windows beside the terminals first: nothing of theirs is left open over
         // an app that is going.
+        // Never a terminal's window, not even one this manager did not open: hidden from here it
+        // would go without its question, and as its own manager's last window it would end the
+        // app from under this one. (Tests run several managers in one JVM; that is how it showed.)
         for (Window open : List.copyOf(Window.getWindows())) {
-            boolean terminal = windows.stream().anyMatch(window -> window.stage() == open);
-            if (!terminal && open instanceof Stage stage && stage.isShowing()) stage.hide();
+            if (TerminalWindow.isTerminalWindow(open)) continue;
+            if (open instanceof Stage stage && stage.isShowing()) stage.hide();
         }
         // The last of these to go ends the app (open's setOnHidden), and App.stop writes the settings.
         for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();

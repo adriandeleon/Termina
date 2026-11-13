@@ -153,10 +153,23 @@ public final class TerminalWindow {
      */
     private boolean swallowNextTyped;
 
+    /** Marks a stage as a terminal's window, whichever manager made it: see {@link #isTerminalWindow}. */
+    private static final Object TERMINAL_WINDOW = new Object();
+
+    /**
+     * Whether {@code window} is a terminal's window. Quit closes "the windows beside the terminals"
+     * first, and a terminal's window is never one of those: its own manager closes it, asking what
+     * it has to ask.
+     */
+    static boolean isTerminalWindow(javafx.stage.Window window) {
+        return window.getProperties().containsKey(TERMINAL_WINDOW);
+    }
+
     TerminalWindow(WindowManager windows, Settings settings, Stage stage) {
         this.windows = windows;
         this.settings = settings;
         this.stage = stage;
+        stage.getProperties().put(TERMINAL_WINDOW, Boolean.TRUE);
 
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
         // The scene hands initial focus to the first focus-traversable node it can find, and a

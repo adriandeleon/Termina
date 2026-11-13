@@ -358,3 +358,12 @@ is broken.
   thread and the question comes a little later, so a test that answers it waits for the answer
   (`DialogAnswers.answered()`) before queueing another — a newer answer cancels an older one, and
   the prompt then sits unanswered and catches the next test's.
+- **The FX tests share one toolkit, and a window one leaves open is the next one's problem.** Three
+  ways it has bitten, all found only when the order changed. Quit hid every stage but its own
+  manager's terminals, which in a test JVM included another manager's last terminal window: that
+  manager ended, and the toolkit with it, and every FX test after it timed out
+  (`TerminalWindow.isTerminalWindow` is the fix, and it is the right rule outside tests too). A
+  test's tidy-up that hides "every other stage" does the same; hide only what the test opened. And
+  a question left up is the one the next test's `DialogAnswers` presses, leaving its own unanswered.
+  Surefire's default order is the filesystem's, which differs between a laptop and a runner, so
+  the order is pinned (`runOrder` in the pom): what fails on CI fails here.

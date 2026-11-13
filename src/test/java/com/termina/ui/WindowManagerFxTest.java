@@ -235,9 +235,9 @@ class WindowManagerFxTest {
         // The windows the commands brought up are put away before this one is closed by asking.
         onFx(() -> {
             for (javafx.stage.Window open : List.copyOf(javafx.stage.Window.getWindows())) {
-                if (open instanceof javafx.stage.Stage stage
-                        && open != keeper.stage()
-                        && windows.windows().stream().noneMatch(w -> w.stage() == stage)) {
+                // Never a terminal's window: another test's, left open in this JVM, would end its
+                // own manager, and the toolkit with it, on being hidden from here.
+                if (open instanceof javafx.stage.Stage stage && !TerminalWindow.isTerminalWindow(open)) {
                     stage.hide();
                 }
             }
@@ -286,7 +286,20 @@ class WindowManagerFxTest {
         TerminalWindow first = onFx(() -> windows.openWindow(null));
         TerminalWindow second = onFx(() -> windows.openWindow(first));
         TerminalWindow third = onFx(() -> windows.openWindow(first));
-        waitFor(() -> started(first) && started(second) && started(third), "the shells");
+        // Another manager's window, as every other FX test leaves one behind in this JVM: Quit
+        // closes the windows beside the terminals, and this is a terminal's. Hidden from here it
+        // ended its own manager, and with it the toolkit, on whichever machine ran this test late.
+        java.util.concurrent.atomic.AtomicInteger otherEnded = new java.util.concurrent.atomic.AtomicInteger();
+        Settings otherSettings = new Settings(dir.resolve("other.json"));
+        otherSettings.load();
+        otherSettings.setUpdateCheck(false);
+        WindowManager other = onFx(() -> {
+            WindowManager made = new WindowManager(otherSettings);
+            made.endAppWithForTest(otherEnded::incrementAndGet);
+            return made;
+        });
+        TerminalWindow bystander = onFx(() -> other.openWindow(null));
+        waitFor(() -> started(first) && started(second) && started(third) && started(bystander), "the shells");
 
         // One window asked to close, with others open, is that window closing.
         onFx(() -> {
@@ -338,6 +351,16 @@ class WindowManagerFxTest {
         waitFor(() -> size(windows) == 0, "every window to close");
         assertEquals(before + 1, DialogAnswers.answered(), "asked once, not once for each window");
         assertEquals(1, ended.get(), "the last window going ended the app, once");
+        assertTrue(onFx(() -> bystander.stage().isShowing()), "another manager's window is not Quit's to close");
+        assertEquals(0, otherEnded.get(), "and its app was not ended");
+        assertEquals(1, size(other));
+        // It is this test's to tidy: its own manager closes it, and ends nothing real.
+        onFx(() -> {
+            otherSettings.setConfirmClose(false);
+            bystander.closeForShutdown();
+            return null;
+        });
+        waitFor(() -> size(other) == 0, "the bystander to close");
         waitUntilQuiet(dir);
     }
 
