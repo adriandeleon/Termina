@@ -36,6 +36,13 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Quit.** File ▸ Quit Termina, and the Quit Termina command in the palette, close every window
+  and end the app. If a program is still running in any tab of any window it asks first, once,
+  with Cancel as the default. The macOS application menu's Quit and the Dock's now ask that one
+  question too, where each window used to ask for itself.
+- **Right-click menus show shortcuts**, as the menu bar does: a tab's menu, the terminal's, the two
+  log windows' and the profile list's show the shortcut each command is on now, and follow one
+  moved on the Keyboard page.
 - **The buttons of Settings, Report a Problem and About are commands**, in the palette and bindable
   on the Keyboard page: Reset All Settings, Import Theme, Remove Theme, Reset All Shortcuts, Add
   Profile, Remove Profile, Connect Settings Sync (which reads Disconnect once connected), Create
@@ -158,6 +165,13 @@ done.
 - **Tooltips name the command and the shortcut in force**: the zoom row's buttons say "Zoom In
   (Ctrl+=)", the find bar's arrows "Find Next" and "Find Previous" and its `.*` switch "Toggle
   Regular Expression", each with its chord, and they follow a chord moved on the Keyboard page.
+- **Shortcuts are drawn in one colour everywhere**: the menu bar's and the right-click menus'
+  shortcut column, the palette's shortcuts and its chip. It is Editora's periwinkle, lighter on a
+  dark theme and a deep ink on a light one; the palette's chip was the accent colour and the menu
+  bar's shortcuts the muted text colour.
+- **Settings search finds a row by what its controls show**: a button's label, a choice's options,
+  a field's prompt. Typing a theme's name finds the Theme row, and "import" the rows with an
+  Import button, in whatever language the interface is in.
 - **Settings search ranks what it finds**: a title above a description above a section heading
   above a keyword, and a whole word above part of one. Section headings and page names are
   searched, and every word typed has to be found.

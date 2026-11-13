@@ -2382,6 +2382,8 @@ public final class TerminalView extends Region {
         CheckMenuItem menuBarItem = items.menuBar();
         if (menuBarItem != null && menuBarShown != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
         if (zoomRow != null) zoomRow.refresh();
+        // Each row's chord, from the bindings in force now (MENU-15, Pauta 6.0.1).
+        MenuChords.fill(items.menu().getItems(), chordLookup);
         items.menu().show(this, e.getScreenX(), e.getScreenY());
         e.consume();
     }
@@ -2477,12 +2479,12 @@ public final class TerminalView extends Region {
     }
 
     private ContextItems buildContextMenu() {
-        MenuItem copyItem = item(tr("command.copy"), MenuIcons.copy(), this::copySelection);
-        MenuItem pasteItem = item(tr("command.paste"), MenuIcons.paste(), this::paste);
-        MenuItem openLinkItem = item(tr("command.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
+        MenuItem copyItem = commandItem("copy", MenuIcons.copy(), this::copySelection);
+        MenuItem pasteItem = commandItem("paste", MenuIcons.paste(), this::paste);
+        MenuItem openLinkItem = commandItem("openLink", MenuIcons.openLink(), () -> openLink(menuLink));
         // The right-clicked link, not the one under the pointer now: the menu can be raised from
         // the keyboard. The commands of the same names act on the pointer's.
-        MenuItem copyLinkItem = item(tr("command.copyLinkAddress"), MenuIcons.copy(), () -> copyLinkAddress(menuLink));
+        MenuItem copyLinkItem = commandItem("copyLinkAddress", MenuIcons.copy(), () -> copyLinkAddress(menuLink));
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.
@@ -2492,14 +2494,14 @@ public final class TerminalView extends Region {
                 openLinkItem,
                 copyLinkItem,
                 linkSeparator,
-                item(tr("command.newTab"), MenuIcons.newTab(), () -> runCommand.accept("newTab")),
-                item(tr("command.newWindow"), MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
+                commandItem("newTab", MenuIcons.newTab(), () -> runCommand.accept("newTab")),
+                commandItem("newWindow", MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
-                item(tr("command.selectAll"), MenuIcons.selectAll(), this::selectAll),
+                commandItem("selectAll", MenuIcons.selectAll(), this::selectAll),
                 new SeparatorMenuItem(),
-                dangerous(item(tr("command.clearScrollback"), MenuIcons.clear(), this::clearScrollback))));
+                dangerous(commandItem("clearScrollback", MenuIcons.clear(), this::clearScrollback))));
 
         if (zoomActions != null) {
             // The same row the View menu carries, built again: a Node cannot be in two menus.
@@ -2521,19 +2523,21 @@ public final class TerminalView extends Region {
             // draws its tick in the graphic column, and an icon there either fights it or hides it.
             menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
             menuBarItem.setOnAction(e -> toggleMenuBar.run());
+            MenuChords.command(menuBarItem, "hideMenuBar");
             menuBarItem.setDisable(!menuBarToggleAvailable);
             items.add(new SeparatorMenuItem());
             items.add(menuBarItem);
         }
 
         items.add(new SeparatorMenuItem());
-        items.add(
-                item(tr("command.palette.show"), MenuIcons.commandPalette(), () -> runCommand.accept("palette.show")));
-        items.add(item(tr("command.settings"), MenuIcons.settings(), () -> runCommand.accept("settings")));
-        items.add(item(
-                tr("command.help.about", com.termina.AppInfo.NAME),
-                MenuIcons.about(),
-                () -> runCommand.accept("help.about")));
+        items.add(commandItem("palette.show", MenuIcons.commandPalette(), () -> runCommand.accept("palette.show")));
+        items.add(commandItem("settings", MenuIcons.settings(), () -> runCommand.accept("settings")));
+        items.add(MenuChords.command(
+                item(
+                        tr("command.help.about", com.termina.AppInfo.NAME),
+                        MenuIcons.about(),
+                        () -> runCommand.accept("help.about")),
+                "help.about"));
 
         ContextMenu menu = OneMenu.installRightClick(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);
@@ -2544,6 +2548,11 @@ public final class TerminalView extends Region {
     private static MenuItem dangerous(MenuItem item) {
         item.getStyleClass().add("danger");
         return item;
+    }
+
+    /** A row titled as command {@code id} is, and showing that command's chord (MENU-15). */
+    private static MenuItem commandItem(String id, Node icon, Runnable action) {
+        return MenuChords.command(item(tr("command." + id), icon, action), id);
     }
 
     private static MenuItem item(String text, Node icon, Runnable action) {

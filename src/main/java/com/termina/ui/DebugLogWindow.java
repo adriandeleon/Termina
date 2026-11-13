@@ -42,6 +42,13 @@ final class DebugLogWindow {
     private final javafx.animation.PauseTransition findTyping =
             new javafx.animation.PauseTransition(javafx.util.Duration.millis(120));
 
+    /** Where the menu's rows read their commands' chords; none until the manager says. */
+    private java.util.function.Function<String, javafx.scene.input.@Nullable KeyCombination> chords = id -> null;
+
+    void setChords(java.util.function.Function<String, javafx.scene.input.@Nullable KeyCombination> chords) {
+        this.chords = chords;
+    }
+
     private int[] found = new int[0];
     private int current = -1;
     /** The caret as it was when the bar opened: where every search of this opening starts. */
@@ -92,17 +99,20 @@ final class DebugLogWindow {
         // replaces the stock one a text area comes with, which is worded in the JVM's language
         // and offers Cut and Paste for text that cannot be edited.
         javafx.scene.control.ContextMenu menu = new javafx.scene.control.ContextMenu(
-                row(tr("debuglog.find"), MenuIcons.search(), this::find),
-                row(tr("debuglog.copy"), MenuIcons.copy(), this::copy),
+                MenuChords.command(row(tr("debuglog.find"), MenuIcons.search(), this::find), "debugLog.find"),
+                MenuChords.command(row(tr("debuglog.copy"), MenuIcons.copy(), this::copy), "debugLog.copy"),
                 new javafx.scene.control.SeparatorMenuItem(),
-                row(tr("debuglog.refresh"), null, this::refresh),
-                row(tr("debuglog.export"), null, this::export),
-                dangerous(row(tr("debuglog.clear"), MenuIcons.clear(), this::clear)));
+                MenuChords.command(row(tr("debuglog.refresh"), null, this::refresh), "debugLog.refresh"),
+                MenuChords.command(row(tr("debuglog.export"), null, this::export), "debugLog.export"),
+                MenuChords.command(
+                        dangerous(row(tr("debuglog.clear"), MenuIcons.clear(), this::clear)), "debugLog.clear"));
+        // Each row's chord, from the bindings in force as the menu shows (MENU-15).
+        menu.setOnShowing(e -> MenuChords.fill(menu.getItems(), chords));
         if (onReport != null) {
             menu.getItems()
                     .addAll(
                             new javafx.scene.control.SeparatorMenuItem(),
-                            row(tr("command.reportProblem"), null, onReport));
+                            MenuChords.command(row(tr("command.reportProblem"), null, onReport), "reportProblem"));
         }
         text.setContextMenu(OneMenu.installRightClick(menu));
 

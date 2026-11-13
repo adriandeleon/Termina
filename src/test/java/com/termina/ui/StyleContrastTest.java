@@ -187,6 +187,71 @@ class StyleContrastTest {
         }
     }
 
+    /** JavaFX's ladder(): the stops' colours, interpolated at the reference's brightness (.3r+.59g+.11b). */
+    private static Color ladder(Color ref, List<Double> offsets, List<Color> colors) {
+        double b = 0.3 * ref.getRed() + 0.59 * ref.getGreen() + 0.11 * ref.getBlue();
+        if (b <= offsets.get(0)) return colors.get(0);
+        for (int i = 1; i < offsets.size(); i++) {
+            double from = offsets.get(i - 1);
+            double to = offsets.get(i);
+            if (b <= to) return colors.get(i - 1).interpolate(colors.get(i), (b - from) / (to - from));
+        }
+        return colors.get(colors.size() - 1);
+    }
+
+    /**
+     * ICON-06, MENU-15: the keyboard's colour is one token, a ladder over the theme's ground, and
+     * reads at 4.5:1 on the default and subtle surfaces of both themes, the palette chip's tint
+     * included; and the chords are drawn in it wherever the app draws one.
+     */
+    @Test
+    void theKeyboardColourReadsOnBothThemesAndEveryChordIsDrawnInIt() throws Exception {
+        String app = read("app.css");
+        Matcher decl = Pattern.compile("-state-key:\\s*ladder\\(-color-bg-default,([^;]+)\\);")
+                .matcher(app);
+        assertTrue(decl.find(), "-state-key is a ladder of the theme's ground");
+        List<Double> offsets = new ArrayList<>();
+        List<Color> colors = new ArrayList<>();
+        Matcher stop = Pattern.compile("(#[0-9a-fA-F]{6})\\s+([0-9.]+)%").matcher(decl.group(1));
+        while (stop.find()) {
+            colors.add(Color.web(stop.group(1)));
+            offsets.add(Double.parseDouble(stop.group(2)) / 100);
+        }
+        assertTrue(colors.size() >= 2, "stops read: " + colors.size());
+        for (String theme : THEMES) {
+            Map<String, String> p = palette(theme);
+            Color ink = ladder(color(p, "-color-bg-default"), offsets, colors);
+            for (String surface : List.of("-color-bg-default", "-color-bg-subtle", "-color-bg-overlay")) {
+                Color ground = color(p, surface);
+                Color chip = ground.interpolate(ink, 0.15); // the chip's tint over that surface
+                double worst = Math.min(contrast(ink, ground), contrast(ink, chip));
+                assertTrue(worst >= 4.5, theme + ": the keyboard colour on " + surface + " is " + worst);
+            }
+        }
+        // The menus' chord column, in the bar and in the right-click menus, and the palette's chords.
+        for (String selector : List.of(
+                ".menu-item .menu-item-chord",
+                ".context-menu .menu-item > .accelerator-text",
+                ".command-palette .list-cell .keybinding",
+                ".command-palette .palette-prefix")) {
+            boolean found = false;
+            for (Rule rule : ownRules()) {
+                if (!rule.selectors().contains(selector)) continue;
+                found = true;
+                assertTrue(rule.body().contains("-fx-text-fill: -state-key"), selector + ": " + rule.body());
+            }
+            assertTrue(found, "no rule for " + selector);
+        }
+        // The two menu columns are the same size, in pixels: a menu's font is not its opener's.
+        for (String selector : List.of(".menu-item .menu-item-chord", ".context-menu .menu-item > .accelerator-text")) {
+            for (Rule rule : ownRules()) {
+                if (rule.selectors().contains(selector)) {
+                    assertTrue(rule.body().contains("-fx-font-size: 11px"), selector + ": " + rule.body());
+                }
+            }
+        }
+    }
+
     /** ICON-12: one focus ring colour, named once on the root, 3:1 on every surface. */
     @Test
     void theFocusRingIsAtLeastThreeToOneOnEverySurface() throws Exception {

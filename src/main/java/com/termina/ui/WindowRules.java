@@ -87,6 +87,20 @@ final class WindowRules {
         return !systemMenuBar;
     }
 
+    /**
+     * Whether close requests that arrived together are the system's Quit rather than windows
+     * being closed (WIN-13, Pauta 6.0.1): the macOS application menu's Quit and the Dock's reach
+     * a JavaFX app as a close request on every window in one turn. One window asked to close is
+     * that window closing, however many there are; with a single window open the two are the same
+     * thing and it is closed as a window, which asks the same question.
+     *
+     * @param requested how many windows were asked to close in one turn of the event loop
+     * @param open how many terminal windows there are
+     */
+    static boolean closeRequestsAreAQuit(int requested, int open) {
+        return open > 1 && requested >= open;
+    }
+
     /** The catalogue key of why the menu bar cannot be hidden here, or null when it can. */
     static @Nullable String menuBarToggleUnavailableKey(boolean systemMenuBar) {
         return offersMenuBarToggle(systemMenuBar) ? null : "settings.showMenuBar.mac";

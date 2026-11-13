@@ -105,7 +105,9 @@ is broken.
   prompts when a shell has children; `closeForShutdown()` is teardown and must not. `App.stop()`
   reaches `WindowManager.closeAll()` after the quit is already decided and while the toolkit is
   stopping — a modal dialog there asks a question nobody can act on, in a place where
-  `showAndWait` may never return. Quitting is therefore *not* guarded; doing that properly means
+  `showAndWait` may never return. Quitting was therefore *not* guarded until `WindowManager.quit` (WIN-13): the question is asked
+  before any of this starts, once for every window, and only then are the windows closed the way
+  shutdown closes them. The older note, for the record: doing that properly means
   intercepting the quit before `Platform.exit`.
 - **Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
   pump threads and an emulator thread. Any removal path that skips disposal leaks all of it and

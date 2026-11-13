@@ -365,9 +365,11 @@ public final class TerminalWindow {
         trackGeometry();
         // Always taken over: whether to ask is known only once the shells' children are read, off
         // the FX thread, and the window then closes itself if it may.
+        // Through the manager, which tells one window's close button from the system's Quit: that
+        // arrives as a close request on every window at once (WIN-13).
         stage.setOnCloseRequest(e -> {
             e.consume();
-            close();
+            windows.closeRequested(this);
         });
         // However the window went — its close button, Close Window, quitting — its tabs go through
         // the tab list, which is where disposal is. Closing the stage alone took nothing out of the
@@ -817,6 +819,8 @@ public final class TerminalWindow {
         // is Settings'.
         MenuItem configure = new MenuItem(tr("command.configureProfiles"), MenuIcons.forCommand("configureProfiles"));
         configure.setOnAction(e -> windows.showProfileSettings(stage));
+        // Its chord cell, like the profile rows' above it (MENU-15); empty while it has none.
+        configure.setAccelerator(chordOf("configureProfiles"));
         profileMenu.getItems().add(configure);
         profileMenu.show(profileButton, javafx.geometry.Side.BOTTOM, 0, 0);
     }
@@ -1555,29 +1559,26 @@ public final class TerminalWindow {
      * one that was clicked rather than whichever happens to be selected.
      */
     private ContextMenu buildTabMenu(Tab tab) {
-        MenuItem closeOthers =
-                tabItem(tr("command.closeOtherTabs"), MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
-        MenuItem closeLeft =
-                tabItem(tr("command.closeTabsToTheLeft"), MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
-        MenuItem closeRight =
-                tabItem(tr("command.closeTabsToTheRight"), MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
-        MenuItem pin = tabItem(tr("command.pinTab"), MenuIcons.pin(), () -> togglePin(tab));
-        MenuItem moveLeft = tabItem(tr("command.moveTabLeft"), MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
-        MenuItem moveRight = tabItem(tr("command.moveTabRight"), MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
+        MenuItem closeOthers = tabItem("closeOtherTabs", MenuIcons.closeOthers(), () -> closeOtherTabs(tab));
+        MenuItem closeLeft = tabItem("closeTabsToTheLeft", MenuIcons.closeLeft(), () -> closeTabsToTheLeft(tab));
+        MenuItem closeRight = tabItem("closeTabsToTheRight", MenuIcons.closeRight(), () -> closeTabsToTheRight(tab));
+        MenuItem pin = tabItem("pinTab", MenuIcons.pin(), () -> togglePin(tab));
+        MenuItem moveLeft = tabItem("moveTabLeft", MenuIcons.arrowLeft(), () -> moveTabBy(tab, -1));
+        MenuItem moveRight = tabItem("moveTabRight", MenuIcons.arrowRight(), () -> moveTabBy(tab, 1));
 
         Menu newTabAs = new Menu(tr("menu.newTabProfile"), MenuIcons.newTab());
         newTabAs.getItems().add(new MenuItem(""));
         newTabAs.setOnShowing(e -> newTabAs.getItems().setAll(profileMenuItems()));
 
         ContextMenu menu = new ContextMenu(
-                tabItem(tr("command.newTab"), MenuIcons.newTab(), this::openTab),
+                tabItem("newTab", MenuIcons.newTab(), this::openTab),
                 newTabAs,
-                tabItem(tr("command.duplicateTab"), MenuIcons.duplicate(), () -> duplicateTab(tab)),
+                tabItem("duplicateTab", MenuIcons.duplicate(), () -> duplicateTab(tab)),
                 new SeparatorMenuItem(),
-                tabItem(tr("command.renameTab"), MenuIcons.rename(), () -> renameTab(tab)),
+                tabItem("renameTab", MenuIcons.rename(), () -> renameTab(tab)),
                 pin,
                 new SeparatorMenuItem(),
-                tabItem(tr("command.closeTab"), MenuIcons.close(), () -> closeTab(tab)),
+                tabItem("closeTab", MenuIcons.close(), () -> closeTab(tab)),
                 closeOthers,
                 closeLeft,
                 closeRight,
@@ -1588,6 +1589,8 @@ public final class TerminalWindow {
         // Recomputed per show: how many tabs there are, and where this one sits, both change long
         // after the menu was built.
         menu.setOnShowing(e -> {
+            // Each row's chord, from the bindings in force now (MENU-15, Pauta 6.0.1).
+            MenuChords.fill(menu.getItems(), this::chordOf);
             int index = tabs.getTabs().indexOf(tab);
             int count = tabs.getTabs().size();
             pin.setText(pinLabel(tab));
@@ -1603,10 +1606,11 @@ public final class TerminalWindow {
         return menu;
     }
 
-    private static MenuItem tabItem(String text, javafx.scene.Node icon, Runnable action) {
-        MenuItem item = new MenuItem(text, icon);
+    /** A row of a tab's menu: titled as command {@code id} is, and showing that command's chord. */
+    private static MenuItem tabItem(String id, javafx.scene.Node icon, Runnable action) {
+        MenuItem item = new MenuItem(tr(COMMAND_KEY + id), icon);
         item.setOnAction(e -> action.run());
-        return item;
+        return MenuChords.command(item, id);
     }
 
     private void closeOtherTabs(Tab keep) {
@@ -2182,6 +2186,22 @@ public final class TerminalWindow {
      * to close.
      */
     private void confirmCloseTerminalsThen(List<TerminalView> doomed, int tabCount, Runnable close) {
+        confirmEndingThen(doomed, tabCount, closeConfirmer, close);
+    }
+
+    /**
+     * Quit's question (WIN-13, Pauta 6.0.1): asked once, of this window, for every pane of every
+     * window, where closing the windows one by one would ask once each.
+     */
+    void confirmQuitThen(List<TerminalView> everyPane, Runnable quit) {
+        confirmEndingThen(everyPane, everyPane.size(), quitConfirmer, quit);
+    }
+
+    private void confirmEndingThen(
+            List<TerminalView> doomed,
+            int tabCount,
+            java.util.function.BiPredicate<List<String>, Integer> confirmer,
+            Runnable close) {
         if (!settings.confirmClose()) {
             close.run();
             return;
@@ -2199,7 +2219,7 @@ public final class TerminalWindow {
             List<String> running = new ArrayList<>();
             for (long pid : pids) running.addAll(RunningProgram.in(pid));
             Platform.runLater(() -> {
-                if (running.isEmpty() || closeConfirmer.test(running, tabCount)) close.run();
+                if (running.isEmpty() || confirmer.test(running, tabCount)) close.run();
             });
         });
     }
@@ -2215,10 +2235,18 @@ public final class TerminalWindow {
      */
     private java.util.function.BiPredicate<List<String>, Integer> closeConfirmer = this::askBeforeClosing;
 
+    /** Answers Quit's question; replaced with the close prompt's, by the capture hook. */
+    private java.util.function.BiPredicate<List<String>, Integer> quitConfirmer =
+            (running, panes) -> askBeforeQuitting(running);
+
     /** @param answer what the prompt should return, for the capture hook */
     public void setCloseAnswerForCapture(boolean answer) {
         closeConfirmer = (running, tabCount) -> {
             System.out.println("[capture] close prompt for " + running + " -> " + (answer ? "close" : "cancel"));
+            return answer;
+        };
+        quitConfirmer = (running, panes) -> {
+            System.out.println("[capture] quit prompt for " + running + " -> " + (answer ? "quit" : "cancel"));
             return answer;
         };
     }
@@ -2279,6 +2307,17 @@ public final class TerminalWindow {
                 tabCount == 1 ? tr("dialog.closeRunning") : tr("dialog.closeRunningTabs"),
                 runningSummary(running),
                 tr("dialog.closeAnyway"),
+                new Confirm.Options(true, true, null));
+    }
+
+    /** The same question for the whole application: the button names the action, Quit (CONF-01). */
+    private boolean askBeforeQuitting(List<String> running) {
+        return Confirm.ask(
+                stage,
+                com.termina.AppInfo.NAME,
+                tr("dialog.quitRunning", com.termina.AppInfo.NAME),
+                runningSummary(running),
+                tr("dialog.quit"),
                 new Confirm.Options(true, true, null));
     }
 
@@ -2909,6 +2948,10 @@ public final class TerminalWindow {
                 closeLeftAction,
                 closeRightAction,
                 item("command.closeWindow", this::close),
+                // Every window, asking once (WIN-13, WIN-14, Pauta 6.0.1). No chord of its own:
+                // on macOS Cmd+Q is the system's and arrives as close requests, and elsewhere
+                // every chord left is one a shell might want.
+                item("command.app.quit", () -> windows.quit(this)),
                 reopenAction,
                 // Ctrl+, off macOS, Windows Terminal's: no shell binding can receive it, since Ctrl+,
                 // has no control byte in the legacy encoding and arrives as a plain comma.

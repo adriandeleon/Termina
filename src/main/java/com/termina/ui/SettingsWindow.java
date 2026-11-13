@@ -557,6 +557,40 @@ public final class SettingsWindow {
         return section.getChildren().get(0) instanceof Label heading ? heading.getText() : "";
     }
 
+    /**
+     * What a row's controls show, for the search (SET-03, Pauta 6.0.1): a button's or a switch's
+     * label, every option of a choice, a field's prompt. Not the row's own title and description,
+     * which are searched as themselves, and not what the user has typed into a field.
+     */
+    static String visibleText(Node node) {
+        StringBuilder text = new StringBuilder();
+        collectVisibleText(node, text);
+        return text.toString().strip();
+    }
+
+    private static void collectVisibleText(Node node, StringBuilder text) {
+        if (node.getStyleClass().contains("settings-row-title")
+                || node.getStyleClass().contains("settings-row-description")) {
+            return;
+        }
+        if (node instanceof javafx.scene.control.Labeled labeled && labeled.getText() != null) {
+            text.append(labeled.getText()).append(' ');
+        }
+        if (node instanceof ComboBox<?> combo) {
+            for (Object option : combo.getItems()) text.append(option).append(' ');
+            return; // its field and its popup are the skin's
+        }
+        if (node instanceof TextField field) {
+            if (field.getPromptText() != null)
+                text.append(field.getPromptText()).append(' ');
+            return;
+        }
+        if (node instanceof Spinner<?> || node instanceof ListView<?>) return;
+        if (node instanceof javafx.scene.Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) collectVisibleText(child, text);
+        }
+    }
+
     private void filter(String query) {
         hiddenCategories.clear();
         Set<Category> withHits = new LinkedHashSet<>();
@@ -566,8 +600,8 @@ public final class SettingsWindow {
             Row row = rows.get(i);
             // The heading and the page name are searched as one (SET-03): both say where the row is.
             String headings = headingOf(row.section()) + " " + row.category().title();
-            SettingsSearch.Texts texts =
-                    new SettingsSearch.Texts(row.title(), row.description(), headings, row.keywords());
+            SettingsSearch.Texts texts = new SettingsSearch.Texts(
+                    row.title(), row.description(), visibleText(row.node()), headings, row.keywords());
             ranks[i] = SettingsSearch.landing(
                     SettingsSearch.score(query, texts), query, row.category().title());
             boolean visible = ranks[i] > 0;
@@ -1723,7 +1757,14 @@ public final class SettingsWindow {
         removeRow.getStyleClass().add("danger");
         removeRow.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
         javafx.scene.control.ContextMenu profileMenu = new javafx.scene.control.ContextMenu(addRow, removeRow);
-        profileMenu.setOnShowing(e -> removeRow.setDisable(!hasRemovableProfileSelected()));
+        MenuChords.command(addRow, SettingsActions.Action.ADD_PROFILE.id());
+        MenuChords.command(removeRow, SettingsActions.Action.REMOVE_PROFILE.id());
+        profileMenu.setOnShowing(e -> {
+            removeRow.setDisable(!hasRemovableProfileSelected());
+            // Each row's chord, from the bindings in force now (MENU-15).
+            Map<String, KeyCombination> chords = effectiveKeys();
+            MenuChords.fill(profileMenu.getItems(), chords::get);
+        });
         profileList.setContextMenu(OneMenu.installRightClick(profileMenu));
 
         HBox buttons = new HBox(8, addProfile, removeProfile);

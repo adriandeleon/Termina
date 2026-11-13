@@ -39,6 +39,17 @@ final class MessageLogWindow {
     private final ListView<MessageLog.Entry> list = new ListView<>();
     private final javafx.scene.control.TextField filter = new javafx.scene.control.TextField();
     private final Label noEntries = new Label(tr("messagelog.empty"));
+
+    /** Where the menu's rows read their commands' chords; none until the manager says. */
+    private java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
+            chords = id -> null;
+
+    void setChords(
+            java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
+                    chords) {
+        this.chords = chords;
+    }
+
     private final Runnable refresh = this::refresh;
 
     MessageLogWindow(MessageLog log) {
@@ -96,7 +107,12 @@ final class MessageLogWindow {
                 new javafx.scene.control.MenuItem(tr("debuglog.clear"), MenuIcons.clear());
         clearRow.getStyleClass().add("danger");
         clearRow.setOnAction(e -> clear());
-        list.setContextMenu(OneMenu.installRightClick(new javafx.scene.control.ContextMenu(copyRow, clearRow)));
+        MenuChords.command(copyRow, "messageLog.copy");
+        MenuChords.command(clearRow, "messageLog.clear");
+        javafx.scene.control.ContextMenu rowMenu = new javafx.scene.control.ContextMenu(copyRow, clearRow);
+        // Each row's chord, from the bindings in force as the menu shows (MENU-15).
+        rowMenu.setOnShowing(e -> MenuChords.fill(rowMenu.getItems(), chords));
+        list.setContextMenu(OneMenu.installRightClick(rowMenu));
         Button close = new Button(tr("debuglog.close"));
         close.setOnAction(e -> stage.hide());
         close.setDefaultButton(true);

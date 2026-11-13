@@ -57,6 +57,7 @@ class WindowCommandsFxTest {
             "help.pautaRules", // a browser
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
+            "app.quit", // ends the app, and the toolkit the other tests share
             "showStatusBar"); // turning the bar off makes every later report a modal dialog
 
     /** Run last, in this order: they take tabs away from the commands before them. */

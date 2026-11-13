@@ -191,6 +191,27 @@ class SettingsWindowFxTest {
         assertFalse(settings.syncEnabled(), "storing the fields connects nothing");
     }
 
+    /** SET-03 (Pauta 6.0.1): what a row's controls show is what the search reads as visible text. */
+    @Test
+    void theSearchReadsWhatARowsControlsShow() throws Exception {
+        String text = onFx(() -> {
+            javafx.scene.control.Label title = new javafx.scene.control.Label("Theme");
+            title.getStyleClass().add("settings-row-title");
+            javafx.scene.control.Label hint = new javafx.scene.control.Label("The colours of the window");
+            hint.getStyleClass().add("settings-row-description");
+            ComboBox<String> choice = new ComboBox<>();
+            choice.getItems().addAll("Editora Dark", "Dracula");
+            TextField path = new TextField("typed by the user");
+            path.setPromptText("/path/to/shell");
+            javafx.scene.control.Button action = new javafx.scene.control.Button("Import…");
+            CheckBox box = new CheckBox("Follow the system");
+            javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(
+                    new javafx.scene.layout.VBox(title, hint), new javafx.scene.layout.HBox(choice, path, action, box));
+            return SettingsWindow.visibleText(row);
+        });
+        assertEquals("Editora Dark Dracula /path/to/shell Import… Follow the system", text);
+    }
+
     private static TextField field(SettingsWindow window, String prompt) {
         for (Region page : window.pagesForTest()) {
             for (TextField field : find(page, TextField.class)) {

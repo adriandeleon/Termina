@@ -20,6 +20,23 @@ class SettingsSearchTest {
         return new SettingsSearch.Texts("", "", text, "");
     }
 
+    private static SettingsSearch.Texts visible(String text) {
+        return new SettingsSearch.Texts("", "", text, "", "");
+    }
+
+    /** SET-03 (Pauta 6.0.1): what a row's controls show is searched, between description and heading. */
+    @org.junit.jupiter.api.Test
+    void aRowIsFoundByWhatItsControlsShowBelowItsDescriptionAndAboveItsHeading() {
+        assertTrue(SettingsSearch.score("import", visible("Import… Remove")) > 0);
+        assertEquals(0, SettingsSearch.score("export", visible("Import… Remove")));
+        int inVisible = SettingsSearch.score("dracula", visible("Editora Dark Dracula"));
+        assertTrue(SettingsSearch.score("dracula", description("the Dracula scheme")) > inVisible);
+        assertTrue(inVisible > SettingsSearch.score("dracula", heading("Dracula")));
+        assertTrue(inVisible > SettingsSearch.score("dracula", keywords("dracula")));
+        // Every word still has to be somewhere in the row: one in the title, one in a button.
+        assertTrue(SettingsSearch.score("theme import", new SettingsSearch.Texts("Theme", "", "Import…", "", "")) > 0);
+    }
+
     private static SettingsSearch.Texts keywords(String text) {
         return new SettingsSearch.Texts("", "", "", text);
     }

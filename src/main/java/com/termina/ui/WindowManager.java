@@ -232,7 +232,7 @@ public final class WindowManager {
             windows.remove(window);
             // The last window closing ends the app. Without this the JVM lingers: the settings
             // window is a Stage of its own and would keep the toolkit alive on its own.
-            if (windows.isEmpty()) Platform.exit();
+            if (windows.isEmpty()) endApp.run();
         });
 
         // Offset each additional window so it does not land exactly on the one it came from, and
@@ -308,6 +308,78 @@ public final class WindowManager {
     /** Opens a URL in the desktop's browser — the About window's links, and clicked ones. */
     void openLink(String url) {
         openLink.accept(url);
+    }
+
+    // ---------------------------------------------------------------- quit
+
+    private final List<TerminalWindow> closeRequests = new ArrayList<>();
+    private boolean quitting;
+
+    /** What the last window going does: ends the app. A test's manager counts it, and stays up. */
+    private Runnable endApp = Platform::exit;
+
+    void endAppWithForTest(Runnable end) {
+        endApp = end;
+    }
+
+    /**
+     * A window was asked to close: by its close button, or by the system quitting the app, which
+     * asks every window in the same turn. Gathered until the turn is over and then told apart
+     * ({@link WindowRules#closeRequestsAreAQuit}), so the system's Quit runs the one quit method
+     * and asks once, not once for each window (WIN-13, Pauta 6.0.1).
+     */
+    void closeRequested(TerminalWindow window) {
+        closeRequests.add(window);
+        if (closeRequests.size() > 1) return;
+        Platform.runLater(() -> {
+            List<TerminalWindow> asked = List.copyOf(closeRequests);
+            closeRequests.clear();
+            if (WindowRules.closeRequestsAreAQuit(asked.size(), windows.size())) {
+                quit(asked.get(0));
+            } else {
+                for (TerminalWindow one : asked) one.close();
+            }
+        });
+    }
+
+    /**
+     * Quits: the one method every way of quitting runs, the Quit row, the {@code app.quit} command
+     * and the system's own Quit (WIN-13). It asks once if any shell in any window still has a
+     * program running, in the window it was asked from, and on a yes closes the dialogs and
+     * secondary windows, then every terminal window the way shutdown does, which saves what
+     * closing a window saves; the last one going ends the app.
+     *
+     * @param from the window to ask in, or null for the one in front
+     */
+    void quit(@Nullable TerminalWindow from) {
+        if (quitting) return;
+        TerminalWindow asker = from;
+        if (asker == null || !windows.contains(asker)) {
+            asker = windows.isEmpty() ? null : windows.get(windows.size() - 1);
+            for (TerminalWindow window : windows) {
+                if (window.stage().isFocused()) asker = window;
+            }
+        }
+        if (asker == null) {
+            quitNow();
+            return;
+        }
+        asker.confirmQuitThen(allTerminals(), this::quitNow);
+    }
+
+    private void quitNow() {
+        if (quitting) return;
+        quitting = true;
+        // Dialogs and the windows beside the terminals first: nothing of theirs is left open over
+        // an app that is going.
+        for (Window open : List.copyOf(Window.getWindows())) {
+            boolean terminal = windows.stream().anyMatch(window -> window.stage() == open);
+            if (!terminal && open instanceof Stage stage && stage.isShowing()) stage.hide();
+        }
+        // The last of these to go ends the app (open's setOnHidden), and App.stop writes the settings.
+        for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();
+        // A manager with no window left to close it, a test's: nothing more is coming.
+        quitting = !windows.isEmpty();
     }
 
     /** One About window for the application, shown beside whichever window asked. */
@@ -433,10 +505,21 @@ public final class WindowManager {
         messageLog().show(from);
     }
 
+    /**
+     * The chord command {@code id} is on now, for the windows beside the terminals: the bindings
+     * are the application's, so any terminal window's table answers.
+     */
+    javafx.scene.input.@Nullable KeyCombination chordOf(String id) {
+        return windows.isEmpty() ? null : windows.get(0).chordOf(id);
+    }
+
     /** The one Message Log window, built on first use: what its commands act on. */
     MessageLogWindow messageLog() {
         MessageLogWindow window = messageLogWindow;
-        if (window == null) messageLogWindow = window = new MessageLogWindow(messages);
+        if (window == null) {
+            messageLogWindow = window = new MessageLogWindow(messages);
+            window.setChords(this::chordOf);
+        }
         return window;
     }
 
@@ -473,7 +556,10 @@ public final class WindowManager {
     /** The one Debug Log window, built on first use: what its commands act on. */
     DebugLogWindow debugLog(Window from) {
         DebugLogWindow window = debugLogWindow;
-        if (window == null) debugLogWindow = window = new DebugLogWindow(from, () -> showReportProblem(from));
+        if (window == null) {
+            debugLogWindow = window = new DebugLogWindow(from, () -> showReportProblem(from));
+            window.setChords(this::chordOf);
+        }
         return window;
     }
 

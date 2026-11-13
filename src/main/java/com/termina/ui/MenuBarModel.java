@@ -69,7 +69,10 @@ final class MenuBarModel {
                         SEPARATOR,
                         "settings",
                         "syncNow",
-                        "configureProfiles"),
+                        "configureProfiles",
+                        // The way out that is not closing the last window (WIN-14), last.
+                        SEPARATOR,
+                        "app.quit"),
                 fileUnlisted);
 
         Menu edit = new Menu(

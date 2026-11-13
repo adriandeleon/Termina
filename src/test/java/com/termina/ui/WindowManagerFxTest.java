@@ -263,6 +263,92 @@ class WindowManagerFxTest {
         waitUntilQuiet(dir);
     }
 
+    /**
+     * WIN-13, WIN-14 (Pauta 6.0.1): one quit method. The app.quit command asks once for every
+     * window, Cancel keeps them all, and the system's Quit, which arrives as a close request on
+     * every window in one turn, runs the same method; one window's close request closes that one.
+     */
+    @Test
+    void quitAsksOnceForEveryWindowAndTheSystemsQuitRunsTheSameMethod() throws Exception {
+        Settings settings = new Settings(dir.resolve("quit.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        settings.setShowStatusBar(true);
+        // Off for the first close: a fresh shell often has a child for a moment, a prompt
+        // framework's helper, and a question nobody is waiting to answer would hang the run.
+        settings.setConfirmClose(false);
+        java.util.concurrent.atomic.AtomicInteger ended = new java.util.concurrent.atomic.AtomicInteger();
+        WindowManager windows = onFx(() -> {
+            WindowManager made = new WindowManager(settings);
+            made.endAppWithForTest(ended::incrementAndGet);
+            return made;
+        });
+        TerminalWindow first = onFx(() -> windows.openWindow(null));
+        TerminalWindow second = onFx(() -> windows.openWindow(first));
+        TerminalWindow third = onFx(() -> windows.openWindow(first));
+        waitFor(() -> started(first) && started(second) && started(third), "the shells");
+
+        // One window asked to close, with others open, is that window closing.
+        onFx(() -> {
+            javafx.event.Event.fireEvent(
+                    third.stage(),
+                    new javafx.stage.WindowEvent(third.stage(), javafx.stage.WindowEvent.WINDOW_CLOSE_REQUEST));
+            return null;
+        });
+        waitFor(() -> size(windows) == 2, "the one window to close");
+        assertEquals(0, ended.get());
+
+        // A program running in one of them: Quit asks, once, and Cancel keeps every window.
+        onFx(() -> {
+            settings.setConfirmClose(true);
+            TerminalView view = second.activeTerminal();
+            if (view != null) view.getSession().sendString("sleep 30\r");
+            return null;
+        });
+        Thread.sleep(800);
+        int answered = DialogAnswers.answered();
+        onFx(() -> {
+            DialogAnswers.next(false, null);
+            return null;
+        });
+        run(first, "app.quit");
+        waitFor(() -> DialogAnswers.answered() > answered, "Quit's question, answered");
+        Thread.sleep(200);
+        assertEquals(2, size(windows), "Cancel kept the windows");
+        DialogAnswers.Seen asked = DialogAnswers.seen().get(DialogAnswers.seen().size() - 1);
+        assertEquals(com.termina.i18n.Messages.tr("dialog.quitRunning", com.termina.AppInfo.NAME), asked.header());
+        assertEquals(
+                List.of(com.termina.i18n.Messages.tr("dialog.quit"), com.termina.i18n.Messages.tr("dialog.cancel")),
+                asked.buttons());
+        assertTrue(asked.danger() && asked.cancelIsDefault(), asked.toString());
+        assertEquals(0, ended.get());
+
+        // The system's Quit: a close request on every window in the same turn. One question, and
+        // on a yes every window goes and the app ends once.
+        int before = DialogAnswers.answered();
+        onFx(() -> {
+            DialogAnswers.next(true, null);
+            for (TerminalWindow window : List.of(first, second)) {
+                javafx.event.Event.fireEvent(
+                        window.stage(),
+                        new javafx.stage.WindowEvent(window.stage(), javafx.stage.WindowEvent.WINDOW_CLOSE_REQUEST));
+            }
+            return null;
+        });
+        waitFor(() -> size(windows) == 0, "every window to close");
+        assertEquals(before + 1, DialogAnswers.answered(), "asked once, not once for each window");
+        assertEquals(1, ended.get(), "the last window going ended the app, once");
+        waitUntilQuiet(dir);
+    }
+
+    private static int size(WindowManager windows) {
+        try {
+            return onFx(() -> windows.windows().size());
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     private static void run(TerminalWindow window, String id) throws Exception {
         boolean ran = onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {

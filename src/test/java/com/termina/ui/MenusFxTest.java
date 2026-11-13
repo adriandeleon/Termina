@@ -62,6 +62,7 @@ class MenusFxTest {
             "command.importConfiguration",
             "command.renameTab",
             "command.closeWindow",
+            "command.app.quit",
             "menu.hideStatusBar",
             "command.showStatusBar",
             "command.openLink",
@@ -263,11 +264,17 @@ class MenusFxTest {
 
         // MENU-07 (Pauta 6.0.1): a press on the tab strip closes the tab's right-click menu, which
         // JavaFX's own auto-hide leaves up because the strip is what it was opened on.
+        java.util.Map<String, String> tabChords = new java.util.concurrent.ConcurrentHashMap<>();
         List<Boolean> menu = onFx(() -> {
             Tab tab = window.tabsForTest().get(0);
             javafx.scene.control.ContextMenu tabMenu = tab.getContextMenu();
             tabMenu.show(tab.getTabPane(), 40, 40);
             boolean shown = tabMenu.isShowing();
+            // MENU-15 (Pauta 6.0.1): as it shows, each command row has its chord in force.
+            for (javafx.scene.control.MenuItem row : tabMenu.getItems()) {
+                String id = MenuChords.commandOf(row);
+                if (id != null) tabChords.put(id, String.valueOf(row.getAccelerator()));
+            }
             javafx.event.Event.fireEvent(
                     tab.getTabPane(),
                     new javafx.scene.input.MouseEvent(
@@ -292,6 +299,22 @@ class MenusFxTest {
             return List.of(shown, tabMenu.isShowing());
         });
         assertEquals(List.of(true, false), menu, "shown, then closed by the press");
+        assertEquals(String.valueOf(Keymap.defaultFor("closeTab")), tabChords.get("closeTab"));
+        assertEquals(String.valueOf(Keymap.defaultFor("newTab")), tabChords.get("newTab"));
+        assertEquals("null", tabChords.get("renameTab"), "an unbound command's cell is empty");
+        assertEquals(10, tabChords.size(), "every command row of the tab's menu: " + tabChords);
+        // The terminal's menu: every row but the zoom row and the rules runs a command and says which.
+        List<String> terminalRows = onFx(() -> {
+            List<String> ids = new ArrayList<>();
+            for (javafx.scene.control.MenuItem row : view.contextMenuForTest().getItems()) {
+                if (row instanceof javafx.scene.control.SeparatorMenuItem
+                        || row instanceof javafx.scene.control.CustomMenuItem) continue;
+                ids.add(String.valueOf(MenuChords.commandOf(row)));
+            }
+            return ids;
+        });
+        assertTrue(!terminalRows.contains("null"), "a terminal menu row with no command: " + terminalRows);
+        assertTrue(terminalRows.containsAll(List.of("copy", "paste", "newTab", "palette.show", "help.about")));
     }
 
     @Test
