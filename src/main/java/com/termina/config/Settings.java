@@ -73,6 +73,7 @@ public final class Settings {
     public static final String NOTIFICATIONS = "terminal.notifications";
 
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
+    public static final String SHOW_TAB_BAR = "ui.showTabBar";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
@@ -974,6 +975,18 @@ public final class Settings {
 
     public void setHideTabBarWhenSingle(boolean hide) {
         put(HIDE_TAB_BAR_WHEN_SINGLE, String.valueOf(hide));
+    }
+
+    /**
+     * Show the tab strip at all (TABS-12, Pauta 6.0.1). Off, it is hidden however many tabs are
+     * open: the tabs are still there, reached by their chords, the palette and the tab menu.
+     */
+    public boolean showTabBar() {
+        return readBoolean(SHOW_TAB_BAR, true);
+    }
+
+    public void setShowTabBar(boolean show) {
+        put(SHOW_TAB_BAR, String.valueOf(show));
     }
 
     /**

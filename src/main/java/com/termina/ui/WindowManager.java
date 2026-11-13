@@ -199,14 +199,6 @@ public final class WindowManager {
     }
 
     /**
-     * A new window, cascaded from {@code from} — the window whose menu or chord asked for it.
-     *
-     * <p>From that one rather than from the last opened: with three windows across two screens,
-     * "New Window" from the first should land beside the first, not beside whichever was made most
-     * recently. {@code from} may be null, in which case the window opens where the stage would on
-     * its own.
-     */
-    /**
      * A window for another launch's command line (CLI-07): its options apply to this window's
      * first tab, as they would have to a process of its own, and it comes to the front.
      */
@@ -218,6 +210,14 @@ public final class WindowManager {
         return window;
     }
 
+    /**
+     * A new window, cascaded from {@code from} — the window whose menu or chord asked for it.
+     *
+     * <p>From that one rather than from the last opened: with three windows across two screens,
+     * "New Window" from the first should land beside the first, not beside whichever was made most
+     * recently. {@code from} may be null, in which case the window opens where the stage would on
+     * its own.
+     */
     public TerminalWindow openWindow(@Nullable TerminalWindow from) {
         return open(new Stage(), null, from, null);
     }
@@ -398,7 +398,6 @@ public final class WindowManager {
         quitting = !windows.isEmpty();
     }
 
-    /** One About window for the application, shown beside whichever window asked. */
     /** The terminal window the user is in, or the last one opened when none has focus. */
     private Window frontWindow() {
         for (TerminalWindow window : windows) {
@@ -407,6 +406,7 @@ public final class WindowManager {
         return windows.isEmpty() ? new Stage() : windows.get(windows.size() - 1).stage();
     }
 
+    /** One About window for the application, shown beside whichever window asked. */
     public void showAbout(Window from) {
         AboutWindow about = aboutWindow();
         about.setUpdate(knownUpdate, lastAnswer);
@@ -810,12 +810,12 @@ public final class WindowManager {
         return sync;
     }
 
-    /** The settings window, made on first use. */
     /** The settings window, made if need be: for the test that presses its buttons. */
     SettingsWindow settingsWindowForTest() {
         return settingsWindow();
     }
 
+    /** The settings window, made on first use. */
     private SettingsWindow settingsWindow() {
         SettingsWindow window = settingsWindow;
         if (window == null) {

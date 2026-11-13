@@ -126,6 +126,9 @@ public final class TerminalWindow {
      */
     private final MenuAction statusBarAction = item("command.showStatusBar", this::toggleStatusBar);
 
+    /** Hide Tab Bar, or Show Tab Bar: named for the way it will go, like the status bar's. */
+    private final MenuAction tabBarAction = item("command.showTabBar", this::toggleTabBar);
+
     private final MenuAction closeRightAction =
             item("command.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
 
@@ -612,7 +615,8 @@ public final class TerminalWindow {
      * the PTY — the shell learns about it the same way it learns about a window resize.
      */
     private void applyTabBarVisibility() {
-        boolean show = WindowRules.shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        boolean show = WindowRules.shouldShowTabBar(
+                tabs.getTabs().size(), settings.hideTabBarWhenSingle(), settings.showTabBar());
         boolean hidden = tabs.getStyleClass().contains(HIDE_TAB_BAR);
         if (show && hidden) tabs.getStyleClass().remove(HIDE_TAB_BAR);
         if (!show && !hidden) tabs.getStyleClass().add(HIDE_TAB_BAR);
@@ -665,7 +669,8 @@ public final class TerminalWindow {
         // A missing header means the skin is still building it — but only while the strip is
         // shown. Hidden for a single tab, no header exists and none is coming, so retrying to the
         // budget every time would be twenty passes spent on a header nobody can see.
-        boolean stripShown = WindowRules.shouldShowTabBar(tabs.getTabs().size(), settings.hideTabBarWhenSingle());
+        boolean stripShown = WindowRules.shouldShowTabBar(
+                tabs.getTabs().size(), settings.hideTabBarWhenSingle(), settings.showTabBar());
         if (stripShown && found < tabs.getTabs().size() && attempt < DECORATE_ATTEMPTS) {
             Platform.runLater(() -> decorateHeaders(attempt + 1));
         }
@@ -1387,14 +1392,6 @@ public final class TerminalWindow {
     private @Nullable Tab draggedTab;
 
     /**
-     * The header node JavaFX built for a tab, found from our own title graphic upwards, or null
-     * while the skin has not built it.
-     *
-     * <p>Not by position in {@code lookupAll(".tab")}: that returns an unordered set, so pairing by
-     * index would sometimes hand the gesture the wrong tab and reorder something the user was not
-     * dragging — rarely enough to look random.
-     */
-    /**
      * Opens the current tab's menu under its header, or under the window's top-left corner while
      * the strip is hidden for a single tab — the keyboard's way to it (MENU-09, Pauta 2.0.2).
      */
@@ -1422,6 +1419,14 @@ public final class TerminalWindow {
         return b == null ? new double[] {stage.getX(), stage.getY()} : new double[] {b.getMinX(), b.getMinY()};
     }
 
+    /**
+     * The header node JavaFX built for a tab, found from our own title graphic upwards, or null
+     * while the skin has not built it.
+     *
+     * <p>Not by position in {@code lookupAll(".tab")}: that returns an unordered set, so pairing by
+     * index would sometimes hand the gesture the wrong tab and reorder something the user was not
+     * dragging — rarely enough to look random.
+     */
     private static javafx.scene.@Nullable Node headerOf(Tab tab) {
         javafx.scene.Node node = tab.getGraphic();
         while (node != null && !node.getStyleClass().contains("tab")) {
@@ -1565,17 +1570,14 @@ public final class TerminalWindow {
     }
 
     /**
-     * The menu for right-clicking a tab header.
+     * The menu for right-clicking a tab header, attached with {@code Tab.setContextMenu}, which is
+     * JavaFX's own hook for this — so it appears on the header rather than on the terminal, and the
+     * tab it acts on is the one that was clicked rather than whichever happens to be selected.
      *
-     * <p>Built per tab and attached with {@code Tab.setContextMenu}, which is JavaFX's own hook for
-     * this — so it appears on the header rather than on the terminal, and the tab it acts on is the
-     * one that was clicked rather than whichever happens to be selected.
-     */
-    /**
-     * A tab's menu, not built with the tab (MENU-11, Pauta 6.0.1): an empty shell until it is first
-     * asked for, when {@link #fillTabMenu} makes its rows and takes over the showing. Fifty tabs
-     * are then fifty shells and no rows. The one placeholder row is there because JavaFX does not
-     * show a menu that has no items, so an empty one could never be asked.
+     * <p>Not built with the tab (MENU-11, Pauta 6.0.1): an empty shell until it is first asked for,
+     * when {@link #fillTabMenu} makes its rows and takes over the showing. Fifty tabs are then
+     * fifty shells and no rows. The one placeholder row is there because JavaFX does not show a
+     * menu that has no items, so an empty one could never be asked.
      */
     private ContextMenu buildTabMenu(Tab tab) {
         ContextMenu menu = new ContextMenu(new MenuItem(""));
@@ -1784,7 +1786,13 @@ public final class TerminalWindow {
      */
     private static final class TabMarkState {
         final Label title;
+        /** Activity's filled dot. */
         final javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(3);
+
+        /** The bell's hollow ring, and a notification's diamond: a shape each, not a color alone (ACC-05). */
+        final javafx.scene.shape.Circle ring = new javafx.scene.shape.Circle(2.6);
+
+        final javafx.scene.shape.Polygon diamond = new javafx.scene.shape.Polygon(0, -3.8, 3.8, 0, 0, 3.8, -3.8, 0);
         TabMarks.Mark mark = TabMarks.Mark.NONE;
         javafx.scene.paint.Color activity = javafx.scene.paint.Color.GRAY;
         javafx.scene.paint.Color bell = javafx.scene.paint.Color.GRAY;
@@ -1797,6 +1805,26 @@ public final class TerminalWindow {
             this.title = title;
             title.setContentDisplay(javafx.scene.control.ContentDisplay.RIGHT);
             title.setGraphicTextGap(6);
+            ring.setFill(javafx.scene.paint.Color.TRANSPARENT);
+            ring.setStrokeWidth(1.6);
+        }
+
+        /** The node that draws the mark there is now. */
+        javafx.scene.shape.Shape shape() {
+            return switch (TabMarks.shapeOf(mark)) {
+                case RING -> ring;
+                case DIAMOND -> diamond;
+                case DOT -> dot;
+            };
+        }
+
+        /** The mark's color, whichever shape carries it. */
+        javafx.scene.paint.Paint colour() {
+            return switch (mark) {
+                case NOTIFY -> notify;
+                case BELL -> bell;
+                default -> activity;
+            };
         }
 
         /** Magenta for a notification, yellow for a bell, cyan for activity, in the theme's own rendering of each. */
@@ -1839,21 +1867,18 @@ public final class TerminalWindow {
                 pinNode = pin;
             }
             if (pinNode != null && marked) {
-                javafx.scene.layout.HBox both = new javafx.scene.layout.HBox(4, pinNode, dot);
+                javafx.scene.layout.HBox both = new javafx.scene.layout.HBox(4, pinNode, shape());
                 both.setAlignment(javafx.geometry.Pos.CENTER);
                 title.setGraphic(both);
             } else {
-                title.setGraphic(pinNode != null ? pinNode : marked ? dot : null);
+                title.setGraphic(pinNode != null ? pinNode : marked ? shape() : null);
             }
         }
 
         private void paint() {
-            dot.setFill(
-                    switch (mark) {
-                        case NOTIFY -> notify;
-                        case BELL -> bell;
-                        default -> activity;
-                    });
+            dot.setFill(activity);
+            ring.setStroke(bell);
+            diamond.setFill(notify);
         }
     }
 
@@ -1874,7 +1899,13 @@ public final class TerminalWindow {
                     state == null
                             ? "?"
                             : state.mark.name().toLowerCase(java.util.Locale.ROOT)
-                                    + (state.mark != TabMarks.Mark.NONE ? "(" + state.dot.getFill() + ")" : "")
+                                    + (state.mark != TabMarks.Mark.NONE
+                                            ? "("
+                                                    + TabMarks.shapeOf(state.mark)
+                                                            .name()
+                                                            .toLowerCase(java.util.Locale.ROOT)
+                                                    + " " + state.colour() + ")"
+                                            : "")
                                     + (state.pinned ? "[pinned]" : ""));
         }
         return "marks=" + marks;
@@ -2282,14 +2313,6 @@ public final class TerminalWindow {
         };
     }
 
-    /**
-     * Asks before a paste that contains a line break, when the setting says to.
-     *
-     * <p>At a prompt every line of a paste runs the moment it lands, which is how a copied snippet
-     * with a stray newline becomes an executed command. Paste is the default button all the same:
-     * most multi-line pastes are meant, and the dialog's job is to show the text, not to stall it.
-     * Replaced by the capture hook, which cannot click a modal dialog.
-     */
     /** A large paste asks whatever the setting says (PERF-12); the setting is about line breaks. */
     private boolean confirmPaste(String text) {
         boolean large = text.length() > PasteSafety.LARGE_CHARS;
@@ -2307,6 +2330,14 @@ public final class TerminalWindow {
         };
     }
 
+    /**
+     * Asks before a paste that contains a line break, when the setting says to.
+     *
+     * <p>At a prompt every line of a paste runs the moment it lands, which is how a copied snippet
+     * with a stray newline becomes an executed command. Paste is the default button all the same:
+     * most multi-line pastes are meant, and the dialog's job is to show the text, not to stall it.
+     * Replaced by the capture hook, which cannot click a modal dialog.
+     */
     private boolean askBeforePasting(String text) {
         boolean large = text.length() > PasteSafety.LARGE_CHARS;
         // The text itself, so the decision is made on what will actually be sent rather than on
@@ -2368,7 +2399,6 @@ public final class TerminalWindow {
         moveTab(from, to);
     }
 
-    /** The clicked tab's menu, for the development capture hook. */
     /**
      * Opens the bar's menu titled {@code title} and returns its popup's scene, or null when there is
      * no such menu or it did not open. For the capture hook: a menu is a popup, so the window's own
@@ -2387,6 +2417,7 @@ public final class TerminalWindow {
         return null;
     }
 
+    /** The clicked tab's menu, for the development capture hook. */
     public javafx.scene.@Nullable Scene showTabMenuForCapture(int index, double screenX, double screenY) {
         if (index < 0 || index >= tabs.getTabs().size()) return null;
         ContextMenu menu = tabs.getTabs().get(index).getContextMenu();
@@ -2671,7 +2702,6 @@ public final class TerminalWindow {
 
     private MenuBar menuBar;
 
-    /** The window's tabs, for the test that fires each one's menu. */
     /**
      * Puts the keyboard in the menu bar and opens its first menu, as F10 does in an app whose F10
      * is its own: the arrows then walk the bar, and Escape gives the keyboard back.
@@ -2705,6 +2735,7 @@ public final class TerminalWindow {
         return items;
     }
 
+    /** The window's tabs, for the test that fires each one's menu. */
     List<Tab> tabsForTest() {
         return tabs.getTabs();
     }
@@ -3066,6 +3097,7 @@ public final class TerminalWindow {
                         settings.setShowMenuBar(!settings.showMenuBar());
                     }
                 }),
+                tabBarAction,
                 statusBarAction,
                 // Listed in the palette like any other command (PAL-02, Pauta 2.0.2).
                 paletteAction,
@@ -3347,11 +3379,6 @@ public final class TerminalWindow {
     }
 
     /**
-     * Shows a transient message. With no status bar, an information-only alert is the honest
-     * option — it is the only surface that cannot be missed, and this only ever runs in response to
-     * the user picking the menu item.
-     */
-    /**
      * Says how something went: into the Message Log always, and where the user will see it — the
      * status bar's echo area when the bar is on, otherwise the dialog this always used to be, since
      * a message nobody can see is no message (WIN-01, DIAG-01, Pauta 2.0.2).
@@ -3360,6 +3387,10 @@ public final class TerminalWindow {
         windows.messages().add(severity, message);
         if (settings.showStatusBar()) return;
         showReportDialog(message);
+    }
+
+    private void toggleTabBar() {
+        settings.setShowTabBar(!settings.showTabBar());
     }
 
     private void toggleStatusBar() {
@@ -3388,6 +3419,11 @@ public final class TerminalWindow {
         return windowRoot.getBottom() == statusBar ? statusBar.echoForCapture() : "off";
     }
 
+    /**
+     * Shows a transient message. With no status bar, an information-only alert is the honest
+     * option — it is the only surface that cannot be missed, and this only ever runs in response to
+     * the user picking the menu item.
+     */
     private void showReportDialog(String message) {
         // One dialog, reused, because reporting is a sequence rather than an event: the update
         // check says "checking…" and then says how it went. Opening a second alert for the second
@@ -3461,6 +3497,7 @@ public final class TerminalWindow {
     private String currentLabel(String id, String standing) {
         if (id.equals(pinAction.id())) return pinLabel(tabs.getSelectionModel().getSelectedItem());
         if (id.equals(statusBarAction.id())) return statusBarLabel();
+        if (id.equals(tabBarAction.id())) return tr(settings.showTabBar() ? "menu.hideTabBar" : "command.showTabBar");
         MenuAction toggle = menuBarToggle;
         if (toggle != null && id.equals(toggle.id())) {
             return tr(settings.showMenuBar() ? "command.hideMenuBar" : "menu.showMenuBar");

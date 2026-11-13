@@ -108,7 +108,6 @@ class WindowLifecycleTest {
         return found[0];
     }
 
-    /** The session thread pools alive now, by number: termina-worker-3 and termina-sched-3 are pool 3. */
     /** The session pools started since {@code before}: this test's own. */
     private static java.util.Set<String> mine(java.util.Set<String> before) {
         java.util.Set<String> pools = sessionPools();
@@ -116,6 +115,7 @@ class WindowLifecycleTest {
         return pools;
     }
 
+    /** The session thread pools alive now, by number: termina-worker-3 and termina-sched-3 are pool 3. */
     private static java.util.Set<String> sessionPools() {
         java.util.Set<String> pools = new java.util.TreeSet<>();
         for (Thread t : Thread.getAllStackTraces().keySet()) {

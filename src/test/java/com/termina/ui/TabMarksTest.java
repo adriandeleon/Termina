@@ -13,6 +13,18 @@ class TabMarksTest {
     private static final long QUIET = TabMarks.QUIET_MS;
 
     @Test
+    void eachKindOfMarkHasAShapeOfItsOwn() {
+        // ACC-05 (Pauta 6.0.1): color is never the only signal. In gray, a dot, a ring and a
+        // diamond are still three things.
+        java.util.Set<TabMarks.Shape> shapes = new java.util.HashSet<>();
+        for (TabMarks.Mark mark : java.util.List.of(TabMarks.Mark.ACTIVITY, TabMarks.Mark.BELL, TabMarks.Mark.NOTIFY)) {
+            assertTrue(shapes.add(TabMarks.shapeOf(mark)), mark + " shares its shape");
+        }
+        assertEquals(TabMarks.Shape.RING, TabMarks.shapeOf(TabMarks.Mark.BELL));
+        assertEquals(TabMarks.Shape.DIAMOND, TabMarks.shapeOf(TabMarks.Mark.NOTIFY));
+    }
+
+    @Test
     void aBellMarksABackgroundTabAndNeverTheSelectedOne() {
         assertEquals(Mark.BELL, TabMarks.onBell(false, Mark.NONE));
         assertEquals(Mark.BELL, TabMarks.onBell(false, Mark.ACTIVITY));

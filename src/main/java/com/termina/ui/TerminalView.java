@@ -2069,13 +2069,10 @@ public final class TerminalView extends Region {
     }
 
     /**
-     * The link under the pointer, with or without the modifier held, or null when there is none or
-     * the pointer is not over this view. What Open Link and Copy Link Address act on as commands
+     * Whether there may be a link under the pointer, with or without the modifier held: text that
+     * is one, and for a path, a file not known to be missing. Asks nothing of the filesystem; the
+     * command asks when it runs. What Open Link and Copy Link Address are gated on as commands
      * (KBD-01): the right-click menu's rows, reachable from a chord and the palette.
-     */
-    /**
-     * Whether there may be a link under the pointer: text that is one, and for a path, a file not
-     * known to be missing. Asks nothing of the filesystem; the command asks when it runs.
      */
     private boolean mayHaveLinkUnderPointer() {
         if (lastMouseX < 0) return false;
@@ -2314,15 +2311,6 @@ public final class TerminalView extends Region {
     private boolean menuBarToggleAvailable = true;
 
     /**
-     * Decides between the context menu and the running program.
-     *
-     * <p>Right-click is genuinely contested: a terminal wants it for Copy and Paste, while a
-     * mouse-aware TUI (Midnight Commander, some file pickers) wants it as button 2 — and we report
-     * it as such. The rule is the one that already governs selection: while a program has grabbed
-     * the mouse it wins, and <b>Shift forces the menu</b>. Without that escape hatch there is no way
-     * to copy anything, or reach Settings, from inside such a program.
-     */
-    /**
      * Whether a context-menu request should open the menu rather than belong to the running program.
      *
      * <p>Extracted and static because it is the whole of the contention rule, and it is the kind of
@@ -2359,6 +2347,15 @@ public final class TerminalView extends Region {
                 ContextMenuEvent.CONTEXT_MENU_REQUESTED, x, y, screen.getX(), screen.getY(), true, null));
     }
 
+    /**
+     * Decides between the context menu and the running program.
+     *
+     * <p>Right-click is genuinely contested: a terminal wants it for Copy and Paste, while a
+     * mouse-aware TUI (Midnight Commander, some file pickers) wants it as button 2 — and we report
+     * it as such. The rule is the one that already governs selection: while a program has grabbed
+     * the mouse it wins, and <b>Shift forces the menu</b>. Without that escape hatch there is no way
+     * to copy anything, or reach Settings, from inside such a program.
+     */
     private void onContextMenuRequested(ContextMenuEvent e) {
         // A platform that raises its own request for the Menu key would move the menu just opened
         // at the cursor to wherever it guessed; one keyboard request is answered once.
@@ -3056,10 +3053,6 @@ public final class TerminalView extends Region {
         moveOrigin(origin -> origin - lines);
     }
 
-    /**
-     * Supplies the question asked before a multi-line paste — the dialog, and the setting that
-     * turns it off. Returns true to go ahead. See {@link PasteSafety}.
-     */
     /** Told the length of a paste refused for its size, to say so where the user will see it. */
     private java.util.function.IntConsumer onPasteRefused = length -> {};
 
@@ -3067,6 +3060,10 @@ public final class TerminalView extends Region {
         onPasteRefused = listener;
     }
 
+    /**
+     * Supplies the question asked before a multi-line paste — the dialog, and the setting that
+     * turns it off. Returns true to go ahead. See {@link PasteSafety}.
+     */
     public void setPasteConfirmer(Predicate<String> confirmer) {
         this.pasteConfirmer = confirmer == null ? text -> true : confirmer;
     }

@@ -65,6 +65,8 @@ class MenusFxTest {
             "command.app.quit",
             "menu.hideStatusBar",
             "command.showStatusBar",
+            "menu.hideTabBar", // hides the strip the tabs' own menus are opened from
+            "command.showTabBar",
             "command.openLink",
             "menu.copyLink");
 

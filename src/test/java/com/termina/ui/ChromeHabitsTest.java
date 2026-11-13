@@ -192,6 +192,125 @@ class ChromeHabitsTest {
     }
 
     @Test
+    void noLiteralReachesAControlsText() throws IOException {
+        // INTL-07 (Pauta 6.0.1): every string a control shows comes from the catalog, through
+        // Messages.tr. A literal with a letter or a digit in a text position fails; a lone space
+        // that holds a row's height, and the letter a font is measured with, are not text.
+        java.util.regex.Pattern literal = java.util.regex.Pattern.compile(
+                "(?:new (?:Label|Button|ToggleButton|Hyperlink|MenuItem|CheckMenuItem|CheckBox|RadioButton|Tooltip|Text|Tab|TitledPane)"
+                        + "|\\.set(?:Text|PromptText|Title|HeaderText|ContentText|AccessibleText))\\(\"([^\"]*)\"");
+        List<String> found = new ArrayList<>();
+        for (Path file : sources()) {
+            String name = file.getFileName().toString();
+            // The development capture harness prints to a console and shows nothing to a user.
+            if (name.equals("DevCapture.java")) continue;
+            int number = 0;
+            for (String line : Files.readAllLines(file)) {
+                number++;
+                java.util.regex.Matcher m = literal.matcher(line);
+                while (m.find()) {
+                    String text = m.group(1);
+                    if (!text.matches(".*[\\p{L}\\p{N}].*")) continue;
+                    if (line.contains("Text probe = new Text(")) continue; // a measurement, never shown
+                    found.add(name + ":" + number + " \"" + text + "\"");
+                }
+            }
+        }
+        assertEquals(List.of(), found);
+    }
+
+    @Test
+    void aDocCommentSitsOnItsMember() throws IOException {
+        // DOCS-15 (Pauta 6.0.1): a doc comment above another doc comment documents nothing. It
+        // happens when a member is put between a comment and what it was written for.
+        java.util.regex.Pattern stranded = java.util.regex.Pattern.compile(
+                "/\\*\\*(?:(?!\\*/).)*\\*/(?:\\s|//[^\\n]*\\n)*(?=/\\*\\*)", java.util.regex.Pattern.DOTALL);
+        List<String> found = new ArrayList<>();
+        List<Path> all = new ArrayList<>(sources());
+        try (Stream<Path> tests = Files.walk(Path.of("src/test/java"))) {
+            all.addAll(tests.filter(file -> file.toString().endsWith(".java")).toList());
+        }
+        for (Path file : all) {
+            String text = Files.readString(file);
+            java.util.regex.Matcher m = stranded.matcher(text);
+            while (m.find()) {
+                long line = text.substring(0, m.start())
+                                .chars()
+                                .filter(c -> c == '\n')
+                                .count()
+                        + 1;
+                found.add(file.getFileName() + ":" + line);
+            }
+        }
+        assertEquals(List.of(), found);
+    }
+
+    @Test
+    void aMessageWithACountIsWordedForTheCount() throws IOException {
+        // INTL-12 (Pauta 6.0.1): a choice limb for each form the language needs, never "file(s)",
+        // and every choice pattern parses and reads right for nothing, one, two and many.
+        List<String> wrong = new ArrayList<>();
+        List<String> counted = List.of(
+                "statusbar.unread",
+                "config.part.PREFERENCES",
+                "config.part.PROFILES",
+                "config.part.THEMES",
+                "pauta.count.pending",
+                "pauta.count.deviation",
+                "pauta.count.appOnly",
+                "pauta.count.notApplicable");
+        try (Stream<Path> files = Files.list(Path.of("src/main/resources/com/termina/i18n"))) {
+            for (Path file :
+                    files.filter(f -> f.toString().endsWith(".properties")).toList()) {
+                Properties catalog = new Properties();
+                try (var in = Files.newBufferedReader(file)) {
+                    catalog.load(in);
+                }
+                for (String key : catalog.stringPropertyNames()) {
+                    String value = catalog.getProperty(key);
+                    if (value.contains("{") && value.contains("(s)"))
+                        wrong.add(file.getFileName() + " " + key + " (s)");
+                    if (counted.contains(key) && !value.contains(",choice,")) {
+                        wrong.add(file.getFileName() + " " + key + " has no choice");
+                    }
+                    if (!value.contains(",choice,")) continue;
+                    for (int count : new int[] {0, 1, 2, 5, 1234}) {
+                        try {
+                            String said = java.text.MessageFormat.format(value, count, count, count);
+                            if (said.contains("{") || said.contains("|") || said.contains("#")) {
+                                wrong.add(file.getFileName() + " " + key + " at " + count + ": " + said);
+                            }
+                            // One of something never reads as several, and several never as one.
+                            if (counted.contains(key) && count == 1 && !said.contains("1")) {
+                                wrong.add(file.getFileName() + " " + key + " loses its one: " + said);
+                            }
+                            if (counted.contains(key) && count == 5 && !said.contains("5")) {
+                                wrong.add(file.getFileName() + " " + key + " loses its five: " + said);
+                            }
+                        } catch (IllegalArgumentException e) {
+                            wrong.add(file.getFileName() + " " + key + " does not parse: " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+        assertEquals(List.of(), wrong);
+        // And in English, the two forms as a person would write them.
+        Properties english = new Properties();
+        try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {
+            english.load(in);
+        }
+        assertEquals("1 unread error", java.text.MessageFormat.format(english.getProperty("statusbar.unread"), 1));
+        assertEquals("3 unread errors", java.text.MessageFormat.format(english.getProperty("statusbar.unread"), 3));
+        assertEquals(
+                "Imported themes (1 file)",
+                java.text.MessageFormat.format(english.getProperty("config.part.THEMES"), 1));
+        assertEquals(
+                "Imported themes (0 files)",
+                java.text.MessageFormat.format(english.getProperty("config.part.THEMES"), 0));
+    }
+
+    @Test
     void cannotBeUndoneIsSaidOnlyWhereItIsTrue() throws IOException {
         Properties english = new Properties();
         try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {

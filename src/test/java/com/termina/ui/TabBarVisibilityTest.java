@@ -33,4 +33,17 @@ class TabBarVisibilityTest {
         // Showing an empty strip there would flash a bare row on the way out.
         assertFalse(WindowRules.shouldShowTabBar(0, true));
     }
+
+    @org.junit.jupiter.api.Test
+    void hiddenByItsCommandItStaysHiddenWithAnyNumberOfTabs() {
+        // TABS-12 (Pauta 6.0.1): a command hides the tab bar, not only while there is one tab.
+        for (int tabs = 1; tabs <= 12; tabs++) {
+            assertFalse(WindowRules.shouldShowTabBar(tabs, false, false), tabs + " tabs");
+            assertFalse(WindowRules.shouldShowTabBar(tabs, true, false), tabs + " tabs");
+        }
+        // Shown, the older rule decides as it did.
+        assertTrue(WindowRules.shouldShowTabBar(3, true, true));
+        assertFalse(WindowRules.shouldShowTabBar(1, true, true));
+        assertTrue(WindowRules.shouldShowTabBar(1, false, true));
+    }
 }

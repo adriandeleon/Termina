@@ -349,6 +349,9 @@ public final class MenuIcons {
     private static final String SETTINGS_REMOVEPROFILE =
             "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
 
+    /** showTabBar: a window with a row of tabs under its top edge. */
+    private static final String SHOWTABBAR = "M2.5 3h11v10h-11zM2.5 6h11M6.5 3v3M10 3v3";
+
     /** The magnifier with a plus: the zoom row of the right-click menu, which is the zoom family's. */
     static Node zoom() {
         return line(ZOOMIN);
@@ -423,6 +426,7 @@ public final class MenuIcons {
         add("debugLog.export", () -> line(DEBUGLOG_EXPORT));
         add("settings.addProfile", () -> line(SETTINGS_ADDPROFILE));
         add("settings.removeProfile", () -> of(SETTINGS_REMOVEPROFILE));
+        add("showTabBar", () -> line(SHOWTABBAR));
         // The same action in another window wears the same glyph: Copy is Copy wherever it is.
         add("debugLog.find", MenuIcons::search);
         add("debugLog.copy", MenuIcons::copy);

@@ -355,7 +355,6 @@ public final class SyncEngine {
         }
     }
 
-    /** Creates the clone on first use and points it at {@link #url}; a different repository forgets the base. */
     /**
      * Creates the clone and points it at {@code url}, as the start of a run does — for the caller that
      * has to look at the clone before the run, to choose the account it signs in as. False when the
@@ -372,6 +371,7 @@ public final class SyncEngine {
         }
     }
 
+    /** Creates the clone on first use and points it at {@link #url}; a different repository forgets the base. */
     private static void prepareClone(GitRunner git, String url) throws IOException, GitFailure {
         Path clone = git.dir();
         Files.createDirectories(clone);

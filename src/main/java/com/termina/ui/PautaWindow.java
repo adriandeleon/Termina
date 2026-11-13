@@ -195,9 +195,8 @@ final class PautaWindow {
         StringJoiner line = new StringJoiner(" · ");
         for (Map.Entry<Kind, Integer> count :
                 PautaConformance.counts(exceptions).entrySet()) {
-            // One of a kind has its own string: several languages inflect the word that follows.
-            String key = "pauta.count." + count.getKey().key() + (count.getValue() == 1 ? ".one" : "");
-            line.add(tr(key, count.getValue()));
+            // Worded for the count by the catalog (INTL-12): one deviation, three deviations.
+            line.add(tr("pauta.count." + count.getKey().key(), count.getValue()));
         }
         return line.toString();
     }

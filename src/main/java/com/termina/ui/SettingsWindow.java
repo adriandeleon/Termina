@@ -237,26 +237,26 @@ public final class SettingsWindow {
         return out.append("stored=").append(settings.keyBindings()).toString();
     }
 
-    /** The window's scene, for the development capture hook. */
     /** Every page as built, for the test that exercises their controls. */
     java.util.Collection<Region> pagesForTest() {
         return pages.values();
     }
 
+    /** The window's scene, for the development capture hook. */
     public Scene scene() {
         return stage.getScene();
     }
 
-    /**
-     * Shows the window beside {@code from}, without being owned by it. Ownership would close it
-     * with the first terminal window to have opened it; see {@link SecondaryWindows}.
-     */
     /** Opens the window on the Profiles page: Configure Profiles, from the profile menu or a chord. */
     public void showProfiles(Window from) {
         show(from);
         sidebar.getSelectionModel().select(Category.PROFILES);
     }
 
+    /**
+     * Shows the window beside {@code from}, without being owned by it. Ownership would close it
+     * with the first terminal window to have opened it; see {@link SecondaryWindows}.
+     */
     public void show(Window from) {
         if (stage.isShowing()) {
             stage.toFront();
@@ -383,12 +383,6 @@ public final class SettingsWindow {
     }
 
     /**
-     * Asks before resetting, and says what the reset leaves alone.
-     *
-     * <p>The first version reset on the click. The button sits next to Close, the file it clears
-     * held the user's profiles, and "put the font back" is what most people mean by it.
-     */
-    /**
      * Runs one of the window's actions as its command does: the window comes up first, on the
      * action's page, so its question and its result have somewhere to be seen (KBD-01, Pauta
      * 6.0.1). The buttons run the same {@link #act}.
@@ -459,6 +453,12 @@ public final class SettingsWindow {
         return selected != null && selected.isEditable();
     }
 
+    /**
+     * Asks before resetting, and says what the reset leaves alone.
+     *
+     * <p>The first version reset on the click. The button sits next to Close, the file it clears
+     * held the user's profiles, and "put the font back" is what most people mean by it.
+     */
     private void confirmReset() {
         if (!Confirm.ask(
                 stage,
@@ -859,6 +859,7 @@ public final class SettingsWindow {
     private CheckBox typeAhead;
     private CheckBox bell;
     private CheckBox hideTabBar;
+    private CheckBox showTabBar;
     private CheckBox showMenuBar;
     private CheckBox menuBarInTitleBar;
     private Spinner<Integer> uiZoom;
@@ -1073,6 +1074,19 @@ public final class SettingsWindow {
                 hideTabBar,
                 "tab bar tabs hide single chrome strip header");
 
+        showTabBar = new CheckBox();
+        showTabBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setShowTabBar(value));
+        });
+        row(
+                Category.APPEARANCE,
+                tabsSection,
+                tr("settings.showTabBar"),
+                tr("settings.showTabBar.desc"),
+                showTabBar,
+                "tab bar tabs show hide strip header chrome");
+
         VBox windowSection = section(page, tr("settings.section.window"));
 
         showMenuBar = new CheckBox();
@@ -1165,13 +1179,13 @@ public final class SettingsWindow {
         windowOpacity.setMajorTickUnit(10);
         windowOpacity.setMinorTickCount(1);
         windowOpacity.setSnapToTicks(true);
-        windowOpacityValue = new Label("100%");
+        windowOpacityValue = new Label(tr("settings.percent", 100));
         windowOpacityValue.setMinWidth(44);
         // Live while dragging, but written only when the drag ends: every write saves the file and
         // broadcasts a settings change to every terminal in every window, which is not something to
         // do per pixel of travel.
         windowOpacity.valueProperty().addListener((o, old, value) -> {
-            windowOpacityValue.setText(WindowOpacity.percent(value.doubleValue() / 100) + "%");
+            windowOpacityValue.setText(tr("settings.percent", WindowOpacity.percent(value.doubleValue() / 100)));
             if (loading || windowOpacity.isValueChanging()) return;
             write(() -> settings.setWindowOpacity(value.doubleValue() / 100));
         });
@@ -1371,7 +1385,7 @@ public final class SettingsWindow {
         VBox links = section(page, tr("settings.section.links"));
 
         linkCommandField = new TextField();
-        linkCommandField.setPromptText("/path/to/editor {file}:{line}");
+        linkCommandField.setPromptText(tr("settings.linkOpenCommand.prompt"));
         linkCommandField.setPrefWidth(260);
         linkCommandField.focusedProperty().addListener((o, was, focused) -> {
             if (!focused && !loading) write(() -> settings.setLinkOpenCommand(linkCommandField.getText()));
@@ -1756,7 +1770,7 @@ public final class SettingsWindow {
         profileName = new TextField();
         profileName.setPromptText(tr("settings.profileName"));
         profileCommand = new TextField();
-        profileCommand.setPromptText("wsl.exe -d Ubuntu");
+        profileCommand.setPromptText(tr("settings.profileCommand.prompt"));
         profileDirectory = new TextField();
         profileDirectory.setPromptText(tr("settings.profileDirectory.prompt"));
         // Committed on Enter and on losing focus, which is how the shell and link fields on the
@@ -2600,6 +2614,7 @@ public final class SettingsWindow {
             notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
+            showTabBar.setSelected(settings.showTabBar());
             showMenuBar.setSelected(settings.showMenuBar());
             menuBarInTitleBar.setSelected(settings.menuBarInTitleBar());
             showScrollBar.setSelected(settings.showScrollBar());

@@ -233,11 +233,6 @@ final class DevCapture {
     }
 
     /**
-     * {@code -Dtermina.captureTheme=<id>} switches theme after the windows exist, which is how the
-     * broadcast gets checked: photograph a window that was open *before* the change and see whether
-     * it followed.
-     */
-    /**
      * {@code -Dtermina.captureImportTheme=<file>} imports a colour scheme as Settings → Import would,
      * selects it, and prints what was read — so the picture and the numbers can be checked together.
      */
@@ -260,6 +255,11 @@ final class DevCapture {
         }
     }
 
+    /**
+     * {@code -Dtermina.captureTheme=<id>} switches theme after the windows exist, which is how the
+     * broadcast gets checked: photograph a window that was open *before* the change and see whether
+     * it followed.
+     */
     private static void switchThemeIfRequested(com.termina.config.Settings settings) {
         String theme = System.getProperty("termina.captureTheme");
         if (theme == null || theme.isBlank()) return;
@@ -1165,7 +1165,6 @@ final class DevCapture {
         });
     }
 
-    /** Every dialog currently on screen, by its message. */
     /** What a window's text is actually drawn in — an unresolved family falls back in silence. */
     private static void probeFonts(Scene scene) {
         if (scene == null) return;
@@ -1185,6 +1184,7 @@ final class DevCapture {
         }
     }
 
+    /** Every dialog currently on screen, by its message. */
     private static void reportDialogs() {
         if (!Boolean.getBoolean("termina.captureCheckUpdates") && !Boolean.getBoolean("termina.captureSyncNow")) {
             return;
@@ -1201,14 +1201,6 @@ final class DevCapture {
         System.out.println("[capture] dialogs open=" + open.size() + " " + open);
     }
 
-    /**
-     * Gives focus to a piece of chrome and lets the guard take it back.
-     *
-     * <pre>-Dtermina.captureStealFocus=tabs|newtab|menubar</pre>
-     *
-     * <p>The focus report at the end of the run is the assertion: whatever this hands focus to, the
-     * terminal should own it again by the time the window settles.
-     */
     /**
      * Presses a chord through the operating system, not through JavaFX's event queue.
      *
@@ -1245,6 +1237,14 @@ final class DevCapture {
         System.out.println("[capture] fired native chord " + spec);
     }
 
+    /**
+     * Gives focus to a piece of chrome and lets the guard take it back.
+     *
+     * <pre>-Dtermina.captureStealFocus=tabs|newtab|menubar</pre>
+     *
+     * <p>The focus report at the end of the run is the assertion: whatever this hands focus to, the
+     * terminal should own it again by the time the window settles.
+     */
     private static void stealFocusIfRequested(TerminalWindow window) {
         String what = System.getProperty("termina.captureStealFocus");
         if (what == null || what.isBlank()) return;

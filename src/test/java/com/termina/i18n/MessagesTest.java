@@ -76,6 +76,7 @@ class MessagesTest {
             "menu.newTabProfile",
             "menu.updateAvailable",
             "menu.hideStatusBar",
+            "menu.hideTabBar",
             "menu.unpinTab",
             "menu.showMenuBar",
             "menu.showMenuBar.desc",

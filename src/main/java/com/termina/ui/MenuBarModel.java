@@ -110,6 +110,7 @@ final class MenuBarModel {
         // the window to hide.
         viewRows.add(SEPARATOR);
         viewRows.add("hideMenuBar");
+        viewRows.add("showTabBar");
         viewRows.add("showStatusBar");
         // The UI zoom's three commands: palette and chord only. View's zoom rows are the
         // terminal text's, which is the zoom a terminal's user reaches for.

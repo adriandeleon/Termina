@@ -73,14 +73,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "DOCS-15",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-15",
-      "kind": "pending",
-      "reason": "A few comments in the source code are doubled up.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "DOCS-18",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-18",
@@ -201,14 +193,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "ACC-05",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-05",
-      "kind": "pending",
-      "reason": "A tab's notification, bell and activity marks differ only by color.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "ACC-08",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-08",
@@ -241,14 +225,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "TABS-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/tabs-and-panels/#tabs-12",
-      "kind": "pending",
-      "reason": "The tab bar can be hidden only while a window has a single tab.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "SET-21",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/settings/#set-21",
@@ -270,22 +246,6 @@
       "url": "https://pauta-project.dev/6.0.1/command-line/#cli-10",
       "kind": "pending",
       "reason": "A few helper programs are looked for without your login shell's search path.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "INTL-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/i18n/#intl-07",
-      "kind": "pending",
-      "reason": "A few short labels, such as example commands in Settings, are not in the translation catalogs.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "INTL-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/i18n/#intl-12",
-      "kind": "pending",
-      "reason": "Some counts read as plurals even when the count is one.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

@@ -101,6 +101,14 @@ final class WindowRules {
     }
 
     /**
+     * The same, under the setting that hides the strip outright (TABS-12, Pauta 6.0.1): hidden by
+     * its command it stays hidden with any number of tabs open.
+     */
+    static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle, boolean showTabBar) {
+        return showTabBar && shouldShowTabBar(tabCount, hideWhenSingle);
+    }
+
+    /**
      * Whether the reference lists a binding, as far as profiles go: the profile chords only for
      * profiles that exist. Nine "New Tab With Profile" rows on a machine with one profile is eight
      * rows of chords that do nothing.

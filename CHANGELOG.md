@@ -36,6 +36,9 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Hide Tab Bar.** View ▸ Hide Tab Bar, the same command in the palette, and a row on Settings ▸
+  Appearance ▸ Tabs hide the row of tabs however many are open; the older setting only hid it for a
+  single tab. The tabs are still reached by their shortcuts, the tab menu and the palette.
 - **Focus Menu Bar** (Ctrl+Shift+F10) puts the keyboard in the menu bar and opens its first menu,
   so the arrow keys walk it. A plain F10 and a lone Alt, which do this in most apps, belong to the
   program running in the terminal.
@@ -123,6 +126,10 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **A tab's marks differ by shape as well as color**: a dot for new output, a ring for the bell, a
+  diamond for a program asking for attention. In gray they were three identical dots.
+- **Counts read right for one.** "1 unread error", "1 file", in every language; they were worded
+  for several whatever the count.
 - **Closing the Command Palette gives the keyboard back to where it was.** Opened from the find
   bar's field, it returns there; it used to return to the terminal every time.
 - **The menu bar and the tab strip are one band**, on one background with no line between them, and
