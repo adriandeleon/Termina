@@ -74,6 +74,9 @@ jobs:
           floors=""
           if [ "$RUNNER_OS" = "Windows" ]; then
             floors="-Dcoverage.bundle.line=0.45 -Dcoverage.bundle.method=0.47 -Dcoverage.bundle.branch=0.45"
+            # The large packages' own floors too: without the shell and window tests they have
+            # nothing to hold here.
+            floors="$floors -Dcoverage.package.ui=0 -Dcoverage.package.root=0 -Dcoverage.package.term=0"
           fi
           ./mvnw -B --no-transfer-progress verify $floors
         shell: bash
@@ -173,6 +176,26 @@ jobs:
             exit 1
           fi
           du -sh target/dist/* || true
+
+      # PERF-17 (Pauta 6.0.1): the release build precompiles the stylesheets, and JavaFX loads a
+      # .bss in place of the .css beside it. Asked of the linked image itself, not of the build's
+      # folders: a step that ran after the jar was made would leave them there and nowhere else.
+      - name: Check the image carries the precompiled stylesheets
+        shell: bash
+        run: |
+          set -euo pipefail
+          modules="$(find target/dist -type f -name modules -path '*lib/modules' | head -n 1)"
+          if [ -z "$modules" ]; then
+            echo "::error::no linked runtime image under target/dist"
+            exit 1
+          fi
+          listing="$(jimage list "$modules")"
+          for sheet in app settings editora-dark editora-light; do
+            if ! grep -q "com/termina/styles/$sheet\.bss" <<<"$listing"; then
+              echo "::error::$sheet.bss is not in the image"
+              exit 1
+            fi
+          done
 
       # Launches the packaged application and checks a shell actually ran in it. Until this existed
       # nothing had ever started the Windows or Linux binary: the jobs built them, checked the files

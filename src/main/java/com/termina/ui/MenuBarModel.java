@@ -110,6 +110,7 @@ final class MenuBarModel {
         // the window to hide.
         viewRows.add(SEPARATOR);
         viewRows.add("hideMenuBar");
+        viewRows.add("showTabBar");
         viewRows.add("showStatusBar");
         // The UI zoom's three commands: palette and chord only. View's zoom rows are the
         // terminal text's, which is the zoom a terminal's user reaches for.
@@ -152,6 +153,7 @@ final class MenuBarModel {
                         "view.messageLog",
                         "debugLog",
                         "reportProblem",
+                        "help.doctor",
                         "help.pauta",
                         SEPARATOR,
                         "help.about"),
@@ -172,7 +174,8 @@ final class MenuBarModel {
                         "help.sourceCode",
                         "help.pautaRules",
                         "help.pautaDocs",
-                        "help.copyPauta"));
+                        "help.copyPauta",
+                        "help.copyDoctor"));
 
         return List.of(file, edit, view, window, help);
     }

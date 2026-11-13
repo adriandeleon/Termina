@@ -20,62 +20,51 @@ import static com.termina.i18n.Messages.tr;
  * would otherwise draw in the platform's default face.
  *
  * <p>Every question the app asks before acting goes through here, the ones that are not removals
- * included — a multi-line paste, closing a running program — so they share one shape: {@link
- * Options} says how each differs.
+ * included — a multi-line paste, closing a running program — so they share one shape. The words
+ * and how each differs are a {@link Questions.Question}, built by pure functions.
  */
 final class Confirm {
 
     private Confirm() {}
 
-    /**
-     * Asks, and answers whether the action may go ahead.
-     *
-     * @param owner the window the question is about
-     * @param title the dialog's title, usually the command's own name
-     * @param question names the thing and what happens to it
-     * @param detail what it means, or an empty string for none
-     * @param action the confirming button's label: the action's verb
-     */
-    static boolean ask(Window owner, String title, String question, String detail, String action) {
-        return ask(owner, title, question, detail, action, Options.REMOVAL);
+    /** Asks, and answers whether the action may go ahead. */
+    static boolean ask(Window owner, Questions.Question question) {
+        return ask(owner, question, null);
     }
 
     /**
-     * How a question differs from a removal's.
-     *
-     * @param danger whether the confirming button has the danger style: the action ends or
-     *     destroys something (CONF-03)
-     * @param cancelIsDefault whether Enter answers Cancel. A dangerous question's always does,
-     *     whatever is said here (CONF-13, Pauta 6.0.1): the red button runs only from itself
-     * @param more shown expanded under the question: what the action will act on, when a count is
-     *     not enough to decide on
+     * What answers every question in place of the person, or null: a test's or a capture run's
+     * (CONF-12, Pauta 6.0.1). While it is set no dialog is built or shown, so a UI test never
+     * presses a native button and a headless run never waits on a modal one.
      */
-    record Options(boolean danger, boolean cancelIsDefault, javafx.scene.@Nullable Node more) {
-        /** A removal: the danger style, and Enter keeps what the user has. */
-        static final Options REMOVAL = new Options(true, true, null);
+    private static volatile java.util.function.@Nullable Predicate<Questions.Question> answerer;
 
-        /** Whether Cancel is the default button: asked for, or the action is dangerous. */
-        boolean cancelDefault() {
-            return danger || cancelIsDefault;
-        }
+    /** Answers every question with {@code answers} until given null. For tests and capture runs. */
+    static void answerWith(java.util.function.@Nullable Predicate<Questions.Question> answers) {
+        answerer = answers;
     }
 
-    /** {@link #ask(Window, String, String, String, String)}, shaped by {@code options}. */
-    static boolean ask(Window owner, String title, String question, String detail, String action, Options options) {
+    /**
+     * {@link #ask(Window, Questions.Question)} with something shown expanded under the question:
+     * what the action will act on, when a count is not enough to decide on.
+     */
+    static boolean ask(Window owner, Questions.Question question, javafx.scene.@Nullable Node more) {
+        java.util.function.Predicate<Questions.Question> answers = answerer;
+        if (answers != null) return answers.test(question);
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.initOwner(owner);
-        alert.setTitle(title);
-        alert.setHeaderText(question);
-        alert.setContentText(detail.isBlank() ? null : detail);
-        ButtonType go = new ButtonType(action, ButtonBar.ButtonData.OK_DONE);
+        alert.setTitle(question.title());
+        alert.setHeaderText(question.header());
+        alert.setContentText(question.detail().isBlank() ? null : question.detail());
+        ButtonType go = new ButtonType(question.action(), ButtonBar.ButtonData.OK_DONE);
         ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
         alert.getButtonTypes().setAll(go, cancel);
-        if (options.danger() && alert.getDialogPane().lookupButton(go) instanceof Button button) {
+        if (question.danger() && alert.getDialogPane().lookupButton(go) instanceof Button button) {
             button.getStyleClass().add(atlantafx.base.theme.Styles.DANGER);
         }
-        if (options.cancelDefault()) cancelIsDefault(alert.getDialogPane(), go, cancel);
-        if (options.more() != null) {
-            alert.getDialogPane().setExpandableContent(options.more());
+        if (question.cancelDefault()) cancelIsDefault(alert.getDialogPane(), go, cancel);
+        if (more != null) {
+            alert.getDialogPane().setExpandableContent(more);
             alert.getDialogPane().setExpanded(true);
         }
         style(alert.getDialogPane());

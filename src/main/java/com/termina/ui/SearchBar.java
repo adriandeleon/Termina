@@ -38,7 +38,7 @@ final class SearchBar extends HBox {
 
     private final TextField field = new TextField();
     private final Label count = new Label();
-    private final ToggleButton regex = new ToggleButton(".*");
+    private final ToggleButton regex = new ToggleButton(tr("search.regexToggle"));
     private final Listener listener;
 
     SearchBar(Listener listener) {

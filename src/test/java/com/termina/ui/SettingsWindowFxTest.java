@@ -22,6 +22,7 @@ import javafx.stage.Stage;
 
 import com.termina.config.Settings;
 import com.termina.shell.ShellProfiles;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -159,7 +160,7 @@ class SettingsWindowFxTest {
         waitFor(() -> shell.toString().equals(settings.shell()), "the shell path to be written");
         stored.add(settings.shell());
         onFx(() -> enter(shellField, dir.resolve("no-such-shell").toString()));
-        Thread.sleep(400);
+        awaitMarked(shellField);
         stored.add(settings.shell());
         onFx(() -> enter(shellField, ""));
         waitFor(() -> settings.shell().isEmpty(), "the shell path to be cleared");
@@ -184,14 +185,14 @@ class SettingsWindowFxTest {
         waitFor(() -> (shell + " --login").equals(userProfile(profiles).commandLine()), "the command to be written");
         stored.add(userProfile(profiles).commandLine());
         onFx(() -> enter(command, dir.resolve("no-such-program") + " --login"));
-        Thread.sleep(400);
+        awaitMarked(command);
         stored.add(userProfile(profiles).commandLine());
         onFx(() -> enter(command, shell + " --login"));
         onFx(() -> enter(directory, dir.toString()));
         waitFor(() -> dir.toString().equals(userProfile(profiles).workingDirectory()), "the folder to be written");
         stored.add(userProfile(profiles).workingDirectory());
         onFx(() -> enter(directory, dir.resolve("no-such-folder").toString()));
-        Thread.sleep(400);
+        awaitMarked(directory);
         stored.add(userProfile(profiles).workingDirectory());
         onFx(() -> {
             windowHolder[0].scene().getWindow().hide();
@@ -216,6 +217,42 @@ class SettingsWindowFxTest {
                         dir.toString()),
                 stored);
         assertFalse(settings.syncEnabled(), "storing the fields connects nothing");
+    }
+
+    /**
+     * DOCS-11 (Pauta 6.0.1): every page ends in a link, Help for and the page's name, that opens
+     * that page's part of the documentation through the application's own way of opening a link.
+     */
+    @Test
+    void everyPageHasALinkToItsDocumentation() throws Exception {
+        Settings settings = new Settings(dir.resolve("settings.json"));
+        settings.load();
+        ShellProfiles profiles = new ShellProfiles(settings, "Default Shell");
+        List<String> opened = new ArrayList<>();
+        List<String> links = onFx(() -> {
+            SettingsWindow window = new SettingsWindow(settings, profiles, List.of(), null);
+            window.openLinksWith(opened::add);
+            List<String> texts = new ArrayList<>();
+            for (Region page : window.pagesForTest()) {
+                List<javafx.scene.control.Hyperlink> help = find(page, javafx.scene.control.Hyperlink.class).stream()
+                        .filter(link -> link.getStyleClass().contains("settings-help-link"))
+                        .toList();
+                assertEquals(1, help.size(), "one help link a page");
+                texts.add(help.get(0).getText());
+                help.get(0).fire();
+            }
+            return texts;
+        });
+        List<String> wanted = new ArrayList<>();
+        List<String> addresses = new ArrayList<>();
+        for (SettingsWindow.Category page : SettingsWindow.Category.values()) {
+            wanted.add(com.termina.i18n.Messages.tr("settings.helpFor", page.title()));
+            addresses.add(SettingsHelp.url(page));
+        }
+        assertEquals(wanted.stream().sorted().toList(), links.stream().sorted().toList());
+        assertEquals(
+                addresses.stream().sorted().toList(), opened.stream().sorted().toList());
+        assertTrue(links.contains("Help for Appearance"), links.toString());
     }
 
     /** SET-03 (Pauta 6.0.1): what a row's controls show is what the search reads as visible text. */
@@ -248,6 +285,26 @@ class SettingsWindowFxTest {
         throw new AssertionError("no field with the prompt " + prompt);
     }
 
+    /**
+     * Waits for the line under a path field that says what is wrong with it. The check behind the
+     * mark starts after the one the commit made, so by then the commit has had its answer, and two
+     * frames more let the write it would have made happen.
+     */
+    private static void awaitMarked(TextField field) throws InterruptedException {
+        waitFor(
+                () -> {
+                    try {
+                        return onFx(() -> field.getParent() instanceof javafx.scene.layout.VBox box
+                                && box.getChildren().size() > 1
+                                && box.getChildren().get(1).isVisible());
+                    } catch (Exception e) {
+                        return false;
+                    }
+                },
+                "the mark under the field");
+        Await.frames(2);
+    }
+
     private static Void enter(TextField field, String text) {
         field.setText(text);
         field.fireEvent(new ActionEvent());
@@ -266,7 +323,167 @@ class SettingsWindowFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(25);
+            Await.frame();
+        }
+    }
+
+    /**
+     * QUAL-13 (Pauta 6.0.1): a settings round trip. Every switch, number and choice in the window
+     * is set to something else, the settings are written and read back from the file as a restart
+     * reads them, and a second window over those shows each control where the first left it.
+     */
+    @Test
+    void everySwitchNumberAndChoiceSurvivesARestart() throws Exception {
+        Path file = dir.resolve("roundtrip.json");
+        Settings settings = new Settings(file);
+        settings.load();
+        List<Keybindings.Command> commands =
+                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+
+        List<String> before = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        List<String> set = onFx(() -> {
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 400, 300));
+            owner.show();
+            SettingsWindow window =
+                    new SettingsWindow(settings, new ShellProfiles(settings, "System shell"), commands, null);
+            window.show(owner);
+            List<Node> controls = new ArrayList<>();
+            for (Region page : window.pagesForTest()) valueControls(page, controls);
+            for (Node control : controls) before.add(valueOf(control));
+            names.addAll(keys(controls));
+            for (Node control : controls) change(control);
+            List<String> after = new ArrayList<>();
+            for (Node control : controls) after.add(valueOf(control));
+            window.scene().getWindow().hide();
+            owner.hide();
+            return after;
+        });
+        // The UI zoom is written a moment later, once its stylesheets are ready on a worker.
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (settings.uiZoom() == Settings.DEFAULT_UI_ZOOM && System.nanoTime() < deadline) Await.frame();
+        settings.flush();
+
+        int changed = 0;
+        List<String> unchanged = new ArrayList<>();
+        for (int i = 0; i < set.size(); i++) {
+            if (!set.get(i).equals(before.get(i))) changed++;
+            else unchanged.add(names.get(i) + "=" + set.get(i));
+        }
+        assertTrue(set.size() >= 20, "switches, numbers and choices found: " + set.size());
+        assertTrue(
+                changed >= set.size() - 6,
+                "almost every control took another value: " + changed + " of " + set.size() + "; not " + unchanged);
+
+        Settings reread = new Settings(file);
+        reread.load();
+        List<String> shown = onFx(() -> {
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 400, 300));
+            owner.show();
+            SettingsWindow window =
+                    new SettingsWindow(reread, new ShellProfiles(reread, "System shell"), commands, null);
+            window.show(owner);
+            // Every one, greyed or not: turning a switch off greys the number beside it, and the
+            // number is still what it was set to.
+            List<Node> controls = new ArrayList<>();
+            for (Region page : window.pagesForTest()) valueControls(page, controls, true);
+            List<String> keys = keys(controls);
+            List<String> out = new ArrayList<>();
+            for (int i = 0; i < controls.size(); i++) out.add(keys.get(i) + "=" + valueOf(controls.get(i)));
+            window.scene().getWindow().hide();
+            owner.hide();
+            return out;
+        });
+        List<String> wrong = new ArrayList<>();
+        for (int i = 0; i < set.size(); i++) {
+            String want = names.get(i) + "=" + set.get(i);
+            if (!shown.contains(want)) wrong.add(want);
+        }
+        assertEquals(List.of(), wrong, "each control reads back what it was set to; the window shows " + shown);
+        // The zoom is the whole app's: every other test expects to find it at 100%.
+        onFx(() -> {
+            UiZoom.apply(Settings.DEFAULT_UI_ZOOM);
+            return null;
+        });
+    }
+
+    /** Every enabled switch, number and choice under {@code node}, in the order the page lays them out. */
+    private static void valueControls(Node node, List<Node> out) {
+        valueControls(node, out, false);
+    }
+
+    /** As above; with {@code disabledToo}, the ones a state of the page has greyed as well. */
+    private static void valueControls(Node node, List<Node> out, boolean disabledToo) {
+        boolean takesAValue = (node instanceof CheckBox
+                        || node instanceof SettingSwitch
+                        || node instanceof Slider
+                        || (node instanceof ComboBox<?> combo
+                                && !combo.getItems().isEmpty())
+                        || (node instanceof Spinner<?> spinner && spinner.getValueFactory() != null))
+                && (disabledToo || !node.isDisabled());
+        if (takesAValue) {
+            // Once each: the page on show is listed with the pages, and is the same nodes.
+            boolean listed = false;
+            for (Node have : out) listed |= have == node;
+            if (!listed) out.add(node);
+            return; // a spinner's own text field is the spinner
+        }
+        if (node instanceof javafx.scene.control.ScrollPane scroll && scroll.getContent() != null) {
+            valueControls(scroll.getContent(), out, disabledToo);
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : new ArrayList<>(parent.getChildrenUnmodifiable())) {
+                valueControls(child, out, disabledToo);
+            }
+        }
+    }
+
+    /** A name a second window gives the same control: its kind, its label, and which of that name it is. */
+    private static List<String> keys(List<Node> controls) {
+        List<String> out = new ArrayList<>();
+        java.util.Map<String, Integer> seen = new java.util.HashMap<>();
+        for (Node control : controls) {
+            String name = control.getClass().getSimpleName() + ":" + control.getAccessibleText();
+            out.add(name + "#" + seen.merge(name, 1, Integer::sum));
+        }
+        return out;
+    }
+
+    private static String valueOf(Node control) {
+        if (control instanceof CheckBox box) return String.valueOf(box.isSelected());
+        if (control instanceof SettingSwitch sw) return String.valueOf(sw.isSelected());
+        if (control instanceof Slider slider) return String.valueOf(Math.round(slider.getValue()));
+        if (control instanceof ComboBox<?> combo) return String.valueOf(combo.getValue());
+        if (control instanceof Spinner<?> spinner) return String.valueOf(spinner.getValue());
+        return "";
+    }
+
+    /** Sets a control to something other than what it shows: the other state, the next step, another item. */
+    private static void change(Node control) {
+        if (control instanceof CheckBox box) {
+            box.fire();
+        } else if (control instanceof SettingSwitch sw) {
+            sw.toggle();
+        } else if (control instanceof Slider slider) {
+            double middle = (slider.getMin() + slider.getMax()) / 2;
+            slider.setValue(Math.round(slider.getValue()) == Math.round(middle) ? slider.getMin() : middle);
+        } else if (control instanceof ComboBox<?> combo) {
+            pickAnother(combo);
+        } else if (control instanceof Spinner<?> spinner) {
+            Object was = spinner.getValue();
+            spinner.increment();
+            if (java.util.Objects.equals(was, spinner.getValue())) spinner.decrement();
+        }
+    }
+
+    private static <T> void pickAnother(ComboBox<T> combo) {
+        for (T item : combo.getItems()) {
+            if (!java.util.Objects.equals(item, combo.getValue())) {
+                combo.setValue(item);
+                return;
+            }
         }
     }
 
@@ -275,6 +492,31 @@ class SettingsWindowFxTest {
         if (node instanceof CheckBox box && !box.isDisabled()) {
             box.fire();
             box.fire();
+            counts[0]++;
+        } else if (node instanceof SettingSwitch sw && !sw.isDisabled()) {
+            // KBD-18 (Pauta 6.0.1): an on/off row is a switch the keyboard works. Space flips it,
+            // and so does a screen reader's press; there and back.
+            boolean was = sw.isSelected();
+            javafx.event.Event.fireEvent(
+                    sw,
+                    new javafx.scene.input.KeyEvent(
+                            javafx.scene.input.KeyEvent.KEY_PRESSED,
+                            " ",
+                            " ",
+                            javafx.scene.input.KeyCode.SPACE,
+                            false,
+                            false,
+                            false,
+                            false));
+            if (sw.isSelected() == was) throw new AssertionError("Space did not flip " + sw.getAccessibleText());
+            sw.executeAccessibleAction(javafx.scene.AccessibleAction.FIRE);
+            if (sw.isSelected() != was) throw new AssertionError("a press did not flip it back");
+            if (sw.getAccessibleRole() != javafx.scene.AccessibleRole.TOGGLE_BUTTON || !sw.isFocusTraversable()) {
+                throw new AssertionError(sw.getAccessibleText() + " is not a focusable toggle");
+            }
+            if (!Boolean.valueOf(was).equals(sw.queryAccessibleAttribute(javafx.scene.AccessibleAttribute.SELECTED))) {
+                throw new AssertionError(sw.getAccessibleText() + " does not say whether it is on");
+            }
             counts[0]++;
         } else if (node instanceof ComboBox<?> combo
                 && !combo.isDisabled()

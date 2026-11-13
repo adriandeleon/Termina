@@ -70,6 +70,7 @@ final class SettingCommands {
         }
         out.add(number("settings.fontSize", host, () -> format(settings.fontSize()), settings::setFontSize));
         out.add(toggle("settings.hideTabBar", settings::hideTabBarWhenSingle, settings::setHideTabBarWhenSingle));
+        out.add(toggle("settings.showTabBar", settings::showTabBar, settings::setShowTabBar));
         Entry titleBar =
                 toggle("settings.menuBarInTitleBar", settings::menuBarInTitleBar, settings::setMenuBarInTitleBar);
         out.add(

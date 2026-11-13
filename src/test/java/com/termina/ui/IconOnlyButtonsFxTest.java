@@ -18,6 +18,7 @@ import javafx.scene.control.MenuItem;
 import javafx.stage.Window;
 
 import com.termina.config.Settings;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,8 @@ class IconOnlyButtonsFxTest {
             if (view != null) view.showSearch();
             return null;
         });
-        Thread.sleep(300);
+        waitFor(() -> started(window), "the second tab's shell");
+        Await.frames(2); // and the strip and the find bar laid out
 
         List<String> unnamed = new ArrayList<>();
         int checked = onFx(() -> {
@@ -161,7 +163,7 @@ class IconOnlyButtonsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

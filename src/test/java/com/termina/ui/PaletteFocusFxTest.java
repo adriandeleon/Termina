@@ -10,6 +10,7 @@ import javafx.scene.Node;
 import javafx.scene.control.TextInputControl;
 
 import com.termina.config.Settings;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -99,6 +100,108 @@ class PaletteFocusFxTest {
     }
 
     @Test
+    void anOpenPaletteFollowsAChangeOfBindings() throws Exception {
+        // PAL-09 (Pauta 6.0.1): the opener's chip and the rows are rebuilt as the bindings change,
+        // so a palette that is up never shows a chord that has moved.
+        Settings settings = new Settings(dir.resolve("rebind.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+
+        String[] seen = onFx(() -> {
+            run(window, "palette.show");
+            String before = window.paletteChordForTest("newTab") + " " + window.paletteOpenerForTest();
+            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y", "palette.show", "Alt+X"));
+            String after = window.paletteChordForTest("newTab") + " " + window.paletteOpenerForTest();
+            run(window, "palette.show");
+            settings.replaceKeyBindings(java.util.Map.of());
+            return new String[] {before, after};
+        });
+        String y = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+Y").getDisplayText();
+        // New Tab's own default, which is Cmd+T on macOS and Ctrl+Shift+T elsewhere.
+        String t = MenuAction.appChord(javafx.scene.input.KeyCode.T).getDisplayText();
+        String p = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+P").getDisplayText();
+        String x = javafx.scene.input.KeyCombination.valueOf("Alt+X").getDisplayText();
+        assertEquals(t + " " + p, seen[0]);
+        assertEquals(y + " " + x, seen[1], "the open palette shows the chords in force");
+    }
+
+    @Test
+    void theTerminalAndTheStatusBarSayWhatTheyAreToAScreenReader() throws Exception {
+        // ACC-03, ACC-02 (Pauta 6.0.1): the terminal stands for its canvas, as a text area whose
+        // text is the screen; the status bar's message is a button whose press opens the log.
+        Settings settings = new Settings(dir.resolve("reader.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+        onFx(() -> {
+            java.util.Objects.requireNonNull(window.activeTerminal())
+                    .getSession()
+                    .sendString("echo reader-can-hear\r");
+            return null;
+        });
+        waitFor(
+                () -> {
+                    try {
+                        return onFx(() -> String.valueOf(java.util.Objects.requireNonNull(window.activeTerminal())
+                                        .queryAccessibleAttribute(javafx.scene.AccessibleAttribute.TEXT))
+                                .lines()
+                                .anyMatch("reader-can-hear"::equals));
+                    } catch (Exception e) {
+                        return false;
+                    }
+                },
+                "the screen's text to reach the accessible text");
+        String said = onFx(() -> {
+            TerminalView view = java.util.Objects.requireNonNull(window.activeTerminal());
+            String text = String.valueOf(view.queryAccessibleAttribute(javafx.scene.AccessibleAttribute.TEXT));
+            return view.getAccessibleRole() + " " + view.getAccessibleText() + " " + text.endsWith(" ") + " "
+                    + text.endsWith("\n");
+        });
+        assertEquals("TEXT_AREA " + com.termina.i18n.Messages.tr("terminal.accessibleName") + " false false", said);
+
+        boolean[] pressed = onFx(() -> {
+            java.util.List<PressLabel> labels = new java.util.ArrayList<>();
+            collect(window.stage().getScene().getRoot(), labels);
+            boolean roles = !labels.isEmpty();
+            for (PressLabel label : labels) roles &= label.getAccessibleRole() == javafx.scene.AccessibleRole.BUTTON;
+            int logs = openLogs();
+            labels.getFirst().executeAccessibleAction(javafx.scene.AccessibleAction.FIRE);
+            boolean opened = openLogs() > logs;
+            for (javafx.stage.Window open : java.util.List.copyOf(javafx.stage.Window.getWindows())) {
+                if (open instanceof javafx.stage.Stage stage
+                        && com.termina.i18n.Messages.tr("messagelog.title").equals(stage.getTitle())) {
+                    stage.hide();
+                }
+            }
+            return new boolean[] {roles, opened};
+        });
+        assertTrue(pressed[0], "the status bar's labels are buttons to a screen reader");
+        assertTrue(pressed[1], "and a press opens the Message Log");
+    }
+
+    private static int openLogs() {
+        int count = 0;
+        for (javafx.stage.Window open : javafx.stage.Window.getWindows()) {
+            if (open instanceof javafx.stage.Stage stage
+                    && stage.isShowing()
+                    && com.termina.i18n.Messages.tr("messagelog.title").equals(stage.getTitle())) count++;
+        }
+        return count;
+    }
+
+    private static void collect(Node node, java.util.List<PressLabel> out) {
+        if (node instanceof PressLabel label) out.add(label);
+        if (node instanceof javafx.scene.Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) collect(child, out);
+        }
+    }
+
+    @Test
     void theKeyboardReachesTheMenuBarThroughItsCommand() throws Exception {
         Settings settings = new Settings(dir.resolve("bar.json"));
         settings.load();
@@ -155,7 +258,7 @@ class PaletteFocusFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(25);
+            Await.frame();
         }
     }
 

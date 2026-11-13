@@ -112,7 +112,7 @@ final class LinkOpener implements LinkActions {
         launcher.execute(() -> {
             try {
                 // Resolution can start a login shell, so it belongs on the worker too.
-                new ProcessBuilder(resolver.apply(argv))
+                com.termina.process.ChildPath.apply(new ProcessBuilder(resolver.apply(argv)))
                         // An undrained pipe is this codebase's recurring way to wedge a child. We
                         // never read either stream, so neither may be one.
                         .redirectOutput(ProcessBuilder.Redirect.DISCARD)

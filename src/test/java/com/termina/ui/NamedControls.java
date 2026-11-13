@@ -79,7 +79,6 @@ final class NamedControls {
         return out;
     }
 
-    /** The unnamed rows of every right-click menu a control under {@code root} has been given. */
     /**
      * The rows of a menu that carry no glyph (MENU-14, Pauta 6.0.1): every row does but a check or
      * radio row, whose mark has the icon column. A plain row's glyph is its graphic; a row drawn
@@ -128,6 +127,7 @@ final class NamedControls {
         return false;
     }
 
+    /** The unnamed rows of every right-click menu a control under {@code root} has been given. */
     static List<String> unnamedMenus(Node root) {
         List<String> out = new ArrayList<>();
         if (root instanceof Control control && control.getContextMenu() != null) {

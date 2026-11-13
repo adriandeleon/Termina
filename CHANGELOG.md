@@ -13,6 +13,15 @@ done.
 
 ### Added
 
+- **Each page of Settings ends in a link to its help:** Help for Appearance, Help for Profiles and
+  so on, opening that page of the documentation.
+- **`TODO.md`** is the open list: the Pauta rules not met yet, what has never been run, and the
+  terminal features not done. It changes in the same pull request as the work.
+- **Help ▸ Doctor** checks what Termina relies on: the shell it starts, its settings folder, Git
+  and the GitHub CLI for settings sync, and on Linux the tools for the selection clipboard,
+  notifications and opening links. Each row says OK, Missing, Optional or Problem in words, with
+  what was found, and a row that is not OK says what to install and links to it. Check Again
+  re-runs it; Copy as text gives the rows for a bug report.
 - **`--dev`** keeps a separate set of settings in `~/.termina-dev`, so a build being tried out never
   touches the ones in daily use. `--config-dir` still takes precedence, and `--dev` wins over
   `TERMINA_CONFIG_DIR`: what is typed on the command line is the more specific instruction.
@@ -36,9 +45,14 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Hide Tab Bar.** View ▸ Hide Tab Bar, the same command in the palette, and a row on Settings ▸
+  Appearance ▸ Tabs hide the row of tabs however many are open; the older setting only hid it for a
+  single tab. The tabs are still reached by their shortcuts, the tab menu and the palette.
 - **Focus Menu Bar** (Ctrl+Shift+F10) puts the keyboard in the menu bar and opens its first menu,
   so the arrow keys walk it. A plain F10 and a lone Alt, which do this in most apps, belong to the
   program running in the terminal.
+- **`-Dtermina.stallLog` says where, not only for how long.** While the UI thread is stuck, a
+  watcher prints its stack, once for each stall, before the line that reports the gap.
 - **Interface zoom.** Settings ▸ Appearance ▸ Window ▸ Interface zoom, from 80% to 200%, makes the
   menus, the tab strip, the status bar, the palette and every other window larger or smaller, at
   once. Zoom Interface In, Zoom Interface Out and Reset Interface Zoom are in the palette and can be
@@ -117,12 +131,55 @@ done.
 
 ### Changed
 
+- **Repainting a screen that has not changed allocates almost nothing.** Each frame used to copy
+  every run of text on screen to a new string, and the emulator's own walk over the rows made more
+  for each row: about 12,700 bytes a frame on a full coloured screen, sixty times a second while a
+  cursor blinks or a selection is dragged. The text a frame draws is now kept from the frame
+  before, and the rows are read directly: about 900 bytes, measured by a test.
+- **The README's picture is the current window, dark and light, at 2×,** shown by the page's
+  colour scheme. `scripts/screenshots.sh` retakes both from the real window with no window opened
+  on the desktop, and `-Dtermina.captureScale=2` does the same for any capture.
+- **The tests wait for what they need instead of sleeping.** Fifty-five fixed and polling sleeps
+  are gone: a test waits on the next frame, on a signal the code under test fires, or on a
+  worker's own queue. Two of them had been hiding a test that typed its commands onto a
+  half-finished line, so the mouse modes it meant to exercise were never set; its keys and
+  mouse reports now go to a loop that reads them, not to the shell's prompt.
+- **A greyed menu row says why.** Rest the pointer on a command a menu has greyed and a tooltip
+  gives the reason the command palette gives: no tab has been closed, this is the only tab, there
+  is no link under the pointer. In the menu bar's menus, a tab's menu and the terminal's
+  right-click menu; not in the macOS screen menu bar, whose rows are the system's.
+- **Open Link and Copy Link Address are always in the right-click menu,** greyed where there is no
+  link, in a group of their own after Select All. They used to appear at the top only over a link.
+- **Move Tab Left and Move Tab Right are greyed at the ends of the strip,** in the Window menu and
+  the palette as well as in a tab's own menu, and a tab's Close Other Tabs is greyed when every
+  other tab is pinned, as the palette's already was.
+- **A quicker start.** The settings are read on a thread of their own while JavaFX starts, not
+  after it, and release builds carry their stylesheets precompiled, so they are loaded without
+  being parsed.
+- **The font picker's list is made in the background** after the first frame. Working out which
+  installed fonts are monospace used to happen when Settings first opened, and held the window for
+  a quarter of a second on a machine with many fonts.
 - **The status bar is shown, and on Windows and Linux the menu bar is in the title bar, unless you
   turn them off.** Both were options that started off. If you never changed either you will see
   both after this update: a row under the terminal that says what the last command reported, where
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **The on and off rows of Settings are switches.** Tab reaches each one, Space or Enter flips it,
+  and a screen reader announces it as a toggle with its state; they were check boxes.
+- **A screen reader can read the terminal.** The terminal is announced as a text area named
+  Terminal whose text is what is on screen. The status bar's message is announced as a button that
+  opens the Message Log, and the Command Palette says which row is highlighted and why a greyed
+  one cannot run.
+- **A settings sync that fails on its own says so.** A failed automatic sync, or one started on
+  the Settings page, now goes to the Message Log and the status bar, once per kind of failure; it
+  used to show only on the Sync page. That page has a status pill: Off, Synced, Syncing or Problem.
+- **An open Command Palette follows a change of key bindings**, its rows and its own shortcut
+  included.
+- **A tab's marks differ by shape as well as color**: a dot for new output, a ring for the bell, a
+  diamond for a program asking for attention. In gray they were three identical dots.
+- **Counts read right for one.** "1 unread error", "1 file", in every language; they were worded
+  for several whatever the count.
 - **Closing the Command Palette gives the keyboard back to where it was.** Opened from the find
   bar's field, it returns there; it used to return to the terminal every time.
 - **The menu bar and the tab strip are one band**, on one background with no line between them, and
@@ -336,6 +393,9 @@ done.
 
 ### Fixed
 
+- **Settings sync's `gh` is given the login shell's `PATH`,** as `git` already was: started from a
+  desktop launcher, a `gh` installed by Homebrew could be found and then fail to find `git`. The
+  link opener and the desktop's own tools (`xclip`, `notify-send`) get it too once it is known.
 - **A desktop notification that could not be shown says why in the Debug Log**: no `notify-send` or
   `gdbus` to post it with, a tool that did not answer in five seconds, or one that exited with an
   error. Only an exception was logged.

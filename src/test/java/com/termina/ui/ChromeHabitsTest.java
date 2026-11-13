@@ -192,6 +192,212 @@ class ChromeHabitsTest {
     }
 
     @Test
+    void noLiteralReachesAControlsText() throws IOException {
+        // INTL-07 (Pauta 6.0.1): every string a control shows comes from the catalog, through
+        // Messages.tr. A literal with a letter or a digit in a text position fails; a lone space
+        // that holds a row's height, and the letter a font is measured with, are not text.
+        java.util.regex.Pattern literal = java.util.regex.Pattern.compile(
+                "(?:new (?:Label|Button|ToggleButton|Hyperlink|MenuItem|CheckMenuItem|CheckBox|RadioButton|Tooltip|Text|Tab|TitledPane)"
+                        + "|\\.set(?:Text|PromptText|Title|HeaderText|ContentText|AccessibleText))\\(\"([^\"]*)\"");
+        List<String> found = new ArrayList<>();
+        for (Path file : sources()) {
+            String name = file.getFileName().toString();
+            // The development capture harness prints to a console and shows nothing to a user.
+            if (name.equals("DevCapture.java")) continue;
+            int number = 0;
+            for (String line : Files.readAllLines(file)) {
+                number++;
+                java.util.regex.Matcher m = literal.matcher(line);
+                while (m.find()) {
+                    String text = m.group(1);
+                    if (!text.matches(".*[\\p{L}\\p{N}].*")) continue;
+                    if (line.contains("Text probe = new Text(")) continue; // a measurement, never shown
+                    found.add(name + ":" + number + " \"" + text + "\"");
+                }
+            }
+        }
+        assertEquals(List.of(), found);
+    }
+
+    @Test
+    void aDocCommentSitsOnItsMember() throws IOException {
+        // DOCS-15 (Pauta 6.0.1): a doc comment above another doc comment documents nothing. It
+        // happens when a member is put between a comment and what it was written for.
+        java.util.regex.Pattern stranded = java.util.regex.Pattern.compile(
+                "/\\*\\*(?:(?!\\*/).)*\\*/(?:\\s|//[^\\n]*\\n)*(?=/\\*\\*)", java.util.regex.Pattern.DOTALL);
+        List<String> found = new ArrayList<>();
+        List<Path> all = new ArrayList<>(sources());
+        try (Stream<Path> tests = Files.walk(Path.of("src/test/java"))) {
+            all.addAll(tests.filter(file -> file.toString().endsWith(".java")).toList());
+        }
+        for (Path file : all) {
+            String text = Files.readString(file);
+            java.util.regex.Matcher m = stranded.matcher(text);
+            while (m.find()) {
+                long line = text.substring(0, m.start())
+                                .chars()
+                                .filter(c -> c == '\n')
+                                .count()
+                        + 1;
+                found.add(file.getFileName() + ":" + line);
+            }
+        }
+        assertEquals(List.of(), found);
+    }
+
+    @Test
+    void aMessageWithACountIsWordedForTheCount() throws IOException {
+        // INTL-12 (Pauta 6.0.1): a choice limb for each form the language needs, never "file(s)",
+        // and every choice pattern parses and reads right for nothing, one, two and many.
+        List<String> wrong = new ArrayList<>();
+        List<String> counted = List.of(
+                "statusbar.unread",
+                "config.part.PREFERENCES",
+                "config.part.PROFILES",
+                "config.part.THEMES",
+                "pauta.count.pending",
+                "pauta.count.deviation",
+                "pauta.count.appOnly",
+                "pauta.count.notApplicable");
+        try (Stream<Path> files = Files.list(Path.of("src/main/resources/com/termina/i18n"))) {
+            for (Path file :
+                    files.filter(f -> f.toString().endsWith(".properties")).toList()) {
+                Properties catalog = new Properties();
+                try (var in = Files.newBufferedReader(file)) {
+                    catalog.load(in);
+                }
+                for (String key : catalog.stringPropertyNames()) {
+                    String value = catalog.getProperty(key);
+                    if (value.contains("{") && value.contains("(s)"))
+                        wrong.add(file.getFileName() + " " + key + " (s)");
+                    if (counted.contains(key) && !value.contains(",choice,")) {
+                        wrong.add(file.getFileName() + " " + key + " has no choice");
+                    }
+                    if (!value.contains(",choice,")) continue;
+                    for (int count : new int[] {0, 1, 2, 5, 1234}) {
+                        try {
+                            String said = java.text.MessageFormat.format(value, count, count, count);
+                            if (said.contains("{") || said.contains("|") || said.contains("#")) {
+                                wrong.add(file.getFileName() + " " + key + " at " + count + ": " + said);
+                            }
+                            // One of something never reads as several, and several never as one.
+                            if (counted.contains(key) && count == 1 && !said.contains("1")) {
+                                wrong.add(file.getFileName() + " " + key + " loses its one: " + said);
+                            }
+                            if (counted.contains(key) && count == 5 && !said.contains("5")) {
+                                wrong.add(file.getFileName() + " " + key + " loses its five: " + said);
+                            }
+                        } catch (IllegalArgumentException e) {
+                            wrong.add(file.getFileName() + " " + key + " does not parse: " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+        assertEquals(List.of(), wrong);
+        // And in English, the two forms as a person would write them.
+        Properties english = new Properties();
+        try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {
+            english.load(in);
+        }
+        assertEquals("1 unread error", java.text.MessageFormat.format(english.getProperty("statusbar.unread"), 1));
+        assertEquals("3 unread errors", java.text.MessageFormat.format(english.getProperty("statusbar.unread"), 3));
+        assertEquals(
+                "Imported themes (1 file)",
+                java.text.MessageFormat.format(english.getProperty("config.part.THEMES"), 1));
+        assertEquals(
+                "Imported themes (0 files)",
+                java.text.MessageFormat.format(english.getProperty("config.part.THEMES"), 0));
+    }
+
+    @Test
+    void aSyncThatFailsOnItsOwnIsToldOnce() {
+        // SET-21 (Pauta 6.0.1): a failure of a run nobody asked for reaches the Message Log, and a
+        // repository that stays unreachable is one message, not one each interval.
+        var ok = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.OK, List.of(), List.of(), List.of(), "");
+        var unreachable = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.FETCH_FAILED, List.of(), List.of(), List.of(), "no route");
+        var refused = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.PUSH_FAILED, List.of(), List.of(), List.of(), "denied");
+        var busy = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.LOCAL_BUSY, List.of(), List.of(), List.of(), "");
+        assertFalse(SettingsSync.tellsOfFailure(ok, null));
+        assertTrue(SettingsSync.tellsOfFailure(unreachable, null), "the first failure");
+        assertTrue(SettingsSync.tellsOfFailure(unreachable, ok), "a failure after a good run");
+        assertFalse(SettingsSync.tellsOfFailure(unreachable, unreachable), "the same failure again");
+        assertTrue(SettingsSync.tellsOfFailure(refused, unreachable), "another kind of failure");
+        assertFalse(SettingsSync.tellsOfFailure(busy, ok), "the bindings changing mid-run is no failure");
+        // The pill's word for each phase has a key in the catalog.
+        for (SettingsSync.Phase phase : SettingsSync.Phase.values()) {
+            String key = SettingsWindow.syncPillKey(phase);
+            assertFalse(com.termina.i18n.Messages.tr(key).equals(key), key + " is not in the catalog");
+        }
+    }
+
+    @Test
+    void anOnOffRowIsASwitchTheKeyboardWorks() throws IOException {
+        // KBD-18 (Pauta 6.0.1): an unmodified Space or Enter flips it; a chord does not.
+        assertTrue(SwitchKeys.toggles(javafx.scene.input.KeyCode.SPACE, false));
+        assertTrue(SwitchKeys.toggles(javafx.scene.input.KeyCode.ENTER, false));
+        assertFalse(SwitchKeys.toggles(javafx.scene.input.KeyCode.SPACE, true));
+        assertFalse(SwitchKeys.toggles(javafx.scene.input.KeyCode.A, false));
+        // No on/off row is added to a page as a bare check box: the row helper turns each into a
+        // switch, and nothing else puts a CheckBox in the Settings scene.
+        String settings = Files.readString(Path.of("src/main/java/com/termina/ui/SettingsWindow.java"));
+        assertTrue(settings.contains("SettingSwitch.boundTo(check)"));
+        assertFalse(settings.contains("getChildren().add(new CheckBox"), "a check box put on a page directly");
+    }
+
+    @Test
+    void theScreenIsGivenToAScreenReaderAsText() throws IOException {
+        // ACC-03 (Pauta 6.0.1): the grid as a reader hears it, without the padding a grid has.
+        assertEquals("$ ls\nfile.txt", ScreenText.tidy("$ ls      \nfile.txt  \n          \n\n"));
+        assertEquals("", ScreenText.tidy("   \n\n"));
+        assertEquals("a\n\nb", ScreenText.tidy("a\n\nb\n"), "a blank line between two is kept");
+        // Told of a change no more than twice a second, and only to a reader that is listening.
+        assertTrue(ScreenText.announces(true, 1_000, 400));
+        assertFalse(ScreenText.announces(true, 1_000, 700));
+        assertFalse(ScreenText.announces(false, 1_000, 0));
+        // And a row of the palette that cannot run says why (ACC-08).
+        assertEquals("New Tab", CommandPalette.accessibleRow("New Tab", null));
+        assertEquals(
+                "Reopen Closed Tab. No tab has been closed.",
+                CommandPalette.accessibleRow("Reopen Closed Tab", "No tab has been closed."));
+        // The palette tells the reader its highlighted row moved, and the terminal stands for its canvas.
+        assertTrue(Files.readString(Path.of("src/main/java/com/termina/ui/PaletteNav.java"))
+                .contains("notifyAccessibleAttributeChanged(javafx.scene.AccessibleAttribute.FOCUS_ITEM)"));
+        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        assertTrue(view.contains("setAccessibleRole(javafx.scene.AccessibleRole.TEXT_AREA)"));
+        assertTrue(view.contains("setAccessibleText(tr(\"terminal.accessibleName\"))"));
+    }
+
+    @Test
+    void aLabelOrPaneThatTakesAClickSaysItIsAButton() throws IOException {
+        // ACC-02 (Pauta 6.0.1): a click handler on a label, a pane or a region comes with a role
+        // and the role's action. The ones there are: the status bar's two labels, through
+        // PressLabel, and the palette's scrim. A new one has to go through the same door.
+        List<String> bare = new ArrayList<>();
+        for (Path file : sources()) {
+            String name = file.getFileName().toString();
+            if (name.equals("DevCapture.java") || name.equals("PressLabel.java")) continue;
+            String text = Files.readString(file);
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\w+)\\.setOnMouse(?:Clicked|Pressed)\\(")
+                    .matcher(text);
+            while (m.find()) {
+                String target = m.group(1);
+                // The palette's scrim sets its role beside its handler; a tab's header is the
+                // skin's own tab item, which has one.
+                boolean hasRole = text.contains(target + ".setAccessibleRole(") || target.equals("header");
+                if (!hasRole) bare.add(name + ": " + target);
+            }
+        }
+        assertEquals(List.of(), bare);
+        String label = Files.readString(Path.of("src/main/java/com/termina/ui/PressLabel.java"));
+        assertTrue(label.contains("AccessibleRole.BUTTON") && label.contains("AccessibleAction.FIRE"));
+    }
+
+    @Test
     void cannotBeUndoneIsSaidOnlyWhereItIsTrue() throws IOException {
         Properties english = new Properties();
         try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {
@@ -204,5 +410,20 @@ class ChromeHabitsTest {
         // Removing a profile deletes it for good. Removing a theme says how it comes back.
         assertEquals(List.of("settings.profileRemove.confirmDetail"), saying);
         assertTrue(english.getProperty("settings.profileRemove.confirmDetail").endsWith("This cannot be undone."));
+    }
+
+    /**
+     * KBD-04 (Pauta 6.0.1): a menu row is greyed through {@code MenuReasons.set}, which keeps why;
+     * a bare {@code setDisable} on one is a row that cannot run and does not say so. The window
+     * and the view build every menu and disable nothing else, so neither calls it at all.
+     */
+    @Test
+    void aMenuRowIsGreyedWithItsReasonNeverBare() throws IOException {
+        for (String file : List.of("TerminalWindow.java", "TerminalView.java")) {
+            String source = Files.readString(Path.of("src/main/java/com/termina/ui/" + file));
+            assertFalse(source.contains(".setDisable("), file + " greys something with no reason");
+        }
+        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        assertFalse(view.contains("openLink().setVisible("), "the link rows are greyed, not hidden");
     }
 }

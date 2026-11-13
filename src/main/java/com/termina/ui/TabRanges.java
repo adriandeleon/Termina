@@ -52,6 +52,18 @@ final class TabRanges {
         return closing(id, index, pinned).isEmpty() ? "palette.disabled.allPinned" : null;
     }
 
+    /**
+     * Why the tab at {@code index} cannot move one place left ({@code delta} below zero) or right,
+     * as a catalogue key, or null when it can. Moving does not wrap, so the first tab has nowhere
+     * to go left and the last nowhere right.
+     */
+    static @Nullable String moveUnavailable(int delta, int index, int count) {
+        if (index < 0 || index >= count) return "palette.disabled.noTab";
+        if (delta < 0 && index == 0) return "palette.disabled.firstTab";
+        if (delta > 0 && index == count - 1) return "palette.disabled.lastTab";
+        return null;
+    }
+
     /** The positions the command reaches before pinned tabs are spared. */
     private static List<Integer> span(String id, int index, int count) {
         List<Integer> out = new ArrayList<>();

@@ -65,6 +65,9 @@
     -fx-opacity: 0.4;
 }
 
+/* A page's link to its documentation, under everything else on the page. */
+.settings-help-link { -fx-padding: 10 0 12 0; }
+
 .settings-section-header {
     -fx-font-weight: bold;
     -fx-text-fill: -color-fg-default;
@@ -119,3 +122,15 @@
     -fx-border-color: -color-border-default;
     -fx-border-radius: 6;
 }
+
+/* The sync's status pill (SET-21): a word on a tinted ground, in the state's own color. */
+.sync-pill {
+    -fx-background-radius: 10;
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+}
+.sync-pill.off { -fx-background-color: -color-neutral-subtle; -fx-text-fill: -color-fg-muted; }
+.sync-pill.idle { -fx-background-color: -color-success-subtle; -fx-text-fill: -color-success-fg; }
+.sync-pill.syncing { -fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; }
+.sync-pill.problem { -fx-background-color: -color-danger-subtle; -fx-text-fill: -color-danger-fg; }

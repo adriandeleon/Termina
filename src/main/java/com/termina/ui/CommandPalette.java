@@ -76,7 +76,17 @@ final class CommandPalette {
     private final Label hint = new Label();
 
     private final VBox card = new VBox(6);
-    private final Region backdrop = new Region();
+    /**
+     * The scrim. A press on it closes the palette, so to a screen reader it is a button that does
+     * (ACC-02, Pauta 6.0.1), and its press runs what a click runs.
+     */
+    private final Region backdrop = new Region() {
+        @Override
+        public void executeAccessibleAction(javafx.scene.AccessibleAction action, Object... parameters) {
+            if (action == javafx.scene.AccessibleAction.FIRE) hide();
+            else super.executeAccessibleAction(action, parameters);
+        }
+    };
 
     private List<MenuAction> commands = List.of();
     /** The query of the current filter pass, read by the cells to highlight the matched characters. */
@@ -91,6 +101,8 @@ final class CommandPalette {
         this.onHidden = onHidden;
 
         backdrop.getStyleClass().add("palette-backdrop");
+        backdrop.setAccessibleRole(javafx.scene.AccessibleRole.BUTTON);
+        backdrop.setAccessibleText(tr("palette.close"));
         // Dismiss on PRESS and consume it: a click is press+release, so consuming the press means
         // the gesture that closes the palette cannot also reach the terminal behind it.
         backdrop.setOnMousePressed(e -> {
@@ -171,8 +183,50 @@ final class CommandPalette {
         prefixChip.setManaged(opener != null);
     }
 
+    /**
+     * The bindings changed (PAL-09, Pauta 6.0.1): the opener's chip, the key legend and, when the
+     * palette is up, its rows are rebuilt, so an open palette never shows a chord that has moved.
+     *
+     * @param commands the rows as they are now, each with its chord in force; ignored while hidden,
+     *     since showing takes them fresh
+     */
+    void rebind(@Nullable KeyCombination opener, List<MenuAction> commands) {
+        setOpener(opener);
+        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        if (!isShowing()) return;
+        MenuAction selected = list.getSelectionModel().getSelectedItem();
+        String id = selected == null ? null : selected.id();
+        this.commands = List.copyOf(commands);
+        items.setAll(orderedMatches(this.commands, currentQuery, enabled));
+        // The same row stays selected, by its command: its object is a new one.
+        int at = -1;
+        for (int i = 0; i < items.size() && id != null; i++) {
+            if (id.equals(items.get(i).id())) {
+                at = i;
+                break;
+            }
+        }
+        if (at >= 0) list.getSelectionModel().select(at);
+        else selectFirstEnabled();
+    }
+
     boolean isShowing() {
         return host.getChildren().contains(card);
+    }
+
+    /** The chord the open palette shows for command {@code id}, or "" for none or no such row: for tests. */
+    String chordForTest(String id) {
+        for (MenuAction row : items) {
+            if (id.equals(row.id())) {
+                return row.accelerator() == null ? "" : row.accelerator().getDisplayText();
+            }
+        }
+        return "";
+    }
+
+    /** The opener chip's text: for tests. */
+    String openerForTest() {
+        return prefixChip.getText();
     }
 
     /**
@@ -344,6 +398,11 @@ final class CommandPalette {
 
     // ---------------------------------------------------------------- capture hooks
 
+    /** A row as a screen reader says it: its name, and for one that cannot run, why not. Pure. */
+    static String accessibleRow(String label, @Nullable String whyNot) {
+        return whyNot == null || whyNot.isBlank() ? label : label + ". " + whyNot;
+    }
+
     /** The visible result labels, so a capture run can assert on the ranking rather than a picture. */
     List<String> visibleCommands() {
         return items.stream().map(MenuAction::label).toList();
@@ -412,12 +471,19 @@ final class CommandPalette {
             }
             title.getChildren().setAll(MatchText.runs(item.label(), currentQuery));
             chord.setText(item.accelerator() == null ? "" : item.accelerator().getDisplayText());
-            layout.getStyleClass().remove("palette-disabled");
+            // The class changes only when the row's state does (PERF-10, Pauta 6.0.1): every
+            // keystroke updates every cell, and a class taken off and put back restyles the row.
+            boolean disabled = !isEnabled(item);
+            if (layout.getStyleClass().contains("palette-disabled") != disabled) {
+                if (disabled) layout.getStyleClass().add("palette-disabled");
+                else layout.getStyleClass().remove("palette-disabled");
+            }
             setTooltip(null); // cells are recycled: never leave a previous row's explanation behind
-            if (!isEnabled(item)) {
-                layout.getStyleClass().add("palette-disabled");
+            String why = disabled ? disabledReason.apply(item) : null;
+            // What a screen reader says for the row (ACC-08): its name, and why it cannot run.
+            setAccessibleText(accessibleRow(item.label(), why));
+            if (disabled) {
                 // Say why it is greyed: a grey row with no explanation reads as a bug, not a state.
-                String why = disabledReason.apply(item);
                 if (why != null && !why.isBlank()) {
                     Tooltip tip = IconNames.tooltip();
                     tip.setText(why);

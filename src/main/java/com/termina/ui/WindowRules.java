@@ -81,6 +81,11 @@ final class WindowRules {
         return open > 1 && requested >= open;
     }
 
+    /** Why the Doctor's report cannot be copied, or null when it can: there is none before it has checked. */
+    static @Nullable String copyDoctorUnavailableKey(boolean hasRows) {
+        return hasRows ? null : "palette.disabled.doctorNotRun";
+    }
+
     /** The catalogue key of why the menu bar cannot be hidden here, or null when it can. */
     static @Nullable String menuBarToggleUnavailableKey(boolean systemMenuBar) {
         return offersMenuBarToggle(systemMenuBar) ? null : "settings.showMenuBar.mac";
@@ -98,6 +103,14 @@ final class WindowRules {
     /** Whether the tab strip is worth its row of chrome. */
     static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle) {
         return !hideWhenSingle || tabCount > 1;
+    }
+
+    /**
+     * The same, under the setting that hides the strip outright (TABS-12, Pauta 6.0.1): hidden by
+     * its command it stays hidden with any number of tabs open.
+     */
+    static boolean shouldShowTabBar(int tabCount, boolean hideWhenSingle, boolean showTabBar) {
+        return showTabBar && shouldShowTabBar(tabCount, hideWhenSingle);
     }
 
     /**

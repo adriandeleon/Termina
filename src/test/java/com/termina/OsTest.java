@@ -39,6 +39,37 @@ class OsTest {
         assertTrue(Os.description().endsWith(")"), Os.description());
     }
 
+    /** OS-03: a test can run as any of them, and giving the override back restores the real one. */
+    @Test
+    void aTestCanRunAsAnotherSystemAndGiveItBack() {
+        Os.Kind real = Os.current();
+        try {
+            for (Os.Kind as : Os.Kind.values()) {
+                Os.runAs(as);
+                assertEquals(as, Os.current());
+                assertEquals(as == Os.Kind.WINDOWS, Os.isWindows());
+                assertEquals(as == Os.Kind.MAC, Os.isMac());
+                assertEquals(as == Os.Kind.LINUX, Os.isLinux());
+            }
+        } finally {
+            Os.runAs(null);
+        }
+        assertEquals(real, Os.current());
+    }
+
+    /** The override is the tests': nothing in the app runs as a system it is not on. */
+    @Test
+    void onlyTestsUseTheOverride() throws IOException {
+        List<String> callers = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
+            for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                if (file.endsWith("Os.java")) continue;
+                if (Files.readString(file).contains("Os.runAs(")) callers.add(file.toString());
+            }
+        }
+        assertEquals(List.of(), callers);
+    }
+
     /** The rule's own check, kept as a test: only {@code Os.java} reads the property or the separators. */
     @Test
     void noOtherClassReadsOsNameOrTellsWindowsByASeparator() throws IOException {

@@ -17,6 +17,7 @@ import javafx.scene.input.MouseEvent;
 
 import com.termina.config.Settings;
 import com.termina.pty.ShellLauncher;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -182,7 +183,7 @@ class RemainingPathsFxTest {
             }
             return null;
         });
-        Thread.sleep(500);
+        waitFor(() -> TerminalView.shellsStarting() == 0 && started(window), "the split's shells");
         onFx(() -> {
             window.tabsForTest().get(0).getTabPane().getSelectionModel().select(0);
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
@@ -193,7 +194,7 @@ class RemainingPathsFxTest {
             }
             return null;
         });
-        Thread.sleep(500);
+        waitFor(() -> TerminalView.shellsStarting() == 0 && started(window), "the reopened tab's shells");
         // Close Tab in a split tab closes the active pane, not the tab.
         onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
@@ -210,13 +211,21 @@ class RemainingPathsFxTest {
             return null;
         });
         waitFor(() -> started(window), "the new pane's shell");
-        onFx(() -> {
+        TerminalView leaving = onFx(() -> {
             TerminalView view = window.activeTerminal();
             if (view != null) view.getSession().sendString("exit\r");
-            return null;
+            return view;
         });
-        Thread.sleep(1500);
+        waitFor(() -> active(window) != leaving, "the pane whose shell exited to go");
         assertTrue(onFx(() -> window.tabsForTest().size()) >= 1, "the tab outlived its pane");
+    }
+
+    private static TerminalView active(TerminalWindow window) {
+        try {
+            return onFx(window::activeTerminal);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static boolean started(TerminalWindow window) {
@@ -234,7 +243,7 @@ class RemainingPathsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

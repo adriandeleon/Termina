@@ -294,8 +294,10 @@ class ShellProfilesTest {
 
         profiles.neverAskTheDiskOn(() -> true);
         assertEquals(assumed, profiles.systemProfile().command(), "no file asked about here");
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
-        while (!profiles.systemProfile().command().equals(real) && System.nanoTime() < deadline) Thread.sleep(10);
+        // The warm-ups run one at a time on one thread, so a task queued behind the one that
+        // call started ends after it: a wait on the worker itself (QUAL-07, Pauta 6.0.1).
+        java.util.concurrent.CompletableFuture.runAsync(() -> {}, ShellProfiles.WARMER)
+                .get(20, java.util.concurrent.TimeUnit.SECONDS);
         assertEquals(real, profiles.systemProfile().command(), "the worker's answer, for the next caller");
 
         // Off the toolkit thread there is nothing to assume: the disk is asked where it stands.

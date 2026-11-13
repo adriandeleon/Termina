@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.stage.Stage;
 
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -70,7 +71,7 @@ class AppStartFxTest {
                 java.time.Duration.ofSeconds(5)));
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (onFx(() -> javafx.stage.Window.getWindows().size()) <= before && System.nanoTime() < deadline) {
-            Thread.sleep(50);
+            Await.frame();
         }
         assertTrue(onFx(() -> javafx.stage.Window.getWindows().size()) > before, "a window for the second launch");
     }

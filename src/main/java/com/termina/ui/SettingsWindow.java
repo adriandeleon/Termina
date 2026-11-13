@@ -84,7 +84,7 @@ public final class SettingsWindow {
     }
 
     /** Pages, in sidebar order within their group. */
-    private enum Category {
+    enum Category {
         APPEARANCE(Group.GENERAL, "settings.cat.appearance", MenuIcons::appearance),
         TERMINAL(Group.GENERAL, "settings.cat.terminal", MenuIcons::terminal),
         PROFILES(Group.GENERAL, "settings.cat.profiles", MenuIcons::profiles),
@@ -105,6 +105,17 @@ public final class SettingsWindow {
 
         String title() {
             return tr(key);
+        }
+
+        /**
+         * The pages by catalogue key, in the sidebar's order: the same on every OS (OS-01), which
+         * {@code SameOnEveryOsTest} asks as each of them (OS-03). Here and not on the window, so
+         * asking loads no control.
+         */
+        static List<String> keys() {
+            List<String> keys = new ArrayList<>();
+            for (Category category : values()) keys.add(category.key);
+            return keys;
         }
     }
 
@@ -237,26 +248,26 @@ public final class SettingsWindow {
         return out.append("stored=").append(settings.keyBindings()).toString();
     }
 
-    /** The window's scene, for the development capture hook. */
     /** Every page as built, for the test that exercises their controls. */
     java.util.Collection<Region> pagesForTest() {
         return pages.values();
     }
 
+    /** The window's scene, for the development capture hook. */
     public Scene scene() {
         return stage.getScene();
     }
 
-    /**
-     * Shows the window beside {@code from}, without being owned by it. Ownership would close it
-     * with the first terminal window to have opened it; see {@link SecondaryWindows}.
-     */
     /** Opens the window on the Profiles page: Configure Profiles, from the profile menu or a chord. */
     public void showProfiles(Window from) {
         show(from);
         sidebar.getSelectionModel().select(Category.PROFILES);
     }
 
+    /**
+     * Shows the window beside {@code from}, without being owned by it. Ownership would close it
+     * with the first terminal window to have opened it; see {@link SecondaryWindows}.
+     */
     public void show(Window from) {
         if (stage.isShowing()) {
             stage.toFront();
@@ -383,12 +394,6 @@ public final class SettingsWindow {
     }
 
     /**
-     * Asks before resetting, and says what the reset leaves alone.
-     *
-     * <p>The first version reset on the click. The button sits next to Close, the file it clears
-     * held the user's profiles, and "put the font back" is what most people mean by it.
-     */
-    /**
      * Runs one of the window's actions as its command does: the window comes up first, on the
      * action's page, so its question and its result have somewhere to be seen (KBD-01, Pauta
      * 6.0.1). The buttons run the same {@link #act}.
@@ -429,13 +434,7 @@ public final class SettingsWindow {
             }
             case SYNC_REMOVE_CREDENTIALS -> {
                 // The token in the address may be the only copy the user has of it.
-                if (sync != null
-                        && Confirm.ask(
-                                stage,
-                                tr("settings.sync.removeCredentials"),
-                                tr("settings.sync.removeCredentials.confirmTitle"),
-                                tr("settings.sync.removeCredentials.confirmDetail"),
-                                tr("settings.sync.removeCredentials"))) {
+                if (sync != null && Confirm.ask(stage, Questions.removeSyncCredentials())) {
                     sync.removeCredentialsFromUrl();
                 }
             }
@@ -459,13 +458,14 @@ public final class SettingsWindow {
         return selected != null && selected.isEditable();
     }
 
+    /**
+     * Asks before resetting, and says what the reset leaves alone.
+     *
+     * <p>The first version reset on the click. The button sits next to Close, the file it clears
+     * held the user's profiles, and "put the font back" is what most people mean by it.
+     */
     private void confirmReset() {
-        if (!Confirm.ask(
-                stage,
-                tr("settings.reset"),
-                tr("settings.reset.confirmTitle"),
-                tr("settings.reset.confirmDetail"),
-                tr("settings.reset.confirm"))) {
+        if (!Confirm.ask(stage, Questions.resetSettings())) {
             return;
         }
         // One reload, here: the write's own broadcast is not taken as a reason for another.
@@ -654,6 +654,7 @@ public final class SettingsWindow {
             case SYNC -> buildSync(page);
             case ADVANCED -> buildAdvanced(page);
         }
+        page.getChildren().add(helpLink(category));
         // A gutter on the right, matching the one the page host leaves on the left. Without it every
         // control on the page — the combos, the checkboxes, the opacity readout, the preview's own
         // border — ends flush against the scrollbar, and the preview appears to run underneath it.
@@ -665,6 +666,29 @@ public final class SettingsWindow {
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         return scroll;
+    }
+
+    /**
+     * The page's link to its page of the documentation, <em>Help for</em> and the page's name
+     * (DOCS-11, Pauta 6.0.1), under everything else on it. Where it leads is {@link SettingsHelp}'s
+     * to say.
+     */
+    private Node helpLink(Category category) {
+        javafx.scene.control.Hyperlink link =
+                new javafx.scene.control.Hyperlink(tr("settings.helpFor", category.title()));
+        link.getStyleClass().add("settings-help-link");
+        link.setOnAction(e -> {
+            link.setVisited(false); // a link opened once is the same link, not a paler one
+            if (linkOpener != null) linkOpener.accept(SettingsHelp.url(category));
+        });
+        return link;
+    }
+
+    private java.util.function.@Nullable Consumer<String> linkOpener;
+
+    /** How a page's help link opens its address: the application's one way of opening a link. */
+    void openLinksWith(java.util.function.Consumer<String> opener) {
+        this.linkOpener = opener;
     }
 
     private VBox section(VBox page, String title) {
@@ -679,6 +703,13 @@ public final class SettingsWindow {
     /** A titled row with an explanatory line under it, in the shape Editora's settings use. */
     private Node row(
             Category category, VBox section, String title, String description, Region control, String keywords) {
+        // An on/off row is a switch (KBD-18, Pauta 6.0.1): it takes focus, Space flips it, and it
+        // is announced as a toggle. The checkbox the setting lives on stays, out of the scene, and
+        // the switch is its view.
+        if (control instanceof CheckBox check) {
+            SettingSwitch shown = SettingSwitch.boundTo(check);
+            return row(category, section, title, description, shown, shown, keywords);
+        }
         return row(category, section, title, description, control, control, keywords);
     }
 
@@ -859,6 +890,7 @@ public final class SettingsWindow {
     private CheckBox typeAhead;
     private CheckBox bell;
     private CheckBox hideTabBar;
+    private CheckBox showTabBar;
     private CheckBox showMenuBar;
     private CheckBox menuBarInTitleBar;
     private Spinner<Integer> uiZoom;
@@ -947,12 +979,7 @@ public final class SettingsWindow {
         ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
         if (chosen == null || chosen.isBuiltIn()) return;
         // Deletes the imported file, and nothing brings it back but importing it again.
-        if (!Confirm.ask(
-                stage,
-                tr("settings.removeTheme.button"),
-                tr("settings.removeTheme.confirmTitle", chosen.displayName()),
-                tr("settings.removeTheme.confirmDetail"),
-                tr("settings.removeTheme.button"))) {
+        if (!Confirm.ask(stage, Questions.removeTheme(chosen.displayName()))) {
             return;
         }
         // Off the FX thread, like the import: a file deleted and a folder re-read (PERF-01, Pauta
@@ -1073,6 +1100,19 @@ public final class SettingsWindow {
                 hideTabBar,
                 "tab bar tabs hide single chrome strip header");
 
+        showTabBar = new CheckBox();
+        showTabBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setShowTabBar(value));
+        });
+        row(
+                Category.APPEARANCE,
+                tabsSection,
+                tr("settings.showTabBar"),
+                tr("settings.showTabBar.desc"),
+                showTabBar,
+                "tab bar tabs show hide strip header chrome");
+
         VBox windowSection = section(page, tr("settings.section.window"));
 
         showMenuBar = new CheckBox();
@@ -1165,13 +1205,13 @@ public final class SettingsWindow {
         windowOpacity.setMajorTickUnit(10);
         windowOpacity.setMinorTickCount(1);
         windowOpacity.setSnapToTicks(true);
-        windowOpacityValue = new Label("100%");
+        windowOpacityValue = new Label(tr("settings.percent", 100));
         windowOpacityValue.setMinWidth(44);
         // Live while dragging, but written only when the drag ends: every write saves the file and
         // broadcasts a settings change to every terminal in every window, which is not something to
         // do per pixel of travel.
         windowOpacity.valueProperty().addListener((o, old, value) -> {
-            windowOpacityValue.setText(WindowOpacity.percent(value.doubleValue() / 100) + "%");
+            windowOpacityValue.setText(tr("settings.percent", WindowOpacity.percent(value.doubleValue() / 100)));
             if (loading || windowOpacity.isValueChanging()) return;
             write(() -> settings.setWindowOpacity(value.doubleValue() / 100));
         });
@@ -1371,7 +1411,7 @@ public final class SettingsWindow {
         VBox links = section(page, tr("settings.section.links"));
 
         linkCommandField = new TextField();
-        linkCommandField.setPromptText("/path/to/editor {file}:{line}");
+        linkCommandField.setPromptText(tr("settings.linkOpenCommand.prompt"));
         linkCommandField.setPrefWidth(260);
         linkCommandField.focusedProperty().addListener((o, was, focused) -> {
             if (!focused && !loading) write(() -> settings.setLinkOpenCommand(linkCommandField.getText()));
@@ -1583,12 +1623,7 @@ public final class SettingsWindow {
         // taken() names a holder only for a command that has a default chord to take back.
         if (holder != null && home != null) {
             // It takes the chord from another command, which is left with none (CONF-01).
-            if (!Confirm.ask(
-                    stage,
-                    tr("settings.keys.reset"),
-                    tr("settings.keys.resetTaken.title", home.getDisplayText()),
-                    tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)),
-                    tr("settings.keys.reset"))) {
+            if (!Confirm.ask(stage, Questions.resetKeyTaken(home.getDisplayText(), labelOf(holder), labelOf(id)))) {
                 return;
             }
         }
@@ -1596,12 +1631,7 @@ public final class SettingsWindow {
     }
 
     private void confirmResetKeys() {
-        if (!Confirm.ask(
-                stage,
-                tr("settings.keys.resetAll"),
-                tr("settings.keys.resetAll.confirmTitle"),
-                tr("settings.keys.resetAll.confirmDetail"),
-                tr("settings.keys.resetAll"))) {
+        if (!Confirm.ask(stage, Questions.resetAllKeys())) {
             return;
         }
         writeKeys(Map.of());
@@ -1756,7 +1786,7 @@ public final class SettingsWindow {
         profileName = new TextField();
         profileName.setPromptText(tr("settings.profileName"));
         profileCommand = new TextField();
-        profileCommand.setPromptText("wsl.exe -d Ubuntu");
+        profileCommand.setPromptText(tr("settings.profileCommand.prompt"));
         profileDirectory = new TextField();
         profileDirectory.setPromptText(tr("settings.profileDirectory.prompt"));
         // Committed on Enter and on losing focus, which is how the shell and link fields on the
@@ -2073,12 +2103,7 @@ public final class SettingsWindow {
     private void removeSelectedProfile() {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
-        if (!Confirm.ask(
-                stage,
-                tr("settings.profileRemove"),
-                tr("settings.profileRemove.confirmTitle", selected.name()),
-                tr("settings.profileRemove.confirmDetail"),
-                tr("settings.profileRemove"))) {
+        if (!Confirm.ask(stage, Questions.removeProfile(selected.name()))) {
             return;
         }
         // Its style, the default and the hidden entry go with it: the next profile added may get its id.
@@ -2248,6 +2273,10 @@ public final class SettingsWindow {
     private boolean syncCreating;
 
     private Label syncState;
+
+    /** The sync's phase as a pill (SET-21, Pauta 6.0.1): one word, colored for how it stands. */
+    private final Label syncPill = new Label();
+
     private Label syncAccount;
     private Button syncNow;
     private Button syncCancel;
@@ -2333,7 +2362,8 @@ public final class SettingsWindow {
         syncRemoveCredentials = new Button(tr("settings.sync.removeCredentials"));
         syncRemoveCredentials.setOnAction(e -> act(SettingsActions.Action.SYNC_REMOVE_CREDENTIALS));
         HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway, syncRemoveCredentials);
-        VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
+        syncPill.getStyleClass().add("sync-pill");
+        VBox stateControl = new VBox(6, new HBox(syncPill), syncState, syncAccount, buttons);
         stateControl.setMaxWidth(420);
         stateControl.setPrefWidth(420);
         row(
@@ -2523,6 +2553,11 @@ public final class SettingsWindow {
         return null;
     }
 
+    /** The pill's word for a phase, as a catalogue key. */
+    static String syncPillKey(SettingsSync.Phase phase) {
+        return "sync.pill." + phase.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
     /** Puts the sync's state on the page: which button says what, and what the last run did. */
     private void refreshSync() {
         if (syncState == null) return;
@@ -2531,6 +2566,9 @@ public final class SettingsWindow {
                 sync == null ? SettingsSync.Phase.OFF : sync.state().phase();
         syncConnect.setText(tr(connected ? "settings.sync.disconnect" : "settings.sync.connect"));
         syncConnect.setDisable(sync == null || syncCreating);
+        syncPill.setText(tr(syncPillKey(phase)));
+        syncPill.getStyleClass().removeAll("off", "idle", "syncing", "problem");
+        syncPill.getStyleClass().add(phase.name().toLowerCase(java.util.Locale.ROOT));
         syncRepository.setDisable(connected || syncCreating);
         syncBranch.setDisable(connected || syncCreating);
         setShown(syncCreateGitHub, sync != null && !connected && sync.gitHubAvailable());
@@ -2600,6 +2638,7 @@ public final class SettingsWindow {
             notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
+            showTabBar.setSelected(settings.showTabBar());
             showMenuBar.setSelected(settings.showMenuBar());
             menuBarInTitleBar.setSelected(settings.menuBarInTitleBar());
             showScrollBar.setSelected(settings.showScrollBar());

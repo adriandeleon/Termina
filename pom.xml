@@ -43,6 +43,13 @@
         <coverage.bundle.line>0.90</coverage.bundle.line>
         <coverage.bundle.method>0.90</coverage.bundle.method>
         <coverage.bundle.branch>0.73</coverage.bundle.branch>
+        <!-- The large packages' own line floors (QUAL-03, Pauta 6.0.1), a few points under what
+             Linux measures (ui 0.917, com.termina 0.872, term 0.930). Properties, because Windows
+             skips the tests that drive real shells and windows and measures far lower: its runner
+             passes its own with -D, as it does the build-wide ones. -->
+        <coverage.package.ui>0.87</coverage.package.ui>
+        <coverage.package.root>0.82</coverage.package.root>
+        <coverage.package.term>0.88</coverage.package.term>
         <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
              has; opening it elsewhere warns on every launch. The os-mac profile sets the real
              option; elsewhere this repeats an export already given, which is harmless, because an
@@ -234,6 +241,31 @@
             </resource>
         </resources>
         <plugins>
+            <!-- A release build precompiles the stylesheets into target/classes (PERF-17, the dist
+                 profile's compile-styles), and JavaFX, asked for app.css, loads the app.bss beside
+                 it without looking at which is newer. So every build starts by removing them: left
+                 behind, they hide each later edit to a stylesheet until the next clean. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>drop-stale-bss</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>clean</goal></goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.outputDirectory}/com/termina/styles</directory>
+                                    <includes><include>*.bss</include></includes>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- The JDK floor as a check, not only as maven.compiler.release (PLAT-01, Pauta 2.0.2):
                  an older JDK otherwise gets as far as an obscure compiler error. -->
             <plugin>
@@ -477,21 +509,53 @@
                                     </limits>
                                 </rule>
                                 <!--
-                                  com.termina.ui, com.termina, com.termina.term and com.termina.pty
-                                  are deliberately ungated. The last two are covered by an
-                                  integration test that starts a real shell, which only runs on
-                                  POSIX; gating them would encode "this build ran on Unix". The ui
-                                  package is 7,600 lines of which the great majority is the renderer,
-                                  the window and the settings sheet — toolkit code a headless suite
-                                  cannot reach — so a package-level number there says nothing about
-                                  whether the tested parts of it are still tested. Its pure pieces
-                                  (the matcher, the cell arithmetic, the tab layout, the palette
-                                  ranking) are covered individually. com.termina is the JavaFX entry
-                                  point and the capture harness.
-
-                                  The way to raise ui is to keep pulling decisions out into pure
-                                  classes and testing those, not to lower the bar until it passes.
+                                  The three large packages that had no floor of their own (QUAL-03,
+                                  Pauta 6.0.1). They were left out while most of ui was toolkit code
+                                  no headless test reached; the FX suite reaches it now. Their
+                                  coverage does vary by platform, since the tests that start a real
+                                  shell are POSIX-only, so the floors are properties: the Windows
+                                  runner passes its own. com.termina.pty is under 300 lines and has
+                                  none.
                                 -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.ui</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.package.ui}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.package.root}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.term</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.package.term}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
                             </rules>
                         </configuration>
                     </execution>
@@ -945,6 +1009,22 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.4</version>
                 <executions>
+                    <execution>
+                        <!--
+                          PERF-17 (Pauta 6.0.1): each stylesheet gets a .bss beside it, which
+                          JavaFX loads without parsing. On the compiled resources, before the jar
+                          that jlink links is made, so the image carries both forms.
+                        -->
+                        <id>compile-styles</id>
+                        <phase>process-classes</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>com.termina.ui.StyleCompiler</mainClass>
+                            <arguments>
+                                <argument>${project.build.outputDirectory}/com/termina/styles</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <!--
                           First after jpackage, and before training and the macOS re-sign, so the

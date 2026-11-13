@@ -386,3 +386,94 @@ is broken.
   a question left up is the one the next test's `DialogAnswers` presses, leaving its own unanswered.
   Surefire's default order is the filesystem's, which differs between a laptop and a runner, so
   the order is pinned (`runOrder` in the pom): what fails on CI fails here.
+- **JavaFX loads the `.bss` beside a `.css` by itself, and never asks which is newer.** Asked for
+  `app.css` it tries `app.bss` first, so a release build's precompiled sheets (`-Pdist`,
+  `ui.StyleCompiler`; PERF-17, Pauta 6.0.1) left in `target/classes` would hide every later edit to
+  a stylesheet. Every build therefore deletes them at `process-resources` (`drop-stale-bss` in the
+  pom) and only `-Pdist` writes them again. Two more things about the binary form: a sheet's own
+  address is written into it with each `url()`, so a relative one would point into the build's
+  folder for good (the sheets have only `data:` and absolute ones, held by `StyleCompilerFxTest`);
+  and at any UI zoom but 100% the scaled `.css` text is used, since a binary cannot be scaled.
+- **`Os.runAs` reaches only what asks when it is called.** Thirteen classes read the OS once, as
+  they load, into a constant; a class first loaded while a test runs as another system keeps that
+  answer for the rest of the JVM, and every later test inherits a Windows that is not there.
+  `SameOnEveryOsTest` builds its lists once before any override for that reason, and compares
+  only lists made by pure functions (`MenuBarModel`, `SettingsWindow.Category.keys`, `Keymap.load`).
+- **The stall sampler reads a window that is not drawing as stalled.** `-Dtermina.stallLog` beats
+  once a frame, and a minimised or covered window may get no frames; the stack printed then is the
+  event loop waiting, which is how to tell it from a real one.
+- **A control built on the test's own thread while the toolkit is starting deadlocks.** A test
+  that makes a `MenuItem` or a `ContextMenu` on its main thread just after `Platform.startup`
+  can hang for good: the FX thread is loading the default stylesheet, each thread holds one CSS
+  class's initialisation and waits for the other's, and nothing times out because neither is in
+  a wait a timeout sees. `jstack` shows both "waiting on the Class initialization monitor". Build
+  controls inside `onFx`.
+- **A disabled menu row takes no mouse events, so a tooltip on it never shows.** `MenuReasons`
+  watches the rows' parent instead, which does take them, and installs one tooltip there while
+  the pointer is over a greyed row with a reason (KBD-04, Pauta 6.0.1). A row greyed with a bare
+  `setDisable` has no reason to show; `ChromeHabitsTest` keeps the window and the view from
+  calling it. `MenuReasonsFxTest` drives a real pointer with `Robot`, which the headless glass
+  supports.
+- **A question's words are a `Questions.Question`, and `Confirm.answerWith` answers it with no
+  dialog** (CONF-12, Pauta 6.0.1). A test that wants the dialog's shape still shows it and
+  presses it through `DialogAnswers`; a test that wants what happens after the answer sets the
+  hook, and must give it back (`answerWith(null)`) or every later question in the JVM is answered
+  by it.
+- **The login shell's `PATH` reaches a started tool only once someone has asked for it.**
+  `LoginShellPath` starts the user's shell, which can take seconds, so it is asked only to find a
+  tool the user installed (git, gh, a link command). `process.ChildPath` hands its answer to
+  every process started afterwards and never asks itself: a middle-click's `xclip` before the
+  first sync or link click runs with the inherited `PATH` (CLI-10, pending for that reason).
+- **The Doctor's checks are a parameter, and its real ones are bounded.** `Doctor.run` takes the
+  machine as `Probes`, so a missing tool and each OS's rows are tested from Linux
+  (`DoctorTest`). The real probes look in the system's directories first and ask the login shell
+  only for what is not there, for at most eight seconds: `LoginShellPath` has been seen never to
+  return inside some runs, and a Doctor that says "Checking…" for good diagnoses nothing. The
+  tests that fire every menu row and palette command open the Doctor too, with the real probes.
+- **A test that sleeps hides what it was waiting for.** `ViewEventsFxTest` typed `printf` commands
+  after firing Escape and function keys at the shell, with a fixed sleep after each. The keys left
+  the line editor mid-chord, the commands were never run, and the sleeps passed all the same: the
+  mouse-reporting half of the test had never had the mouse. Waiting for what each command does
+  (`mouse-on` on screen, the kitty flags set) found it at once. `testing.Await` waits on frames,
+  `testing.Signal` on a listener the code under test fires, and `TestsDoNotSleepTest` keeps sleeps
+  out, by any of their spellings.
+- **Keys and mouse reports fired at a shell's prompt are commands.** The same test's first repair
+  was a Ctrl+C before each command, and it passed here and on macOS and failed on CI's Ubuntu. A
+  mouse report is `ESC [ < 35;1;1M`; bash's line editor swallows the first three bytes and keeps
+  `35;1;1M`, which is three commands, and the Enter the test fires next runs dozens of them. With
+  the system's own `/etc/bash.bashrc`, where a helper looks up each command that is not found,
+  the Ctrl+C did not clear them: the screen ended in `1m[Aprintf: command not found`, the next
+  real command joined to the end of the junk. A start-up file of one's own had hidden it on the
+  machine it was written on; `HOME` pointed at an empty folder reproduces it every time. The
+  second repair gave the keys a `cat` to read them and ended it with Ctrl+C, and that lost the
+  command typed after the Ctrl+C in a full build and never on its own: the screen showed the
+  command echoed, then a prompt, and nothing run. So nothing is typed at a returning prompt. The
+  test types one line at the first prompt, its steps separated by a loop that reads lines until
+  one says `next`, and moves it on by sending that line. A timeout there prints the screen,
+  which is what showed each of these.
+- **A test that stands in for another system still runs on this one's file system.** `DoctorTest`
+  asks about Linux from a Windows runner, where `Path.of("/bin/bash")` has no drive, so is not
+  absolute, and prints with backslashes: three tests failed on their first Windows run. Paths in
+  such a test are made by `Path`, never written out. And a test that reads source and looks for
+  `"\n    }\n"` finds nothing in a Windows checkout; replace `\r\n` on reading, as `HotPathsTest`
+  now does.
+- **A word a test waits for must not be in the command that prints it.** The echo of the typed
+  command puts it on screen before the command has run. `printf 'mouse-%s' on` prints `mouse-on`
+  and is echoed as `mouse-%s' on`; a line that must *equal* the output works too.
+- **JediTerm's `processHistoryAndScreenLines` allocates per row,** a stream, an optional and an
+  iterator in `TerminalLine.process`, whatever the consumer does. The painter reads the two line
+  stores itself and hands each line's entries to one long-lived consumer (`TerminalView.drawRows`);
+  what it does not get that way is JediTerm's own interval highlighting and its type-ahead line,
+  neither of which Termina uses. `RepaintAllocationFxTest` measures a repaint against an idle
+  frame through `ThreadMXBean.getThreadAllocatedBytes`, by reflection: the tests compile inside
+  the application's module, which does not read `java.management`.
+- **A snapshot scaled by a transform stretches a canvas.** Nodes are redrawn at the larger size
+  and come out sharp; a canvas is a bitmap at the screen's density, and the headless platform has
+  no density to set. For a capture at 2× each view's canvas is given twice the pixels, drawn
+  through `g.scale`, and shown through a `Scale` transform at its layout size
+  (`TerminalView.setRenderScale`). The scale is static and `DevCapture` puts it back to 1 when a
+  run ends, or every later test in the JVM would draw at 2.
+- **The Linux listing's screenshot is `docs/screenshot.png` on master, by URL.** It is in the
+  metainfo of packages already installed, so the dark hero keeps that path and only the light one
+  has a new name.
+

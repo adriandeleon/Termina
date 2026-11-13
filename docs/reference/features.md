@@ -260,6 +260,14 @@ A **debug log** (Advanced → Diagnostics) keeps this session's warnings, errors
 exceptions, and mirrors them to `termina-session.log` beside the settings. A packaged application
 has no console, so without it the one sentence explaining why something failed goes nowhere.
 
+The **Doctor** (Help ▸ Doctor) checks what Termina relies on outside itself: the shell it starts
+and whether a configured one can run, whether its settings folder can be written, Git and the
+GitHub CLI (for settings sync only), and on Linux the tools for the selection clipboard
+(`xclip`, or `wl-copy` and `wl-paste`), notifications (`notify-send`, or `gdbus`) and opening
+links (`xdg-open`). Each row has a status in words, what was found, and for anything missing
+what to install and where from. The checks run in the background; Check Again re-runs them and
+Copy as text gives the rows for a bug report.
+
 **Six interface languages** — English, Italian, Spanish, French, Portuguese, German — chosen in
 Appearance → Language, or followed from the system when left on Automatic. English is both the base
 catalogue and the fallback, so a key missing from a translation shows English rather than a gap, and

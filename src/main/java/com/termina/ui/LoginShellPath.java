@@ -41,6 +41,9 @@ final class LoginShellPath {
             if (!all.contains(extra)) all.add(extra);
         }
         cached = List.copyOf(all);
+        // For every process started from here on, whoever starts it (CLI-10, Pauta 6.0.1).
+        com.termina.process.ChildPath.publish(String.join(
+                java.io.File.pathSeparator, all.stream().map(Path::toString).toList()));
         return cached;
     }
 

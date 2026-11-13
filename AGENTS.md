@@ -172,8 +172,8 @@ touching its area.
 ## Not done
 
 Windows and Linux are **unrun** — including `-Pdist`. The Windows MSI is unsigned; the macOS dmgs
-are notarized and the Linux downloads OpenPGP-signed. Key bindings have no multi-key sequences; no images or ligatures. See `CHANGELOG.md` for the
-current list.
+are notarized and the Linux downloads OpenPGP-signed. Key bindings have no multi-key sequences; no images or ligatures. The open list is
+[`TODO.md`](TODO.md), kept in the same pull request as the change.
 
 **Windows' directory read (`pty.WindowsCwd`) has never run on Windows**, nor has the PowerShell
 toast; the PEB walk is tested against a made-up address space, and the offsets are the ones every

@@ -41,6 +41,9 @@ final class PaletteNav {
         if (idx >= 0) {
             list.getSelectionModel().select(idx);
             list.scrollTo(idx);
+            // The keyboard stays in the text field, so nothing else tells a screen reader the
+            // highlighted row moved (ACC-08, Pauta 6.0.1).
+            list.notifyAccessibleAttributeChanged(javafx.scene.AccessibleAttribute.FOCUS_ITEM);
         }
         return true;
     }

@@ -3,7 +3,7 @@
   "app": "Termina",
   "commit": "6de43a1",
   "edition": "6.0.1",
-  "date": "2026-11-12",
+  "date": "2026-11-13",
   "scope": [],
   "rules": "https://pauta-project.dev/6.0.1/rules.json",
   "results": [
@@ -22,8 +22,8 @@
     {
       "id": "OS-03",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "No test yet runs Termina as each operating system and compares its commands, menus and settings."
+      "status": "pass",
+      "evidence": "the one class that says which OS this is takes an override, Os.runAs (src/main/java/com/termina/Os.java:56, read by current() at :44), and one test sets Windows, macOS and Linux in turn through it and compares the command ids, the menu bar's rows, the Settings pages and the commands the keymap binds (src/test/java/com/termina/ui/SameOnEveryOsTest.java:30). src/test/java/com/termina/OsTest.java holds the override itself, and that nothing in src/main calls it. Thirteen classes read the OS once as they load, so the test builds its lists before any override and compares only lists made when asked (docs/gotchas.md) (fixed in 4cba88f)"
     },
     {
       "id": "OS-04",
@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 44 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 21 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 44 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 21 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 44 entries link issue #92, read with `gh issue view`: open, and naming each of the 44 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 21 entries link issue #92, read with `gh issue view`: open, and naming each of the 21 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 44 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 21 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 44 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 21 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -250,8 +250,8 @@
     {
       "id": "REPO-08",
       "level": "MAY",
-      "status": "fail",
-      "evidence": "no TODO.md at the repository root (`ls TODO.md`: not found); a MAY, so no consequence"
+      "status": "pass",
+      "evidence": "TODO.md exists at the root and holds the open list: the rules not met yet, what has never been run, the terminal features and the performance work not done. src/test/java/com/termina/RepositoryDocsTest.java:35 fails when its rules and pauta.json's differ, which is what keeps it in the same change, and AGENTS.md names it as the list (fixed in a6026f5)"
     },
     {
       "id": "REPO-09",
@@ -328,8 +328,8 @@
     {
       "id": "DOCS-11",
       "level": "MAY",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/SettingsWindow.java has no help link on any page and no page-to-slug map (searched it for help, docs, slug, DOCUMENTATION; searched messages.properties for settings.help: not found)"
+      "status": "pass",
+      "evidence": "one map from Settings page to docs slug (src/main/java/com/termina/ui/SettingsHelp.java:22) feeds the link every page ends in, Help for and the page's name (src/main/java/com/termina/ui/SettingsWindow.java:657, :676), opened through the application's link opener (src/main/java/com/termina/ui/WindowManager.java:859); src/test/java/com/termina/ui/SettingsHelpTest.java:15 holds the map to every page and src/test/java/com/termina/ui/SettingsWindowFxTest.java:227 fires each page's link and reads the address it opens (fixed in a6026f5)"
     },
     {
       "id": "DOCS-12",
@@ -352,8 +352,8 @@
     {
       "id": "DOCS-15",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A few comments in the source code are doubled up."
+      "status": "pass",
+      "evidence": "no doc comment sits on another: the twenty that did are on the members they were written for, and two whose member was gone were folded into the comment that stands. src/test/java/com/termina/ui/ChromeHabitsTest.java:223 scans the main and the test sources and fails on one (fixed in bf3faee)"
     },
     {
       "id": "DOCS-16",
@@ -371,7 +371,7 @@
       "id": "DOCS-18",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "The README shows one screenshot, not a light and a dark one, and screenshots are not captured at double size."
+      "evidence": "The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's."
     },
     {
       "id": "QUAL-02",
@@ -382,8 +382,8 @@
     {
       "id": "QUAL-03",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The largest parts of the code have no coverage floor of their own."
+      "status": "pass",
+      "evidence": "the jacoco-check rules carry a BUNDLE BRANCH limit and a PACKAGE line floor for each package of 300 lines or more: cli, i18n, update, config, link, theme, shell and sync as before, and now com.termina.ui, com.termina and com.termina.term (pom.xml:504, :517, :530), a few points under what Linux measures (0.917, 0.872, 0.930). Those three are properties (pom.xml:50-52) because Windows skips the tests that drive real shells and windows: its runner passes its own, as it does the build-wide floors (fixed in f74928d)"
     },
     {
       "id": "QUAL-04",
@@ -406,8 +406,8 @@
     {
       "id": "QUAL-07",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Some tests wait a fixed time for the shell, which makes them slower than they need to be."
+      "status": "pass",
+      "evidence": "grep -rn 'Thread.sleep' src/test finds no test: its only lines are the rule's own text in the copy of the edition PAUTA-10 puts there (src/test/resources/pauta-rules.json:1583, :1586, :1705). The 55 sleeps in 26 test classes are gone: a test with the toolkit waits on the next frame, a latch the frame counts down (src/test/java/com/termina/testing/Await.java:27, :50); one without waits on a signal the code under test fires, the buffer's change listener or the directory watcher's callback (src/test/java/com/termina/testing/Signal.java:29, :48), or on the worker's own queue (src/test/java/com/termina/shell/ShellProfilesTest.java:299); a shell start still on its way is counted (src/main/java/com/termina/ui/TerminalView.java:667). src/test/java/com/termina/TestsDoNotSleepTest.java:32 fails the build on a sleep by any of its spellings, and :42 holds the two places where time has to pass because it is the input (an echo held back for JediTerm's predictor, which reads the system clock, and a child process that never answers) to those two (fixed in 6f2fa27)"
     },
     {
       "id": "QUAL-08",
@@ -436,8 +436,8 @@
     {
       "id": "QUAL-13",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "No test changes every setting, restarts and reads each one back."
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/SettingsWindowFxTest.java:279 sets every enabled switch, number and choice in the Settings window to another value (28 of them), writes the settings, loads them from the file as a restart does, opens a second window over those and reads each control back by name (fixed in f74928d)"
     },
     {
       "id": "QUAL-15",
@@ -502,14 +502,14 @@
     {
       "id": "PERF-09",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Drawing the terminal copies each run of text every frame."
+      "status": "pass",
+      "evidence": "a frame no longer copies its text: a run's string is looked up by its characters and made only for text not drawn before (src/main/java/com/termina/ui/RunText.java:33), and a glyph drawn by itself is a string made once for its code point (:49, src/main/java/com/termina/ui/TerminalView.java:1471); the rows are read from the line stores and handed to one consumer kept for the life of the view (:1225, :1265), where JediTerm's own walk made a stream, an optional and an iterator for every row; the cursor's line and each selected row are read the same way (:1318), a selection's span goes into one array the painter keeps (:3225, src/main/java/com/termina/ui/SelectionGeometry.java:43, :116), and the dimmed cursor colour is derived when the palette is set (:131). Measured by src/test/java/com/termina/ui/RepaintAllocationFxTest.java:43 with the JVM's per-thread count: a repaint of an unchanged screen of forty coloured rows allocates about 900 bytes over an idle frame, against 9,050 with the strings copied and 3,700 more with JediTerm's walk; the limit is 3,000 (:102). What a keystroke allocates is the few bytes it sends, made in JediTerm's TerminalStarter; no array or image of ours is sized by the window and made again while the size holds (fixed in 6f2fa27)"
     },
     {
       "id": "PERF-10",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Reopening a closed tab restyles the whole tab strip, and the palette restyles its rows on every keystroke."
+      "status": "pass",
+      "evidence": "reopening a closed tab styles the tab's own content and the strip that gained a header, not the window's whole tab pane (src/main/java/com/termina/ui/TerminalWindow.java:2159), and a palette row's disabled class changes only when the row's state does, not on every keystroke's cell update (src/main/java/com/termina/ui/CommandPalette.java:477). The two scene-wide applyCss calls left are in the development capture hooks, which no user path runs (fixed in 1fa40cf)"
     },
     {
       "id": "PERF-11",
@@ -544,14 +544,14 @@
     {
       "id": "PERF-16",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The settings are read after the window toolkit starts, not alongside it."
+      "status": "pass",
+      "evidence": "main, in a class that is not the Application subclass, starts the config read on a thread of its own before launch (src/main/java/com/termina/Main.java:57, App.readAhead at src/main/java/com/termina/App.java:90, thread \"termina-config\"); init() takes that result (src/main/java/com/termina/App.java:61, takeReadAhead at :68) and start() uses what init prepared (:189). The read is the half that needs no toolkit (readConfig, :128); only the fonts are loaded after it (finish, :167). init reads the files itself only when main's read failed or there was none, which is the fallback the rule allows. src/test/java/com/termina/AppReadAheadFxTest.java holds the result, the fallback and the order in the source (fixed in 4cba88f)"
     },
     {
       "id": "PERF-17",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The stylesheets are shipped as text and parsed at every launch."
+      "status": "pass",
+      "evidence": "the release build converts every stylesheet to .bss: ui.StyleCompiler calls Stylesheet.convertToBinary (src/main/java/com/termina/ui/StyleCompiler.java:42) and the dist profile runs it on target/classes at process-classes (pom.xml:1018, compile-styles), before the jar that jlink links is made, so the image carries both forms; `./mvnw -o -Pdist process-classes` wrote five .bss files here. JavaFX takes the .bss beside a .css by itself, so every build first deletes the ones a release build left (pom.xml:254). src/test/java/com/termina/ui/StyleCompilerFxTest.java holds that a compiled sheet styles as its source does, that the app's five compile, and that none has a relative url(); a headless capture of the main window and of Settings from the binaries matched the ones from the text pixel for pixel. The CI package job checks the jar for app.bss (fixed in 4cba88f)"
     },
     {
       "id": "PERF-18",
@@ -568,14 +568,14 @@
     {
       "id": "PERF-20",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "When the window stalls, Termina can say for how long but not what it was doing."
+      "status": "pass",
+      "evidence": "-Dtermina.stallLog=<ms> turns on a sampler of the FX thread's stack beside the frame-gap monitor (src/main/java/com/termina/ui/StallMonitor.java:41): a watcher on its own thread samples the thread when it has not beaten for the threshold and prints the stack once for each stall (src/main/java/com/termina/ui/StallSampler.java:39, :60). src/test/java/com/termina/ui/StallSamplerTest.java holds the rule, the report and a stuck thread's stack. A headless run with it on printed the stacks, and one of them was the font picker measuring every installed family on the FX thread, now done on a worker after the first frame (src/main/java/com/termina/ui/MonospaceFonts.java:108) (fixed in 4cba88f)"
     },
     {
       "id": "PERF-21",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Two earlier performance fixes have no test that would catch them coming back."
+      "status": "pass",
+      "evidence": "the three fixed hot paths the audit found with no test have one that fails on the old code: the painter's list of prompt marks is the same instance until a command changes it (src/test/java/com/termina/ui/PromptMarksTest.java:120, for cedc1f5); a burst of 200 title sequences while the FX thread is held is one update showing the last (src/test/java/com/termina/ui/TitleBurstFxTest.java:37, for b9fbb83); and the scroll bar is updated after the frame releases the buffer's lock (src/test/java/com/termina/ui/HotPathsTest.java:30, an order held on the source, for cedc1f5). The same commit's palette short-circuit is held at src/test/java/com/termina/ui/HotPathsTest.java:51, and its two answers worked out once, whether type-ahead is wanted and the search wash colour, at :75. Found before for the others: src/test/java/com/termina/ui/FrameGateTest.java, src/test/java/com/termina/config/SettingsSaveTest.java, src/test/java/com/termina/process/ChildProcessesTest.java; and this branch's own, the font list made off the FX thread (src/test/java/com/termina/ui/DeferredFontsTest.java) (fixed in df9f4d6)"
     },
     {
       "id": "PERF-22",
@@ -605,7 +605,7 @@
       "id": "KBD-04",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "A greyed menu row does not say why it cannot run; the Command Palette does."
+      "evidence": "pending in pauta.json. Met wherever Termina draws the menu: a greyed row keeps its place and shows the palette's reason as a tooltip under the pointer (src/main/java/com/termina/ui/MenuReasons.java:34, :55), in the bar's menus (src/main/java/com/termina/ui/TerminalWindow.java:3574, :2964), a tab's menu (:1637) and the terminal's right-click menu, where Open Link and Copy Link Address are now always listed (src/main/java/com/termina/ui/TerminalView.java:2420, :2446); src/test/java/com/termina/ui/MenusFxTest.java:583 and src/test/java/com/termina/ui/MenuReasonsFxTest.java:42 hold it, the second with a real pointer. Not met on the macOS screen menu bar: those rows are AppKit's, greyed with no reason, and JavaFX gives a system menu item no tooltip"
     },
     {
       "id": "KBD-05",
@@ -688,8 +688,8 @@
     {
       "id": "KBD-18",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The on and off rows of Settings are announced as check boxes, not as switches."
+      "status": "pass",
+      "evidence": "every row of Settings that turns a setting on or off is a SettingSwitch (src/main/java/com/termina/ui/SettingsWindow.java:686, where the row helper turns each check box into one): it takes focus, an unmodified Space or Enter flips it (src/main/java/com/termina/ui/SwitchKeys.java:15), its role is TOGGLE_BUTTON with its selected state, and a screen reader's press fires it (src/main/java/com/termina/ui/SettingSwitch.java:22, :59). It is Editora's class, not AtlantaFX's switch as it comes. src/test/java/com/termina/ui/SettingsWindowFxTest.java:439 presses Space and the accessible action on every one, and src/test/java/com/termina/ui/ChromeHabitsTest.java:339 holds the key rule (fixed in 1fa40cf)"
     },
     {
       "id": "ACC-01",
@@ -700,14 +700,14 @@
     {
       "id": "ACC-02",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The status bar opens the Message Log on a click but is not announced as something to press."
+      "status": "pass",
+      "evidence": "each label, pane or region that takes a click sets a role and handles the role's action: the status bar's two labels are PressLabels, BUTTON with FIRE opening the Message Log (src/main/java/com/termina/ui/StatusBar.java:31-32, src/main/java/com/termina/ui/PressLabel.java:19, :26); the palette's scrim is a BUTTON whose FIRE closes it (src/main/java/com/termina/ui/CommandPalette.java:86, :104); and the terminal view, which takes keys and the mouse, is a TEXT_AREA that answers TEXT and takes REQUEST_FOCUS (src/main/java/com/termina/ui/TerminalView.java:367, :505). src/test/java/com/termina/ui/ChromeHabitsTest.java:376 fails a click handler on a node with no role, and src/test/java/com/termina/ui/PaletteFocusFxTest.java:130 fires the status bar's action (fixed in 1fa40cf)"
     },
     {
       "id": "ACC-03",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A screen reader cannot read the terminal's text."
+      "status": "pass",
+      "evidence": "the terminal is painted on a canvas, and the view that stands for it sets an accessible text, \"Terminal\", with the role TEXT_AREA (src/main/java/com/termina/ui/TerminalView.java:505), and answers TEXT with what is on screen, tidied of the grid's padding (src/main/java/com/termina/ui/TerminalView.java:351-367, src/main/java/com/termina/ui/ScreenText.java); a listening screen reader is told the text changed, at most twice a second (:398). A grid is not a set of items a person moves through, so there is no node per item. src/test/java/com/termina/ui/PaletteFocusFxTest.java:130 runs a command and reads its output from the accessible text (fixed in 1fa40cf)"
     },
     {
       "id": "ACC-04",
@@ -718,8 +718,8 @@
     {
       "id": "ACC-05",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A tab's notification, bell and activity marks differ only by color."
+      "status": "manual",
+      "evidence": "Look at a grayscale screenshot of the tab strip with a bell, a notification and new output in three background tabs: the marks are a ring, a diamond and a dot (src/main/java/com/termina/ui/TabMarks.java:45; src/main/java/com/termina/ui/TerminalWindow.java:1795-1813), where they were one dot in three colors. Errors and warnings elsewhere carry words. src/test/java/com/termina/ui/TabMarksTest.java:16 holds a shape of its own for each kind; not recorded"
     },
     {
       "id": "ACC-06",
@@ -736,8 +736,8 @@
     {
       "id": "ACC-08",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Moving through the Command Palette is not announced to a screen reader, and a row that cannot run gives its reason only as a tooltip."
+      "status": "pass",
+      "evidence": "the code that moves the palette's selection tells the list its focused item moved (src/main/java/com/termina/ui/PaletteNav.java:46, notifyAccessibleAttributeChanged(FOCUS_ITEM)), which the list answers with the selected row, and a row that cannot run says why in its accessible text (src/main/java/com/termina/ui/CommandPalette.java:402, :484). src/test/java/com/termina/ui/ChromeHabitsTest.java:353 holds both (fixed in 1fa40cf)"
     },
     {
       "id": "ACC-09",
@@ -1102,8 +1102,8 @@
     {
       "id": "TABS-12",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The tab bar can be hidden only while a window has a single tab."
+      "status": "pass",
+      "evidence": "a registered command, `showTabBar`, hides the tab header with any number of tabs open and shows it again, named Hide Tab Bar or Show Tab Bar for the way it will go (src/main/java/com/termina/ui/TerminalWindow.java:130, :3392); it writes the setting `ui.showTabBar` (src/main/java/com/termina/config/Settings.java:984), which the strip's rule obeys before the older single-tab one (src/main/java/com/termina/ui/WindowRules.java:107). It is a row of View (src/main/java/com/termina/ui/MenuBarModel.java:113) and of Settings. src/test/java/com/termina/ui/TabBarFxTest.java:46 hides the strip with three tabs open and brings it back, and src/test/java/com/termina/ui/TabBarVisibilityTest.java:38 holds the rule for one to twelve tabs (fixed in bf3faee)"
     },
     {
       "id": "TABS-13",
@@ -1474,8 +1474,8 @@
     {
       "id": "SET-21",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A sync that fails on its own, or from Settings, shows only on the Sync page and not in the status bar or the Message Log."
+      "status": "manual",
+      "evidence": "Point Sync at a repository that does not exist: the pill on the Sync page says Problem in the danger color (src/main/java/com/termina/ui/SettingsWindow.java:2267, :2546-2558; src/main/resources/com/termina/styles/settings.css:124), and the failure goes to the Message Log and the echo area even though nobody asked for the run, once for each kind of failure (src/main/java/com/termina/ui/SettingsSync.java:225, :614; src/main/java/com/termina/ui/WindowManager.java:104). src/test/java/com/termina/ui/ChromeHabitsTest.java:314 holds when a failure is told; not recorded"
     },
     {
       "id": "DIAG-01",
@@ -1546,8 +1546,8 @@
     {
       "id": "DIAG-07",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "There is no page that checks whether the programs Termina relies on, such as git, are installed."
+      "status": "manual",
+      "evidence": "by hand: open Help ▸ Doctor with a tool missing and find its row failed, with what to install. The code is there: the Doctor is a Help row and a command (src/main/java/com/termina/ui/MenuBarModel.java:156, src/main/java/com/termina/ui/TerminalWindow.java:3163) whose checks cover the shell, the settings folder, git and gh, and on Linux the selection clipboard, notifications and the link opener (src/main/java/com/termina/ui/Doctor.java:94), run on a worker (src/main/java/com/termina/ui/DoctorWindow.java:120), each row a status in words with what was found and, under a failed one, what to install and a link (src/main/java/com/termina/ui/DoctorWindow.java:154). src/test/java/com/termina/ui/DoctorTest.java:122 holds a missing tool's row and fix with the machine replaced, and src/test/java/com/termina/ui/DoctorWindowFxTest.java:54 the window. A headless capture of the real window (-Dtermina.captureDoctor) in a session with no display showed the selection clipboard row Missing with \"Install the xclip package\". Opening it by hand on a desktop is not recorded"
     },
     {
       "id": "DIAG-08",
@@ -1601,7 +1601,7 @@
       "id": "CLI-11",
       "level": "MUST",
       "status": "pass",
-      "evidence": "the Windows image carries a second launcher, termina-cli, with win-console=true (packaging/windows/termina-cli.properties; pom.xml:626, in the os-windows profile, merged into the app-image execution). It names no main class or arguments of its own, so it runs the app's entry point and every option reaches it; the installer is built from that image (scripts/build-installers.sh:25). src/test/java/com/termina/WorkflowRulesTest.java:178 holds the configuration, and CI runs termina-cli.exe --version on the Windows image (.github/workflows/ci.yml:199). Not yet run on Windows: the first CI run with it is the check (fixed in c167783)"
+      "evidence": "the Windows image carries a second launcher, termina-cli, with win-console=true (packaging/windows/termina-cli.properties; pom.xml:626, in the os-windows profile, merged into the app-image execution). It names no main class or arguments of its own, so it runs the app's entry point and every option reaches it; the installer is built from that image (scripts/build-installers.sh:25). src/test/java/com/termina/WorkflowRulesTest.java:178 holds the configuration, and CI runs termina-cli.exe --version on the Windows image (.github/workflows/ci.yml:199). It was built and run on Windows by the Package (windows-latest) job of pull request 94, which passed (fixed in c167783)"
     },
     {
       "id": "CLI-06",
@@ -1631,7 +1631,7 @@
       "id": "CLI-10",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "A few helper programs are looked for without your login shell's search path."
+      "evidence": "pending in pauta.json. Every place that starts a process now gives it the login shell's PATH through one helper once that PATH is known (src/main/java/com/termina/process/ChildPath.java:37, published at src/main/java/com/termina/ui/LoginShellPath.java; src/test/java/com/termina/process/ChildPathTest.java holds every site), so gh, git and a link's command always get it. Not met for the desktop's own tools (xclip, wl-copy, notify-send, gdbus, hostname): they are started without asking the login shell, by design (src/main/java/com/termina/ui/SystemTools.java:15-18), and get the inherited PATH until a sync or a clicked link has asked"
     },
     {
       "id": "INTL-01",
@@ -1672,8 +1672,8 @@
     {
       "id": "INTL-07",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A few short labels, such as example commands in Settings, are not in the translation catalogs."
+      "status": "pass",
+      "evidence": "no literal reaches a control's text: the four that did (the opacity's percent, two example commands in Settings and the find bar's regex toggle) come from the catalog now (src/main/resources/com/termina/i18n/messages.properties, settings.percent, settings.linkOpenCommand.prompt, settings.profileCommand.prompt, search.regexToggle), through the one lookup, Messages.tr. src/test/java/com/termina/ui/ChromeHabitsTest.java:195 scans every source file for a literal with a letter or a digit in a text position (fixed in bf3faee)"
     },
     {
       "id": "INTL-08",
@@ -1702,8 +1702,8 @@
     {
       "id": "INTL-12",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Some counts read as plurals even when the count is one."
+      "status": "pass",
+      "evidence": "a message with a count is worded for the count in all six catalogs, with a choice limb for each form the language needs: the status bar's unread errors, the three counted parts of an import and the Pauta window's four counts (src/main/resources/com/termina/i18n/messages.properties, statusbar.unread, config.part.*, pauta.count.*); French counts zero with the singular. No value has a placeholder and \"(s)\". src/test/java/com/termina/ui/ChromeHabitsTest.java:249 parses every choice pattern in every catalog and formats it for 0, 1, 2, 5 and 1234 (fixed in bf3faee)"
     },
     {
       "id": "INTL-13",
@@ -1768,8 +1768,8 @@
     {
       "id": "PAL-09",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "An open Command Palette keeps showing the old shortcut after a key binding changes."
+      "status": "pass",
+      "evidence": "applying the bindings calls the palette's rebind method (src/main/java/com/termina/ui/TerminalWindow.java:3264), which rebuilds the opener's chip, the key legend and, while the palette is up, its rows with the chords in force, keeping the selected command selected (src/main/java/com/termina/ui/CommandPalette.java:181). src/test/java/com/termina/ui/PaletteFocusFxTest.java:102 changes two bindings under an open palette and reads the new chords from its rows and its opener (fixed in f74928d)"
     },
     {
       "id": "QOPEN-01",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (44 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (21 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2098,8 +2098,8 @@
     {
       "id": "CONF-12",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The questions Settings asks cannot be answered by a test without the dialog being shown."
+      "status": "pass",
+      "evidence": "the words of every question are a Questions.Question built by a pure function, one for each of the nine kinds (src/main/java/com/termina/ui/Questions.java: reset settings, remove sync credentials, remove theme, reset a taken key, reset all keys, remove profile, paste, close running, quit running), and every place that asks passes one (src/test/java/com/termina/ui/QuestionsTest.java:105 counts the nine and fails on words put together where they are asked). The helper has a hook that answers without building or showing the dialog, Confirm.answerWith (src/main/java/com/termina/ui/Confirm.java:43, taken at :53). src/test/java/com/termina/ui/QuestionsTest.java reads every kind with no dialog and no toolkit, and src/test/java/com/termina/ui/ConfirmHookFxTest.java:43 answers Reset Key Bindings through the hook, refused then allowed, with no window opened (fixed in df9f4d6)"
     },
     {
       "id": "FIND-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 44 pending entries (5 MUST, 39 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 21 pending entries (5 MUST, 16 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2456,8 +2456,16 @@
     "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json.",
     "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json.",
     "Two of the three differences behind OS-04 were removed the same day (a middle-click pastes nothing outside Linux; a shell's reported folder fills in only where the OS has no answer, on every OS). The third, the key-binding sync files, keeps it pending.",
-    "Two more pending MUSTs were met on 2026-11-13, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json.",
-    "Twelve pending SHOULDs were met on 2026-11-13, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json.",
-    "Eight more pending SHOULDs were settled on 2026-11-13, in 17edb17: REL-25, INTL-10, MENU-18, MENU-11, PAL-07 now pass; ACC-07, MENU-17, TBAR-06 are for a person to check in the running app, and their entries are out of pauta.json."
+    "Two more pending MUSTs were met on 2026-11-12, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json.",
+    "Twelve pending SHOULDs were met on 2026-11-12, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json.",
+    "Eight more pending SHOULDs were settled on 2026-11-12, in 17edb17: REL-25, INTL-10, MENU-18, MENU-11, PAL-07 now pass; ACC-07, MENU-17, TBAR-06 are for a person to check in the running app, and their entries are out of pauta.json.",
+    "Five more pending SHOULDs were settled on 2026-11-12, in bf3faee: TABS-12, INTL-07, DOCS-15, INTL-12 now pass; ACC-05 are for a person to check in the running app, and their entries are out of pauta.json.",
+    "Four more pending SHOULDs were settled on 2026-11-12, in a fifth batch, in f74928d: PAL-09, QUAL-13, QUAL-03 now pass; SET-21 are for a person to check in the running app, and their entries are out of pauta.json.",
+    "Five more pending SHOULDs were settled on 2026-11-12, in a sixth batch, in 1fa40cf: KBD-18, ACC-02, ACC-03, ACC-08, PERF-10 now pass, and their entries are out of pauta.json.",
+    "Four more pending SHOULDs were settled on 2026-11-12, in a seventh batch, in 4cba88f: OS-03, PERF-16, PERF-17, PERF-20 now pass, and their entries are out of pauta.json.",
+    "Two more pending SHOULDs were settled on 2026-11-12, in an eighth batch, in df9f4d6: CONF-12, PERF-21 now pass, and their entries are out of pauta.json.",
+    "One more pending SHOULD was settled on 2026-11-12, in a ninth batch, in f8e4411: the Doctor is built, so DIAG-07 is now for a person to check in the running app, and its entry is out of pauta.json.",
+    "Two more pending SHOULDs were settled and one narrowed on 2026-11-13, in a tenth batch, in 6f2fa27: QUAL-07, PERF-09 now pass, and their entries are out of pauta.json. DOCS-18 stays pending for the website alone: the README's hero is now a dark and a light picture at 2× from the capture hook.",
+    "Two of the three optional rules not met were settled on 2026-11-13, in an eleventh batch, in a6026f5: REPO-08, DOCS-11 now pass. They were optional, so neither had an entry in pauta.json; WIN-10 is the one optional rule left not met."
   ]
 }

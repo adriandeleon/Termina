@@ -96,6 +96,27 @@ public final class MonospaceFonts {
         return cached;
     }
 
+    /**
+     * Makes the list on a worker, after the first frame: the deferred families registered and
+     * every installed one measured, so the font picker's first opening only reads it (PERF-01).
+     * Measuring is two text layouts a family, and on a machine with a few hundred families the
+     * first Settings window spent a quarter of a second of the FX thread on it, which the stall
+     * sampler showed.
+     *
+     * @return the worker, for a test to wait on
+     */
+    public static Thread warmInBackground() {
+        Thread worker = new Thread(MonospaceFonts::available, "termina-fonts");
+        worker.setDaemon(true);
+        worker.start();
+        return worker;
+    }
+
+    /** Whether the list is made, so asking for it measures nothing. */
+    static synchronized boolean isListed() {
+        return cached != null;
+    }
+
     /** The family to actually use for a stored preference, which may be blank or uninstalled. */
     public static synchronized String resolve(String preference) {
         // A bundled family the first frame did not need — a profile's — is registered on first use.

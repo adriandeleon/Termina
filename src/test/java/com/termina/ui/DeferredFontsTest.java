@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.scene.text.Font;
 
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -65,7 +67,7 @@ class DeferredFontsTest {
         assertTrue(first.get(10, TimeUnit.SECONDS).contains(Fonts.BUNDLED_MONO.getFirst()), "the default family");
 
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
-        while (!Fonts.restLoaded() && System.nanoTime() < deadline) Thread.sleep(20);
+        while (!Fonts.restLoaded() && System.nanoTime() < deadline) Await.frame();
         assertTrue(Fonts.restLoaded(), "the worker registered the rest");
 
         // The worker forgets the cached list just after its last family is in: asked until whole.
@@ -75,8 +77,27 @@ class DeferredFontsTest {
             Platform.runLater(() -> listed.complete(MonospaceFonts.available()));
             families = listed.get(10, TimeUnit.SECONDS);
             if (families.containsAll(Fonts.BUNDLED_MONO)) break;
-            Thread.sleep(20);
+            Await.frame();
         }
         assertTrue(families.containsAll(Fonts.BUNDLED_MONO), families::toString);
+    }
+
+    /**
+     * PERF-01 (Pauta 6.0.1): after the first frame a worker makes the list, measuring every
+     * installed family, so the font picker's first opening measures nothing on the FX thread.
+     */
+    @Test
+    @Order(3)
+    void theListIsMadeOnAWorkerBeforeThePickerAsks() throws Exception {
+        MonospaceFonts.forget();
+        assertFalse(MonospaceFonts.isListed());
+        Thread worker = MonospaceFonts.warmInBackground();
+        assertEquals("termina-fonts", worker.getName());
+        worker.join(TimeUnit.SECONDS.toMillis(30));
+        assertTrue(MonospaceFonts.isListed(), "the worker left the list made");
+
+        CompletableFuture<java.util.List<String>> listed = new CompletableFuture<>();
+        Platform.runLater(() -> listed.complete(MonospaceFonts.available()));
+        assertTrue(listed.get(10, TimeUnit.SECONDS).containsAll(Fonts.BUNDLED_MONO));
     }
 }

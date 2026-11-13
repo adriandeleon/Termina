@@ -101,6 +101,7 @@ public final class WindowManager {
             applySettingsEverywhere();
         });
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
+        this.sync.setUnaskedReporter(messages::add);
         // A window joins this list as it is shown, before its first frame: the one place that
         // catches every window — settings, About, a confirmation dialog — however it was made.
         // The sizes the code fixes, in every window, follow the UI zoom (WIN-12, Pauta 6.0.1).
@@ -199,14 +200,6 @@ public final class WindowManager {
     }
 
     /**
-     * A new window, cascaded from {@code from} — the window whose menu or chord asked for it.
-     *
-     * <p>From that one rather than from the last opened: with three windows across two screens,
-     * "New Window" from the first should land beside the first, not beside whichever was made most
-     * recently. {@code from} may be null, in which case the window opens where the stage would on
-     * its own.
-     */
-    /**
      * A window for another launch's command line (CLI-07): its options apply to this window's
      * first tab, as they would have to a process of its own, and it comes to the front.
      */
@@ -218,6 +211,14 @@ public final class WindowManager {
         return window;
     }
 
+    /**
+     * A new window, cascaded from {@code from} — the window whose menu or chord asked for it.
+     *
+     * <p>From that one rather than from the last opened: with three windows across two screens,
+     * "New Window" from the first should land beside the first, not beside whichever was made most
+     * recently. {@code from} may be null, in which case the window opens where the stage would on
+     * its own.
+     */
     public TerminalWindow openWindow(@Nullable TerminalWindow from) {
         return open(new Stage(), null, from, null);
     }
@@ -398,7 +399,6 @@ public final class WindowManager {
         quitting = !windows.isEmpty();
     }
 
-    /** One About window for the application, shown beside whichever window asked. */
     /** The terminal window the user is in, or the last one opened when none has focus. */
     private Window frontWindow() {
         for (TerminalWindow window : windows) {
@@ -407,6 +407,7 @@ public final class WindowManager {
         return windows.isEmpty() ? new Stage() : windows.get(windows.size() - 1).stage();
     }
 
+    /** One About window for the application, shown beside whichever window asked. */
     public void showAbout(Window from) {
         AboutWindow about = aboutWindow();
         about.setUpdate(knownUpdate, lastAnswer);
@@ -435,6 +436,35 @@ public final class WindowManager {
         PautaWindow window = pautaWindow;
         if (window == null) pautaWindow = window = new PautaWindow(openLink);
         window.show(from);
+    }
+
+    private @Nullable DoctorWindow doctorWindow;
+
+    /** The Doctor (DIAG-07): what {@code help.doctor} opens, checking again each time. */
+    void showDoctor(Window from) {
+        DoctorWindow window = doctorWindow;
+        if (window == null) doctorWindow = window = new DoctorWindow(openLink, settings);
+        window.show(from);
+    }
+
+    /** Why the Doctor's report cannot be copied now, as a catalogue key, or null when it can. */
+    @Nullable
+    String copyDoctorUnavailableKey() {
+        DoctorWindow window = doctorWindow;
+        return WindowRules.copyDoctorUnavailableKey(window != null && window.hasRows());
+    }
+
+    /** What {@code help.copyDoctor} does: the rows the Doctor last showed, as text. */
+    void copyDoctor() {
+        DoctorWindow window = doctorWindow;
+        if (window != null) window.copyAsText();
+    }
+
+    /** For the development capture hook. */
+    public javafx.scene.Scene showDoctorForCapture(Window owner) {
+        showDoctor(owner);
+        DoctorWindow window = doctorWindow;
+        return window == null ? owner.getScene() : window.scene();
     }
 
     /** For the development capture hook. */
@@ -810,12 +840,12 @@ public final class WindowManager {
         return sync;
     }
 
-    /** The settings window, made on first use. */
     /** The settings window, made if need be: for the test that presses its buttons. */
     SettingsWindow settingsWindowForTest() {
         return settingsWindow();
     }
 
+    /** The settings window, made on first use. */
     private SettingsWindow settingsWindow() {
         SettingsWindow window = settingsWindow;
         if (window == null) {
@@ -826,6 +856,7 @@ public final class WindowManager {
                     windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
                     sync);
             window.openDebugLogWith(this::showDebugLog);
+            window.openLinksWith(this::openLink);
         }
         return window;
     }

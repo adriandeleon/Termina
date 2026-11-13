@@ -11,6 +11,7 @@ import javafx.application.Platform;
 
 import com.termina.config.ConfigArchive;
 import com.termina.config.ConfigArchive.Part;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -147,7 +148,7 @@ class ConfigTransferTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out");
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 }

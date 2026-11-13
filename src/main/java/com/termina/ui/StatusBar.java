@@ -1,7 +1,6 @@
 package com.termina.ui;
 
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -21,13 +20,16 @@ import static com.termina.i18n.Messages.tr;
 final class StatusBar extends HBox {
 
     private final MessageLog log;
-    private final Label echo = new Label();
-    private final Label unread = new Label();
+    private final Label echo;
+    private final Label unread;
     private final javafx.scene.control.Hyperlink update = new javafx.scene.control.Hyperlink();
     private final Runnable refresh = this::refresh;
 
     StatusBar(MessageLog log, Runnable openLog) {
         this.log = log;
+        // Clicked, each opens the Message Log; told to a screen reader as a button that does (ACC-02).
+        echo = new PressLabel(openLog);
+        unread = new PressLabel(openLog);
         getStyleClass().add("status-bar");
         setAlignment(Pos.CENTER_LEFT);
         setFocusTraversable(false);
@@ -35,10 +37,6 @@ final class StatusBar extends HBox {
         echo.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(echo, Priority.ALWAYS);
         unread.getStyleClass().addAll("status-unread", "state-error");
-        for (Label label : new Label[] {echo, unread}) {
-            label.setCursor(Cursor.HAND);
-            label.setOnMouseClicked(e -> openLog.run());
-        }
         update.getStyleClass().add("status-update");
         // Out of the Tab order with the rest of the bar; Help ▸ Version … is available is the
         // same action for the keyboard, and a command.

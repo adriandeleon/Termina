@@ -15,6 +15,7 @@ import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.term.TerminalSession;
+import com.termina.testing.Signal;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,9 +46,14 @@ class ProcessCwdPtyTest {
         StubDisplay display = new StubDisplay();
         TerminalSession session = new TerminalSession(display, 80, 24, 5000, "");
         AtomicReference<String> reported = new AtomicReference<>();
+        // Fired by the watcher's every report, and by the buffer's every change: what the waits
+        // below look again on, instead of a clock (QUAL-07, Pauta 6.0.1).
+        Signal told = new Signal();
+        Signal reports = new Signal(); // the watcher's alone
         try {
             session.start();
-            assumeTrue(awaitReady(session), "shell did not start");
+            session.getTextBuffer().addModelListener(told::fire);
+            assumeTrue(awaitReady(session, told), "shell did not start");
 
             // The shell is started in the user's home, and that is what a fresh tab should say.
             assertEquals(
@@ -55,20 +61,28 @@ class ProcessCwdPtyTest {
                     ProcessCwd.of(session.pid()).orElse(null),
                     "a new session should report the directory its shell was started in");
 
-            try (CwdWatcher watcher = CwdWatcher.watch(session.pid(), reported::set)) {
-                assertTrue(await(() -> reported.get() != null), "the watcher never reported at all");
+            try (CwdWatcher watcher = CwdWatcher.watch(session.pid(), directory -> {
+                reported.set(directory);
+                told.fire();
+                reports.fire();
+            })) {
+                assertTrue(told.await(() -> reported.get() != null, TIMEOUT), "the watcher never reported at all");
 
                 // Login startup output can precede input readiness. Retry this idempotent command
                 // until the watcher observes the actual directory, rather than trusting first output.
                 assertTrue(
-                        awaitDirectory(session, reported, target),
+                        awaitDirectory(session, reported, told, target),
                         () -> "the watcher did not follow the cd. Last reported: " + reported.get());
             }
 
             // And it stops when closed: whatever it reported last stays put through another cd.
+            // The shell is seen to have moved first, by a word it prints once it has; then two of
+            // the watcher's periods pass with no report, and the first report would end the wait.
             String afterClose = reported.get();
-            session.sendString("cd /\r");
-            Thread.sleep(2 * 750);
+            TerminalTextBuffer buffer = session.getTextBuffer();
+            session.sendString("cd / && printf 'moved-%s\\n' away\r");
+            assertTrue(told.await(() -> screen(buffer).contains("moved-away"), TIMEOUT), "the shell never moved");
+            assertTrue(reports.quietFor(Duration.ofMillis(2 * 750)), "a closed watcher went on polling");
             assertEquals(afterClose, reported.get(), "a closed watcher went on polling");
         } finally {
             session.close();
@@ -85,40 +99,30 @@ class ProcessCwdPtyTest {
         assertTrue(ProcessCwd.of(Integer.MAX_VALUE).isEmpty());
     }
 
-    private static boolean await(java.util.function.BooleanSupplier condition) throws InterruptedException {
-        Instant deadline = Instant.now().plus(TIMEOUT);
-        while (Instant.now().isBefore(deadline)) {
-            if (condition.getAsBoolean()) return true;
-            Thread.sleep(50);
-        }
-        return false;
-    }
-
-    private static boolean awaitDirectory(TerminalSession session, AtomicReference<String> reported, Path target)
+    private static boolean awaitDirectory(
+            TerminalSession session, AtomicReference<String> reported, Signal told, Path target)
             throws InterruptedException {
         Instant deadline = Instant.now().plus(TIMEOUT);
         while (Instant.now().isBefore(deadline)) {
             session.sendString("cd '" + target.toString().replace("'", "'\"'\"'") + "'\r");
-            Thread.sleep(1000);
-            if (target.toString().equals(reported.get())) return true;
+            // Sent again each second it has not been followed: see the caller.
+            if (told.await(() -> target.toString().equals(reported.get()), Duration.ofSeconds(1))) return true;
         }
         return false;
     }
 
-    private static boolean awaitReady(TerminalSession session) throws InterruptedException {
+    private static boolean awaitReady(TerminalSession session, Signal told) throws InterruptedException {
         TerminalTextBuffer buffer = session.getTextBuffer();
-        Instant deadline = Instant.now().plus(TIMEOUT);
-        while (Instant.now().isBefore(deadline)) {
-            buffer.lock();
-            try {
-                if (!buffer.getScreenLines().isBlank()) return true;
-            } finally {
-                buffer.unlock();
-            }
-            if (!session.isRunning()) return false;
-            Thread.sleep(50);
+        return told.await(() -> !screen(buffer).isBlank(), TIMEOUT);
+    }
+
+    private static String screen(TerminalTextBuffer buffer) {
+        buffer.lock();
+        try {
+            return buffer.getScreenLines();
+        } finally {
+            buffer.unlock();
         }
-        return false;
     }
 
     /** Everything the emulator calls into, doing nothing. */

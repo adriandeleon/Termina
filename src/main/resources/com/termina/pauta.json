@@ -1,14 +1,6 @@
 {
   "exceptions": [
     {
-      "rule": "OS-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/same-on-every-os/#os-03",
-      "kind": "pending",
-      "reason": "No test yet runs Termina as each operating system and compares its commands, menus and settings.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "OS-04",
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/same-on-every-os/#os-04",
@@ -73,91 +65,11 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "DOCS-15",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-15",
-      "kind": "pending",
-      "reason": "A few comments in the source code are doubled up.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "DOCS-18",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-18",
       "kind": "pending",
-      "reason": "The README shows one screenshot, not a light and a dark one, and screenshots are not captured at double size.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "QUAL-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-03",
-      "kind": "pending",
-      "reason": "The largest parts of the code have no coverage floor of their own.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "QUAL-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-07",
-      "kind": "pending",
-      "reason": "Some tests wait a fixed time for the shell, which makes them slower than they need to be.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "QUAL-13",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-13",
-      "kind": "pending",
-      "reason": "No test changes every setting, restarts and reads each one back.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-09",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-09",
-      "kind": "pending",
-      "reason": "Drawing the terminal copies each run of text every frame.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-10",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-10",
-      "kind": "pending",
-      "reason": "Reopening a closed tab restyles the whole tab strip, and the palette restyles its rows on every keystroke.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-16",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-16",
-      "kind": "pending",
-      "reason": "The settings are read after the window toolkit starts, not alongside it.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-17",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-17",
-      "kind": "pending",
-      "reason": "The stylesheets are shipped as text and parsed at every launch.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-20",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-20",
-      "kind": "pending",
-      "reason": "When the window stalls, Termina can say for how long but not what it was doing.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-21",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-21",
-      "kind": "pending",
-      "reason": "Two earlier performance fixes have no test that would catch them coming back.",
+      "reason": "The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -173,47 +85,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-04",
       "kind": "pending",
-      "reason": "A greyed menu row does not say why it cannot run; the Command Palette does.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "KBD-18",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-18",
-      "kind": "pending",
-      "reason": "The on and off rows of Settings are announced as check boxes, not as switches.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-02",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-02",
-      "kind": "pending",
-      "reason": "The status bar opens the Message Log on a click but is not announced as something to press.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-03",
-      "kind": "pending",
-      "reason": "A screen reader cannot read the terminal's text.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-05",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-05",
-      "kind": "pending",
-      "reason": "A tab's notification, bell and activity marks differ only by color.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-08",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-08",
-      "kind": "pending",
-      "reason": "Moving through the Command Palette is not announced to a screen reader, and a row that cannot run gives its reason only as a tooltip.",
+      "reason": "On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -241,51 +113,11 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "TABS-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/tabs-and-panels/#tabs-12",
-      "kind": "pending",
-      "reason": "The tab bar can be hidden only while a window has a single tab.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "SET-21",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/settings/#set-21",
-      "kind": "pending",
-      "reason": "A sync that fails on its own, or from Settings, shows only on the Sync page and not in the status bar or the Message Log.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "DIAG-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/diagnostics/#diag-07",
-      "kind": "pending",
-      "reason": "There is no page that checks whether the programs Termina relies on, such as git, are installed.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "CLI-10",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/command-line/#cli-10",
       "kind": "pending",
-      "reason": "A few helper programs are looked for without your login shell's search path.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "INTL-07",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/i18n/#intl-07",
-      "kind": "pending",
-      "reason": "A few short labels, such as example commands in Settings, are not in the translation catalogs.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "INTL-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/i18n/#intl-12",
-      "kind": "pending",
-      "reason": "Some counts read as plurals even when the count is one.",
+      "reason": "The desktop's own helper programs (the clipboard, notifications) get your login shell's search path only once a sync or a clicked link has asked for it.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -305,27 +137,11 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "PAL-09",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-09",
-      "kind": "pending",
-      "reason": "An open Command Palette keeps showing the old shortcut after a key binding changes.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "QOPEN-01",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01",
       "kind": "pending",
       "reason": "There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "CONF-12",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/confirm-dialog/#conf-12",
-      "kind": "pending",
-      "reason": "The questions Settings asks cannot be answered by a test without the dialog being shown.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

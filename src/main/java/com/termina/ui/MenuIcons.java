@@ -327,6 +327,9 @@ public final class MenuIcons {
     /** reportProblem: a warning triangle. */
     private static final String REPORTPROBLEM = "M8 2.2L14.6 13.4H1.4zM8 6.8v3M8 11.6v.2";
 
+    /** help.doctor: a cross in a box, the sign on a first-aid kit. */
+    private static final String HELP_DOCTOR = "M2.5 2.5h11v11h-11zM8 5v6M5 8h6";
+
     /** help.pauta: Material's checklist. */
     private static final String HELP_PAUTA =
             "M22 7l-1.41-1.41L13 13.17l-2.59-2.58L9 12l4 4 9-9zM3 5h11v2H3V5zm0 6h7v2H3v-2zm0 6h7" + "v2H3v-2z";
@@ -348,6 +351,9 @@ public final class MenuIcons {
     /** settings.removeProfile: Material's delete. */
     private static final String SETTINGS_REMOVEPROFILE =
             "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
+
+    /** showTabBar: a window with a row of tabs under its top edge. */
+    private static final String SHOWTABBAR = "M2.5 3h11v10h-11zM2.5 6h11M6.5 3v3M10 3v3";
 
     /** The magnifier with a plus: the zoom row of the right-click menu, which is the zoom family's. */
     static Node zoom() {
@@ -418,11 +424,13 @@ public final class MenuIcons {
         add("view.messageLog", () -> line(VIEW_MESSAGELOG));
         add("debugLog", () -> line(DEBUGLOG));
         add("reportProblem", () -> line(REPORTPROBLEM));
+        add("help.doctor", () -> line(HELP_DOCTOR));
         add("help.pauta", () -> of(HELP_PAUTA));
         add("debugLog.refresh", () -> of(DEBUGLOG_REFRESH));
         add("debugLog.export", () -> line(DEBUGLOG_EXPORT));
         add("settings.addProfile", () -> line(SETTINGS_ADDPROFILE));
         add("settings.removeProfile", () -> of(SETTINGS_REMOVEPROFILE));
+        add("showTabBar", () -> line(SHOWTABBAR));
         // The same action in another window wears the same glyph: Copy is Copy wherever it is.
         add("debugLog.find", MenuIcons::search);
         add("debugLog.copy", MenuIcons::copy);

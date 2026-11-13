@@ -12,6 +12,7 @@ import javafx.application.Platform;
 
 import com.termina.config.Settings;
 import com.termina.i18n.Messages;
+import com.termina.testing.Await;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,7 @@ class WindowCommandsFxTest {
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
             "app.quit", // ends the app, and the toolkit the other tests share
+            "showTabBar", // TabBarFxTest's: hidden, a later test's tab headers are not there to find
             "showStatusBar"); // turning the bar off makes every later report a modal dialog
 
     /** Run last, in this order: they take tabs away from the commands before them. */
@@ -161,7 +163,7 @@ class WindowCommandsFxTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
-            Thread.sleep(50);
+            Await.frame();
         }
     }
 

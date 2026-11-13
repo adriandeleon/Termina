@@ -30,6 +30,17 @@ final class SelectionGeometry {
      *     covered to its end
      */
     static int @Nullable [] onRow(TerminalSelection selection, int row, int rowSlots) {
+        int[] span = new int[2];
+        return onRow(selection, row, rowSlots, span) ? span : null;
+    }
+
+    /**
+     * {@link #onRow(TerminalSelection, int, int)} into an array the caller keeps, for the painter,
+     * which asks for every row of every frame (PERF-09, Pauta 6.0.1).
+     *
+     * @return whether the selection crosses the row; {@code into} holds the span only then
+     */
+    static boolean onRow(TerminalSelection selection, int row, int rowSlots, int[] into) {
         Point start = selection.getStart();
         Point end = selection.getEnd();
         if (after(start, end)) {
@@ -37,10 +48,12 @@ final class SelectionGeometry {
             start = end;
             end = swap;
         }
-        if (row < start.y || row > end.y) return null;
+        if (row < start.y || row > end.y) return false;
         int from = row == start.y ? start.x : 0;
         int to = row == end.y ? end.x : rowSlots;
-        return to > from ? new int[] {from, to} : null;
+        into[0] = from;
+        into[1] = to;
+        return to > from;
     }
 
     /**
@@ -95,14 +108,22 @@ final class SelectionGeometry {
      * null when the row is outside it. The same span on every row, which is the point of a block.
      */
     static int @Nullable [] blockOnRow(TerminalSelection block, int row) {
+        int[] span = new int[2];
+        return blockOnRow(block, row, span) ? span : null;
+    }
+
+    /** {@link #blockOnRow(TerminalSelection, int)} into an array the caller keeps. */
+    static boolean blockOnRow(TerminalSelection block, int row, int[] into) {
         Point start = block.getStart();
         Point end = block.getEnd();
         int top = Math.min(start.y, end.y);
         int bottom = Math.max(start.y, end.y);
-        if (row < top || row > bottom) return null;
+        if (row < top || row > bottom) return false;
         int from = Math.min(start.x, end.x);
         int to = Math.max(start.x, end.x);
-        return to > from ? new int[] {from, to} : null;
+        into[0] = from;
+        into[1] = to;
+        return to > from;
     }
 
     private static boolean after(Point a, Point b) {
