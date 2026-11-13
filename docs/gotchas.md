@@ -377,6 +377,12 @@ is broken.
 - **A glyph's stroke is not a stylesheet length.** The outline glyphs are scaled as nodes, stroke
   and all, so a bare `-fx-stroke-width` is left out of the zoom; scaled twice, a cross in a box
   filled in at 150%.
-- **Closing a test's terminal window can end the toolkit.** `closeForShutdown` on the last window
-  hit a JavaFX assertion under `-ea` and every later FX test timed out. Tests leave their terminal
-  window and hide only the windows beside it.
+- **The FX tests share one toolkit, and a window one leaves open is the next one's problem.** Three
+  ways it has bitten, all found only when the order changed. Quit hid every stage but its own
+  manager's terminals, which in a test JVM included another manager's last terminal window: that
+  manager ended, and the toolkit with it, and every FX test after it timed out
+  (`TerminalWindow.isTerminalWindow` is the fix, and it is the right rule outside tests too). A
+  test's tidy-up that hides "every other stage" does the same; hide only what the test opened. And
+  a question left up is the one the next test's `DialogAnswers` presses, leaving its own unanswered.
+  Surefire's default order is the filesystem's, which differs between a laptop and a runner, so
+  the order is pinned (`runOrder` in the pom): what fails on CI fails here.

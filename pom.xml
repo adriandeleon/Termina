@@ -540,6 +540,12 @@
                     <!-- Tests run on the classpath (unnamed module) so they can reach
                          package-private members and setAccessible freely. -->
                     <useModulePath>false</useModulePath>
+                    <!-- The FX tests share one toolkit and leave windows behind, so the order they
+                         run in is part of what they test. The default is the order the filesystem
+                         lists the classes in, which differs from one machine to the next: a test
+                         that only failed after certain others passed on a laptop and failed on
+                         every runner. One order everywhere. -->
+                    <runOrder>alphabetical</runOrder>
                     <!-- Every FX test runs on JavaFX's Headless glass platform (PLAT-11, Pauta 2.0.2):
                          no display, no Monocle, no xvfb, the same on a laptop and a runner. The
                          tests also set it themselves, for a run from an IDE. -->

@@ -286,6 +286,12 @@ class DevCaptureFxTest {
             settings.setUpdateCheck(false);
             settings.setShowStatusBar(true); // a report is then a line, not a modal dialog
             settings.setNotifications(false); // an OSC 9 marks the tab; it never reaches the desktop
+            // What is open before the run, so what the run leaves open can be told apart: a run
+            // may end with Settings, About, a log or a question still up, and a question left up
+            // is the one the next test's answer would press.
+            java.util.Set<javafx.stage.Window> before =
+                    java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            onFx(() -> before.addAll(javafx.stage.Window.getWindows()));
             WindowManager windows = onFx(() -> new WindowManager(settings));
             onFx(() -> {
                 windows.setLinkOpener(url -> System.out.println("[test] would open " + url));
@@ -311,6 +317,14 @@ class DevCaptureFxTest {
                     return null;
                 });
             }
+            // And everything else the run opened, but the window that keeps the toolkit alive.
+            onFx(() -> {
+                for (javafx.stage.Window left : java.util.List.copyOf(javafx.stage.Window.getWindows())) {
+                    if (before.contains(left) || left == keeper.stage() || !left.isShowing()) continue;
+                    left.hide();
+                }
+                return null;
+            });
         } finally {
             set.keySet().forEach(System::clearProperty);
         }
