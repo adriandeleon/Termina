@@ -53,12 +53,30 @@ class DeferredFontsTest {
     @Test
     @Order(2)
     void thePickerListsEveryBundledFamily() throws Exception {
-        CompletableFuture<java.util.List<String>> listed = new CompletableFuture<>();
+        // Asked on the FX thread, the list is the families registered so far: the rest are read on
+        // a worker, never there (PERF-01, Pauta 6.0.1), and the list is forgotten when they are in.
+        // So the first answer may be short, and the one after the worker is done is whole. This
+        // test alone, in a JVM where nothing else has loaded a font, is the case that showed it.
+        CompletableFuture<java.util.List<String>> first = new CompletableFuture<>();
         Platform.runLater(() -> {
             Fonts.load("");
-            listed.complete(MonospaceFonts.available());
+            first.complete(MonospaceFonts.available());
         });
-        java.util.List<String> families = listed.get(10, TimeUnit.SECONDS);
+        assertTrue(first.get(10, TimeUnit.SECONDS).contains(Fonts.BUNDLED_MONO.getFirst()), "the default family");
+
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+        while (!Fonts.restLoaded() && System.nanoTime() < deadline) Thread.sleep(20);
+        assertTrue(Fonts.restLoaded(), "the worker registered the rest");
+
+        // The worker forgets the cached list just after its last family is in: asked until whole.
+        java.util.List<String> families = java.util.List.of();
+        while (System.nanoTime() < deadline) {
+            CompletableFuture<java.util.List<String>> listed = new CompletableFuture<>();
+            Platform.runLater(() -> listed.complete(MonospaceFonts.available()));
+            families = listed.get(10, TimeUnit.SECONDS);
+            if (families.containsAll(Fonts.BUNDLED_MONO)) break;
+            Thread.sleep(20);
+        }
         assertTrue(families.containsAll(Fonts.BUNDLED_MONO), families::toString);
     }
 }
