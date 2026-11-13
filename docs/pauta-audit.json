@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 52 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 44 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 52 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 44 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 52 entries link issue #92, read with `gh issue view`: open, and naming each of the 52 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 44 entries link issue #92, read with `gh issue view`: open, and naming each of the 44 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 52 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 44 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 52 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 44 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -730,8 +730,8 @@
     {
       "id": "ACC-07",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The release steps do not include a pass with a screen reader."
+      "status": "manual",
+      "evidence": "docs/release.md:15-19 has the step, a pass with Narrator on Windows and VoiceOver on macOS before tagging (src/test/java/com/termina/WorkflowRulesTest.java:154 holds the file to naming both). Whether someone made the pass for a release is a person's to record, with the version; not recorded"
     },
     {
       "id": "ACC-08",
@@ -958,8 +958,8 @@
     {
       "id": "TBAR-06",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "A thin line and a change of shade separate the menu bar from the tab strip."
+      "status": "manual",
+      "evidence": "Look at the top of the main window in a light and a dark theme: the menu bar, the title bar that holds it and the tab strip share -color-bg-subtle with no hairline between them (src/main/resources/com/termina/styles/app.css:205, :216, :221; src/test/java/com/termina/ui/ChromeHabitsTest.java:160). At the bottom there is one bar, the status bar, with nothing to join. Seen in a headless capture of the dark theme; not recorded"
     },
     {
       "id": "TBAR-02",
@@ -1186,8 +1186,8 @@
     {
       "id": "MENU-18",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Right-click menus have the theme's own corners and shadow, smaller than the guidelines'."
+      "status": "pass",
+      "evidence": "the stylesheet gives the popup's card a radius of 8 and a shadow of radius 16 at offset Y 16, the offset no smaller than the radius (src/main/resources/com/termina/styles/app.css:825-826); the row's padding is the theme's 8 x 12, and its layout sets the 22 px icon column and the 8 and 18 px margins (src/main/java/com/termina/ui/MenuRows.java). src/test/java/com/termina/ui/ChromeHabitsTest.java:160 reads the radius and the shadow (fixed in 17edb17)"
     },
     {
       "id": "MENU-01",
@@ -1216,8 +1216,8 @@
     {
       "id": "MENU-17",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "No command or shortcut puts the keyboard in the menu bar."
+      "status": "manual",
+      "evidence": "On Windows or Linux, press Ctrl+Shift+F10 (the Focus Menu Bar command, src/main/java/com/termina/ui/TerminalWindow.java:2679, :3051; bound in src/main/resources/com/termina/keymaps/keymap.json:25): the first menu opens with the keyboard in the bar, and the arrows walk it. A plain F10 and a lone Alt go to the program in the terminal, which is why it is a command. src/test/java/com/termina/ui/PaletteFocusFxTest.java:102 runs it and finds the bar focused and its first menu open; not recorded"
     },
     {
       "id": "MENU-05",
@@ -1258,8 +1258,8 @@
     {
       "id": "MENU-11",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Each tab's right-click menu is built with the tab, not the first time it is opened."
+      "status": "pass",
+      "evidence": "a tab's menu is not built with the tab: the tab is given an empty shell (src/main/java/com/termina/ui/TerminalWindow.java:1013, :1580), and its rows are made in the handler of its first showing (fillTabMenu, :1596), which also installs the handler that sets labels and enablement for each showing; no row is hidden, so there is no separator to collapse. src/test/java/com/termina/ui/MenusFxTest.java:107-109 finds each tab's menu unbuilt until asked for, and built once (fixed in 17edb17)"
     },
     {
       "id": "MENU-12",
@@ -1690,8 +1690,8 @@
     {
       "id": "INTL-10",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Tab numbers are written without regard to the language's number format."
+      "status": "pass",
+      "evidence": "the placeholders the code fills with a tab's or a profile's number carry `number,#` in all six catalogs: palette.goToTab, palette.movePaneToTab, palette.disabled.noSuchTab and palette.disabled.noSuchProfile (src/main/resources/com/termina/i18n/messages.properties:169, :367, :368, :483), beside statusbar.unread. src/test/java/com/termina/ui/ChromeHabitsTest.java:121 formats each in every catalog and fails a grouped number (fixed in 17edb17)"
     },
     {
       "id": "INTL-11",
@@ -1756,8 +1756,8 @@
     {
       "id": "PAL-07",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "Closing the Command Palette always returns to the terminal, even when it was opened from the find bar."
+      "status": "pass",
+      "evidence": "Esc and a press on the backdrop hide the palette (the key table binds no cancel command), and hiding gives the keyboard back to the node that had it before it opened (src/main/java/com/termina/ui/CommandPalette.java:198, :210-227): the find bar's field when it was opened from there, the terminal when that node is gone or cannot take it, and nowhere when the command it ran put the keyboard somewhere of its own. src/test/java/com/termina/ui/PaletteFocusFxTest.java:48 opens it from the terminal and from the find bar's field (fixed in 17edb17)"
     },
     {
       "id": "PAL-08",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (52 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (44 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2404,8 +2404,8 @@
     {
       "id": "REL-25",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "One step of the release build downloads its dependencies again where the others reuse them."
+      "status": "pass",
+      "evidence": "each setup-java step has `cache: maven`: .github/workflows/ci.yml:42, :66, :136 and release.yml:57, :462, the publish job's among them. src/test/java/com/termina/WorkflowRulesTest.java:154 reads every such step (fixed in 17edb17)"
     },
     {
       "id": "REL-26",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 52 pending entries (5 MUST, 47 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 44 pending entries (5 MUST, 39 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2457,6 +2457,7 @@
     "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json.",
     "Two of the three differences behind OS-04 were removed the same day (a middle-click pastes nothing outside Linux; a shell's reported folder fills in only where the OS has no answer, on every OS). The third, the key-binding sync files, keeps it pending.",
     "Two more pending MUSTs were met on 2026-11-13, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json.",
-    "Twelve pending SHOULDs were met on 2026-11-13, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json."
+    "Twelve pending SHOULDs were met on 2026-11-13, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json.",
+    "Eight more pending SHOULDs were settled on 2026-11-13, in 17edb17: REL-25, INTL-10, MENU-18, MENU-11, PAL-07 now pass; ACC-07, MENU-17, TBAR-06 are for a person to check in the running app, and their entries are out of pauta.json."
   ]
 }
