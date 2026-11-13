@@ -41,12 +41,24 @@ class WindowCommandsFxTest {
     /** Commands left out, by id, and why. */
     private static final Set<String> SKIPPED = Set.of(
             "checkForUpdates", // the network
-            "documentation", // a browser
+            "help.documentation", // a browser
             "whatsNew", // a browser
             "exportConfiguration", // writes to the real home folder
             "importConfiguration", // a file chooser
+            "debugLog.export", // a file chooser
+            "settings.importTheme", // a file chooser
+            "settings.reset", // a question
+            "settings.resetShortcuts", // a question
+            "settings.removeProfile", // a question, once Add Profile has selected one
+            "sync.createRepository", // a prompt, where gh is signed in
+            "report.open", // a browser
+            "help.website", // a browser
+            "help.sourceCode", // a browser
+            "help.pautaRules", // a browser
+            "help.pautaDocs", // a browser
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
+            "app.quit", // ends the app, and the toolkit the other tests share
             "showStatusBar"); // turning the bar off makes every later report a modal dialog
 
     /** Run last, in this order: they take tabs away from the commands before them. */

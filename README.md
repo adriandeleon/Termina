@@ -11,7 +11,7 @@
   <img alt="Java" src="https://img.shields.io/badge/Java-25-orange">
   <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-27-blue">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey">
-  <a href="https://pauta-project.dev/2.0.2/"><img alt="Built to Pauta 2.0.2" src="https://img.shields.io/badge/Pauta-2.0.2-5b6ee1"></a>
+  <a href="https://termina-project.dev/docs/pauta/"><img alt="Pauta 6.0.1, conformance Partial" src="https://img.shields.io/badge/Pauta-6.0.1%20%C2%B7%20Partial-d29922"></a>
 </p>
 
 <p align="center">
@@ -25,6 +25,8 @@ renders the emulated screen to a canvas.
 [user docs](https://termina-project.dev/docs/), [keybindings](https://termina-project.dev/keybindings/),
 [news](https://termina-project.dev/news/) and the [blog](https://termina-project.dev/blog/).
 The site's source is [adriandeleon/termina-website](https://github.com/adriandeleon/termina-website).
+
+Working toward [Pauta (the adl desktop apps guidelines)](https://pauta-project.dev/), edition [6.0.1](https://pauta-project.dev/6.0.1/), [Pauta conformance: Partial](https://termina-project.dev/docs/pauta/).
 
 Status: **early**. It is used on macOS and Linux. Windows is built, packaged and tested in CI on
 every commit, but nobody has opened a window there yet.
@@ -117,7 +119,7 @@ termina [options] [-e command [args...]]
 
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
-      --report                   Print a problem report, open a GitHub issue for it, and exit
+      --report                   Write a problem report to a file, open a GitHub issue for it, and exit
       --new-instance             Start a Termina of its own, not a window in the running one
       --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
   -d, --working-directory=DIR    Start the shell in DIR
@@ -132,8 +134,8 @@ running one. More on the [website](https://termina-project.dev/docs/command-line
 
 ## Configuration
 
-Settings live in `~/.termina` (`~/.termina-dev` with `--dev`; `--config-dir` or
-`TERMINA_CONFIG_DIR` to choose another): `settings.json` for preferences and key bindings,
+Settings live in `~/.termina` (`~/.termina-dev` with `--dev`; `--config-dir`, or
+`TERMINA_CONFIG_DIR` where neither is given, to choose another): `settings.json` for preferences and key bindings,
 `workspace-state.json` for window places, and `themes/` for imported colour schemes. The files are
 meant to be readable and hand-edited — one flat key per line, values clamped as they are read — and
 Settings ▸ Advanced exports and imports the whole folder as a `.zip`.

@@ -55,6 +55,17 @@ class SingleInstanceTest {
         assertTrue(System.nanoTime() - start < Duration.ofSeconds(3).toNanos());
     }
 
+    /** PERF-05 (Pauta 6.0.1): the blocking connect and read are never on the common pool. */
+    @Test
+    void theHandOffRunsOnADaemonThreadOfItsOwn() throws Exception {
+        java.util.concurrent.CompletableFuture<Thread> ran = new java.util.concurrent.CompletableFuture<>();
+        SingleInstance.onHandOffThread(() -> ran.complete(Thread.currentThread()));
+        Thread thread = ran.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        assertEquals(SingleInstance.HAND_OFF_THREAD, thread.getName());
+        assertTrue(thread.isDaemon());
+        assertFalse(thread instanceof java.util.concurrent.ForkJoinWorkerThread);
+    }
+
     @Test
     void aLongFolderPathGetsASocketInTheTempFolderThatBothSidesAgreeOn() {
         Path deep = Path.of("/tmp", "a".repeat(120), "config");

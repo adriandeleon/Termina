@@ -8,6 +8,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The window's pure rules, without the toolkit (QUAL-05, Pauta 2.0.2). */
 class WindowRulesPureTest {
 
+    /** WIN-13 (Pauta 6.0.1): every window asked to close in one turn is the system quitting. */
+    @Test
+    void closeRequestsOnEveryWindowAtOnceAreAQuit() {
+        assertTrue(WindowRules.closeRequestsAreAQuit(2, 2));
+        assertTrue(WindowRules.closeRequestsAreAQuit(3, 3));
+        // One of several is that window's close button.
+        assertFalse(WindowRules.closeRequestsAreAQuit(1, 2));
+        assertFalse(WindowRules.closeRequestsAreAQuit(2, 3));
+        // With one window open, closing it and quitting are the same thing: it closes as a window.
+        assertFalse(WindowRules.closeRequestsAreAQuit(1, 1));
+        assertFalse(WindowRules.closeRequestsAreAQuit(0, 0));
+    }
+
     @Test
     void onlyAnOrdinaryWindowsGeometryIsRemembered() {
         assertTrue(WindowRules.isRestoredGeometry(false, false));

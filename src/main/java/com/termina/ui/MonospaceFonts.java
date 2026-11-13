@@ -66,7 +66,14 @@ public final class MonospaceFonts {
     /** Installed monospace families, preferred ones first, then the rest alphabetically. */
     public static synchronized List<String> available() {
         // The picker lists every bundled family, including the ones deferred past the first frame.
-        if (Fonts.loadRest()) forget();
+        // Never read on the FX thread, though (PERF-01, Pauta 6.0.1): a caller there gets the
+        // families registered so far, and the rest are registered on a worker, which forgets this
+        // list so the next caller sees them.
+        if (javafx.application.Platform.isFxApplicationThread()) {
+            if (!Fonts.restLoaded()) Fonts.loadRestInBackground(MonospaceFonts::forget);
+        } else if (Fonts.loadRest()) {
+            forget();
+        }
         if (cached != null) return cached;
 
         Set<String> families = installed();

@@ -133,6 +133,50 @@ class DialogsFxTest {
             settings.setShowStatusBar(true);
             return null;
         });
+        assertEveryDialogMeetsTheRules(6);
+    }
+
+    /**
+     * What every dialog the tests answered looked like when it was answered: the interface font on
+     * it (ICON-01), its buttons worded by the app where there are two or more (CONF-14), and Cancel
+     * the one default button wherever a button is red (CONF-13), in the one button order (WIN-11,
+     * all Pauta 6.0.1).
+     */
+    private static void assertEveryDialogMeetsTheRules(int atLeast) {
+        List<DialogAnswers.Seen> seen = DialogAnswers.seen();
+        assertTrue(seen.size() >= atLeast, "dialogs answered: " + seen);
+        for (DialogAnswers.Seen dialog : seen) {
+            assertTrue(dialog.uiFont(), "no interface font on " + dialog);
+            // ACC-01 (Pauta 6.0.1): every button and field of a dialog has a name.
+            assertEquals(List.of(), dialog.unnamed(), "unnamed controls on " + dialog);
+            // WIN-11 (Pauta 6.0.1): one order on every OS, and Cancel drawn left of every action.
+            assertEquals(Confirm.BUTTON_ORDER, dialog.buttonOrder(), "the OS's button order on " + dialog);
+            assertTrue(dialog.cancelLeftmost(), "Cancel is not the leftmost button on " + dialog);
+            if (dialog.buttons().size() >= 2) {
+                assertEquals(List.of(), dialog.stock(), "stock buttons on " + dialog);
+            }
+            if (dialog.danger()) {
+                assertEquals(1, dialog.defaults(), "one default button on " + dialog);
+                assertTrue(dialog.cancelIsDefault(), "Cancel is not the default on " + dialog);
+            }
+        }
+        assertTrue(seen.stream().anyMatch(DialogAnswers.Seen::danger), "a destructive question was asked");
+    }
+
+    /** WIN-11 (Pauta 6.0.1): in the order string, Cancel comes before every action's letter. */
+    @Test
+    void cancelComesBeforeEveryActionInTheButtonOrder() {
+        int cancel = Confirm.BUTTON_ORDER.indexOf('C');
+        assertTrue(cancel >= 0);
+        for (char action : "OYNAU".toCharArray()) {
+            assertTrue(Confirm.BUTTON_ORDER.indexOf(action) > cancel, action + " is left of Cancel");
+        }
+        // Every letter JavaFX's own orders have, so no button type is dropped from the bar.
+        for (char letter : javafx.scene.control.ButtonBar.BUTTON_ORDER_WINDOWS.toCharArray()) {
+            if (Character.isLetter(letter)) {
+                assertTrue(Confirm.BUTTON_ORDER.indexOf(letter) >= 0, "no place for " + letter);
+            }
+        }
     }
 
     @Test
@@ -198,6 +242,7 @@ class DialogsFxTest {
             return null;
         });
         assertTrue(settings.fontSize() != 17, "Reset to Defaults reset it");
+        assertEveryDialogMeetsTheRules(8);
     }
 
     /** Presses the first visible, enabled button labelled {@code key}, answering what it asks. */

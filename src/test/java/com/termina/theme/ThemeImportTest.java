@@ -129,6 +129,24 @@ class ThemeImportTest {
         assertEquals(scheme, back);
     }
 
+    /** SET-09 (Pauta 6.0.1): the stored file carries a version, and one with none is version 0. */
+    @Test
+    void ourOwnFileCarriesItsSchemaVersionAndAnOlderOneStillReads() throws Exception {
+        ColorScheme scheme = only("Dracula.itermcolors");
+        String written = ThemeFile.write(scheme);
+        assertEquals(ThemeFile.SCHEMA_VERSION, ThemeFile.versionOf(written));
+        String before = written.replace("schemaVersion=" + ThemeFile.SCHEMA_VERSION + "\n", "");
+        assertEquals(0, ThemeFile.versionOf(before));
+        assertEquals(scheme, ThemeFile.read(before));
+        assertEquals(0, ThemeFile.versionOf("schemaVersion=soon\n"));
+        assertEquals(7, ThemeFile.versionOf("schemaVersion = 7\n"));
+    }
+
+    @Test
+    void everyVersionBelowTheCurrentHasItsMigrationStep() {
+        assertEquals(ThemeFile.SCHEMA_VERSION, ThemeFile.MIGRATIONS.size());
+    }
+
     @Test
     void aNameThatLooksLikeAPropertiesCommentSurvivesTheRoundTrip() throws Exception {
         ColorScheme scheme = new ColorScheme("# not a comment\\", 0, 0xffffff, DRACULA, null, null);

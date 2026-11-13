@@ -120,14 +120,18 @@ public final class SingleInstance implements AutoCloseable {
      */
     public static boolean handOff(Path configDir, Request request, Duration timeout) {
         Path socket = socketFor(configDir);
-        CompletableFuture<Boolean> answered = CompletableFuture.supplyAsync(() -> {
-            try (SocketChannel channel = SocketChannel.open(UnixDomainSocketAddress.of(socket))) {
-                channel.write(ByteBuffer.wrap((encode(request) + "\n").getBytes(StandardCharsets.UTF_8)));
-                return "ok".equals(readLine(channel).strip());
-            } catch (IOException | RuntimeException e) {
-                return false;
-            }
-        });
+        // On a thread of its own, never the common pool (PERF-05, Pauta 6.0.1): the connect and the
+        // read block for as long as the other Termina takes, and that pool is everybody's.
+        CompletableFuture<Boolean> answered = CompletableFuture.supplyAsync(
+                () -> {
+                    try (SocketChannel channel = SocketChannel.open(UnixDomainSocketAddress.of(socket))) {
+                        channel.write(ByteBuffer.wrap((encode(request) + "\n").getBytes(StandardCharsets.UTF_8)));
+                        return "ok".equals(readLine(channel).strip());
+                    } catch (IOException | RuntimeException e) {
+                        return false;
+                    }
+                },
+                SingleInstance::onHandOffThread);
         try {
             return answered.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (Exception e) {
@@ -135,6 +139,15 @@ public final class SingleInstance implements AutoCloseable {
             return false;
         }
     }
+
+    /** The hand-off's thread: a daemon, so a Termina that never answers cannot hold this one open. */
+    static void onHandOffThread(Runnable task) {
+        Thread thread = new Thread(task, HAND_OFF_THREAD);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    static final String HAND_OFF_THREAD = "termina-handoff";
 
     /**
      * Where the socket is: in the config folder, or, when that path is too long for a socket, in

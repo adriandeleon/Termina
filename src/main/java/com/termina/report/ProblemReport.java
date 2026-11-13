@@ -22,7 +22,7 @@ public record ProblemReport(String environment, String report) {
 
     /**
      * Past this a prefilled link may not open: browsers and GitHub cut long URLs. The report then
-     * goes by the clipboard instead, and the link carries only the environment.
+     * goes by the clipboard instead, and the link carries the environment and a hint to paste.
      */
     public static final int MAX_LINK_LENGTH = 7_500;
 
@@ -78,15 +78,22 @@ public record ProblemReport(String environment, String report) {
 
     /**
      * Where to open the issue. Both fields ride in the link while it stays under
-     * {@link #MAX_LINK_LENGTH}; past that only the environment does, and the report has to be pasted.
+     * {@link #MAX_LINK_LENGTH}; past that the form's report field carries {@code pasteHint} instead,
+     * which says where the report is (DIAG-13, Pauta 6.0.1), so the user who lands on the form
+     * finds the instruction in the field it is about.
      *
      * @param repository {@code owner/name}
+     * @param pasteHint what the report field says when the report does not fit: paste it from the
+     *     clipboard, or attach the file it was written to
      */
-    public Link link(String repository) {
+    public Link link(String repository, String pasteHint) {
         String base = "https://github.com/" + repository + "/issues/new?template=bug_report.yml&environment="
                 + encode(environment);
         String full = base + "&report=" + encode(report);
-        return full.length() <= MAX_LINK_LENGTH ? new Link(full, false) : new Link(base, true);
+        if (full.length() <= MAX_LINK_LENGTH) return new Link(full, false);
+        String hinted = base + "&report=" + encode(pasteHint);
+        // An environment the user has grown past the limit by hand leaves room for nothing else.
+        return new Link(hinted.length() <= MAX_LINK_LENGTH ? hinted : base, true);
     }
 
     /**

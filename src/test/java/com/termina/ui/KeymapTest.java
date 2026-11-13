@@ -55,9 +55,7 @@ class KeymapTest {
         }
         List<String> unknown = new ArrayList<>();
         for (String id : Keymap.load(false).keySet()) {
-            boolean numbered =
-                    id.matches("(" + TerminalWindow.PROFILE_CHORD_ID + "|" + TerminalWindow.TAB_CHORD_ID + ")[1-9]");
-            if (!numbered && catalogue.getProperty("menu." + id) == null) unknown.add(id);
+            if (catalogue.getProperty(TerminalWindow.COMMAND_KEY + id) == null) unknown.add(id);
         }
         assertEquals(List.of(), unknown, "a binding for a command that does not exist does nothing");
     }

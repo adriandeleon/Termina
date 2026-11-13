@@ -19,12 +19,13 @@
              filtered into a resource directly. -->
         <maven.build.timestamp.format>yyyy-MM-dd HH:mm 'UTC'</maven.build.timestamp.format>
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
-        <!-- The edition of the Pauta guidelines (https://pauta-project.dev) this app is built to.
+        <!-- The edition of the Pauta guidelines (https://pauta-project.dev) this app implements.
              One number, filtered into build-info.properties: About, the version option, AGENTS.md and the
-             README badge all name it. Moving to a newer edition is its own change — read that
-             edition's changelog for new MUSTs, meet them, then change this, AGENTS.md and the
-             README together. docs/reference/pauta-audit-*.md records what is still unmet. -->
-        <pauta.version>2.0.2</pauta.version>
+             README all name it. Moving to a newer edition is its own change: replace
+             src/test/resources/pauta-rules.json with that edition's, audit again, update pauta.json,
+             then change this, AGENTS.md and the README together. What is still unmet is in
+             src/main/resources/com/termina/pauta.json. -->
+        <pauta.version>6.0.1</pauta.version>
 
         <javafx.version>27.0.1</javafx.version>
         <spotless.version>3.11.0</spotless.version>
@@ -537,6 +538,12 @@
                     <!-- Tests run on the classpath (unnamed module) so they can reach
                          package-private members and setAccessible freely. -->
                     <useModulePath>false</useModulePath>
+                    <!-- The FX tests share one toolkit and leave windows behind, so the order they
+                         run in is part of what they test. The default is the order the filesystem
+                         lists the classes in, which differs from one machine to the next: a test
+                         that only failed after certain others passed on a laptop and failed on
+                         every runner. One order everywhere. -->
+                    <runOrder>alphabetical</runOrder>
                     <!-- Every FX test runs on JavaFX's Headless glass platform (PLAT-11, Pauta 2.0.2):
                          no display, no Monocle, no xvfb, the same on a laptop and a runner. The
                          tests also set it themselves, for a run from an IDE. -->

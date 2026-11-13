@@ -492,15 +492,37 @@ class SettingsTest {
         assertEquals(0, changes.get());
     }
 
+    /** SET-09: a schema 1 file's bindings are brought to the renamed ids and written back at 2. */
+    @Test
+    void aSchemaOneFileKeepsItsBindingsUnderTheRenamedIds(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("settings.json");
+        Files.writeString(
+                file,
+                "{\"schemaVersion\": 1, \"settings\": {\"keys.about\": \"F1\", \"keys.commandPalette\": \"Alt+X\","
+                        + " \"keys.newTab\": \"Ctrl+Shift+Y\", \"font.size\": 15}}");
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals(
+                java.util.Map.of("help.about", "F1", "palette.show", "Alt+X", "newTab", "Ctrl+Shift+Y"),
+                settings.keyBindings());
+        assertEquals(15.0, settings.fontSize());
+        settings.setFontSize(16);
+        settings.flush();
+        String written = Files.readString(file);
+        assertTrue(written.contains("\"schemaVersion\" : " + ConfigJson.SCHEMA_VERSION), written);
+        assertTrue(written.contains("\"keys.palette.show\" : \"Alt+X\""), written);
+        assertFalse(written.contains("keys.commandPalette"), written);
+    }
+
     @Test
     void theOldPaletteLineIsReadAsItsBinding(@TempDir Path dir) throws IOException {
-        // keys.commandPalette predates the rest; a file written before the rest existed keeps its palette chord. Its
-        // blank form meant "the default" then and still does.
+        // keys.commandPalette predates the rest; a file written before the rest existed keeps its palette
+        // chord, under the id the command has now. Its blank form meant "the default" then and still does.
         Path file = dir.resolve("settings.properties");
         Files.writeString(file, "keys.commandPalette=Ctrl+Shift+P\nkeys.newTab=\n");
         Settings settings = new Settings(file);
         settings.load();
-        assertEquals(java.util.Map.of("commandPalette", "Ctrl+Shift+P"), settings.keyBindings());
+        assertEquals(java.util.Map.of("palette.show", "Ctrl+Shift+P"), settings.keyBindings());
     }
 
     @Test
@@ -552,17 +574,25 @@ class SettingsTest {
     }
 
     @Test
-    void devUsesItsOwnFolderAndAnExplicitFolderStillWins() {
-        // SET-07 (Pauta 2.0.2): --config-dir, then TERMINA_CONFIG_DIR, then the standard folder.
-        Path explicit = Settings.defaultFile("/tmp/x", true);
-        assertEquals(Path.of("/tmp/x", Settings.SETTINGS_FILE), explicit);
-        if (System.getenv("TERMINA_CONFIG_DIR") == null) {
-            assertEquals(
-                    Path.of(System.getProperty("user.home"), ".termina-dev", Settings.SETTINGS_FILE),
-                    Settings.defaultFile("", true));
-            assertEquals(
-                    Path.of(System.getProperty("user.home"), ".termina", Settings.SETTINGS_FILE),
-                    Settings.defaultFile("", false));
-        }
+    void configDirThenDevThenTheVariableThenTheDefault() {
+        // SET-07 (Pauta 6.0.1): a flag wins over the variable, and --config-dir over --dev.
+        Path home = Path.of("/home/someone");
+        String h = home.toString();
+        assertEquals(Path.of("/tmp/x"), Settings.configDir("/tmp/x", true, "/tmp/env", h));
+        assertEquals(Path.of("/tmp/x"), Settings.configDir(" /tmp/x ", false, "/tmp/env", h));
+        assertEquals(home.resolve(".termina-dev"), Settings.configDir("", true, "/tmp/env", h));
+        assertEquals(home.resolve(".termina-dev"), Settings.configDir(null, true, null, h));
+        assertEquals(Path.of("/tmp/env"), Settings.configDir("", false, "/tmp/env", h));
+        assertEquals(home.resolve(".termina"), Settings.configDir("", false, null, h));
+        assertEquals(home.resolve(".termina"), Settings.configDir("", false, " ", h));
+    }
+
+    @Test
+    void theSettingsFileIsInTheFolderTheFlagsName() {
+        assertEquals(Path.of("/tmp/x", Settings.SETTINGS_FILE), Settings.defaultFile("/tmp/x", true));
+        // Whatever the environment says: --dev is ahead of the variable.
+        assertEquals(
+                Path.of(System.getProperty("user.home"), ".termina-dev", Settings.SETTINGS_FILE),
+                Settings.defaultFile("", true));
     }
 }

@@ -81,7 +81,10 @@ public final class KeybindingsFile {
             String chord = line.substring(eq + 1).strip();
             if (isId(id) && isChord(chord)) out.put(id, chord);
         }
-        return out;
+        // A computer on an older Termina still writes the ids four commands used to have; read as
+        // the ids they have now, here, so the merge compares a command with itself. What this
+        // computer writes back names the new ids only.
+        return com.termina.config.CommandIds.renamed(out);
     }
 
     /** A command id as the settings file spells it after {@code keys.}. */

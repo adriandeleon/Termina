@@ -253,23 +253,31 @@ public final class Settings {
     }
 
     /**
-     * The one resolver (SET-07, Pauta 2.0.2): {@code --config-dir}, then {@code TERMINA_CONFIG_DIR},
-     * then the standard folder, which {@code --dev} makes {@code ~/.termina-dev} so a build being
-     * worked on never touches the settings of the Termina in daily use.
+     * The one resolver (SET-07, Pauta 6.0.1): {@code --config-dir}, then {@code --dev}, then
+     * {@code TERMINA_CONFIG_DIR}, then {@code ~/.termina}. What is typed on the command line is the
+     * more specific instruction, so either flag wins over the variable, and {@code --dev} keeps a
+     * build being worked on out of the settings of the Termina in daily use even in a shell that
+     * exports the variable.
      */
     public static Path defaultFile(String override, boolean dev) {
-        if (override != null && !override.isBlank()) {
-            return Path.of(override.trim()).resolve(SETTINGS_FILE);
-        }
-        return defaultFileFromEnvironment(dev);
+        return configDir(override, dev, System.getenv("TERMINA_CONFIG_DIR"), System.getProperty("user.home"))
+                .resolve(SETTINGS_FILE);
     }
 
-    private static Path defaultFileFromEnvironment(boolean dev) {
-        String override = System.getenv("TERMINA_CONFIG_DIR");
-        Path dir = override != null && !override.isBlank()
-                ? Path.of(override)
-                : Path.of(System.getProperty("user.home"), dev ? ".termina-dev" : ".termina");
-        return dir.resolve(SETTINGS_FILE);
+    /**
+     * The config folder, from everything that can name one. The same on every OS: nothing here
+     * asks which one this is.
+     *
+     * @param flag {@code --config-dir}'s folder, or blank
+     * @param dev whether {@code --dev} was given
+     * @param variable {@code TERMINA_CONFIG_DIR}'s value, or null
+     * @param home the user's home folder
+     */
+    static Path configDir(@Nullable String flag, boolean dev, @Nullable String variable, String home) {
+        if (flag != null && !flag.isBlank()) return Path.of(flag.trim());
+        if (dev) return Path.of(home, ".termina-dev");
+        if (variable != null && !variable.isBlank()) return Path.of(variable);
+        return Path.of(home, ".termina");
     }
 
     /** Preferences. */
@@ -377,7 +385,9 @@ public final class Settings {
      * ({@link SettingsFormat}), so what can go wrong here is the disk.
      */
     private void importLegacy(Path legacy) throws IOException {
-        Map<String, String> read = SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy)));
+        // The properties file is schema 1 in all but its syntax, so it is brought forward like one.
+        Map<String, String> read =
+                ConfigJson.migrate(1, SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy))));
         read.forEach(properties::setProperty);
         baseline = Map.of();
         writeFile();
@@ -389,7 +399,7 @@ public final class Settings {
 
     private void readLegacyInto(Path legacy) {
         try {
-            SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy)))
+            ConfigJson.migrate(1, SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy))))
                     .forEach(properties::setProperty);
         } catch (IOException | RuntimeException ignored) {
             // Defaults, then: never a launch that fails over its settings.
@@ -753,8 +763,9 @@ public final class Settings {
      * there — clamped on read, like every other setting, because the file is hand-edited.
      *
      * <p>Keyed by command rather than by chord, unlike Editora's, so a hand-edited file reads as a
-     * list of what each command is on. {@code keys.commandPalette} predates the rest and is the
-     * palette's line unchanged.
+     * list of what each command is on. The palette's line predates the rest: it was
+     * {@code keys.commandPalette} until the command took the id {@code palette.show}, and a file
+     * that still says so is brought forward ({@link CommandIds}).
      */
     public java.util.Map<String, String> keyBindings() {
         java.util.Map<String, String> bindings = new java.util.TreeMap<>();

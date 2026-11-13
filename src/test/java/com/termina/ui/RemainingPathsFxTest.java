@@ -109,8 +109,11 @@ class RemainingPathsFxTest {
         String was = System.getProperty("user.home");
         System.setProperty("user.home", home.toString());
         try {
-            List<String> keys =
-                    List.of("menu.documentation", "menu.whatsNew", "menu.exportConfiguration", "menu.renameTab");
+            List<String> keys = List.of(
+                    "command.help.documentation",
+                    "command.whatsNew",
+                    "command.exportConfiguration",
+                    "command.renameTab");
             onFx(() -> {
                 for (javafx.scene.control.Menu menu : window.menuBarForTest().getMenus()) {
                     for (MenuItem item : new ArrayList<>(menu.getItems())) {

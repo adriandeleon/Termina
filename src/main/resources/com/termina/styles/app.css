@@ -18,6 +18,15 @@
     -state-amber: -color-warning-fg;
     -state-green: -color-success-fg;
 
+    /* The keyboard's colour (ICON-06, MENU-15): wherever a chord is shown, a menu's chord column or
+       the palette's, so "what do I press" is always the same colour and never an accent or a
+       state. Editora's periwinkle, a ladder over the theme's ground: a deep ink on a light ground,
+       a lighter periwinkle the darker the ground gets, 4.5:1 or more on the default and subtle
+       surfaces of both themes (StyleContrastTest). */
+    -state-key: ladder(-color-bg-default, #b0b6e0 0%, #b8bee5 10%, #cdd1f1 20%, #e3e6f9 30%, #ecedfb 49%, #3c4380 50%);
+    -state-key-bg: ladder(-color-bg-default, rgba(176, 182, 224, 0.15) 0%, rgba(205, 209, 241, 0.15) 20%,
+            rgba(236, 237, 251, 0.15) 49%, rgba(60, 67, 128, 0.15) 50%);
+
     /* What sits behind and under a floating surface (ICON-08): a scrim over the window while the
        palette is open, and the shadows of the palette and the find bar. Black in every theme —
        a shadow is the absence of light, not a hue — so named here rather than per theme. */
@@ -44,6 +53,16 @@
 }
 
 /* A disabled item dims its label but not its graphic, so the icon has to be dimmed explicitly. */
+/* A destructive row of a right-click menu (MENU-12): its text in the danger colour, until it is
+   the highlighted row, whose text has to read on the highlight. */
+.context-menu .menu-item.danger > .label {
+    -fx-text-fill: -color-danger-fg;
+}
+
+.context-menu .menu-item.danger:focused > .label {
+    -fx-text-fill: -color-fg-default;
+}
+
 .menu-item:disabled .menu-icon {
     -fx-fill: -color-fg-subtle;
     -fx-opacity: 0.5;
@@ -105,6 +124,29 @@
 .about-credits { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.85em; }
 .about-path { -fx-text-fill: -color-fg-muted; -fx-font-family: monospace; -fx-font-size: 0.8em; }
 .about-uptodate { -fx-text-fill: -state-green; -fx-font-size: 0.9em; }
+/* The Pauta window (PWIN-02): the conformance as a pill in its role's tint, and the list of
+   exceptions, each a rule's ID, its level and the reason. */
+.pauta-conformance {
+    -fx-background-radius: 10;
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+}
+.pauta-conformance.complete { -fx-background-color: -color-success-subtle; -fx-text-fill: -color-success-fg; }
+.pauta-conformance.core { -fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; }
+.pauta-conformance.partial { -fx-background-color: -color-warning-subtle; -fx-text-fill: -color-warning-fg; }
+.pauta-list { -fx-background-color: transparent; }
+.pauta-list > .viewport { -fx-background-color: transparent; }
+.pauta-group { -fx-font-weight: bold; -fx-padding: 8 0 2 0; }
+.pauta-rule {
+    -fx-font-family: "JetBrains Mono", monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 0;
+}
+.pauta-level { -fx-text-fill: -color-fg-muted; -fx-font-size: 11.5px; }
+.pauta-reason > .text { -fx-fill: -color-fg-default; }
+.pauta-reason > .hyperlink { -fx-padding: 0; }
+
 .about-update-headline { -fx-text-fill: -color-accent-fg; -fx-font-weight: bold; }
 
 /*
@@ -401,8 +443,8 @@
 .command-palette .palette-prefix {
     -fx-font-size: 11px;
     -fx-font-weight: bold;
-    -fx-text-fill: -color-accent-fg;
-    -fx-background-color: -color-accent-subtle;
+    -fx-text-fill: -state-key;
+    -fx-background-color: -state-key-bg;
     -fx-background-radius: 5;
     -fx-padding: 2 7 2 7;
 }
@@ -452,7 +494,7 @@
 
 /* The shortcut is a reminder, not the point of the row. */
 .command-palette .list-cell .keybinding {
-    -fx-text-fill: -color-fg-muted;
+    -fx-text-fill: -state-key;
     -fx-font-size: 11px;
 }
 
@@ -671,6 +713,13 @@
 .status-bar .status-echo.state-error { -fx-text-fill: -state-red; }
 .status-bar .status-echo.state-warning { -fx-text-fill: -state-amber; }
 
+/* The link to a newer version's release (DIAG-09): the bar's size, no padding of its own. */
+.status-bar .status-update {
+    -fx-font-size: 0.85em;
+    -fx-padding: 0;
+    -fx-border-width: 0;
+}
+
 .status-bar .status-unread {
     -fx-font-size: 0.85em;
     -fx-font-weight: bold;
@@ -719,6 +768,16 @@
     -fx-text-fill: -color-fg-default;
 }
 .menu-item .menu-item-chord {
-    -fx-text-fill: -color-fg-muted;
+    -fx-text-fill: -state-key;
+    -fx-font-size: 11px;
+}
+
+/* The chord cell of a right-click menu's row (MENU-15): the item's accelerator text, which the
+   skin draws right-aligned in one column, in the keyboard's colour and at the bar's chord size.
+   A destructive row's too: the cell is a label like the title, and the danger rule would take it. */
+.context-menu .menu-item > .accelerator-text,
+.context-menu .menu-item:focused > .accelerator-text,
+.context-menu .menu-item.danger > .accelerator-text {
+    -fx-text-fill: -state-key;
     -fx-font-size: 11px;
 }

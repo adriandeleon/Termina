@@ -62,12 +62,11 @@ class MessagesTest {
     }
 
     /**
-     * The {@code menu.*} titles that are not commands, so have no palette row to describe: the
-     * menus themselves, a submenu, a label the update check rewrites, and items that live only on a
-     * right-click menu. The last group is a gap rather than a choice (KBD-01, Pauta 2.0.2); a key
-     * leaves this list when its item becomes a command, and then needs its {@code .desc}.
+     * The {@code menu.*} keys left in the catalogue: the menus' own titles, a submenu, and what a
+     * command is called in its other state. A command's title is {@code command.<id>} (KBD-03,
+     * Pauta 6.0.1), so none of these names one.
      */
-    private static final Set<String> NOT_COMMANDS = Set.of(
+    private static final Set<String> MENU_KEYS = Set.of(
             "menu.file",
             "menu.edit",
             "menu.view",
@@ -77,21 +76,28 @@ class MessagesTest {
             "menu.newTabProfile",
             "menu.updateAvailable",
             "menu.hideStatusBar",
-            "menu.unpinTab");
+            "menu.unpinTab",
+            "menu.showMenuBar",
+            "menu.showMenuBar.desc",
+            "menu.closePane",
+            "menu.closePane.desc",
+            "menu.syncDisconnect");
 
     @Test
     void everyCommandTitleHasADescription() throws Exception {
         // The palette shows the description under the highlighted row; a command without one shows
-        // a blank line where the explanation should be (DOCS-09, KBD-03, Pauta 2.0.2).
+        // a blank line where the explanation should be (DOCS-09, KBD-03).
         Properties english = catalogue("en");
         Set<String> undescribed = new TreeSet<>();
+        Set<String> menuKeys = new TreeSet<>();
         for (String key : english.stringPropertyNames()) {
-            if (!key.startsWith("menu.") || key.indexOf('.', "menu.".length()) >= 0) continue;
-            if (NOT_COMMANDS.contains(key)) continue;
+            if (key.startsWith("menu.")) menuKeys.add(key);
+            if (!key.startsWith("command.") || key.endsWith(".desc")) continue;
             if (english.getProperty(key + ".desc") == null) undescribed.add(key);
         }
         assertEquals(Set.of(), undescribed);
-        for (String key : NOT_COMMANDS) assertTrue(english.containsKey(key), key + " is no longer in the catalogue");
+        // A new menu.* key is a title filed where no command's title belongs any more.
+        assertEquals(new TreeSet<>(MENU_KEYS), menuKeys);
     }
 
     @Test
@@ -174,8 +180,8 @@ class MessagesTest {
     @Test
     void aTranslationIsActuallyUsed() {
         Messages.init("es");
-        assertEquals("Copiar", Messages.tr("menu.copy"));
+        assertEquals("Copiar", Messages.tr("command.copy"));
         Messages.init("en");
-        assertEquals("Copy", Messages.tr("menu.copy"));
+        assertEquals("Copy", Messages.tr("command.copy"));
     }
 }

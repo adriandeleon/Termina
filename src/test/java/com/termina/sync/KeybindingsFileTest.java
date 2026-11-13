@@ -68,4 +68,20 @@ class KeybindingsFileTest {
                 Map.of("paste", "Ctrl+Shift+V"),
                 KeybindingsFile.entries(KeybindingsFile.text(KeybindingsFile.OTHER_PATH, bindings)));
     }
+
+    /**
+     * A computer on an older Termina writes the ids four commands used to have: they are read as
+     * the ids the commands have now, and written back under those.
+     */
+    @Test
+    void anOldIdIsReadAsTheCommandsNewOne() {
+        String theirs = "commandPalette=Alt+X\nabout=none\nnewTab=Ctrl+Shift+Y\n";
+        Map<String, String> read = KeybindingsFile.entries(theirs);
+        assertEquals(Map.of("palette.show", "Alt+X", "help.about", "none", "newTab", "Ctrl+Shift+Y"), read);
+        String written = KeybindingsFile.text(KeybindingsFile.OTHER_PATH, read);
+        assertTrue(written.contains("palette.show=Alt+X\n"), written);
+        assertFalse(written.contains("commandPalette"), written);
+        // Both in one file, as after an old and a new computer have each written: the new id's stands.
+        assertEquals(Map.of("palette.show", "F1"), KeybindingsFile.entries("commandPalette=Alt+X\npalette.show=F1\n"));
+    }
 }

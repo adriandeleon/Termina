@@ -1729,8 +1729,7 @@ public final class TerminalView extends Region {
     /** One row's worth of an underline: a line index and the slots it covers. */
     private record LinkSpan(int line, int fromSlot, int toSlot) {}
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * How far to look either side for the rest of a wrapped line.
@@ -2295,14 +2294,18 @@ public final class TerminalView extends Region {
      * setting the View menu does.
      *
      * <p>Both halves in one call so they cannot be wired half-way — a checkbox that toggles but
-     * never reflects, or reflects but never toggles, looks like it works. Left unwired the item is
-     * omitted entirely, which is how macOS gets no entry: the menus are in the screen menu bar and
-     * there is nothing in the window to show or hide.
+     * never reflects, or reflects but never toggles, looks like it works.
+     *
+     * @param available false where there is no bar in the window to show or hide, macOS's screen
+     *     menu bar: the row is then in the menu all the same, disabled (OS-01, Pauta 6.0.1)
      */
-    public void setMenuBarToggle(BooleanSupplier shown, Runnable toggle) {
+    public void setMenuBarToggle(BooleanSupplier shown, Runnable toggle, boolean available) {
         this.menuBarShown = shown;
         this.onToggleMenuBar = toggle;
+        this.menuBarToggleAvailable = available;
     }
+
+    private boolean menuBarToggleAvailable = true;
 
     /**
      * Decides between the context menu and the running program.
@@ -2378,6 +2381,8 @@ public final class TerminalView extends Region {
         CheckMenuItem menuBarItem = items.menuBar();
         if (menuBarItem != null && menuBarShown != null) menuBarItem.setSelected(menuBarShown.getAsBoolean());
         if (zoomRow != null) zoomRow.refresh();
+        // Each row's chord, from the bindings in force now (MENU-15, Pauta 6.0.1).
+        MenuChords.fill(items.menu().getItems(), chordLookup);
         items.menu().show(this, e.getScreenX(), e.getScreenY());
         e.consume();
     }
@@ -2473,12 +2478,12 @@ public final class TerminalView extends Region {
     }
 
     private ContextItems buildContextMenu() {
-        MenuItem copyItem = item(tr("menu.copy"), MenuIcons.copy(), this::copySelection);
-        MenuItem pasteItem = item(tr("menu.paste"), MenuIcons.paste(), this::paste);
-        MenuItem openLinkItem = item(tr("menu.openLink"), MenuIcons.openLink(), () -> openLink(menuLink));
+        MenuItem copyItem = commandItem("copy", MenuIcons.copy(), this::copySelection);
+        MenuItem pasteItem = commandItem("paste", MenuIcons.paste(), this::paste);
+        MenuItem openLinkItem = commandItem("openLink", MenuIcons.openLink(), () -> openLink(menuLink));
         // The right-clicked link, not the one under the pointer now: the menu can be raised from
         // the keyboard. The commands of the same names act on the pointer's.
-        MenuItem copyLinkItem = item(tr("menu.copyLinkAddress"), MenuIcons.copy(), () -> copyLinkAddress(menuLink));
+        MenuItem copyLinkItem = commandItem("copyLinkAddress", MenuIcons.copy(), () -> copyLinkAddress(menuLink));
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.
@@ -2488,14 +2493,14 @@ public final class TerminalView extends Region {
                 openLinkItem,
                 copyLinkItem,
                 linkSeparator,
-                item(tr("menu.newTab"), MenuIcons.newTab(), () -> runCommand.accept("newTab")),
-                item(tr("menu.newWindow"), MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
+                commandItem("newTab", MenuIcons.newTab(), () -> runCommand.accept("newTab")),
+                commandItem("newWindow", MenuIcons.newWindow(), () -> runCommand.accept("newWindow")),
                 new SeparatorMenuItem(),
                 copyItem,
                 pasteItem,
-                item(tr("menu.selectAll"), MenuIcons.selectAll(), this::selectAll),
+                commandItem("selectAll", MenuIcons.selectAll(), this::selectAll),
                 new SeparatorMenuItem(),
-                item(tr("menu.clearScrollback"), MenuIcons.clear(), this::clearScrollback)));
+                dangerous(commandItem("clearScrollback", MenuIcons.clear(), this::clearScrollback))));
 
         if (zoomActions != null) {
             // The same row the View menu carries, built again: a Node cannot be in two menus.
@@ -2517,20 +2522,36 @@ public final class TerminalView extends Region {
             // draws its tick in the graphic column, and an icon there either fights it or hides it.
             menuBarItem = new CheckMenuItem(tr("menu.showMenuBar"));
             menuBarItem.setOnAction(e -> toggleMenuBar.run());
+            MenuChords.command(menuBarItem, "hideMenuBar");
+            menuBarItem.setDisable(!menuBarToggleAvailable);
             items.add(new SeparatorMenuItem());
             items.add(menuBarItem);
         }
 
         items.add(new SeparatorMenuItem());
-        items.add(
-                item(tr("menu.commandPalette"), MenuIcons.commandPalette(), () -> runCommand.accept("commandPalette")));
-        items.add(item(tr("menu.settings"), MenuIcons.settings(), () -> runCommand.accept("settings")));
-        items.add(
-                item(tr("menu.about", com.termina.AppInfo.NAME), MenuIcons.about(), () -> runCommand.accept("about")));
+        items.add(commandItem("palette.show", MenuIcons.commandPalette(), () -> runCommand.accept("palette.show")));
+        items.add(commandItem("settings", MenuIcons.settings(), () -> runCommand.accept("settings")));
+        items.add(MenuChords.command(
+                item(
+                        tr("command.help.about", com.termina.AppInfo.NAME),
+                        MenuIcons.about(),
+                        () -> runCommand.accept("help.about")),
+                "help.about"));
 
-        ContextMenu menu = OneMenu.install(new ContextMenu(items.toArray(MenuItem[]::new)));
+        ContextMenu menu = OneMenu.installRightClick(new ContextMenu(items.toArray(MenuItem[]::new)));
         menu.setAutoHide(true);
         return new ContextItems(menu, openLinkItem, copyLinkItem, linkSeparator, copyItem, pasteItem, menuBarItem);
+    }
+
+    /** Marks a row that discards something, so its text is drawn in the danger colour (MENU-12). */
+    private static MenuItem dangerous(MenuItem item) {
+        item.getStyleClass().add("danger");
+        return item;
+    }
+
+    /** A row titled as command {@code id} is, and showing that command's chord (MENU-15). */
+    private static MenuItem commandItem(String id, Node icon, Runnable action) {
+        return MenuChords.command(item(tr("command." + id), icon, action), id);
     }
 
     private static MenuItem item(String text, Node icon, Runnable action) {
@@ -3112,12 +3133,7 @@ public final class TerminalView extends Region {
             }
             case com.termina.term.OscSequences.CLIPBOARD -> {
                 if (!clipboardWrites) return;
-                com.termina.term.OscSequences.clipboardText(payload)
-                        .ifPresent(text -> Platform.runLater(() -> {
-                            ClipboardContent content = new ClipboardContent();
-                            content.putString(text);
-                            Clipboard.getSystemClipboard().setContent(content);
-                        }));
+                com.termina.term.OscSequences.clipboardText(payload).ifPresent(clipboardTexts::add);
             }
             default -> {}
         }
@@ -3188,13 +3204,28 @@ public final class TerminalView extends Region {
      * would otherwise fill the screen with bubbles. Every one still marks the tab.
      */
     private void onNotification(com.termina.term.OscSequences.Notification notification) {
-        Platform.runLater(() -> {
+        notifications.add(notification);
+    }
+
+    /**
+     * The emulator thread's notifications, handed to the FX thread a frame apart and not one
+     * {@code runLater} each (PERF-07, Pauta 6.0.1): a loop printing OSC 9 arrives as batches.
+     */
+    private final FxBatch<com.termina.term.OscSequences.Notification> notifications = new FxBatch<>(batch -> {
+        for (com.termina.term.OscSequences.Notification notification : batch) {
             long now = System.currentTimeMillis();
             boolean post = now - lastNotifiedMs >= NOTIFY_INTERVAL_MS;
             if (post) lastNotifiedMs = now;
             onNotify.accept(notification, post);
-        });
-    }
+        }
+    });
+
+    /** OSC 52 writes, batched the same way: of several in one frame the last is the clipboard's. */
+    private final FxBatch<String> clipboardTexts = new FxBatch<>(batch -> {
+        ClipboardContent content = new ClipboardContent();
+        content.putString(batch.get(batch.size() - 1));
+        Clipboard.getSystemClipboard().setContent(content);
+    });
 
     /** Records a mark at the cursor, in coordinates that survive scrolling. */
     private void onPromptMark(com.termina.term.OscSequences.PromptMark mark) {
@@ -3547,6 +3578,19 @@ public final class TerminalView extends Region {
         chordLookup = lookup;
     }
 
+    /** The find bar's tooltips again, after the key bindings changed under an open bar (TBAR-03). */
+    void refreshChordTooltips() {
+        if (searchBar != null) searchBar.showChords(chordLookup);
+    }
+
+    /** The find bar's tooltips, older, newer, regular expression: for tests; empty before it opens. */
+    java.util.List<String> searchTooltipsForTest() {
+        if (searchBar == null) return java.util.List.of();
+        java.util.List<String> tips = new java.util.ArrayList<>(searchBar.arrowTooltips());
+        tips.add(searchBar.regexTooltip());
+        return tips;
+    }
+
     /**
      * Opens the find bar, or puts the caret back in it.
      *
@@ -3609,6 +3653,35 @@ public final class TerminalView extends Region {
     /** Whether the find bar's field has the keyboard — the one case the focus guard must leave alone. */
     public boolean searchHasFocus() {
         return searchOpen && searchBar != null && searchBar.fieldIsFocused();
+    }
+
+    /**
+     * Flips the find bar's regular-expression switch, opening the bar first if it is closed: the
+     * keyboard's way to a switch that is out of the Tab order (FIND-16, KBD-15, Pauta 6.0.1).
+     */
+    public void toggleSearchRegex() {
+        if (!searchOpen) showSearch();
+        if (searchBar != null) searchBar.toggleRegex();
+    }
+
+    /** Whether the find bar is open with its regular-expression switch on. */
+    public boolean searchIsRegex() {
+        return searchOpen && searchBar != null && searchBar.isRegex();
+    }
+
+    /**
+     * What the Find command does: opens the bar, and run while the bar is open steps to the next
+     * match, up the scrollback, with the keyboard back in the field (FIND-04, Pauta 6.0.1). A
+     * selection made since still becomes the query, as when the bar opens.
+     */
+    public void showSearchOrStep() {
+        String seed = selectionForSearch();
+        if (!searchOpen || searchBar == null || (seed != null && !seed.equals(searchBar.query()))) {
+            showSearch();
+            return;
+        }
+        stepSearch(true);
+        searchBar.focusField();
     }
 
     /** Steps to the next match, opening the bar first if it is closed — what Find Next does. */

@@ -9,18 +9,34 @@ import java.util.Locale;
  * {@code ui.SettingsSearch.score} and {@code weigh}, verbatim apart from the synonyms, which Termina
  * does not have: a change to the ranking belongs in both projects.
  *
- * <p>A row is found by its title, its description, its section heading, its page's name and its
- * English keywords. A hit in the title outweighs one in the description, which outweighs a heading,
- * which outweighs a keyword; within each, a whole word outweighs the start of a word, which
- * outweighs a hit inside one. Every word of the query has to be found somewhere in the row.
+ * <p>A row is found by its title, its description, the text its controls show, its section
+ * heading, its page's name and its English keywords. A hit in the title outweighs one in the
+ * description, which outweighs one in the visible text, then a heading, then a keyword; within
+ * each, a whole word outweighs the start of a word, which outweighs a hit inside one. Every word
+ * of the query has to be found somewhere in the row.
+ *
+ * <p>The visible text is Termina's addition (SET-03, Pauta 6.0.1): a button's label, a choice's
+ * options, a field's prompt. Without it a row was found by what it is called but not by what it
+ * shows, in the UI's language, where the keywords are English only.
  */
 final class SettingsSearch {
 
-    /** A row's text by where it shows; each part weighs differently. */
-    record Texts(String title, String description, String headings, String keywords) {}
+    /**
+     * A row's text by where it shows; each part weighs differently.
+     *
+     * @param visible what the row's controls show: labels, options, prompts
+     */
+    record Texts(String title, String description, String visible, String headings, String keywords) {
+
+        /** A row with nothing to show but its title and description. */
+        Texts(String title, String description, String headings, String keywords) {
+            this(title, description, "", headings, keywords);
+        }
+    }
 
     private static final int TITLE = 8;
     private static final int DESCRIPTION = 4;
+    private static final int VISIBLE = 3;
     private static final int HEADING = 2;
     private static final int KEYWORD = 1;
 
@@ -41,6 +57,7 @@ final class SettingsSearch {
             int s = Math.max(
                     Math.max(weigh(texts.title(), w) * TITLE, weigh(texts.description(), w) * DESCRIPTION),
                     Math.max(weigh(texts.headings(), w) * HEADING, weigh(texts.keywords(), w) * KEYWORD));
+            s = Math.max(s, weigh(texts.visible(), w) * VISIBLE);
             if (s == 0) return 0;
             total += s;
         }

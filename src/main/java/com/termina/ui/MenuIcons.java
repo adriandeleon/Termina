@@ -3,6 +3,8 @@ package com.termina.ui;
 import javafx.scene.Node;
 import javafx.scene.shape.SVGPath;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Glyphs for context-menu items, following Editora's convention that every right-click item carries
  * a leading icon.
@@ -212,6 +214,39 @@ public final class MenuIcons {
     static Node advanced() {
         return of("M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14"
                 + " 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z");
+    }
+
+    /**
+     * The glyph a command wears wherever it is drawn (ICON-20, Pauta 6.0.1): one lookup, so a menu
+     * bar row and a drop-down's row for the same command cannot pick different ones. Null for a
+     * command with no glyph, which leaves the row's icon column empty.
+     */
+    static @Nullable Node forCommand(@Nullable String id) {
+        if (id == null) return null;
+        return switch (id) {
+            case "newTab" -> MenuIcons.newTab();
+            case "newWindow" -> MenuIcons.newWindow();
+            case "closeTab" -> MenuIcons.close();
+            case "closeOtherTabs" -> MenuIcons.closeOthers();
+            case "closeTabsToTheLeft" -> MenuIcons.closeLeft();
+            case "closeTabsToTheRight" -> MenuIcons.closeRight();
+            case "settings" -> MenuIcons.settings();
+            case "syncNow" -> MenuIcons.sync();
+            case "configureProfiles" -> MenuIcons.profiles();
+            case "copy" -> MenuIcons.copy();
+            case "paste" -> MenuIcons.paste();
+            case "selectAll" -> MenuIcons.selectAll();
+            case "clearScrollback" -> MenuIcons.clear();
+            case "find.show" -> MenuIcons.search();
+            case "palette.show" -> MenuIcons.commandPalette();
+            case "moveTabLeft" -> MenuIcons.arrowLeft();
+            case "moveTabRight" -> MenuIcons.arrowRight();
+            case "renameTab" -> MenuIcons.rename();
+            case "duplicateTab" -> MenuIcons.duplicate();
+            case "pinTab" -> MenuIcons.pin();
+            case "help.about" -> MenuIcons.about();
+            default -> null;
+        };
     }
 
     private static Node of(String path) {

@@ -14,7 +14,8 @@ done.
 ### Added
 
 - **`--dev`** keeps a separate set of settings in `~/.termina-dev`, so a build being tried out never
-  touches the ones in daily use. `--config-dir` and `TERMINA_CONFIG_DIR` still take precedence.
+  touches the ones in daily use. `--config-dir` still takes precedence, and `--dev` wins over
+  `TERMINA_CONFIG_DIR`: what is typed on the command line is the more specific instruction.
 - **The Debug Log can be exported** to a file, and the previous session's log is kept beside this
   one's as `termina-session.prev.log`.
 - **Help ▸ Documentation and Help ▸ What's New** open the user documentation and this version's
@@ -25,6 +26,44 @@ done.
   ticked; window positions and the settings-sync connection stay as they are. Your current
   configuration is copied to `backups/` in the config folder first. A zip that is not an export, or
   that a newer Termina wrote, is refused before anything changes.
+- **Find in the Debug Log.** A find bar across the top of the window, opened by the Find… button,
+  Ctrl+F (Cmd+F on macOS) or the new Find in Debug Log command: it searches as you type, counts the
+  matches, steps with Enter and Shift+Enter, and closes on Escape. All lower case matches either
+  case; a capital makes it exact.
+- **A filter in the Message Log.** A field over the list narrows it to the messages that have every
+  word typed. Escape empties it, and from an empty filter goes back to the list. Ctrl+F (Cmd+F)
+  puts the keyboard in it.
+- **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
+  Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
+  bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Help ▸ Pauta Conformance.** A window that says which edition of
+  [Pauta](https://pauta-project.dev/) Termina follows and how far it has got: Complete, Core or
+  Partial, and under that every rule it does not meet yet, each with a one-line reason, a link to
+  the rule and a link to the issue that tracks it. Copy as text puts the list on the clipboard as
+  Markdown. About says the same in one line, which opens the window, and the block that Copy
+  Details and Report a Problem include now carries it. Also in the palette: Pauta Conformance,
+  Pauta Conformance in the Docs and Copy Pauta Conformance.
+- **Quit.** File ▸ Quit Termina, and the Quit Termina command in the palette, close every window
+  and end the app. If a program is still running in any tab of any window it asks first, once,
+  with Cancel as the default. The macOS application menu's Quit and the Dock's now ask that one
+  question too, where each window used to ask for itself.
+- **Right-click menus show shortcuts**, as the menu bar does: a tab's menu, the terminal's, the two
+  log windows' and the profile list's show the shortcut each command is on now, and follow one
+  moved on the Keyboard page.
+- **The buttons of Settings, Report a Problem and About are commands**, in the palette and bindable
+  on the Keyboard page: Reset All Settings, Import Theme, Remove Theme, Reset All Shortcuts, Add
+  Profile, Remove Profile, Connect Settings Sync (which reads Disconnect once connected), Create
+  Sync Repository on GitHub, Cancel Sync, Sync Anyway, Remove Credentials From Sync Address, Copy
+  Problem Report, Open Issue for Problem Report, Copy Version Details, Open Termina's Website,
+  Source Code and Releases, and Pauta Guidelines. Each Settings command opens Settings on its page
+  and does what the button does, questions included; one that cannot run is greyed in the palette
+  with the reason.
+- **A right-click menu on the profile list** in Settings, with Add and Remove.
+- **A right-click row that discards something is drawn in the danger colour**: Clear Scrollback,
+  Clear in the two log windows, and Remove in the profile list.
+- **Toggle Regular Expression is a command**: in the palette, and bindable on the Keyboard page.
+  It flips the find bar's `.*` switch, opening the bar first if it is closed. The switch could only
+  be clicked.
 - **Open Link and Copy Link Address are commands**, for the link under the pointer: in the palette,
   and bindable on the Keyboard page, as well as on the right-click menu.
 - **One Termina per config folder.** Launching it again opens a new window in the running Termina,
@@ -34,14 +73,17 @@ done.
   the session — version, Java, OS, the settings worth knowing, the end of the Debug Log — with your
   home folder, user name, addresses, credentials and tokens taken out. It is shown for you to read
   and edit, copied to the clipboard, and opened as a GitHub issue with the bug form filled in;
-  nothing is sent until you submit it. `termina --report` does the same without the window, from
-  the last session's log.
+  nothing is sent until you submit it. A report too long for the link leaves a note in the issue's
+  report field saying to paste it. `termina --report` does the same without the window, from the
+  last session's log: it writes the report to a file in the current folder (the temp folder where
+  that one cannot be written), prints the file's path and opens the issue.
 - **An optional status bar, and a Message Log.** Settings ▸ Appearance or View ▸ Show Status Bar
   turns on a row under the terminal that says what the last command reported: red for an error,
   amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
   lists everything Termina reported this session, with times, whether the bar is on or not. Help ▸
   Debug Log opens the Debug Log, which was only on the Advanced page. A crash says so in the log
-  too, pointing at the Debug Log.
+  too, pointing at the Debug Log. Once the update check has found a newer version the bar names it
+  in a link that opens its release, until the link is followed.
 - **Pinned tabs.** Pin Tab, in the Window menu, a tab's own menu and the palette, moves a tab to the
   pinned group at the left and marks it with a pin and a bold title. Close Other Tabs and the other
   bulk closes pass over it, and Reopen Closed Tab brings it back pinned. Closing it by itself still
@@ -53,15 +95,65 @@ done.
   menu and the palette, bindable on the Keyboard page, and greyed with the reason while they would
   close nothing. Close Tabs to the Left is new, on a tab's menu too. Configure Profiles is a command
   as well, and opens Settings on the Profiles page.
-- **About names the Pauta edition Termina is built to, and what it runs on.** A "Built to Pauta
-  2.0.2" link to that edition's guidelines, the Java and JavaFX versions, and a Copy details button
+- **About names the Pauta edition Termina follows, and what it runs on.** A "Working toward Pauta
+  6.0.1" link to that edition's guidelines ("Built to" once every MUST is met), the Java and JavaFX versions, and a Copy details button
   that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
-  JavaFX, OS) for a bug report.
+  JavaFX, OS) for a bug report. A "Source code and releases" link is always there, not only when
+  an update is.
 - **About and `--version` name the commit a build came from**, with `-dirty` for a build from
   uncommitted changes. A build from a source archive, with no repository, names none.
 
 ### Changed
 
+- **Termina follows Pauta 6.0.1** (it named 2.0.2), and says "working toward" it: the rules it does
+  not meet yet are listed in Help ▸ Pauta Conformance, and the README's badge carries the same
+  word. The list is `pauta.json`, and a test holds it, the README and About to one answer.
+- **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
+  a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
+  default button, and the red action runs only from itself: a click, or Tab to it and Space.
+- **Five commands have new ids**, the ones Pauta names: `help.about` (was `about`), `palette.show`
+  (`commandPalette`), `help.documentation` (`documentation`), `view.messageLog` (`messageLog`) and
+  `find.show` (`find`).
+  A key binding is stored under its command's id, so `settings.json` moves to `schemaVersion` 2 and
+  a `keys.commandPalette` line becomes `keys.palette.show` when the file is read; a
+  `settings.properties` from before 0.15 is brought forward the same way. Settings sync reads the
+  old ids as the new ones, so a repository shared with a computer on an older Termina keeps
+  working; that older Termina does not know the new ids, and puts those five commands back on
+  their default chords once a newer one has synced.
+- **Find, run while the find bar is open, steps to the next match** and puts the keyboard back in
+  the field. It used to only do the second.
+- **A click on the status bar opens the Message Log through its command**, like the menu row.
+- **A dialog's buttons are in the same order on every OS**: Cancel to the left of the action.
+  JavaFX orders them by OS, which on Windows put the action first.
+- **Hide Menu Bar is in the menus on macOS too, greyed.** The View menu's row and the terminal's
+  right-click checkbox were left out there, and the command was missing from the palette; they are
+  there now, disabled, and the palette says why: the menus are in the screen menu bar.
+- **The sync repository and branch are saved as they are typed in**, on Enter or when the focus
+  leaves the field, not only by Connect; an address or branch that cannot work is marked and not
+  saved. **A shell path that names nothing, or a file that cannot run, is marked and no longer
+  saved**: the setting keeps the last path that passed. A profile's command and starting directory
+  follow the same rule.
+- **An imported theme's file names its `schemaVersion`**, like the settings file. One a newer
+  Termina wrote is kept as `<name>.properties.v<n>.bak` and not read; a file from before the
+  version reads as it did.
+- **Settings ▸ Advanced opens the same Debug Log as Help ▸ Debug Log**, with Report a Problem on it.
+  It used to open a second window that lacked the button.
+- **Every prompt's buttons are in Termina's language**: Rename Tab's Cancel, and both buttons where
+  a command asks for a setting's value or Settings asks for a repository's name, were JavaFX's own,
+  worded in the system's language.
+- **Configure Profiles has one icon.** Its row under the new-tab chevron wore the Settings gear.
+- **`--add-exports`, `--add-opens` and `-p` on the command line are skipped with their values**, not
+  refused as unknown options: a launcher can leave them among the program's arguments.
+- **The last disk work is off the window's thread.** Listening for other launches (a stale socket
+  file removed, a new one bound) and the fonts registered after the first frame each have a thread
+  of their own; the profile list no longer asks the disk whether each shell can run every time a
+  menu is built, but keeps the answers, worked out on a worker; Settings checks a shell path, a
+  profile's command and its folder on a worker, so the mark and the save come a moment after the
+  key; and settings sync writes its backup on its own thread.
+- **A program that floods desktop notifications or clipboard writes no longer queues one piece of
+  work each for the window.** They, and uncaught errors, reach it in batches a frame apart.
+- **One place says which operating system this is** (`com.termina.Os`); twenty classes worked it
+  out for themselves, in three spellings. No behaviour changes.
 - **Nothing that touches the disk or the process table runs on the window's thread any more**, so a
   slow disk or a hung network mount cannot freeze the window. A new tab appears at once and its
   shell a moment later; the close prompt, the scrollback search and the check behind a hovered
@@ -90,8 +182,16 @@ done.
   do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
   current tab's own menu.
 - **About Termina is in the macOS application menu** as well as in Help.
-- **Tooltips name the shortcut in force**: the find bar's arrows and the zoom row's buttons say
-  "Zoom In (Ctrl+=)", and follow a chord moved on the Keyboard page.
+- **Tooltips name the command and the shortcut in force**: the zoom row's buttons say "Zoom In
+  (Ctrl+=)", the find bar's arrows "Find Next" and "Find Previous" and its `.*` switch "Toggle
+  Regular Expression", each with its chord, and they follow a chord moved on the Keyboard page.
+- **Shortcuts are drawn in one colour everywhere**: the menu bar's and the right-click menus'
+  shortcut column, the palette's shortcuts and its chip. It is Editora's periwinkle, lighter on a
+  dark theme and a deep ink on a light one; the palette's chip was the accent colour and the menu
+  bar's shortcuts the muted text colour.
+- **Settings search finds a row by what its controls show**: a button's label, a choice's options,
+  a field's prompt. Typing a theme's name finds the Theme row, and "import" the rows with an
+  Import button, in whatever language the interface is in.
 - **Settings search ranks what it finds**: a title above a description above a section heading
   above a keyword, and a whole word above part of one. Section headings and page names are
   searched, and every word typed has to be found.
@@ -140,6 +240,13 @@ done.
   kept the colours Editora later darkened, which read below 4.5:1 on their tinted backgrounds. The
   About credits, the settings path and the Settings sidebar headings move from the faintest text
   colour to the muted one for the same reason.
+- **Every control has a name a screen reader can read.** The menu bar's rows were announced as
+  nothing, being drawn from an icon, a title and a shortcut rather than as text; so were the find
+  bars' and the palette's fields, the search fields of Settings and Keyboard Shortcuts, the lists
+  in Settings, the Message Log and the palette, the text of the Debug Log and of Report a Problem,
+  the window opacity slider, the field of the Rename Tab and other prompts, and the preview in the
+  paste question. A test now opens every window, menu and dialog and fails on a control without
+  one.
 - **Icon-only buttons have names a screen reader can read.** The new-tab and profile buttons, the
   tabs' close buttons, the find bar's buttons and the zoom row's buttons carried a tooltip and
   nothing else.
@@ -178,6 +285,16 @@ done.
 
 ### Fixed
 
+- **A desktop notification that could not be shown says why in the Debug Log**: no `notify-send` or
+  `gdbus` to post it with, a tool that did not answer in five seconds, or one that exited with an
+  error. Only an exception was logged.
+- **The rename prompt, the shell-failure message and two more dialogs draw in the interface font.**
+  They were in the platform's.
+- **"Go to Tab" and "Go to Last Tab" are spelled right in French and Italian.** The apostrophe was
+  missing from "l'onglet" and "all'ultima".
+- **`--help` lines up.** The `--new-instance` and `--dev` rows sat ten columns left of the rest.
+- **A click on the tab strip closes a tab's right-click menu.** The menu stayed up through a press
+  on the strip it was opened on, and now closes on a press anywhere in the window.
 - **A click that closes the terminal's right-click menu now also acts.** It was swallowed, so
   closing the menu cost a click; a right-click elsewhere now reopens the menu there.
 - **About no longer says "You are up to date" when nothing has checked.** It said so whenever no

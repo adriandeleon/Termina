@@ -51,8 +51,9 @@ class ProblemReportTest {
     @Test
     void aShortReportRidesInTheLink() {
         ProblemReport report = new ProblemReport("Termina 1.0", "it broke");
-        ProblemReport.Link link = report.link("adriandeleon/Termina");
+        ProblemReport.Link link = report.link("adriandeleon/Termina", "paste it here");
         assertFalse(link.pasteReport());
+        assertFalse(link.url().contains("paste%20it%20here"), link.url());
         assertTrue(link.url().startsWith("https://github.com/adriandeleon/Termina/issues/new?template=bug_report.yml"));
         assertTrue(link.url().contains("environment=Termina%201.0"), link.url());
         assertTrue(link.url().contains("report=it%20broke"), link.url());
@@ -61,9 +62,19 @@ class ProblemReportTest {
     @Test
     void aLongReportFallsBackToTheClipboard() {
         ProblemReport report = new ProblemReport("Termina 1.0", "x".repeat(ProblemReport.MAX_LINK_LENGTH));
-        ProblemReport.Link link = report.link("adriandeleon/Termina");
+        ProblemReport.Link link = report.link("adriandeleon/Termina", "paste it here");
+        assertTrue(link.pasteReport());
+        // DIAG-13 (Pauta 6.0.1): the form's report field asks for the paste; the report stays out.
+        assertTrue(link.url().endsWith("&report=paste%20it%20here"), link.url());
+        assertFalse(link.url().contains("xxxx"));
+        assertTrue(link.url().length() <= ProblemReport.MAX_LINK_LENGTH);
+    }
+
+    @Test
+    void anEnvironmentPastTheLimitLeavesNoRoomForTheHint() {
+        ProblemReport report = new ProblemReport("e".repeat(ProblemReport.MAX_LINK_LENGTH), "it broke");
+        ProblemReport.Link link = report.link("adriandeleon/Termina", "paste it here");
         assertTrue(link.pasteReport());
         assertFalse(link.url().contains("report="));
-        assertTrue(link.url().length() <= ProblemReport.MAX_LINK_LENGTH);
     }
 }

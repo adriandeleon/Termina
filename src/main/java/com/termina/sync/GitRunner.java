@@ -40,8 +40,7 @@ public final class GitRunner {
     /** Output past this is cut: nothing the sync reads is anywhere near it. */
     private static final int MAX_BYTES = 8 * 1024 * 1024;
 
-    private static final boolean WINDOWS =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    private static final boolean WINDOWS = com.termina.Os.isWindows();
 
     private static final List<String> HARDENED = List.of(
             "-c", "core.fsmonitor=false",

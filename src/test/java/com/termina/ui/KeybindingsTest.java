@@ -26,7 +26,7 @@ class KeybindingsTest {
         Map<String, KeyCombination> defaults = new LinkedHashMap<>();
         defaults.put("newTab", NEW_TAB);
         defaults.put("closeTab", CLOSE_TAB);
-        defaults.put("commandPalette", PALETTE);
+        defaults.put("palette.show", PALETTE);
         defaults.put("renameTab", null);
         return defaults;
     }
@@ -65,7 +65,7 @@ class KeybindingsTest {
     @Test
     void anUnreadableOrBlankLineIsTheDefault() {
         // Hand-edited: clamp on read, as every other setting does.
-        Map<String, String> stored = Map.of("newTab", "Banana+X", "closeTab", "  ", "commandPalette", "Ctrl+");
+        Map<String, String> stored = Map.of("newTab", "Banana+X", "closeTab", "  ", "palette.show", "Ctrl+");
         assertEquals(defaults(), Keybindings.resolve(defaults(), stored, false));
     }
 
@@ -103,7 +103,7 @@ class KeybindingsTest {
 
     @Test
     void noChordEndsUpOnTwoCommands() {
-        Map<String, String> stored = Map.of("commandPalette", "Ctrl+Shift+W", "renameTab", "Alt+X");
+        Map<String, String> stored = Map.of("palette.show", "Ctrl+Shift+W", "renameTab", "Alt+X");
         Map<String, KeyCombination> on = Keybindings.resolve(defaults(), stored, false);
         java.util.Set<KeyCombination> seen = new java.util.HashSet<>();
         for (KeyCombination chord : on.values()) {

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,6 +58,15 @@ class MenuBarVisibilityTest {
         // in one place and not the other reads as a bug in whichever you looked at first.
         assertTrue(WindowRules.offersMenuBarToggle(false));
         assertFalse(WindowRules.offersMenuBarToggle(true));
+    }
+
+    /** OS-01 (Pauta 6.0.1): where the bar cannot be hidden the command stays and says why. */
+    @Test
+    void underASystemMenuBarTheToggleIsUnavailableWithAReasonTheCatalogHas() {
+        assertEquals(null, WindowRules.menuBarToggleUnavailableKey(false));
+        String key = WindowRules.menuBarToggleUnavailableKey(true);
+        assertEquals("settings.showMenuBar.mac", key);
+        assertFalse(com.termina.i18n.Messages.tr(key).equals(key), "the reason is in the catalog");
     }
 
     @Test

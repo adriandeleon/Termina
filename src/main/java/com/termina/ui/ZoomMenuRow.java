@@ -88,6 +88,8 @@ final class ZoomMenuRow {
         HBox.setMargin(fullScreen, new Insets(0, 0, 0, FULL_SCREEN_GAP));
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("zoom-row");
+        // The row's own name; each button in it has one of its own (ACC-01).
+        row.setAccessibleText(tr("menu.zoom"));
 
         item = new CustomMenuItem(row);
         // Without this the menu closes on the first press and the next step needs the menu reopened.
@@ -101,7 +103,8 @@ final class ZoomMenuRow {
         button.getStyleClass().add("zoom-button");
         button.setFocusTraversable(false);
         // Its text is a symbol ("−", "+", "⤢"), which a screen reader would read as itself.
-        javafx.beans.property.StringProperty tip = new javafx.beans.property.SimpleStringProperty(tr("menu." + id));
+        javafx.beans.property.StringProperty tip =
+                new javafx.beans.property.SimpleStringProperty(tr(TerminalWindow.COMMAND_KEY + id));
         tips.put(id, tip);
         IconNames.name(button, tip);
         button.setOnAction(e -> {
@@ -122,7 +125,8 @@ final class ZoomMenuRow {
     void refresh() {
         percent.setText(actions.percent() + "%");
         // On every open, so a chord moved on the Keyboard page shows the next time the row does.
-        tips.forEach((id, tip) -> tip.set(IconNames.withChord(tr("menu." + id), actions.chordOf(id))));
+        tips.forEach(
+                (id, tip) -> tip.set(IconNames.withChord(tr(TerminalWindow.COMMAND_KEY + id), actions.chordOf(id))));
     }
 
     /** What each button's tooltip says now, by command id: for tests. */

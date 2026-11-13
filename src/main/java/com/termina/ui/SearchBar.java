@@ -52,6 +52,8 @@ final class SearchBar extends HBox {
 
         field.getStyleClass().add("search-field");
         field.setPromptText(tr("search.prompt"));
+        // A prompt is not a name: a screen reader asks for the accessible text (ACC-01).
+        field.setAccessibleText(tr("search.prompt"));
         field.textProperty().addListener((o, was, now) -> fireQuery());
         field.addEventFilter(KeyEvent.KEY_PRESSED, this::onKey);
         HBox.setHgrow(field, Priority.ALWAYS);
@@ -60,8 +62,10 @@ final class SearchBar extends HBox {
         count.setMinWidth(COUNT_MIN_WIDTH);
 
         regex.getStyleClass().add("search-toggle");
+        // Out of the Tab order because a command does what it does (FIND-16, Pauta 6.0.1): Toggle
+        // Regular Expression, whose title and chord are its name.
         regex.setFocusTraversable(false);
-        IconNames.name(regex, tr("search.regex"));
+        IconNames.name(regex, regexTip);
         regex.selectedProperty().addListener((o, was, now) -> fireQuery());
 
         Button older = button(MenuIcons.arrowUp(), olderTip, () -> listener.step(true));
@@ -76,24 +80,41 @@ final class SearchBar extends HBox {
     /** Keeps the buttons from shuffling sideways as the count grows a digit. */
     private static final double COUNT_MIN_WIDTH = 64;
 
-    /** The arrows run Find Previous and Find Next, so they show those commands' chords (TBAR-03). */
+    /**
+     * The up arrow steps to older output, which is Find Next, and the down arrow is Find Previous;
+     * each is named with that command's title and shows its chord (TBAR-03, Pauta 6.0.1).
+     */
     private final javafx.beans.property.StringProperty olderTip =
-            new javafx.beans.property.SimpleStringProperty(tr("search.older"));
+            new javafx.beans.property.SimpleStringProperty(tr("command.findNext"));
 
     private final javafx.beans.property.StringProperty newerTip =
-            new javafx.beans.property.SimpleStringProperty(tr("search.newer"));
+            new javafx.beans.property.SimpleStringProperty(tr("command.findPrevious"));
 
-    /** Re-reads the arrows' chords; called each time the bar opens, so a moved chord shows. */
+    private final javafx.beans.property.StringProperty regexTip =
+            new javafx.beans.property.SimpleStringProperty(tr("command.findRegex"));
+
+    /** Re-reads the chords: each time the bar opens and whenever the key bindings change. */
     void showChords(
             java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
                     chordOf) {
-        olderTip.set(IconNames.withChord(tr("search.older"), chordOf.apply("findPrevious")));
-        newerTip.set(IconNames.withChord(tr("search.newer"), chordOf.apply("findNext")));
+        olderTip.set(IconNames.withChord(tr("command.findNext"), chordOf.apply("findNext")));
+        newerTip.set(IconNames.withChord(tr("command.findPrevious"), chordOf.apply("findPrevious")));
+        regexTip.set(IconNames.withChord(tr("command.findRegex"), chordOf.apply("findRegex")));
     }
 
     /** The arrows' tooltips, older first: for tests. */
     java.util.List<String> arrowTooltips() {
         return java.util.List.of(olderTip.get(), newerTip.get());
+    }
+
+    /** The regular-expression switch's tooltip: for tests. */
+    String regexTooltip() {
+        return regexTip.get();
+    }
+
+    /** Flips the regular-expression switch, which runs the search again: what the command does. */
+    void toggleRegex() {
+        regex.setSelected(!regex.isSelected());
     }
 
     private static Button button(javafx.scene.Node icon, String tip, Runnable action) {

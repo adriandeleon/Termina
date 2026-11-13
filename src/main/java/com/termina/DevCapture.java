@@ -115,6 +115,9 @@ final class DevCapture {
             // whole afterCommand wait to land in. The interesting moment is *after* the second
             // report, not during the first.
             checkUpdatesIfRequested(windows, window);
+            // A newer version, as the check would report one: the Help row and the status bar's link.
+            String announced = System.getProperty("termina.captureUpdateAvailable");
+            if (announced != null) windows.announceUpdateForCapture(announced);
             syncNowIfRequested(windows, window);
             if (settings != null) importConfigIfRequested(windows, settings);
             TerminalView terminal = window.activeTerminal();
@@ -186,7 +189,8 @@ final class DevCapture {
                 probeDebugLog();
                 closeWindowIfRequested(windows);
                 TerminalWindow shown = windowToCapture(windows, window);
-                Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
+                Scene logWindow = logWindowIfRequested(windows, shown);
+                Scene captured = logWindow != null ? logWindow : sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the input, which looks exactly like input that did nothing.
@@ -493,6 +497,19 @@ final class DevCapture {
     }
 
     /**
+     * {@code -Dtermina.captureDebugLogFind=text} opens the Debug Log and searches it for the text;
+     * {@code -Dtermina.captureMessageLogFilter=text} opens the Message Log and types the text into
+     * its filter. Either makes that window the photograph, and reports where it stands.
+     */
+    private static @Nullable Scene logWindowIfRequested(WindowManager windows, TerminalWindow window) {
+        String find = System.getProperty("termina.captureDebugLogFind");
+        if (find != null) return windows.debugLogFindForCapture(window.stage(), find);
+        String filter = System.getProperty("termina.captureMessageLogFilter");
+        if (filter != null) return windows.messageLogFilterForCapture(window.stage(), filter);
+        return null;
+    }
+
+    /**
      * {@code -Dtermina.captureLogProbe=true} pushes a warning and an uncaught exception through the
      * real logging path, to check the debug log is actually capturing rather than merely present.
      */
@@ -641,9 +658,7 @@ final class DevCapture {
         boolean plain = parts.length > 2 && "plain".equalsIgnoreCase(parts[2].trim());
         // "alt" fires Alt+key on every platform, Option+key on a Mac.
         boolean alt = parts.length > 2 && "alt".equalsIgnoreCase(parts[2].trim());
-        boolean mac = System.getProperty("os.name", "")
-                .toLowerCase(java.util.Locale.ROOT)
-                .startsWith("mac");
+        boolean mac = com.termina.Os.isMac();
         javafx.scene.input.KeyEvent event = new javafx.scene.input.KeyEvent(
                 javafx.scene.input.KeyEvent.KEY_PRESSED,
                 "",
@@ -1025,6 +1040,10 @@ final class DevCapture {
         }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
+        }
+        // -Dtermina.capturePauta=true opens Help → Pauta Conformance.
+        if (System.getProperty("termina.capturePauta") != null) {
+            return windows.showPautaForCapture(window.stage());
         }
         if (System.getProperty("termina.captureProfiles") != null) {
             System.out.println("[capture] profiles " + window.profileMenuForCapture());

@@ -3,7 +3,6 @@ package com.termina.ui;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import javafx.scene.input.KeyCode;
@@ -54,13 +53,13 @@ public record MenuAction(
      *
      * <p>It was Alt+X, Emacs's M-x, which is exactly the problem: that is {@code M-x} in {@code emacs
      * -nw} and zsh's {@code execute-named-cmd}, and a scene filter that answers to it takes it from
-     * every program in the terminal. A user who stored Alt+X keeps it — {@code keys.commandPalette}
-     * still wins over the default.
+     * every program in the terminal. A user who stored Alt+X keeps it — {@code keys.palette.show},
+     * which was {@code keys.commandPalette} before the command was renamed, still wins over the
+     * default.
      */
     public static final KeyCombination DEFAULT_PALETTE_CHORD = shiftChord(KeyCode.P);
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * The chord for opening the profile numbered {@code digit} in a new tab.

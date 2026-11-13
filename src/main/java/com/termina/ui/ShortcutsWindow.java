@@ -76,6 +76,7 @@ final class ShortcutsWindow {
         Icons.applyTo(stage);
 
         search.setPromptText(tr("shortcuts.search"));
+        search.setAccessibleText(tr("shortcuts.search"));
         search.textProperty().addListener((o, was, now) -> refill(now));
 
         list.setPadding(new Insets(0, 8, 0, 0));

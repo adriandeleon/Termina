@@ -29,8 +29,7 @@ final class Keybindings {
     private Keybindings() {}
 
     /** Read once, like {@link MenuAction}'s: what Shortcut means, and whether Ctrl+letter is the shell's. */
-    static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+    static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * One rebindable command, as the keyboard settings list it.

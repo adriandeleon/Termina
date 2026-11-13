@@ -26,18 +26,48 @@ import static com.termina.i18n.Messages.tr;
  * the time each was said. Opened from the status bar's echo area or Help → Message Log. Escape or
  * C-g closes it, and so does going back to the window behind; Ctrl+C (Cmd+C) copies the selected
  * lines. Opening it counts as reading the errors in it.
+ *
+ * <p>A filter field over the list narrows it as it is typed (FIND-03, Pauta 6.0.1); Escape in the
+ * field empties it, and from an empty one goes back to the list. A row's right-click menu has
+ * Copy and Clear (MENU-05), which are the commands {@code messageLog.copy} and
+ * {@code messageLog.clear} and what the two buttons do (KBD-01).
  */
 final class MessageLogWindow {
 
     private final Stage stage = new Stage();
     private final MessageLog log;
     private final ListView<MessageLog.Entry> list = new ListView<>();
+    private final javafx.scene.control.TextField filter = new javafx.scene.control.TextField();
+    private final Label noEntries = new Label(tr("messagelog.empty"));
+
+    /** Where the menu's rows read their commands' chords; none until the manager says. */
+    private java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
+            chords = id -> null;
+
+    void setChords(
+            java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
+                    chords) {
+        this.chords = chords;
+    }
+
     private final Runnable refresh = this::refresh;
 
     MessageLogWindow(MessageLog log) {
         this.log = log;
         list.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        list.setPlaceholder(new Label(tr("messagelog.empty")));
+        list.setPlaceholder(noEntries);
+        list.setAccessibleText(tr("messagelog.title"));
+        filter.setPromptText(tr("messagelog.filter"));
+        filter.setAccessibleText(tr("messagelog.filter"));
+        filter.textProperty().addListener((o, was, now) -> refresh());
+        filter.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() != KeyCode.ESCAPE) return;
+            // One layer at a time: a filter with something in it empties, an empty one gives the
+            // list back; the next Escape, in the list, closes the window.
+            if (filter.getText().isEmpty()) list.requestFocus();
+            else filter.clear();
+            e.consume();
+        });
         list.setCellFactory(view -> new ListCell<>() {
             @Override
             protected void updateItem(MessageLog.Entry entry, boolean empty) {
@@ -59,16 +89,30 @@ final class MessageLogWindow {
         });
         list.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.C && e.isShortcutDown()) {
-                copySelected();
+                copy();
                 e.consume();
             }
         });
         VBox.setVgrow(list, Priority.ALWAYS);
 
         Button copy = new Button(tr("debuglog.copy"));
-        copy.setOnAction(e -> copySelected());
+        copy.setOnAction(e -> copy());
         Button clear = new Button(tr("debuglog.clear"));
-        clear.setOnAction(e -> log.clear());
+        clear.setOnAction(e -> clear());
+        // A row's menu (MENU-05): the same two actions, each a command.
+        javafx.scene.control.MenuItem copyRow =
+                new javafx.scene.control.MenuItem(tr("debuglog.copy"), MenuIcons.copy());
+        copyRow.setOnAction(e -> copy());
+        javafx.scene.control.MenuItem clearRow =
+                new javafx.scene.control.MenuItem(tr("debuglog.clear"), MenuIcons.clear());
+        clearRow.getStyleClass().add("danger");
+        clearRow.setOnAction(e -> clear());
+        MenuChords.command(copyRow, "messageLog.copy");
+        MenuChords.command(clearRow, "messageLog.clear");
+        javafx.scene.control.ContextMenu rowMenu = new javafx.scene.control.ContextMenu(copyRow, clearRow);
+        // Each row's chord, from the bindings in force as the menu shows (MENU-15).
+        rowMenu.setOnShowing(e -> MenuChords.fill(rowMenu.getItems(), chords));
+        list.setContextMenu(OneMenu.installRightClick(rowMenu));
         Button close = new Button(tr("debuglog.close"));
         close.setOnAction(e -> stage.hide());
         close.setDefaultButton(true);
@@ -78,16 +122,23 @@ final class MessageLogWindow {
         HBox buttons = new HBox(8, copy, clear, cutNote, spacer, close);
         buttons.setAlignment(Pos.CENTER_LEFT);
 
-        VBox root = new VBox(10, list, buttons);
+        VBox root = new VBox(10, filter, list, buttons);
         root.setPadding(new Insets(12));
         Scene scene = new Scene(root, 640, 380);
         var css = MessageLogWindow.class.getResource("/com/termina/styles/app.css");
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         Fonts.installUiFont(scene);
-        SecondaryWindows.closeOnEscape(stage, scene);
+        // Escape in the filter is the filter's; anywhere else it closes the window.
+        SecondaryWindows.closeOnEscape(stage, scene, filter::isFocused);
+        OneMenu.closeOnOutsidePress(scene);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.G && e.isControlDown()) {
                 stage.hide();
+                e.consume();
+            } else if (e.getCode() == KeyCode.F && e.isShortcutDown() && !e.isAltDown()) {
+                // Ctrl+F, Cmd+F on macOS: to the filter, where a find bar's chord would lead.
+                filter.requestFocus();
+                filter.selectAll();
                 e.consume();
             }
         });
@@ -118,7 +169,13 @@ final class MessageLogWindow {
     private final Label cutNote = new Label();
 
     private void refresh() {
-        list.getItems().setAll(log.entries());
+        String typed = filter.getText() == null ? "" : filter.getText();
+        list.getItems()
+                .setAll(log.entries().stream()
+                        .filter(entry -> TextFind.passes(MessageLog.line(entry), typed))
+                        .toList());
+        // An empty list says why it is empty: nothing was said, or nothing said passes the filter.
+        noEntries.setText(tr(typed.isBlank() || log.entries().isEmpty() ? "messagelog.empty" : "search.none"));
         cutNote.setText(log.cut() == 0 ? "" : tr("messagelog.cut", log.cut()));
         // Seen now, so the status bar's count goes (MLOG-06).
         log.removeListener(refresh);
@@ -126,13 +183,56 @@ final class MessageLogWindow {
         log.addListener(refresh);
     }
 
-    private void copySelected() {
+    /**
+     * Copies the selected lines, or every line shown when none is selected; with the window closed,
+     * the whole log. What {@code messageLog.copy}, the Copy button and Ctrl+C in the list do.
+     */
+    void copy() {
         var selected = list.getSelectionModel().getSelectedItems();
-        var lines = (selected.isEmpty() ? list.getItems() : selected)
-                .stream().map(MessageLog::line).toList();
+        java.util.List<MessageLog.Entry> entries =
+                !stage.isShowing() ? log.entries() : selected.isEmpty() ? list.getItems() : selected;
+        var lines = entries.stream().map(MessageLog::line).toList();
         if (lines.isEmpty()) return;
         ClipboardContent content = new ClipboardContent();
         content.putString(String.join(System.lineSeparator(), lines) + System.lineSeparator());
         Clipboard.getSystemClipboard().setContent(content);
+    }
+
+    /** Empties the log; what {@code messageLog.clear} and the Clear button do. */
+    void clear() {
+        log.clear();
+    }
+
+    // ---------------------------------------------------------------- for tests and the capture hook
+
+    javafx.scene.Scene scene() {
+        return stage.getScene();
+    }
+
+    /** Types into the filter, as the keyboard would. */
+    void filterBy(String typed) {
+        filter.setText(typed);
+    }
+
+    /** Fires Escape at the filter field. */
+    void escapeInFilterForTest() {
+        javafx.event.Event.fireEvent(
+                filter, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false));
+    }
+
+    /** The filter's text, the lines shown, what an empty list says, and who has the keyboard. */
+    String report() {
+        javafx.scene.Node owner = stage.getScene().getFocusOwner();
+        return "filter=<" + filter.getText() + "> lines="
+                + list.getItems().stream().map(MessageLog.Entry::text).toList()
+                + " empty=<" + noEntries.getText() + "> focus="
+                + (owner == filter ? "filter" : owner == list ? "list" : "other");
+    }
+
+    /** The titles of a row's right-click menu. */
+    java.util.List<String> menuRowsForTest() {
+        return list.getContextMenu().getItems().stream()
+                .map(javafx.scene.control.MenuItem::getText)
+                .toList();
     }
 }

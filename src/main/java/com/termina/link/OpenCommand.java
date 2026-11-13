@@ -3,7 +3,6 @@ package com.termina.link;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * What to run to open a link.
@@ -72,9 +71,10 @@ public final class OpenCommand {
      */
     public static List<String> systemOpen(String osName, String target) {
         if (target == null || target.isBlank()) return List.of();
-        String os = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
-        if (os.startsWith("mac")) return List.of("open", target);
-        if (os.startsWith("windows")) return List.of("rundll32", "url.dll,FileProtocolHandler", target);
-        return List.of("xdg-open", target);
+        return switch (com.termina.Os.of(osName)) {
+            case MAC -> List.of("open", target);
+            case WINDOWS -> List.of("rundll32", "url.dll,FileProtocolHandler", target);
+            case LINUX, OTHER -> List.of("xdg-open", target);
+        };
     }
 }

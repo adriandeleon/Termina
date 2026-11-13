@@ -47,11 +47,12 @@ final class MenuBarModel {
      *
      * @param zoomRow whether View can carry the zoom row; where it cannot (a system menu bar draws
      *     no JavaFX node) the four zoom commands are rows instead
-     * @param menuBarToggle whether there is an in-window bar to hide
      */
-    static List<Menu> menus(boolean zoomRow, boolean menuBarToggle) {
+    static List<Menu> menus(boolean zoomRow) {
         List<String> fileUnlisted = new ArrayList<>(numbered(WindowRules.PROFILE_CHORD_ID));
         fileUnlisted.addAll(List.of("exportConfiguration", "importConfiguration"));
+        // The Settings window's buttons (KBD-01): palette and chord only, beside Settings itself.
+        for (SettingsActions.Action action : SettingsActions.Action.values()) fileUnlisted.add(action.id());
         Menu file = new Menu(
                 "menu.file",
                 List.of(
@@ -68,7 +69,10 @@ final class MenuBarModel {
                         SEPARATOR,
                         "settings",
                         "syncNow",
-                        "configureProfiles"),
+                        "configureProfiles",
+                        // The way out that is not closing the last window (WIN-14), last.
+                        SEPARATOR,
+                        "app.quit"),
                 fileUnlisted);
 
         Menu edit = new Menu(
@@ -80,15 +84,16 @@ final class MenuBarModel {
                         SEPARATOR,
                         "clearScrollback",
                         SEPARATOR,
-                        "find",
+                        "find.show",
                         "findNext",
                         "findPrevious",
                         SEPARATOR,
                         "previousPrompt",
                         "nextPrompt",
                         "selectLastOutput"),
-                // The link under the pointer: the right-click menu's two link rows, as commands (KBD-01).
-                List.of("openLink", "copyLinkAddress"));
+                // The link under the pointer: the right-click menu's two link rows, as commands
+                // (KBD-01); and the find bar's switch, whose row is the switch itself (FIND-16).
+                List.of("openLink", "copyLinkAddress", "findRegex"));
 
         List<String> viewRows = new ArrayList<>();
         if (zoomRow) {
@@ -99,13 +104,13 @@ final class MenuBarModel {
             viewRows.add(SEPARATOR);
             viewRows.add("fullScreen");
         }
-        if (menuBarToggle) {
-            viewRows.add(SEPARATOR);
-            viewRows.add("hideMenuBar");
-        }
+        // On every OS (OS-01, Pauta 6.0.1): disabled, with its reason, where there is no bar in
+        // the window to hide.
+        viewRows.add(SEPARATOR);
+        viewRows.add("hideMenuBar");
         viewRows.add("showStatusBar");
         viewRows.add(SEPARATOR);
-        viewRows.add("commandPalette");
+        viewRows.add("palette.show");
         Menu view = new Menu("menu.view", viewRows, List.of());
 
         List<String> windowUnlisted = new ArrayList<>();
@@ -136,17 +141,35 @@ final class MenuBarModel {
         Menu help = new Menu(
                 "menu.help",
                 List.of(
-                        "documentation",
+                        "help.documentation",
                         "whatsNew",
                         "keyboardShortcuts",
                         SEPARATOR,
                         "checkForUpdates",
-                        "messageLog",
+                        "view.messageLog",
                         "debugLog",
                         "reportProblem",
+                        "help.pauta",
                         SEPARATOR,
-                        "about"),
-                List.of());
+                        "help.about"),
+                // What the two log windows' buttons and right-click rows do (KBD-01): palette and
+                // chord only, the windows themselves being where they are used.
+                List.of(
+                        "debugLog.find",
+                        "debugLog.refresh",
+                        "debugLog.copy",
+                        "debugLog.export",
+                        "debugLog.clear",
+                        "messageLog.copy",
+                        "messageLog.clear",
+                        "report.copy",
+                        "report.open",
+                        "help.copyDetails",
+                        "help.website",
+                        "help.sourceCode",
+                        "help.pautaRules",
+                        "help.pautaDocs",
+                        "help.copyPauta"));
 
         return List.of(file, edit, view, window, help);
     }

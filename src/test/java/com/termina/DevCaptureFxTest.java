@@ -95,6 +95,7 @@ class DevCaptureFxTest {
                 "tabs, panes and windows",
                 Map.ofEntries(
                         Map.entry("termina.captureTabs", "2"),
+                        Map.entry("termina.captureUpdateAvailable", "99.0.0"),
                         Map.entry("termina.captureWindows", "1"),
                         Map.entry("termina.capturePanes", "right,down,left,max,max,move,close"),
                         Map.entry("termina.captureCloseAnswer", "close"),
@@ -122,6 +123,7 @@ class DevCaptureFxTest {
                 Map.of("termina.captureSettings", "font", "termina.captureSettingsKeys", "newTab:C-S-y"));
         runs.put("the shortcut reference", Map.of("termina.captureShortcuts", "true"));
         runs.put("the about window", Map.of("termina.captureAbout", "true"));
+        runs.put("the pauta window", Map.of("termina.capturePauta", "true"));
         runs.put(
                 "what programs say: prompt marks, links, notifications, the clipboard",
                 Map.of(
@@ -215,6 +217,12 @@ class DevCaptureFxTest {
                         "termina.captureTabs", "2",
                         "termina.captureCloseAnswer", "close",
                         "termina.captureCloseTabs", "1"));
+        runs.put(
+                "the debug log, searched",
+                Map.of("termina.captureLogProbe", "true", "termina.captureDebugLogFind", "probe"));
+        runs.put(
+                "the message log, filtered",
+                Map.of("termina.captureUpdateAvailable", "99.0.0", "termina.captureMessageLogFilter", "version"));
         return runs;
     }
 
@@ -278,6 +286,12 @@ class DevCaptureFxTest {
             settings.setUpdateCheck(false);
             settings.setShowStatusBar(true); // a report is then a line, not a modal dialog
             settings.setNotifications(false); // an OSC 9 marks the tab; it never reaches the desktop
+            // What is open before the run, so what the run leaves open can be told apart: a run
+            // may end with Settings, About, a log or a question still up, and a question left up
+            // is the one the next test's answer would press.
+            java.util.Set<javafx.stage.Window> before =
+                    java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            onFx(() -> before.addAll(javafx.stage.Window.getWindows()));
             WindowManager windows = onFx(() -> new WindowManager(settings));
             onFx(() -> {
                 windows.setLinkOpener(url -> System.out.println("[test] would open " + url));
@@ -303,6 +317,14 @@ class DevCaptureFxTest {
                     return null;
                 });
             }
+            // And everything else the run opened, but the window that keeps the toolkit alive.
+            onFx(() -> {
+                for (javafx.stage.Window left : java.util.List.copyOf(javafx.stage.Window.getWindows())) {
+                    if (before.contains(left) || left == keeper.stage() || !left.isShowing()) continue;
+                    left.hide();
+                }
+                return null;
+            });
         } finally {
             set.keySet().forEach(System::clearProperty);
         }

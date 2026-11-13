@@ -69,7 +69,21 @@ class WindowManagerFxTest {
         onFx(() -> {
             windows.showAbout(first.stage());
             windows.onUpdateOutcome(new UpdateService.Outcome(true, release, null, null), false);
-            windows.openReleasePage();
+            return null;
+        });
+        // DIAG-09 (Pauta 6.0.1): every window's status bar names the version in a link, and the
+        // link opens that release. Following it in one window takes it down in all of them.
+        String notice = com.termina.i18n.Messages.tr("status.updateAvailable", "99.0.0");
+        assertEquals(notice, onFx(first::statusBarUpdateLinkForTest));
+        assertEquals(notice, onFx(keeper::statusBarUpdateLinkForTest));
+        assertEquals(List.of(), opened);
+        onFx(() -> {
+            keeper.followStatusBarUpdateLinkForTest();
+            return null;
+        });
+        assertEquals("", onFx(first::statusBarUpdateLinkForTest));
+        assertEquals("", onFx(keeper::statusBarUpdateLinkForTest));
+        onFx(() -> {
             windows.dismissCurrentUpdate();
             windows.onUpdateOutcome(
                     new UpdateService.Outcome(false, null, UpdateCheck.ErrorKind.OFFLINE, "no route"), true);
@@ -155,6 +169,81 @@ class WindowManagerFxTest {
         });
         waitFor(() -> reports.size() >= 2, "the import");
 
+        // KBD-01 (Pauta 6.0.1): the buttons of Settings, Report a Problem and About are commands,
+        // each run here from the palette's rows as a chord would run it.
+        assertEquals(List.of(), onFx(() -> windows.profiles().userProfiles()));
+        assertTrue(unavailable(keeper, "settings.removeTheme"), "the theme in use is built in");
+        assertTrue(unavailable(keeper, "settings.removeProfile"), "no profile is selected");
+        assertTrue(unavailable(keeper, "sync.cancel"), "no sync is running");
+        assertTrue(unavailable(keeper, "sync.removeCredentials"), "the address holds none");
+        run(keeper, "settings.addProfile");
+        assertEquals(1, onFx(() -> windows.profiles().userProfiles().size()));
+        assertTrue(!unavailable(keeper, "settings.removeProfile"), "the new profile is selected");
+        // MENU-05, MENU-12: the profile list's own menu, Remove styled as dangerous.
+        assertEquals(
+                List.of(
+                        com.termina.i18n.Messages.tr("settings.profileAdd"),
+                        com.termina.i18n.Messages.tr("settings.profileRemove") + " (danger)"),
+                onFx(() -> windows.settingsWindowForTest().profileMenuRowsForTest()));
+        onFx(() -> {
+            DialogAnswers.next(false, null);
+            return null;
+        });
+        run(keeper, "settings.removeProfile");
+        assertEquals(1, onFx(() -> windows.profiles().userProfiles().size()), "Cancel kept it");
+        onFx(() -> {
+            DialogAnswers.next(true, null);
+            return null;
+        });
+        run(keeper, "settings.removeProfile");
+        assertEquals(0, onFx(() -> windows.profiles().userProfiles().size()));
+
+        onFx(() -> {
+            settings.setFontSize(17);
+            DialogAnswers.next(true, null);
+            return null;
+        });
+        run(keeper, "settings.reset");
+        assertEquals(Settings.DEFAULT_FONT_SIZE, onFx(settings::fontSize));
+        onFx(() -> {
+            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+            DialogAnswers.next(true, null);
+            return null;
+        });
+        run(keeper, "settings.resetShortcuts");
+        assertEquals(java.util.Map.of(), onFx(settings::keyBindings));
+
+        // The connection's command is named for the way it will go.
+        assertEquals(com.termina.i18n.Messages.tr("command.sync.connect"), label(keeper, "sync.connect"));
+
+        int linksBefore = opened.size();
+        run(keeper, "help.website");
+        run(keeper, "help.sourceCode");
+        run(keeper, "help.pautaRules");
+        assertEquals(
+                List.of(
+                        com.termina.AppInfo.HOMEPAGE,
+                        com.termina.AppInfo.RELEASES_PAGE,
+                        com.termina.AppInfo.pautaUrl()),
+                opened.subList(linksBefore, opened.size()));
+        run(keeper, "help.copyDetails");
+        assertTrue(clipboard().startsWith(com.termina.AppInfo.NAME + " "), clipboard());
+        run(keeper, "report.copy");
+        assertTrue(clipboard().contains("Problem report"), clipboard());
+        run(keeper, "report.open");
+        assertTrue(opened.get(opened.size() - 1).contains("/issues/new?template=bug_report.yml"), opened.toString());
+        // The windows the commands brought up are put away before this one is closed by asking.
+        onFx(() -> {
+            for (javafx.stage.Window open : List.copyOf(javafx.stage.Window.getWindows())) {
+                // Never a terminal's window: another test's, left open in this JVM, would end its
+                // own manager, and the toolkit with it, on being hidden from here.
+                if (open instanceof javafx.stage.Stage stage && !TerminalWindow.isTerminalWindow(open)) {
+                    stage.hide();
+                }
+            }
+            return null;
+        });
+
         // The status bar off and on from the View menu's command; then a window closed by asking.
         onFx(() -> {
             for (MenuAction row : keeper.runnablePaletteRowsForTest()) {
@@ -172,6 +261,145 @@ class WindowManagerFxTest {
         // update checks answer on their own time; both write into the settings folder when they do,
         // and JUnit cannot delete a folder that is still being written into.
         waitUntilQuiet(dir);
+    }
+
+    /**
+     * WIN-13, WIN-14 (Pauta 6.0.1): one quit method. The app.quit command asks once for every
+     * window, Cancel keeps them all, and the system's Quit, which arrives as a close request on
+     * every window in one turn, runs the same method; one window's close request closes that one.
+     */
+    @Test
+    void quitAsksOnceForEveryWindowAndTheSystemsQuitRunsTheSameMethod() throws Exception {
+        Settings settings = new Settings(dir.resolve("quit.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        settings.setShowStatusBar(true);
+        // Off for the first close: a fresh shell often has a child for a moment, a prompt
+        // framework's helper, and a question nobody is waiting to answer would hang the run.
+        settings.setConfirmClose(false);
+        java.util.concurrent.atomic.AtomicInteger ended = new java.util.concurrent.atomic.AtomicInteger();
+        WindowManager windows = onFx(() -> {
+            WindowManager made = new WindowManager(settings);
+            made.endAppWithForTest(ended::incrementAndGet);
+            return made;
+        });
+        TerminalWindow first = onFx(() -> windows.openWindow(null));
+        TerminalWindow second = onFx(() -> windows.openWindow(first));
+        TerminalWindow third = onFx(() -> windows.openWindow(first));
+        // Another manager's window, as every other FX test leaves one behind in this JVM: Quit
+        // closes the windows beside the terminals, and this is a terminal's. Hidden from here it
+        // ended its own manager, and with it the toolkit, on whichever machine ran this test late.
+        java.util.concurrent.atomic.AtomicInteger otherEnded = new java.util.concurrent.atomic.AtomicInteger();
+        Settings otherSettings = new Settings(dir.resolve("other.json"));
+        otherSettings.load();
+        otherSettings.setUpdateCheck(false);
+        WindowManager other = onFx(() -> {
+            WindowManager made = new WindowManager(otherSettings);
+            made.endAppWithForTest(otherEnded::incrementAndGet);
+            return made;
+        });
+        TerminalWindow bystander = onFx(() -> other.openWindow(null));
+        waitFor(() -> started(first) && started(second) && started(third) && started(bystander), "the shells");
+
+        // One window asked to close, with others open, is that window closing.
+        onFx(() -> {
+            javafx.event.Event.fireEvent(
+                    third.stage(),
+                    new javafx.stage.WindowEvent(third.stage(), javafx.stage.WindowEvent.WINDOW_CLOSE_REQUEST));
+            return null;
+        });
+        waitFor(() -> size(windows) == 2, "the one window to close");
+        assertEquals(0, ended.get());
+
+        // A program running in one of them: Quit asks, once, and Cancel keeps every window.
+        onFx(() -> {
+            settings.setConfirmClose(true);
+            TerminalView view = second.activeTerminal();
+            if (view != null) view.getSession().sendString("sleep 30\r");
+            return null;
+        });
+        Thread.sleep(800);
+        int answered = DialogAnswers.answered();
+        onFx(() -> {
+            DialogAnswers.next(false, null);
+            return null;
+        });
+        run(first, "app.quit");
+        waitFor(() -> DialogAnswers.answered() > answered, "Quit's question, answered");
+        Thread.sleep(200);
+        assertEquals(2, size(windows), "Cancel kept the windows");
+        DialogAnswers.Seen asked = DialogAnswers.seen().get(DialogAnswers.seen().size() - 1);
+        assertEquals(com.termina.i18n.Messages.tr("dialog.quitRunning", com.termina.AppInfo.NAME), asked.header());
+        assertEquals(
+                List.of(com.termina.i18n.Messages.tr("dialog.quit"), com.termina.i18n.Messages.tr("dialog.cancel")),
+                asked.buttons());
+        assertTrue(asked.danger() && asked.cancelIsDefault(), asked.toString());
+        assertEquals(0, ended.get());
+
+        // The system's Quit: a close request on every window in the same turn. One question, and
+        // on a yes every window goes and the app ends once.
+        int before = DialogAnswers.answered();
+        onFx(() -> {
+            DialogAnswers.next(true, null);
+            for (TerminalWindow window : List.of(first, second)) {
+                javafx.event.Event.fireEvent(
+                        window.stage(),
+                        new javafx.stage.WindowEvent(window.stage(), javafx.stage.WindowEvent.WINDOW_CLOSE_REQUEST));
+            }
+            return null;
+        });
+        waitFor(() -> size(windows) == 0, "every window to close");
+        assertEquals(before + 1, DialogAnswers.answered(), "asked once, not once for each window");
+        assertEquals(1, ended.get(), "the last window going ended the app, once");
+        assertTrue(onFx(() -> bystander.stage().isShowing()), "another manager's window is not Quit's to close");
+        assertEquals(0, otherEnded.get(), "and its app was not ended");
+        assertEquals(1, size(other));
+        // It is this test's to tidy: its own manager closes it, and ends nothing real.
+        onFx(() -> {
+            otherSettings.setConfirmClose(false);
+            bystander.closeForShutdown();
+            return null;
+        });
+        waitFor(() -> size(other) == 0, "the bystander to close");
+        waitUntilQuiet(dir);
+    }
+
+    private static int size(WindowManager windows) {
+        try {
+            return onFx(() -> windows.windows().size());
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private static void run(TerminalWindow window, String id) throws Exception {
+        boolean ran = onFx(() -> {
+            for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                if (id.equals(row.id())) {
+                    row.action().run();
+                    return true;
+                }
+            }
+            return false;
+        });
+        assertTrue(ran, "no runnable command " + id);
+    }
+
+    private static boolean unavailable(TerminalWindow window, String id) throws Exception {
+        return onFx(() -> window.runnablePaletteRowsForTest().stream().noneMatch(row -> id.equals(row.id())));
+    }
+
+    private static String label(TerminalWindow window, String id) throws Exception {
+        return onFx(() -> window.runnablePaletteRowsForTest().stream()
+                .filter(row -> id.equals(row.id()))
+                .map(MenuAction::label)
+                .findFirst()
+                .orElse(""));
+    }
+
+    private static String clipboard() throws Exception {
+        return onFx(() ->
+                String.valueOf(javafx.scene.input.Clipboard.getSystemClipboard().getString()));
     }
 
     private static boolean started(TerminalWindow window) {

@@ -53,8 +53,17 @@ final class SecondaryWindows {
      * have focus — a text area, a list — cannot consume it on the way.
      */
     static void closeOnEscape(Stage stage, Scene scene) {
+        closeOnEscape(stage, scene, () -> false);
+    }
+
+    /**
+     * {@link #closeOnEscape(Stage, Scene)}, but for a window with a find bar or a filter box: while
+     * {@code claimed} says so, Escape is that field's, which closes its bar or empties itself and
+     * leaves the window open (FIND-07, Pauta 6.0.1).
+     */
+    static void closeOnEscape(Stage stage, Scene scene, java.util.function.BooleanSupplier claimed) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.ESCAPE) {
+            if (e.getCode() == KeyCode.ESCAPE && !claimed.getAsBoolean()) {
                 stage.hide();
                 e.consume();
             }

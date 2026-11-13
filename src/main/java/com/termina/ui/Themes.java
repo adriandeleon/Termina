@@ -78,8 +78,13 @@ public final class Themes {
                 sorted.sort(null);
                 for (Path file : sorted) {
                     try {
-                        ColorScheme scheme = ThemeFile.read(Files.readString(file, StandardCharsets.UTF_8));
-                        found.add(entry(idOf(file), scheme, file));
+                        String text = Files.readString(file, StandardCharsets.UTF_8);
+                        int version = ThemeFile.versionOf(text);
+                        if (version > ThemeFile.SCHEMA_VERSION) {
+                            setAside(file, version);
+                            continue;
+                        }
+                        found.add(entry(idOf(file), ThemeFile.read(text), file));
                     } catch (IOException | ThemeImportException e) {
                         LOG.log(Level.WARNING, "skipping theme " + file + ": " + e.getMessage());
                     }
@@ -89,6 +94,37 @@ public final class Themes {
             }
         }
         imported = List.copyOf(found);
+    }
+
+    /**
+     * A theme file a newer Termina wrote is kept as {@code <name>.v<n>.bak} beside it and not read
+     * (SET-10, Pauta 6.0.1): its keys may mean things this build does not know. The theme is then
+     * missing, and whatever named it falls back as it does for any theme that is not there. A copy
+     * already set aside is never overwritten; the file then stays where it is, unread.
+     */
+    private static void setAside(Path file, int version) {
+        Path backup = backupOf(file, version);
+        try {
+            if (Files.exists(backup)) {
+                LOG.log(
+                        Level.WARNING,
+                        "theme " + file + " is from a newer Termina (schema " + version + ") and "
+                                + backup.getFileName() + " already exists; not read");
+                return;
+            }
+            Files.move(file, backup);
+            LOG.log(
+                    Level.WARNING,
+                    "theme " + file + " is from a newer Termina (schema " + version + "); kept as "
+                            + backup.getFileName());
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "theme " + file + " is from a newer Termina and could not be set aside", e);
+        }
+    }
+
+    /** Where a newer build's theme file is kept: the settings file's own naming. */
+    static Path backupOf(Path file, int version) {
+        return file.resolveSibling(file.getFileName() + ".v" + version + ".bak");
     }
 
     /**

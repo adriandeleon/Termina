@@ -27,6 +27,85 @@ final class DialogAnswers {
     private static final java.util.concurrent.atomic.AtomicInteger ANSWERED =
             new java.util.concurrent.atomic.AtomicInteger();
 
+    /**
+     * A dialog as it was when it was answered: what its buttons were and which was the default.
+     *
+     * @param stock the buttons left as JavaFX's own OK, Cancel, Yes, No, Apply or Close
+     * @param defaults how many buttons were default buttons
+     * @param danger whether a button had the danger style
+     * @param cancelIsDefault whether the default button was the cancelling one
+     * @param uiFont whether the scene or the pane carried the interface font's stylesheet
+     * @param buttonOrder the button bar's order string
+     * @param cancelLeftmost whether the cancelling button was drawn left of every other
+     * @param unnamed the controls in it a screen reader would announce as nothing (ACC-01)
+     */
+    record Seen(
+            String header,
+            List<String> buttons,
+            List<String> stock,
+            int defaults,
+            boolean danger,
+            boolean cancelIsDefault,
+            boolean uiFont,
+            String buttonOrder,
+            boolean cancelLeftmost,
+            List<String> unnamed) {}
+
+    private static final List<Seen> SEEN = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    private static final List<ButtonType> STOCK = List.of(
+            ButtonType.OK, ButtonType.CANCEL, ButtonType.YES, ButtonType.NO, ButtonType.APPLY, ButtonType.CLOSE);
+
+    /** Every dialog answered so far, in order. */
+    static List<Seen> seen() {
+        return List.copyOf(SEEN);
+    }
+
+    private static Seen describe(DialogPane pane) {
+        List<String> buttons = new java.util.ArrayList<>();
+        List<String> stock = new java.util.ArrayList<>();
+        int defaults = 0;
+        boolean danger = false;
+        boolean cancelIsDefault = false;
+        for (ButtonType type : pane.getButtonTypes()) {
+            if (!(pane.lookupButton(type) instanceof Button button)) continue;
+            buttons.add(button.getText());
+            if (STOCK.contains(type)) stock.add(button.getText());
+            if (button.getStyleClass().contains("danger")) danger = true;
+            if (button.isDefaultButton()) {
+                defaults++;
+                cancelIsDefault = type.getButtonData().isCancelButton();
+            }
+        }
+        List<String> sheets = new java.util.ArrayList<>(pane.getStylesheets());
+        if (pane.getScene() != null) sheets.addAll(pane.getScene().getStylesheets());
+        boolean uiFont = sheets.stream().anyMatch(sheet -> sheet.endsWith("ui-font.css"));
+        // Where the buttons were drawn, which is the skin's doing and what the user sees.
+        pane.applyCss();
+        pane.layout();
+        double cancelX = Double.NaN;
+        double leftmostOther = Double.POSITIVE_INFINITY;
+        for (ButtonType type : pane.getButtonTypes()) {
+            if (!(pane.lookupButton(type) instanceof Button button)) continue;
+            double x = button.localToScene(0, 0).getX();
+            if (type.getButtonData().isCancelButton()) cancelX = x;
+            else leftmostOther = Math.min(leftmostOther, x);
+        }
+        boolean cancelLeftmost = Double.isNaN(cancelX) || cancelX < leftmostOther;
+        String order = pane.lookup(".button-bar") instanceof ButtonBar bar ? bar.getButtonOrder() : "";
+        return new Seen(
+                String.valueOf(pane.getHeaderText()),
+                buttons,
+                stock,
+                defaults,
+                danger,
+                cancelIsDefault,
+                uiFont,
+                order,
+                cancelLeftmost,
+                NamedControls.unnamed(pane));
+    }
+
     private DialogAnswers() {}
 
     /** The number of dialogs answered so far. */
@@ -57,6 +136,7 @@ final class DialogAnswers {
                 ButtonBar.ButtonData data = type.getButtonData();
                 boolean cancel = data == ButtonBar.ButtonData.CANCEL_CLOSE || data.isCancelButton();
                 if (cancel != accept && pane.lookupButton(type) instanceof Button button) {
+                    SEEN.add(describe(pane));
                     ANSWERED.incrementAndGet();
                     button.fire();
                     return;

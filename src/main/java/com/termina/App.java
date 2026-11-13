@@ -77,6 +77,12 @@ public final class App extends Application {
         Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir(), cli.dev()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
+        // Here, off the FX thread: whether the configured shell can run is asked of the disk, and
+        // the first menu the window builds wants the answer (PERF-01, Pauta 6.0.1).
+        com.termina.shell.ShellProfiles.warm(settings.shell(), java.util.List.of());
+        // And the bundled list of Pauta exceptions, which About and the Pauta window show: read
+        // here once, so neither reads a file when it opens.
+        PautaConformance.warm();
 
         // Before the stylesheet and before any window: CSS naming a font that is not yet registered
         // does not wait for it, it silently resolves to the system face. Only what the first window
@@ -136,19 +142,28 @@ public final class App extends Application {
         com.termina.perf.Startup.mark("window-shown");
         com.termina.instance.SingleInstance held = instance;
         if (held != null) {
-            try {
-                held.serve(request -> javafx.application.Platform.runLater(() -> openHandedOff(request, settings)));
-            } catch (java.io.IOException e) {
-                java.util.logging.Logger.getLogger(App.class.getName())
-                        .log(java.util.logging.Level.WARNING, "cannot listen for other launches", e);
-            }
+            // Off the FX thread (PERF-01, Pauta 6.0.1): listening deletes a stale socket file and
+            // binds a new one, which is the disk's time, and no frame should wait on it.
+            Thread listen = new Thread(
+                    () -> {
+                        try {
+                            held.serve(request ->
+                                    javafx.application.Platform.runLater(() -> openHandedOff(request, settings)));
+                        } catch (java.io.IOException e) {
+                            java.util.logging.Logger.getLogger(App.class.getName())
+                                    .log(java.util.logging.Level.WARNING, "cannot listen for other launches", e);
+                        }
+                    },
+                    "termina-instance-bind");
+            listen.setDaemon(true);
+            listen.start();
         }
 
         // What nobody waits for, after the first frame (PERF-15, DIAG-05): the font picker's other
         // families, the window icons a title bar never shows, and — a few seconds later still,
         // so it never competes with the shell's own startup — the daily update check.
         com.termina.ui.FirstFrame.after(() -> {
-            if (com.termina.ui.Fonts.loadRest()) com.termina.ui.MonospaceFonts.forget();
+            com.termina.ui.Fonts.loadRestInBackground(com.termina.ui.MonospaceFonts::forget);
             com.termina.ui.Icons.loadLarge();
             javafx.animation.PauseTransition settle =
                     new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));

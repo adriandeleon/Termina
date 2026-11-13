@@ -68,8 +68,7 @@ class SettingsWindowFxTest {
         List<Keybindings.Command> commands = List.of(
                 new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")),
                 new Keybindings.Command("closeTab", "File", "Close Tab", Keymap.defaultFor("closeTab")),
-                new Keybindings.Command(
-                        "commandPalette", "View", "Command Palette", Keymap.defaultFor("commandPalette")));
+                new Keybindings.Command("palette.show", "View", "Command Palette", Keymap.defaultFor("palette.show")));
 
         int[] worked = onFx(() -> {
             Stage owner = new Stage();
@@ -97,6 +96,178 @@ class SettingsWindowFxTest {
         reread.load();
         assertEquals(settings.showScrollBar(), reread.showScrollBar());
         assertEquals(settings.confirmClose(), reread.confirmClose());
+    }
+
+    /**
+     * SET-04 (Pauta 6.0.1): a text field commits on Enter, and a value that fails its check is
+     * marked and not written: the sync repository and branch, which only Connect used to store,
+     * and the shell path, which used to be stored whatever it named.
+     */
+    @Test
+    void aTextFieldCommitsOnEnterAndOnlyAValueThatPasses() throws Exception {
+        Settings settings = new Settings(dir.resolve("settings.json"));
+        settings.load();
+        ShellProfiles profiles = new ShellProfiles(settings, "System shell");
+        List<Keybindings.Command> commands =
+                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+        Path shell = java.nio.file.Files.writeString(dir.resolve("a-shell"), "#!/bin/sh\n");
+        assertTrue(shell.toFile().setExecutable(true));
+
+        TextField[] fields = new TextField[1];
+        SettingsWindow[] windowHolder = new SettingsWindow[1];
+        Stage[] ownerHolder = new Stage[1];
+        List<String> stored = onFx(() -> {
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 400, 300));
+            owner.show();
+            SettingsWindow window = new SettingsWindow(settings, profiles, commands, null);
+            window.show(owner);
+            TextField repository = field(window, com.termina.i18n.Messages.tr("settings.sync.repository.prompt"));
+            TextField branch = field(window, Settings.DEFAULT_SYNC_BRANCH);
+            TextField shellField = field(window, com.termina.i18n.Messages.tr("settings.shell.prompt"));
+            List<String> out = new ArrayList<>();
+
+            enter(repository, "git@github.com:me/settings.git");
+            out.add(settings.syncRepository());
+            enter(repository, "https://me:secret@github.com/me/settings.git");
+            out.add(settings.syncRepository());
+            enter(repository, "--upload-pack=evil");
+            out.add(settings.syncRepository());
+
+            enter(repository, "git@github.com:me/settings.git");
+            enter(branch, "trunk");
+            out.add(settings.syncBranch());
+            enter(branch, "-trunk");
+            out.add(settings.syncBranch());
+
+            // With the branch still marked, nothing is written; put right, an empty address is.
+            enter(repository, "");
+            out.add(settings.syncRepository());
+            enter(branch, "trunk");
+            out.add(settings.syncRepository());
+
+            fields[0] = shellField;
+            windowHolder[0] = window;
+            ownerHolder[0] = owner;
+            return out;
+        });
+
+        // The paths are checked off the FX thread (PERF-01, Pauta 6.0.1), so each answer, and the
+        // write that follows a good one, comes a moment after the key.
+        TextField shellField = fields[0];
+        onFx(() -> enter(shellField, shell.toString()));
+        waitFor(() -> shell.toString().equals(settings.shell()), "the shell path to be written");
+        stored.add(settings.shell());
+        onFx(() -> enter(shellField, dir.resolve("no-such-shell").toString()));
+        Thread.sleep(400);
+        stored.add(settings.shell());
+        onFx(() -> enter(shellField, ""));
+        waitFor(() -> settings.shell().isEmpty(), "the shell path to be cleared");
+        stored.add(settings.shell());
+
+        // A profile's command and directory, the same: marked, and the profile keeps its own.
+        TextField[] profileFields = onFx(() -> {
+            SettingsWindow window = windowHolder[0];
+            for (Region page : window.pagesForTest()) {
+                for (javafx.scene.control.Button button : find(page, javafx.scene.control.Button.class)) {
+                    if (com.termina.i18n.Messages.tr("settings.profileAdd").equals(button.getText())) button.fire();
+                }
+            }
+            return new TextField[] {
+                field(window, "wsl.exe -d Ubuntu"),
+                field(window, com.termina.i18n.Messages.tr("settings.profileDirectory.prompt"))
+            };
+        });
+        TextField command = profileFields[0];
+        TextField directory = profileFields[1];
+        onFx(() -> enter(command, shell + " --login"));
+        waitFor(() -> (shell + " --login").equals(userProfile(profiles).commandLine()), "the command to be written");
+        stored.add(userProfile(profiles).commandLine());
+        onFx(() -> enter(command, dir.resolve("no-such-program") + " --login"));
+        Thread.sleep(400);
+        stored.add(userProfile(profiles).commandLine());
+        onFx(() -> enter(command, shell + " --login"));
+        onFx(() -> enter(directory, dir.toString()));
+        waitFor(() -> dir.toString().equals(userProfile(profiles).workingDirectory()), "the folder to be written");
+        stored.add(userProfile(profiles).workingDirectory());
+        onFx(() -> enter(directory, dir.resolve("no-such-folder").toString()));
+        Thread.sleep(400);
+        stored.add(userProfile(profiles).workingDirectory());
+        onFx(() -> {
+            windowHolder[0].scene().getWindow().hide();
+            ownerHolder[0].hide();
+            return null;
+        });
+        assertEquals(
+                List.of(
+                        "git@github.com:me/settings.git",
+                        "git@github.com:me/settings.git",
+                        "git@github.com:me/settings.git",
+                        "trunk",
+                        "trunk",
+                        "git@github.com:me/settings.git",
+                        "",
+                        shell.toString(),
+                        shell.toString(),
+                        "",
+                        shell + " --login",
+                        shell + " --login",
+                        dir.toString(),
+                        dir.toString()),
+                stored);
+        assertFalse(settings.syncEnabled(), "storing the fields connects nothing");
+    }
+
+    /** SET-03 (Pauta 6.0.1): what a row's controls show is what the search reads as visible text. */
+    @Test
+    void theSearchReadsWhatARowsControlsShow() throws Exception {
+        String text = onFx(() -> {
+            javafx.scene.control.Label title = new javafx.scene.control.Label("Theme");
+            title.getStyleClass().add("settings-row-title");
+            javafx.scene.control.Label hint = new javafx.scene.control.Label("The colours of the window");
+            hint.getStyleClass().add("settings-row-description");
+            ComboBox<String> choice = new ComboBox<>();
+            choice.getItems().addAll("Editora Dark", "Dracula");
+            TextField path = new TextField("typed by the user");
+            path.setPromptText("/path/to/shell");
+            javafx.scene.control.Button action = new javafx.scene.control.Button("Import…");
+            CheckBox box = new CheckBox("Follow the system");
+            javafx.scene.layout.HBox row = new javafx.scene.layout.HBox(
+                    new javafx.scene.layout.VBox(title, hint), new javafx.scene.layout.HBox(choice, path, action, box));
+            return SettingsWindow.visibleText(row);
+        });
+        assertEquals("Editora Dark Dracula /path/to/shell Import… Follow the system", text);
+    }
+
+    private static TextField field(SettingsWindow window, String prompt) {
+        for (Region page : window.pagesForTest()) {
+            for (TextField field : find(page, TextField.class)) {
+                if (prompt.equals(field.getPromptText())) return field;
+            }
+        }
+        throw new AssertionError("no field with the prompt " + prompt);
+    }
+
+    private static Void enter(TextField field, String text) {
+        field.setText(text);
+        field.fireEvent(new ActionEvent());
+        return null;
+    }
+
+    private static com.termina.shell.Profile userProfile(ShellProfiles profiles) {
+        try {
+            return onFx(() -> profiles.userProfiles().get(0));
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void waitFor(java.util.function.BooleanSupplier condition, String what) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean()) {
+            if (System.nanoTime() > deadline) throw new AssertionError("timed out waiting for " + what);
+            Thread.sleep(25);
+        }
     }
 
     /** Works every control under {@code node}; counts switches, choices, steppers, sliders, fields. */

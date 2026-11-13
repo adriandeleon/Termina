@@ -359,7 +359,8 @@ something recent, so the search starts at the newest match and works backwards, 
 and a short selection becomes the query.
 
 Case is smart: all lower case matches either case, a capital makes it exact. `.*` switches to a
-regular expression; one that does not compile yet says so instead of reporting no matches. A word
+regular expression, as does the Toggle Regular Expression command from the palette or a chord of
+your own; one that does not compile yet says so instead of reporting no matches. A word
 that wrapped at the right edge is found as one word, double-width characters match without their
 placeholder cells, and the count stops at 1000.
 
@@ -524,7 +525,10 @@ which is why none of the defaults use it. Commands with no shortcut of their own
 Duplicate Tab — can be given one. In the file each binding is one line, keyed by command:
 `keys.newTab=Ctrl+Shift+Y`, or `keys.closeTab=none` for no shortcut at all. A line that does not
 parse, or that takes a chord an earlier line already took, is dropped on read and the command keeps
-its default.
+its default. Five commands go by the ids Pauta names: `keys.palette.show`, `keys.help.about`,
+`keys.help.documentation`, `keys.view.messageLog` and `keys.find.show`. A file that still has their older names
+(`keys.commandPalette` and so on) is brought forward when it is read, and so is what settings sync
+receives from a computer on an older Termina.
 
 ### Shell profiles
 
@@ -654,7 +658,7 @@ termina [options] [-e command [args...]]
 
   -h, --help                     Show this help and exit
   -v, --version                  Show the version and exit
-      --report                   Print a problem report, open a GitHub issue for it, and exit
+      --report                   Write a problem report to a file, open a GitHub issue for it, and exit
       --new-instance             Start a Termina of its own, not a window in the running one
       --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
   -d, --working-directory=DIR    Start the shell in DIR

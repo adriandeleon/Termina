@@ -28,7 +28,7 @@ final class MacAppMenu {
      * menu's first item. Returns whether it did; never throws.
      */
     static synchronized boolean addAbout(String title, Runnable action) {
-        if (installed || !shouldInstall(System.getProperty("os.name", ""))) return false;
+        if (installed || !shouldInstall(com.termina.Os.name())) return false;
         try {
             Class<?> application = Class.forName("com.sun.glass.ui.Application");
             Object app = application.getMethod("GetApplication").invoke(null);
@@ -77,6 +77,6 @@ final class MacAppMenu {
 
     /** Only macOS has an application menu. */
     static boolean shouldInstall(String osName) {
-        return osName.toLowerCase(java.util.Locale.ROOT).startsWith("mac");
+        return com.termina.Os.of(osName) == com.termina.Os.Kind.MAC;
     }
 }

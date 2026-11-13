@@ -105,7 +105,9 @@ is broken.
   prompts when a shell has children; `closeForShutdown()` is teardown and must not. `App.stop()`
   reaches `WindowManager.closeAll()` after the quit is already decided and while the toolkit is
   stopping — a modal dialog there asks a question nobody can act on, in a place where
-  `showAndWait` may never return. Quitting is therefore *not* guarded; doing that properly means
+  `showAndWait` may never return. Quitting was therefore *not* guarded until `WindowManager.quit` (WIN-13): the question is asked
+  before any of this starts, once for every window, and only then are the windows closed the way
+  shutdown closes them. The older note, for the record: doing that properly means
   intercepting the quit before `Platform.exit`.
 - **Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
   pump threads and an emulator thread. Any removal path that skips disposal leaks all of it and
@@ -269,11 +271,11 @@ is broken.
   projects, or the two palettes stop agreeing. One place differs on purpose: `PickerKeys`'
   JavaFX half (the event, the `ListView`) is `PaletteNav` here, so `PaletteKeys` imports no JavaFX
   type (QUAL-05); worth porting back. The chord that opens it is an ordinary
-  key binding (`keys.commandPalette`), which is the line it had when it was the only chord that
-  could change.
+  key binding (`keys.palette.show`, which was `keys.commandPalette` until the command took the id
+  Pauta names), the line it had when it was the only chord that could change.
 - **Every binding has two lists: the defaults and the chords in force.** `TerminalWindow.table`
   holds each command on its default chord, by a stable id (`newTab` — the catalogue key without
-  `menu.`), and `register` still throws on two *defaults* on one chord. `bindings`, which the key
+  `command.`), and `register` still throws on two *defaults* on one chord. `bindings`, which the key
   filter runs, is derived from it by `Keybindings.resolve` against the stored `keys.*` block on
   every `applySettings`, along with each menu row's chord, the palette chip and the tab
   strip's tooltips. Anything new that shows a chord must ask `chordOf(id)`, not the action's
@@ -356,3 +358,12 @@ is broken.
   thread and the question comes a little later, so a test that answers it waits for the answer
   (`DialogAnswers.answered()`) before queueing another — a newer answer cancels an older one, and
   the prompt then sits unanswered and catches the next test's.
+- **The FX tests share one toolkit, and a window one leaves open is the next one's problem.** Three
+  ways it has bitten, all found only when the order changed. Quit hid every stage but its own
+  manager's terminals, which in a test JVM included another manager's last terminal window: that
+  manager ended, and the toolkit with it, and every FX test after it timed out
+  (`TerminalWindow.isTerminalWindow` is the fix, and it is the right rule outside tests too). A
+  test's tidy-up that hides "every other stage" does the same; hide only what the test opened. And
+  a question left up is the one the next test's `DialogAnswers` presses, leaving its own unanswered.
+  Surefire's default order is the filesystem's, which differs between a laptop and a runner, so
+  the order is pinned (`runOrder` in the pom): what fails on CI fails here.

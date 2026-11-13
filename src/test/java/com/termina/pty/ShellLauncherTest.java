@@ -196,4 +196,29 @@ class ShellLauncherTest {
                 ShellLauncher.PathStatus.NOT_FOUND, ShellLauncher.validateDirectory("/home/you", exists, isDirectory));
         assertEquals(ShellLauncher.PathStatus.EMPTY, ShellLauncher.validateDirectory(null, exists, isDirectory));
     }
+
+    /** PERF-01 (Pauta 6.0.1): the answer the toolkit thread gets without the disk being asked. */
+    @Test
+    void theAssumedShellCommandAsksNothingOfTheDisk() {
+        Map<String, String> env = Map.of("SHELL", "/usr/bin/fish", "COMSPEC", "C:\\Windows\\cmd.exe");
+        assertEquals(
+                List.of("/opt/zsh", "-l"),
+                ShellLauncher.assumedShellCommand(" /opt/zsh ", com.termina.Os.Kind.LINUX, env::get));
+        assertEquals(
+                List.of("C:\\tools\\nu.exe"),
+                ShellLauncher.assumedShellCommand("C:\\tools\\nu.exe", com.termina.Os.Kind.WINDOWS, env::get));
+        assertEquals(
+                List.of("/usr/bin/fish", "-l"),
+                ShellLauncher.assumedShellCommand("", com.termina.Os.Kind.MAC, env::get));
+        assertEquals(
+                List.of("C:\\Windows\\cmd.exe"),
+                ShellLauncher.assumedShellCommand("", com.termina.Os.Kind.WINDOWS, env::get));
+        Map<String, String> bare = Map.of();
+        assertEquals(
+                List.of("/bin/zsh", "-l"), ShellLauncher.assumedShellCommand("", com.termina.Os.Kind.MAC, bare::get));
+        assertEquals(
+                List.of("/bin/bash", "-l"),
+                ShellLauncher.assumedShellCommand(null, com.termina.Os.Kind.LINUX, bare::get));
+        assertEquals(List.of("cmd.exe"), ShellLauncher.assumedShellCommand("", com.termina.Os.Kind.WINDOWS, bare::get));
+    }
 }

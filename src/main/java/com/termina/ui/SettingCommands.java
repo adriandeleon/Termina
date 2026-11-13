@@ -53,8 +53,8 @@ final class SettingCommands {
             Map.entry("settings.exportConfig", "the exportConfiguration command"),
             Map.entry("settings.importConfig", "the importConfiguration command"),
             Map.entry("settings.debugLog", "Help ▸ Debug Log, debugLog"),
-            Map.entry("settings.importTheme", "an action, not a setting: it reads a file"),
-            Map.entry("settings.keys.resetAll.title", "an action, not a setting; each binding is its command's"),
+            Map.entry("settings.importTheme", "an action, not a setting: the settings.importTheme command"),
+            Map.entry("settings.keys.resetAll.title", "an action, not a setting: the settings.resetShortcuts command"),
             Map.entry("settings.settingsFile", "shows where the file is; nothing to set"),
             Map.entry("settings.sync.status", "shows how the last sync went; nothing to set"),
             Map.entry("settings.sync.keybindings", "says what sync carries; nothing to set"));

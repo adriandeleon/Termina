@@ -96,10 +96,10 @@ class CommandPaletteTest {
         assertEquals(
                 new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN),
                 Keybindings.resolve(
-                                java.util.Map.of("commandPalette", MenuAction.DEFAULT_PALETTE_CHORD),
-                                java.util.Map.of("commandPalette", "Alt+X"),
+                                java.util.Map.of("palette.show", MenuAction.DEFAULT_PALETTE_CHORD),
+                                java.util.Map.of("palette.show", "Alt+X"),
                                 false)
-                        .get("commandPalette"));
+                        .get("palette.show"));
     }
 
     @Test
