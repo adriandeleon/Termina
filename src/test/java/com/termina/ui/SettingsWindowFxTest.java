@@ -219,6 +219,42 @@ class SettingsWindowFxTest {
         assertFalse(settings.syncEnabled(), "storing the fields connects nothing");
     }
 
+    /**
+     * DOCS-11 (Pauta 6.0.1): every page ends in a link, Help for and the page's name, that opens
+     * that page's part of the documentation through the application's own way of opening a link.
+     */
+    @Test
+    void everyPageHasALinkToItsDocumentation() throws Exception {
+        Settings settings = new Settings(dir.resolve("settings.json"));
+        settings.load();
+        ShellProfiles profiles = new ShellProfiles(settings, "Default Shell");
+        List<String> opened = new ArrayList<>();
+        List<String> links = onFx(() -> {
+            SettingsWindow window = new SettingsWindow(settings, profiles, List.of(), null);
+            window.openLinksWith(opened::add);
+            List<String> texts = new ArrayList<>();
+            for (Region page : window.pagesForTest()) {
+                List<javafx.scene.control.Hyperlink> help = find(page, javafx.scene.control.Hyperlink.class).stream()
+                        .filter(link -> link.getStyleClass().contains("settings-help-link"))
+                        .toList();
+                assertEquals(1, help.size(), "one help link a page");
+                texts.add(help.get(0).getText());
+                help.get(0).fire();
+            }
+            return texts;
+        });
+        List<String> wanted = new ArrayList<>();
+        List<String> addresses = new ArrayList<>();
+        for (SettingsWindow.Category page : SettingsWindow.Category.values()) {
+            wanted.add(com.termina.i18n.Messages.tr("settings.helpFor", page.title()));
+            addresses.add(SettingsHelp.url(page));
+        }
+        assertEquals(wanted.stream().sorted().toList(), links.stream().sorted().toList());
+        assertEquals(
+                addresses.stream().sorted().toList(), opened.stream().sorted().toList());
+        assertTrue(links.contains("Help for Appearance"), links.toString());
+    }
+
     /** SET-03 (Pauta 6.0.1): what a row's controls show is what the search reads as visible text. */
     @Test
     void theSearchReadsWhatARowsControlsShow() throws Exception {

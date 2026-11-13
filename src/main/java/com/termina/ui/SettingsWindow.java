@@ -654,6 +654,7 @@ public final class SettingsWindow {
             case SYNC -> buildSync(page);
             case ADVANCED -> buildAdvanced(page);
         }
+        page.getChildren().add(helpLink(category));
         // A gutter on the right, matching the one the page host leaves on the left. Without it every
         // control on the page — the combos, the checkboxes, the opacity readout, the preview's own
         // border — ends flush against the scrollbar, and the preview appears to run underneath it.
@@ -665,6 +666,29 @@ public final class SettingsWindow {
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         return scroll;
+    }
+
+    /**
+     * The page's link to its page of the documentation, <em>Help for</em> and the page's name
+     * (DOCS-11, Pauta 6.0.1), under everything else on it. Where it leads is {@link SettingsHelp}'s
+     * to say.
+     */
+    private Node helpLink(Category category) {
+        javafx.scene.control.Hyperlink link =
+                new javafx.scene.control.Hyperlink(tr("settings.helpFor", category.title()));
+        link.getStyleClass().add("settings-help-link");
+        link.setOnAction(e -> {
+            link.setVisited(false); // a link opened once is the same link, not a paler one
+            if (linkOpener != null) linkOpener.accept(SettingsHelp.url(category));
+        });
+        return link;
+    }
+
+    private java.util.function.@Nullable Consumer<String> linkOpener;
+
+    /** How a page's help link opens its address: the application's one way of opening a link. */
+    void openLinksWith(java.util.function.Consumer<String> opener) {
+        this.linkOpener = opener;
     }
 
     private VBox section(VBox page, String title) {

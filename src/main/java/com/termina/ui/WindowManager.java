@@ -856,6 +856,7 @@ public final class WindowManager {
                     windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
                     sync);
             window.openDebugLogWith(this::showDebugLog);
+            window.openLinksWith(this::openLink);
         }
         return window;
     }

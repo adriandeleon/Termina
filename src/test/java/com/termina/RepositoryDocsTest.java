@@ -26,6 +26,28 @@ class RepositoryDocsTest {
     }
 
     /**
+     * REPO-08 (Pauta 6.0.1): the open list is {@code TODO.md}, and it is kept with the change. The
+     * part of it a test can hold to that is the rules not met yet: the list names each one
+     * {@code pauta.json} records and no other, so a rule met without its line taken out, or left
+     * open without one put in, fails here.
+     */
+    @Test
+    void theOpenListNamesTheRulesNotMetAndNoOthers() throws IOException {
+        String todo = read("TODO.md");
+        java.util.Set<String> recorded = new java.util.TreeSet<>();
+        java.util.regex.Matcher rule = java.util.regex.Pattern.compile("\"rule\"\\s*:\\s*\"([A-Z]+-\\d+)\"")
+                .matcher(read("src/main/resources/com/termina/pauta.json"));
+        while (rule.find()) recorded.add(rule.group(1));
+        java.util.Set<String> listed = new java.util.TreeSet<>();
+        java.util.regex.Matcher line = java.util.regex.Pattern.compile("(?m)^- \\[ \\] \\*\\*\\[([A-Z]+-\\d+)\\]\\(")
+                .matcher(todo);
+        while (line.find()) listed.add(line.group(1));
+        assertTrue(!recorded.isEmpty(), "pauta.json was read");
+        assertEquals(recorded, listed, "TODO.md and pauta.json name the same rules");
+        assertTrue(read("AGENTS.md").contains("TODO.md"), "and the agent guide says where the list is");
+    }
+
+    /**
      * DOCS-18 (Pauta 6.0.1): the README's hero comes in a dark and a light form, each with at
      * least twice the pixels it is shown at, and one script retakes both from the real window.
      */

@@ -114,7 +114,12 @@ class DialogsFxTest {
             if (view != null) view.getSession().sendString("sleep 30\r");
             return view == null ? -1L : view.getSession().pid();
         });
-        waitFor(() -> !com.termina.process.RunningProgram.in(busy).isEmpty(), "the program to be running");
+        // The program itself, by name: a prompt's helper is a child for a moment too, and a
+        // close asked while only that was running would find nothing by the time it looked.
+        waitFor(
+                () -> com.termina.process.RunningProgram.in(busy).stream()
+                        .anyMatch(program -> program.contains("sleep")),
+                "sleep to be running");
         int tabs = onFx(() -> window.tabsForTest().size());
         int answered = DialogAnswers.answered();
         onFx(() -> {

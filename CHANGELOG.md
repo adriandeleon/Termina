@@ -13,6 +13,10 @@ done.
 
 ### Added
 
+- **Each page of Settings ends in a link to its help:** Help for Appearance, Help for Profiles and
+  so on, opening that page of the documentation.
+- **`TODO.md`** is the open list: the Pauta rules not met yet, what has never been run, and the
+  terminal features not done. It changes in the same pull request as the work.
 - **Help ▸ Doctor** checks what Termina relies on: the shell it starts, its settings folder, Git
   and the GitHub CLI for settings sync, and on Linux the tools for the selection clipboard,
   notifications and opening links. Each row says OK, Missing, Optional or Problem in words, with
