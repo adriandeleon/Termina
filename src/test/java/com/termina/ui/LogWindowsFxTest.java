@@ -156,10 +156,11 @@ class LogWindowsFxTest {
             log.add(MessageLog.Severity.ERROR, "Sync failed: no route to host");
             log.add(MessageLog.Severity.WARNING, "Update check timed out");
             Stage owner = new Stage();
-            owner.setScene(new Scene(new StackPane(), 300, 200));
+            StackPane host = new StackPane();
+            owner.setScene(new Scene(host, 900, 600));
             owner.show();
-            MessageLogWindow window = new MessageLogWindow(log);
-            window.show(owner);
+            MessageLogCard window = new MessageLogCard(log, host, () -> {}, () -> 0);
+            window.show();
             List<String> out = new java.util.ArrayList<>();
             out.add(window.report());
             window.filterBy("sync");
@@ -174,7 +175,7 @@ class LogWindowsFxTest {
             out.add(window.report());
 
             // Escape: a filter with something in it empties; an empty one gives the list back.
-            window.scene().lookup(".text-field").requestFocus();
+            window.card().lookup(".text-field").requestFocus();
             window.escapeInFilterForTest();
             out.add(window.report() + " showing=" + window.isShowing());
             window.escapeInFilterForTest();
@@ -186,7 +187,7 @@ class LogWindowsFxTest {
                     Clipboard.getSystemClipboard().getString().lines().count()));
             window.clear();
             out.add(window.report());
-            window.scene().getWindow().hide();
+            window.hide();
             owner.hide();
             return out;
         });
@@ -228,15 +229,16 @@ class LogWindowsFxTest {
             log.add(MessageLog.Severity.INFO, "second said");
             log.add(MessageLog.Severity.INFO, "third said");
             Stage owner = new Stage();
-            owner.setScene(new Scene(new StackPane(), 300, 200));
+            StackPane host = new StackPane();
+            owner.setScene(new Scene(host, 900, 600));
             owner.show();
-            MessageLogWindow window = new MessageLogWindow(log);
-            window.show(owner);
-            window.scene().getRoot().applyCss();
-            window.scene().getRoot().layout();
+            MessageLogCard window = new MessageLogCard(log, host, () -> {}, () -> 0);
+            window.show();
+            host.applyCss();
+            host.layout();
             @SuppressWarnings("unchecked")
             javafx.scene.control.ListView<MessageLog.Entry> list = (javafx.scene.control.ListView<MessageLog.Entry>)
-                    window.scene().lookup(".list-view");
+                    window.card().lookup(".list-view");
             list.getSelectionModel().clearAndSelect(0);
             List<String> out = new java.util.ArrayList<>();
             out.add(list.getSelectionModel().getSelectedItem().text());
@@ -279,11 +281,157 @@ class LogWindowsFxTest {
                     .toString());
             window.copy();
             out.add(Clipboard.getSystemClipboard().getString().strip().replaceAll("^\\S+\\s+", ""));
-            window.scene().getWindow().hide();
+            window.hide();
             owner.hide();
             return out;
         });
         assertEquals(List.of("third said", "[first said]", "first said"), seen);
+    }
+
+    /**
+     * MLOG-08 (Pauta 6.0.1): the log is a card in its window's overlay host, at the bottom left
+     * just above the status bar, 773 wide with a list 336 high, and it opens no window.
+     */
+    @Test
+    void theMessageLogIsACardInItsWindowAtTheTemplatesSize() throws Exception {
+        MessageLog log = new MessageLog();
+        List<String> seen = onFx(() -> {
+            log.add(MessageLog.Severity.ERROR, "Sync failed");
+            Stage owner = new Stage();
+            StackPane host = new StackPane();
+            owner.setScene(new Scene(host, 1200, 800));
+            owner.show();
+            int windowsBefore = javafx.stage.Window.getWindows().size();
+            boolean[] handedBack = {false};
+            MessageLogCard card = new MessageLogCard(log, host, () -> handedBack[0] = true, () -> 24);
+            card.show();
+            host.applyCss();
+            host.layout();
+            List<String> out = new java.util.ArrayList<>();
+            double[] size = card.sizeForTest();
+            // Where it was laid out; its bounds in the parent would count what a child draws outside it.
+            javafx.scene.layout.Region laid = (javafx.scene.layout.Region) card.card();
+            javafx.geometry.Bounds at = new javafx.geometry.BoundingBox(
+                    laid.getLayoutX(), laid.getLayoutY(), laid.getWidth(), laid.getHeight());
+            out.add("windows opened " + (javafx.stage.Window.getWindows().size() - windowsBefore));
+            out.add("in the host " + (card.card().getScene() == owner.getScene()) + " unread " + log.unreadErrors());
+            out.add("card " + Math.round(size[0]) + " list " + Math.round(size[1]));
+            out.add("left " + Math.round(at.getMinX()) + " above the bar by " + Math.round(800 - 24 - at.getMaxY()));
+
+            // Escape in the list closes it and the keyboard is handed back.
+            javafx.event.Event.fireEvent(
+                    card.card().lookup(".list-view"),
+                    new javafx.scene.input.KeyEvent(
+                            javafx.scene.input.KeyEvent.KEY_PRESSED,
+                            "",
+                            "",
+                            KeyCode.ESCAPE,
+                            false,
+                            false,
+                            false,
+                            false));
+            out.add("after Escape showing " + card.isShowing() + " handed back " + handedBack[0]);
+
+            // A press outside closes it; so do its Close button and the chord that opened it.
+            card.show();
+            javafx.scene.Node backdrop =
+                    host.getChildren().get(host.getChildren().size() - 2);
+            javafx.event.Event.fireEvent(backdrop, press());
+            out.add("after a press outside showing " + card.isShowing());
+            card.show();
+            for (javafx.scene.Node node : card.card().lookupAll(".button")) {
+                if (node instanceof javafx.scene.control.Button button
+                        && Messages.tr("debuglog.close").equals(button.getText())) button.fire();
+            }
+            out.add("after Close showing " + card.isShowing());
+            card.setChords(
+                    id -> "view.messageLog".equals(id) ? javafx.scene.input.KeyCombination.valueOf("Alt+L") : null);
+            card.show();
+            javafx.event.Event.fireEvent(
+                    card.card().lookup(".list-view"),
+                    new javafx.scene.input.KeyEvent(
+                            javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", KeyCode.L, false, false, true, false));
+            out.add("after its own chord showing " + card.isShowing());
+            card.show();
+            card.show();
+            out.add("shown twice showing " + card.isShowing());
+
+            // In a window too narrow for it, as wide as the window lets it be.
+            owner.setWidth(500);
+            host.resize(500, 800);
+            card.show();
+            host.applyCss();
+            host.layout();
+            out.add("narrow " + (card.sizeForTest()[0] <= 500 - 16));
+            card.hide();
+            owner.hide();
+            return out;
+        });
+        assertEquals(
+                List.of(
+                        "windows opened 0",
+                        "in the host true unread 0",
+                        "card 773 list 336",
+                        "left 8 above the bar by 8",
+                        "after Escape showing false handed back true",
+                        "after a press outside showing false",
+                        "after Close showing false",
+                        "after its own chord showing false",
+                        "shown twice showing false",
+                        "narrow true"),
+                seen);
+
+        // The sizes follow the interface zoom, and the cap is the template's.
+        assertEquals(773 * 1.5, MessageLogCard.sizeAt(1.5)[0]);
+        assertEquals(336 * 1.5, MessageLogCard.sizeAt(1.5)[1]);
+        assertEquals(200, MessageLog.MAX);
+        MessageLog full = new MessageLog();
+        for (int i = 0; i < 205; i++) full.add(MessageLog.Severity.INFO, "message " + i);
+        assertEquals(200, full.entries().size());
+        assertEquals(5, full.cut());
+        assertEquals("message 204", full.entries().get(0).text());
+
+        String source = java.nio.file.Files.readString(
+                java.nio.file.Path.of("src/main/java/com/termina/ui/MessageLogCard.java"));
+        assertFalse(source.contains("Stage"), "the log is never a window of its own");
+    }
+
+    @Test
+    void escapeClosesTheLogExceptFromItsFilterAndSoDoesTheChordThatOpenedIt() {
+        javafx.scene.input.KeyCombination opener = javafx.scene.input.KeyCombination.valueOf("Alt+L");
+        assertTrue(MessageLogCard.closes(key(KeyCode.ESCAPE, false), false, null));
+        assertFalse(MessageLogCard.closes(key(KeyCode.ESCAPE, false), true, null), "the filter peels its own layers");
+        assertTrue(MessageLogCard.closes(key(KeyCode.L, true), false, opener));
+        assertTrue(MessageLogCard.closes(key(KeyCode.L, true), true, opener));
+        assertFalse(MessageLogCard.closes(key(KeyCode.L, true), false, null));
+        assertFalse(MessageLogCard.closes(key(KeyCode.G, false), false, opener), "no fixed cancel chord");
+    }
+
+    private static javafx.scene.input.KeyEvent key(KeyCode code, boolean alt) {
+        return new javafx.scene.input.KeyEvent(
+                javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code, false, false, alt, false);
+    }
+
+    private static javafx.scene.input.MouseEvent press() {
+        return new javafx.scene.input.MouseEvent(
+                javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+                5,
+                5,
+                5,
+                5,
+                javafx.scene.input.MouseButton.PRIMARY,
+                1,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                true,
+                false,
+                true,
+                null);
     }
 
     private static <T> T onFx(java.util.concurrent.Callable<T> work) throws Exception {

@@ -897,6 +897,7 @@ public final class SettingsWindow {
     private CheckBox showScrollBar;
     private CheckBox showStatusBar;
     private CheckBox confirmClose;
+    private CheckBox restoreSession;
     private ComboBox<String> language;
     private Slider windowOpacity;
     private Label windowOpacityValue;
@@ -1352,6 +1353,19 @@ public final class SettingsWindow {
                 tr("settings.confirmClose.desc"),
                 confirmClose,
                 "close confirm running program prompt ask tab");
+
+        restoreSession = new CheckBox();
+        restoreSession.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setRestoreSession(value));
+        });
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.restoreSession"),
+                tr("settings.restoreSession.desc"),
+                restoreSession,
+                "reopen restore session tabs panes launch startup start last time no-session");
 
         scrollback = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
@@ -2637,6 +2651,7 @@ public final class SettingsWindow {
             bell.setSelected(settings.bell());
             notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
+            restoreSession.setSelected(settings.restoreSession());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showTabBar.setSelected(settings.showTabBar());
             showMenuBar.setSelected(settings.showMenuBar());

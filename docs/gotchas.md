@@ -476,4 +476,24 @@ is broken.
 - **The Linux listing's screenshot is `docs/screenshot.png` on master, by URL.** It is in the
   metainfo of packages already installed, so the dark hero keeps that path and only the light one
   has a new name.
-
+- **A card over the terminal has to be claimed in three places.** The palette and the Message
+  Log's card are nodes in the window's overlay `StackPane`, not windows. Each is named in
+  `TerminalWindow.overlayWantsKeys`, or `FocusGuard` takes the keyboard back from it a pulse after
+  it opens; each makes `onKeyPressed` return early, or a bound chord runs behind it; and opening
+  one closes the other, since both keep "the node that had the keyboard" to give it back. A third
+  card needs all three. `PaletteFocusFxTest` waits three frames and asks who has the keyboard,
+  which is the check the first of them needs.
+- **A capture run, and a test's `WindowManager`, keep no session and restore none.** `App` calls
+  `keepSession` only for its own runs, so a picture never depends on the run before it and a test
+  leaves no tabs in its settings. A test that wants a session calls `keepSession` and
+  `SessionStore.warm` itself (`SessionRestoreFxTest`). The session is written at `WINDOW_HIDING`:
+  by `WINDOW_HIDDEN` the tab list has been cleared and there is nothing left to write. It is a
+  state key (`Settings.isStateKey`), which is what keeps it out of `settings.json`, out of an
+  import and, the report's list of settings being an allowlist, out of a problem report: it names
+  the user's folders.
+- **`LoginShellPath` is asked at launch now, and it does return.** An older note here and in the
+  capture harness's notes had it never returning inside a capture run; why was never found. A
+  headless capture on 2026-11-13 got the answer in 261 ms. `CommandOutput.read` enforces its
+  deadline without waiting for a pipe's end, so a shell that does hang costs five seconds on a
+  worker and no more. The method is `synchronized`, so a caller that arrives while the launch-time
+  request is out waits for that one answer and does not start a second shell.

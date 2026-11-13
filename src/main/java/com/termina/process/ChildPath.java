@@ -12,10 +12,9 @@ import org.jspecify.annotations.Nullable;
  * a credential helper, an opener for the browser. Whoever asks the login shell publishes the
  * answer here ({@code ui.LoginShellPath}), and every place that starts a process applies it.
  *
- * <p>Applying never asks. The login shell is started only for a tool the user installed, where
- * the wait is the price of finding it; a system tool on a middle-click or a notification gets the
- * answer if someone has already paid for it, and the inherited {@code PATH} if not. Windows has
- * no login shell's {@code PATH}, and the inherited one is used there.
+ * <p>Applying never asks, and never waits. The login shell is asked once, after the first frame;
+ * a program started in the moment before its answer arrives gets the inherited {@code PATH}.
+ * Windows has no login shell's {@code PATH}, and the inherited one is used there.
  */
 public final class ChildPath {
 

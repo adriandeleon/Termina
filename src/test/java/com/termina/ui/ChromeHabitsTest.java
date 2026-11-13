@@ -97,11 +97,11 @@ class ChromeHabitsTest {
         javafx.scene.input.KeyCombination bound = javafx.scene.input.KeyCombination.valueOf("Alt+W");
         javafx.scene.input.KeyCombination own = javafx.scene.input.KeyCombination.valueOf("Ctrl+Shift+Y");
         boolean mac = com.termina.Os.isMac();
-        assertTrue(MessageLogWindow.copies(key(javafx.scene.input.KeyCode.C, false, !mac, false, mac), null, null));
-        assertTrue(MessageLogWindow.copies(key(javafx.scene.input.KeyCode.W, false, false, true, false), bound, null));
-        assertTrue(MessageLogWindow.copies(key(javafx.scene.input.KeyCode.Y, true, true, false, false), null, own));
-        assertFalse(MessageLogWindow.copies(key(javafx.scene.input.KeyCode.W, false, false, true, false), null, null));
-        assertFalse(MessageLogWindow.copies(key(javafx.scene.input.KeyCode.C, false, false, false, false), bound, own));
+        assertTrue(MessageLogCard.copies(key(javafx.scene.input.KeyCode.C, false, !mac, false, mac), null, null));
+        assertTrue(MessageLogCard.copies(key(javafx.scene.input.KeyCode.W, false, false, true, false), bound, null));
+        assertTrue(MessageLogCard.copies(key(javafx.scene.input.KeyCode.Y, true, true, false, false), null, own));
+        assertFalse(MessageLogCard.copies(key(javafx.scene.input.KeyCode.W, false, false, true, false), null, null));
+        assertFalse(MessageLogCard.copies(key(javafx.scene.input.KeyCode.C, false, false, false, false), bound, own));
     }
 
     private static javafx.scene.input.KeyEvent key(
@@ -112,9 +112,9 @@ class ChromeHabitsTest {
 
     @Test
     void theMessageLogHasNoFixedCancelChord() throws IOException {
-        String log = Files.readString(Path.of("src/main/java/com/termina/ui/MessageLogWindow.java"));
+        String log = Files.readString(Path.of("src/main/java/com/termina/ui/MessageLogCard.java"));
         assertFalse(log.contains("KeyCode.G"), "a fixed Ctrl+G, read from no key table");
-        assertTrue(log.contains("closeOnEscape"));
+        assertTrue(log.contains("KeyCode.ESCAPE"));
     }
 
     @Test

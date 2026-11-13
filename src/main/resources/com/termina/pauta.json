@@ -97,27 +97,11 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "WIN-08",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/window-shell/#win-08",
-      "kind": "pending",
-      "reason": "The tabs you had open are not restored at the next launch.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "WIN-15",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/window-shell/#win-15",
       "kind": "pending",
       "reason": "On macOS, Settings is in the File menu and not in the application menu.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "CLI-10",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/command-line/#cli-10",
-      "kind": "pending",
-      "reason": "The desktop's own helper programs (the clipboard, notifications) get your login shell's search path only once a sync or a clicked link has asked for it.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -142,14 +126,6 @@
       "url": "https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01",
       "kind": "pending",
       "reason": "There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MLOG-08",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/message-log/#mlog-08",
-      "kind": "pending",
-      "reason": "The Message Log opens as a window of its own, not as a card over the terminal, and keeps 500 messages.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

@@ -100,6 +100,59 @@ class PaletteFocusFxTest {
     }
 
     @Test
+    void theMessageLogIsOverTheTerminalAndGivesTheKeyboardBack() throws Exception {
+        // MLOG-08 (Pauta 6.0.1): a card in the terminal's own window. It keeps the keyboard while
+        // it is up, the palette and it are never up together, and closing it gives the keyboard
+        // back to the terminal.
+        Settings settings = new Settings(dir.resolve("log.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        settings.setShowStatusBar(true);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+
+        String opened = onFx(() -> {
+            TerminalView view = java.util.Objects.requireNonNull(window.activeTerminal());
+            view.requestFocus();
+            windows.messages().add(MessageLog.Severity.ERROR, "something failed");
+            int stages = javafx.stage.Window.getWindows().size();
+            run(window, "view.messageLog");
+            MessageLogCard log = window.messageLog();
+            return log.isShowing()
+                    + " " + (log.card().getScene() == window.stage().getScene())
+                    + " " + (javafx.stage.Window.getWindows().size() - stages)
+                    + " " + windows.messages().unreadErrors();
+        });
+        assertEquals("true true 0 0", opened, "showing, in the window's scene, no new window, errors read");
+
+        // Frames later the terminal has not taken the keyboard back from it.
+        Await.frames(3);
+        String kept = onFx(() -> {
+            Node owner = window.stage().getScene().getFocusOwner();
+            boolean inCard = false;
+            for (Node at = owner; at != null; at = at.getParent()) {
+                if (at == window.messageLog().card()) inCard = true;
+            }
+            return String.valueOf(inCard);
+        });
+        assertEquals("true", kept, "the keyboard stays in the log while it is up");
+
+        String closed = onFx(() -> {
+            TerminalView view = java.util.Objects.requireNonNull(window.activeTerminal());
+            run(window, "palette.show");
+            boolean underPalette = window.messageLog().isShowing();
+            run(window, "palette.show");
+            run(window, "view.messageLog");
+            boolean again = window.messageLog().isShowing();
+            run(window, "view.messageLog"); // the command again closes it
+            return underPalette + " " + again + " " + window.messageLog().isShowing() + " "
+                    + (window.stage().getScene().getFocusOwner() == view);
+        });
+        assertEquals("false true false true", closed);
+    }
+
+    @Test
     void anOpenPaletteFollowsAChangeOfBindings() throws Exception {
         // PAL-09 (Pauta 6.0.1): the opener's chip and the rows are rebuilt as the bindings change,
         // so a palette that is up never shows a chord that has moved.
@@ -169,29 +222,14 @@ class PaletteFocusFxTest {
             collect(window.stage().getScene().getRoot(), labels);
             boolean roles = !labels.isEmpty();
             for (PressLabel label : labels) roles &= label.getAccessibleRole() == javafx.scene.AccessibleRole.BUTTON;
-            int logs = openLogs();
+            boolean before = window.messageLog().isShowing();
             labels.getFirst().executeAccessibleAction(javafx.scene.AccessibleAction.FIRE);
-            boolean opened = openLogs() > logs;
-            for (javafx.stage.Window open : java.util.List.copyOf(javafx.stage.Window.getWindows())) {
-                if (open instanceof javafx.stage.Stage stage
-                        && com.termina.i18n.Messages.tr("messagelog.title").equals(stage.getTitle())) {
-                    stage.hide();
-                }
-            }
+            boolean opened = !before && window.messageLog().isShowing();
+            window.messageLog().hide();
             return new boolean[] {roles, opened};
         });
         assertTrue(pressed[0], "the status bar's labels are buttons to a screen reader");
         assertTrue(pressed[1], "and a press opens the Message Log");
-    }
-
-    private static int openLogs() {
-        int count = 0;
-        for (javafx.stage.Window open : javafx.stage.Window.getWindows()) {
-            if (open instanceof javafx.stage.Stage stage
-                    && stage.isShowing()
-                    && com.termina.i18n.Messages.tr("messagelog.title").equals(stage.getTitle())) count++;
-        }
-        return count;
     }
 
     private static void collect(Node node, java.util.List<PressLabel> out) {

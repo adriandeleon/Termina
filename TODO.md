@@ -29,13 +29,10 @@ A test fails when this list and that file disagree.
 - [ ] **[KBD-02](https://pauta-project.dev/6.0.1/keyboard/#kbd-02)** Most commands still have ids without an area in front, such as newTab.
 - [ ] **[KBD-04](https://pauta-project.dev/6.0.1/keyboard/#kbd-04)** On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.
 - [ ] **[ACC-09](https://pauta-project.dev/6.0.1/accessibility/#acc-09)** Termina does not follow Windows' high-contrast mode.
-- [ ] **[WIN-08](https://pauta-project.dev/6.0.1/window-shell/#win-08)** The tabs you had open are not restored at the next launch.
 - [ ] **[WIN-15](https://pauta-project.dev/6.0.1/window-shell/#win-15)** On macOS, Settings is in the File menu and not in the application menu.
-- [ ] **[CLI-10](https://pauta-project.dev/6.0.1/command-line/#cli-10)** The desktop's own helper programs (the clipboard, notifications) get your login shell's search path only once a sync or a clicked link has asked for it.
 - [ ] **[PAL-06](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-06)** The Command Palette's movement keys are fixed and do not follow the key bindings.
 - [ ] **[PAL-08](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08)** The Command Palette has no key that opens the documentation for the highlighted command.
 - [ ] **[QOPEN-01](https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01)** There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.
-- [ ] **[MLOG-08](https://pauta-project.dev/6.0.1/templates/message-log/#mlog-08)** The Message Log opens as a window of its own, not as a card over the terminal, and keeps 500 messages.
 - [ ] **[REL-17](https://pauta-project.dev/6.0.1/release/#rel-17)** The Windows installer is not signed.
 
 One optional rule is not met and has no entry there: window modes that hide chrome

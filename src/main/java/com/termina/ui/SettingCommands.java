@@ -107,6 +107,7 @@ final class SettingCommands {
         out.add(toggle("settings.bell", settings::bell, settings::setBell));
         out.add(toggle("settings.notifications", settings::notifications, settings::setNotifications));
         out.add(toggle("settings.confirmClose", settings::confirmClose, settings::setConfirmClose));
+        out.add(toggle("settings.restoreSession", settings::restoreSession, settings::setRestoreSession));
         out.add(number(
                 "settings.scrollback",
                 host,

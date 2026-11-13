@@ -23,8 +23,11 @@ public final class MessageLog {
 
     record Entry(LocalTime time, Severity severity, String text) {}
 
-    /** Enough for a long session's messages; the Debug Log keeps the detail. */
-    static final int MAX = 500;
+    /**
+     * The newest 200 of the session (MLOG-08, Pauta 6.0.1), the same in every app that has this
+     * log; the Debug Log keeps the detail, and {@link #cut} says how many were dropped.
+     */
+    static final int MAX = 200;
 
     private final int max;
     private final Deque<Entry> entries = new ArrayDeque<>();

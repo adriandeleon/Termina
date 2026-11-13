@@ -68,7 +68,6 @@ public final class WindowManager {
     /** This session's messages, for every window's status bar and the Message Log. */
     private final MessageLog messages = new MessageLog();
 
-    private @Nullable MessageLogWindow messageLogWindow;
     private @Nullable DebugLogWindow debugLogWindow;
 
     public WindowManager(Settings settings) {
@@ -178,10 +177,65 @@ public final class WindowManager {
         return openFirstWindow(primary, cli, "");
     }
 
-    /** @param title names the first tab, as Rename Tab would ({@code -T}); "" leaves it automatic */
+    /**
+     * The first window: the tabs of the last session where one was read for this launch (WIN-08,
+     * Pauta 6.0.1), and after them the tab the command line asked for, if it asked for one. With
+     * no session it is the one tab every launch has had.
+     *
+     * @param title names the first tab, as Rename Tab would ({@code -T}); "" leaves it automatic
+     */
     public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli, String title) {
         firstTabTitle = title;
-        return open(primary, cli);
+        ClosedTabs.Window session = SessionStore.take();
+        if (session.tabs().isEmpty()) return open(primary, cli);
+        boolean asked = asksForATab(cli, title);
+        return open(primary, cli, null, window -> {
+            window.reopenTabs(session);
+            if (asked) openTabFor(window, cli, false);
+        });
+    }
+
+    /**
+     * Whether a command line asks for a tab of its own beside a restored session: it names a
+     * program, a directory or a title. A bare launch asks for nothing the session does not give.
+     */
+    static boolean asksForATab(com.termina.pty.@Nullable LaunchOptions cli, String title) {
+        return !title.isBlank()
+                || (cli != null && (cli.hasCommand() || !cli.workingDirectory().isBlank()));
+    }
+
+    /** Whether the session is written as the application goes; a test or a capture run keeps none. */
+    private boolean keepsSession;
+
+    /** True once the quit has written the session, so the windows it closes do not write theirs. */
+    private boolean sessionWritten;
+
+    /** Keeps the session from here on, in the settings' state: the application's own runs call this. */
+    public void keepSession() {
+        keepsSession = true;
+    }
+
+    /**
+     * A window is about to close. When it is the last one its tabs are the session: the
+     * application ends with it, and by the time it has, the tabs are gone.
+     */
+    void windowClosing(TerminalWindow window) {
+        if (sessionWritten || windows.size() != 1 || !windows.contains(window)) return;
+        writeSession(window.sessionSnapshot());
+    }
+
+    private void writeSession(ClosedTabs.Window session) {
+        if (!keepsSession) return;
+        // Turned off, a session kept earlier goes too: it must not come back if it is turned on.
+        settings.setSessionTabs(settings.restoreSession() ? SessionStore.write(session) : "");
+    }
+
+    /** The window a quit keeps the tabs of: the one in front, or the newest. */
+    private @Nullable TerminalWindow sessionWindow() {
+        for (TerminalWindow window : windows) {
+            if (window.stage().isFocused()) return window;
+        }
+        return windows.isEmpty() ? null : windows.getLast();
     }
 
     /** The command line's {@code -T}, spent on the first tab that opens. */
@@ -271,26 +325,34 @@ public final class WindowManager {
                 () -> showAbout(frontWindow())));
         // A command line with something to run wins outright; otherwise the default profile decides
         // what a window opens as, which is the whole point of having chosen one.
-        if (fill != null) {
-            fill.accept(window);
-        } else if (cli != null && cli.hasCommand()) {
-            window.openTab(cli.withShell(settings.shell()), takeFirstTabTitle());
-        } else {
-            profiles.whenDefaultReady(profile -> {
-                // A window closed while discovery was running must not spawn a session afterward.
-                if (!windows.contains(window)
-                        || !stage.isShowing()
-                        || !window.terminals().isEmpty()) return;
-                com.termina.pty.LaunchOptions options = profile == null
-                        ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
-                        : profile.toLaunchOptions("");
-                if (cli != null && !cli.workingDirectory().isBlank()) {
-                    options = options.withWorkingDirectory(cli.workingDirectory());
-                }
-                window.openTab(options, takeFirstTabTitle());
-            });
-        }
+        if (fill != null) fill.accept(window);
+        else openTabFor(window, cli, true);
         return window;
+    }
+
+    /**
+     * The tab a launch's options ask for, in {@code window}.
+     *
+     * @param onlyIfEmpty true for a window's first tab, which is not opened if something else put
+     *     one there while the profiles were being found; false for a tab beside a restored session
+     */
+    private void openTabFor(TerminalWindow window, com.termina.pty.@Nullable LaunchOptions cli, boolean onlyIfEmpty) {
+        if (cli != null && cli.hasCommand()) {
+            window.openTab(cli.withShell(settings.shell()), takeFirstTabTitle());
+            return;
+        }
+        profiles.whenDefaultReady(profile -> {
+            // A window closed while discovery was running must not spawn a session afterward.
+            if (!windows.contains(window) || !window.stage().isShowing()) return;
+            if (onlyIfEmpty && !window.terminals().isEmpty()) return;
+            com.termina.pty.LaunchOptions options = profile == null
+                    ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                    : profile.toLaunchOptions("");
+            if (cli != null && !cli.workingDirectory().isBlank()) {
+                options = options.withWorkingDirectory(cli.workingDirectory());
+            }
+            window.openTab(options, takeFirstTabTitle());
+        });
     }
 
     private static final double CASCADE_OFFSET = 28;
@@ -564,9 +626,18 @@ public final class WindowManager {
         return messages;
     }
 
-    /** The Message Log, beside whichever window asked. */
+    /**
+     * The Message Log, over the terminal window that asked: a card in that window (MLOG-08,
+     * Pauta 6.0.1), so a window that is not a terminal's gets it over the first terminal window,
+     * and with none open there is nowhere for it to be.
+     */
     void showMessageLog(Window from) {
-        messageLog().show(from);
+        TerminalWindow over = null;
+        for (TerminalWindow window : windows) {
+            if (window.stage() == from) over = window;
+        }
+        if (over == null && !windows.isEmpty()) over = windows.get(0);
+        if (over != null && !over.messageLog().isShowing()) over.showMessageLog();
     }
 
     /**
@@ -575,16 +646,6 @@ public final class WindowManager {
      */
     javafx.scene.input.@Nullable KeyCombination chordOf(String id) {
         return windows.isEmpty() ? null : windows.get(0).chordOf(id);
-    }
-
-    /** The one Message Log window, built on first use: what its commands act on. */
-    MessageLogWindow messageLog() {
-        MessageLogWindow window = messageLogWindow;
-        if (window == null) {
-            messageLogWindow = window = new MessageLogWindow(messages);
-            window.setChords(this::chordOf);
-        }
-        return window;
     }
 
     /** The Debug Log: a command now, not only a button on the Advanced page (DIAG-03). */
@@ -609,12 +670,17 @@ public final class WindowManager {
      * The Message Log with its filter typed into, for the capture hook
      * ({@code -Dtermina.captureMessageLogFilter=text}).
      */
-    public javafx.scene.Scene messageLogFilterForCapture(Window from, String typed) {
-        MessageLogWindow window = messageLog();
-        window.show(from);
-        window.filterBy(typed);
-        System.out.println("[capture] messageLogFilter " + window.report() + " menu=" + window.menuRowsForTest());
-        return window.scene();
+    public javafx.scene.Scene messageLogFilterForCapture(TerminalWindow from, String typed) {
+        MessageLogCard card = from.messageLog();
+        if (!card.isShowing()) from.showMessageLog();
+        card.filterBy(typed);
+        // Laid out before it is measured: the card went in during this pulse.
+        from.stage().getScene().getRoot().applyCss();
+        from.stage().getScene().getRoot().layout();
+        double[] size = card.sizeForTest();
+        System.out.println("[capture] messageLogFilter " + card.report() + " menu=" + card.menuRowsForTest() + " card="
+                + Math.round(size[0]) + "x list " + Math.round(size[1]));
+        return from.stage().getScene();
     }
 
     /** The one Debug Log window, built on first use: what its commands act on. */
@@ -904,6 +970,10 @@ public final class WindowManager {
 
     public void closeAll() {
         // Shutdown, not a user action: App.stop() reaches here after the quit is already decided.
+        // The session first (WIN-08): the tabs of the window in front, while they are still there.
+        TerminalWindow kept = sessionWindow();
+        if (!sessionWritten && kept != null) writeSession(kept.sessionSnapshot());
+        sessionWritten = true;
         for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();
         updates.shutdown();
         // After the windows, whose closing wrote their geometry: saves are deferred, and this is the

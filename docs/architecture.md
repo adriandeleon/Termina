@@ -43,6 +43,16 @@ writes results into the live `Settings`; one process per config folder syncs, by
 config) and hands git a credential helper that asks `gh auth token --user` for that one, so switching
 the active account does not lock sync out.
 
+**The tabs of the last run are `ui.SessionStore`.** What Reopen Closed Tab keeps for a closed
+window (`ClosedTabs.Window`: each tab's panes, their directories, names and pins) is written when
+the last window closes or the app quits, and the first window of the next launch opens with it
+unless `session.restore` is off or `--no-session` was given (WIN-08, CLI-04). It is one value,
+`session.tabs`, in `workspace-state.json` beside the window's place, which is where SET-08 keeps
+what was open; `Settings` saves and versions it. It is parsed in `App.readConfig`, off the FX
+thread, with each directory checked.
+[Decision 0011](decisions/0011-the-last-session-comes-back.md) has what comes back and what does
+not.
+
 **Export and Import Configuration are `config.ConfigArchive`, after Editora's.** An export zips the
 config folder less what belongs to the run (locks, logs, the socket, `sync/`, `backups/`). An import
 is scanned before anything is written, backed up to `<config>/backups/`, and applied by part: theme

@@ -90,6 +90,8 @@ public final class TerminalWindow {
 
     /** Built on first open (PERF-14, Pauta 2.0.2): most windows never show it. See {@link #palette()}. */
     private @Nullable CommandPalette palette;
+    /** The Message Log's card over this window, built the first time it is wanted. */
+    private @Nullable MessageLogCard messageLog;
 
     /** What the palette hangs from once it is built: a layer over the whole window, empty until then. */
     private final StackPane overlay;
@@ -388,7 +390,11 @@ public final class TerminalWindow {
         // the tab list, which is where disposal is. Closing the stage alone took nothing out of the
         // list, so a window closed with others still open left every one of its shells running,
         // with their pump threads, emulator threads and directory polls, until the app quit.
-        stage.addEventHandler(javafx.stage.WindowEvent.WINDOW_HIDING, e -> rememberClosedWindow());
+        stage.addEventHandler(javafx.stage.WindowEvent.WINDOW_HIDING, e -> {
+            // Before anything forgets them: the last window's tabs are the next launch's (WIN-08).
+            windows.windowClosing(this);
+            rememberClosedWindow();
+        });
         stage.addEventHandler(javafx.stage.WindowEvent.WINDOW_HIDDEN, e -> {
             tabs.getTabs().clear();
             dispose();
@@ -478,6 +484,7 @@ public final class TerminalWindow {
     /** Whether something on screen is entitled to the keyboard instead of the terminal. */
     private boolean overlayWantsKeys(@Nullable TerminalView terminal) {
         if (palette != null && palette.isShowing()) return true;
+        if (messageLog != null && messageLog.isShowing()) return true;
         // The find bar's field. Only while it has the keyboard: with the bar open and the terminal
         // clicked, the terminal is entitled to focus back like any other time.
         if (terminal != null && terminal.searchHasFocus()) return true;
@@ -2045,6 +2052,19 @@ public final class TerminalWindow {
         lastCloseTabs = List.copyOf(doomed);
     }
 
+    /**
+     * The tabs open now, as the next launch will bring them back (WIN-08, Pauta 6.0.1): what
+     * closing the window would remember, without closing it.
+     */
+    ClosedTabs.Window sessionSnapshot() {
+        List<ClosedTabs.Entry> open = new ArrayList<>();
+        for (Tab tab : tabs.getTabs()) {
+            ClosedTabs.Entry entry = entryOf(tab, 0);
+            if (entry != null) open.add(entry);
+        }
+        return new ClosedTabs.Window(open, tabs.getSelectionModel().getSelectedIndex(), 0);
+    }
+
     /** A tab as Reopen will bring it back, or null for one with no panes left. */
     private ClosedTabs.@Nullable Entry entryOf(Tab tab, long stamp) {
         PaneGroup group = groupOf(tab);
@@ -2733,6 +2753,12 @@ public final class TerminalWindow {
         return tabs.getTabs();
     }
 
+    /** The tab in front, or null with none open: for tests. */
+    @Nullable
+    Tab selectedTabForTest() {
+        return tabs.getSelectionModel().getSelectedItem();
+    }
+
     /** The menu bar as built, for the test that fires its items. */
     MenuBar menuBarForTest() {
         return menuBar;
@@ -3134,7 +3160,7 @@ public final class TerminalWindow {
                 // The update check, or the release page once there is an update: one command whose
                 // label says which (currentLabel).
                 item("command.checkForUpdates", this::checkOrOpenUpdate),
-                item("command.view.messageLog", () -> windows.showMessageLog(stage)),
+                item("command.view.messageLog", this::showMessageLog),
                 item("command.debugLog", () -> windows.showDebugLog(stage)),
                 // What the two log windows' buttons and right-click rows do, as commands (KBD-01,
                 // Pauta 6.0.1): no rows of their own, the windows being where they are used.
@@ -3143,8 +3169,8 @@ public final class TerminalWindow {
                 item("command.debugLog.copy", () -> windows.debugLog(stage).copy()),
                 item("command.debugLog.export", () -> windows.debugLog(stage).export()),
                 item("command.debugLog.clear", () -> windows.debugLog(stage).clear()),
-                item("command.messageLog.copy", () -> windows.messageLog().copy()),
-                item("command.messageLog.clear", () -> windows.messageLog().clear()),
+                item("command.messageLog.copy", () -> messageLog().copy()),
+                item("command.messageLog.clear", () -> messageLog().clear()),
                 // Report a Problem's and About's buttons and links, as commands.
                 item("command.report.copy", () -> windows.reportProblemAction(stage, false)),
                 item("command.report.open", () -> windows.reportProblemAction(stage, true)),
@@ -3276,6 +3302,29 @@ public final class TerminalWindow {
     @Nullable
     KeyCombination chordOf(@Nullable String id) {
         return id == null ? null : chords.get(id);
+    }
+
+    /**
+     * This window's Message Log (MLOG-08, Pauta 6.0.1): a card in the overlay host, just above
+     * the status bar, and what the log's commands act on.
+     */
+    MessageLogCard messageLog() {
+        MessageLogCard built = messageLog;
+        if (built == null) {
+            messageLog = built = new MessageLogCard(
+                    windows.messages(),
+                    overlay,
+                    this::focusActiveTerminal,
+                    () -> windowRoot.getBottom() == statusBar ? statusBar.getHeight() : 0);
+            built.setChords(this::chordOf);
+        }
+        return built;
+    }
+
+    /** Opens the Message Log over this window, or closes it; one card over the terminal at a time. */
+    void showMessageLog() {
+        if (palette != null && palette.isShowing()) palette.hide();
+        messageLog().show();
     }
 
     /** The palette, built the first time it is wanted. */
@@ -3644,6 +3693,9 @@ public final class TerminalWindow {
         // this it would still be matching chords against keystrokes meant for the query field.
         // Not consumed: the palette's own filter is downstream and still needs them.
         if (palette != null && palette.isShowing()) return;
+        // The Message Log's card the same: its own filter has Escape, the copy chords and the
+        // chord that opened it, and nothing else bound runs behind it.
+        if (messageLog != null && messageLog.isShowing()) return;
 
         boolean inTextField = stage.getScene() != null
                 && stage.getScene().getFocusOwner() instanceof javafx.scene.control.TextInputControl;
@@ -3849,6 +3901,7 @@ public final class TerminalWindow {
      * a submenu nobody opens, while a palette is exactly where "make this one darker" belongs.
      */
     private void showPalette() {
+        if (messageLog != null && messageLog.isShowing()) messageLog.hide();
         java.util.Map<MenuAction, String> unavailable = new java.util.IdentityHashMap<>();
         List<MenuAction> all = paletteRows(unavailable);
         // A command that cannot run is listed greyed with its reason, not dropped: a missing command
