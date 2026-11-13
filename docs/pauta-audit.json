@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 73 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 69 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 73 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 69 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 73 entries link issue #92, read with `gh issue view`: open, and naming each of the 73 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 69 entries link issue #92, read with `gh issue view`: open, and naming each of the 69 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 73 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 69 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 73 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 69 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -190,8 +190,8 @@
     {
       "id": "PLAT-12",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "On Windows the tests are held to a lower coverage floor than on macOS and Linux."
+      "status": "pass",
+      "evidence": "the jacoco-check at verify (pom.xml:326) reads BUNDLE floors of 0.90 lines and 0.90 methods from the main properties (pom.xml:43-44), and no profile sets them: the os-windows profile (pom.xml:601) no longer lowers them or touches JaCoCo. The Windows runners pass their own on the command line (.github/workflows/ci.yml:76, release.yml:172), which the rule leaves to the workflow. src/test/java/com/termina/WorkflowRulesTest.java:154 fails a profile that activates by OS or JDK and names a floor, jacoco.skip or the check (fixed in c167783)"
     },
     {
       "id": "PLAT-13",
@@ -748,14 +748,14 @@
     {
       "id": "WIN-01",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "The status bar is off until you turn it on in Settings or the View menu."
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:1015: `ui.showStatusBar` defaults to true, so the main window's status bar is visible unless the user hid it (src/test/java/com/termina/config/SettingsTest.java:33; docs/decisions/0010-status-bar-and-title-bar-menus-on-by-default.md). The echo label switches between the error and warning classes (src/main/java/com/termina/ui/StatusBar.java:99-100) and a click opens the Message Log (:40) (fixed in c167783)"
     },
     {
       "id": "WIN-03",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "On Windows and Linux the menu bar sits under the title bar until you move it into the title bar in Settings."
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/config/Settings.java:978: `window.menuBarInTitleBar` defaults to true, so on Windows and Linux the stage is created EXTENDED with a HeaderBar holding the menu bar (src/main/java/com/termina/ui/TerminalWindow.java:284-287, :2803), and turning the setting off falls back to a decorated window; on macOS the bar sets useSystemMenuBar (:2819) and the window has no header. src/test/java/com/termina/config/SettingsTest.java:34 holds the default (fixed in c167783)"
     },
     {
       "id": "WIN-04",
@@ -1600,8 +1600,8 @@
     {
       "id": "CLI-11",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "On Windows there is no console launcher, so the command-line options print nothing in a terminal there."
+      "status": "pass",
+      "evidence": "the Windows image carries a second launcher, termina-cli, with win-console=true (packaging/windows/termina-cli.properties; pom.xml:626, in the os-windows profile, merged into the app-image execution). It names no main class or arguments of its own, so it runs the app's entry point and every option reaches it; the installer is built from that image (scripts/build-installers.sh:25). src/test/java/com/termina/WorkflowRulesTest.java:178 holds the configuration, and CI runs termina-cli.exe --version on the Windows image (.github/workflows/ci.yml:199). Not yet run on Windows: the first CI run with it is the check (fixed in c167783)"
     },
     {
       "id": "CLI-06",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (73 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (69 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 73 pending entries (14 MUST, 59 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 69 pending entries (10 MUST, 59 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2452,6 +2452,7 @@
     "Five more were judged again the same day, after the fixes in be081c5: WIN-13, WIN-14, SET-03, MENU-15, ICON-06.",
     "Three more were judged again the same day, after the fixes in 892280f: OS-02, PERF-01, PERF-07. OS-04 was read again through the new Os class and still fails, for the three differences it names.",
     "The conformance work was judged the same day, in a78d371: PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-15, ABOUT-09, PWIN-01, PWIN-03, PWIN-04, PWIN-05, PWIN-06, PWIN-07, WIN-04 and ABOUT-07 pass; PWIN-02, PWIN-08, MENU-10, PAUTA-08 are for a person to check in the running app; and the 73 rules with an entry are pending.",
-    "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails."
+    "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails.",
+    "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json."
   ]
 }
