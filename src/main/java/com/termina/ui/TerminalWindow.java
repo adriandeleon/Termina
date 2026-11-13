@@ -3284,6 +3284,8 @@ public final class TerminalWindow {
                     chordOf(paletteAction.id()),
                     palette.isShowing() ? paletteRows(new java.util.IdentityHashMap<>()) : List.of());
         }
+        // The macOS application menu's Settings item carries its chord in its title (WIN-15).
+        MacAppMenu.retitleSettings(MacAppMenu.settingsTitle(tr("command.settings.show"), chordOf("settings.show")));
         newTabTipText.set(withChord("command.file.newTab", "tooltip.newTab", chordOf("file.newTab")));
         closeTabTipText.set(withChord("command.file.closeTab", "tooltip.closeTab", chordOf("file.closeTab")));
     }

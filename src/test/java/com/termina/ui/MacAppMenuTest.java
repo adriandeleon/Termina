@@ -30,6 +30,32 @@ class MacAppMenuTest {
     }
 
     @Test
+    void theSettingsItemCarriesItsChordInItsTitleAndHasNoKeyOfItsOwn() throws IOException {
+        // WIN-15 (Pauta 6.0.1): the chord the bindings give the Settings command, after the title
+        // as the system menu bar's rows show theirs, and the title alone when it has none.
+        javafx.scene.input.KeyCombination chord = javafx.scene.input.KeyCombination.valueOf("Shortcut+Comma");
+        assertEquals(
+                "Settings…" + MenuRows.SYSTEM_GAP + chord.getDisplayText(),
+                MacAppMenu.settingsTitle("Settings…", chord));
+        assertEquals("Settings…", MacAppMenu.settingsTitle("Settings…", null));
+
+        // Made by the factory that takes no shortcut, and never given one afterwards.
+        String source = Files.readString(Path.of("src/main/java/com/termina/ui/MacAppMenu.java"));
+        assertTrue(source.contains(".getMethod(\"createMenuItem\", String.class, callbackType)"));
+        assertFalse(source.contains("setShortcut"), "a key equivalent runs before the app's key filter sees the key");
+        // And the title is written again where the bindings are applied.
+        String window = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalWindow.java"));
+        assertTrue(window.contains("MacAppMenu.retitleSettings("));
+    }
+
+    @Test
+    void theSettingsItemIsMacOSsToo() {
+        if (MacAppMenu.shouldInstall(System.getProperty("os.name", ""))) return;
+        assertFalse(MacAppMenu.addSettings("Settings…", () -> {}));
+        MacAppMenu.retitleSettings("Settings…"); // nothing to write, and nothing thrown
+    }
+
+    @Test
     void everyLauncherCarriesTheExportAndOpensTheMacPackageOnlyOnMacOS() throws IOException {
         String pom = Files.readString(Path.of("pom.xml"));
         // javafx:run and the image's launcher both take the export and the per-OS property.

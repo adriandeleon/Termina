@@ -89,14 +89,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "WIN-15",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/window-shell/#win-15",
-      "kind": "pending",
-      "reason": "On macOS, Settings is in the File menu and not in the application menu.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "PAL-06",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-06",

@@ -138,6 +138,9 @@ done.
 
 ### Changed
 
+- **On macOS, Settings is in the application menu**, under About, where every Mac app has it. It
+  shows the shortcut bound to Settings and follows it when you change it. The File menu keeps
+  its row. This has not yet been run on a Mac.
 - **Every command's id has its area in front**: `file.newTab`, `edit.copy`, `tab.next`,
   `pane.splitRight`, `view.zoomIn`, `sync.now`. Nothing on screen changes. The ids are what
   `settings.json` keeps your key bindings under (`keys.file.newTab`) and what settings sync

@@ -320,9 +320,17 @@ public final class WindowManager {
         window.show();
         // After the show, and a pulse later, by when Glass has built the application menu; until it
         // takes, every window that opens tries again (ABOUT-01).
-        Platform.runLater(() -> MacAppMenu.addAbout(
-                com.termina.i18n.Messages.tr("command.help.about", com.termina.AppInfo.NAME),
-                () -> showAbout(frontWindow())));
+        Platform.runLater(() -> {
+            MacAppMenu.addAbout(
+                    com.termina.i18n.Messages.tr("command.help.about", com.termina.AppInfo.NAME),
+                    () -> showAbout(frontWindow()));
+            // Settings under it (WIN-15), running what the Settings command runs, with the chord
+            // bound to that command in its title and no key equivalent.
+            MacAppMenu.addSettings(
+                    MacAppMenu.settingsTitle(
+                            com.termina.i18n.Messages.tr("command.settings.show"), chordOf("settings.show")),
+                    () -> showSettings(frontWindow()));
+        });
         // A command line with something to run wins outright; otherwise the default profile decides
         // what a window opens as, which is the whole point of having chosen one.
         if (fill != null) fill.accept(window);
