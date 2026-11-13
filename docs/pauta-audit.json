@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 31 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, SET-03) and so do the 66 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 27 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, WIN-01, WIN-03, WIN-12, MENU-14, MENU-16, MENU-01, MENU-02) and so do the 65 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -791,14 +791,14 @@
     {
       "id": "WIN-13",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "No quit method: several windows, each close request asks for itself (src/main/java/com/termina/ui/TerminalWindow.java:364-367, :2727), macOS's Quit is not caught (`handleQuitAction` not found), and App.stop only tears down (src/main/java/com/termina/ui/WindowManager.java:631). (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "one quit method, WindowManager.quit (src/main/java/com/termina/ui/WindowManager.java:354): it asks once, in the window it was asked from, if any shell in any window has a program running (src/main/java/com/termina/ui/TerminalWindow.java:2196, the question names the action, :2314), and on a yes hides the dialogs and secondary windows and closes every terminal window the way shutdown does, the last ending the app (quitNow, src/main/java/com/termina/ui/WindowManager.java:370). The Quit row and the app.quit command run it (src/main/java/com/termina/ui/TerminalWindow.java:2954). The system's Quit reaches it without Glass: JavaFX delivers it as a close request on every window in one turn, each window hands its request to the manager (src/main/java/com/termina/ui/TerminalWindow.java:372), and requests on every window at once are a quit (src/main/java/com/termina/ui/WindowManager.java:331; src/main/java/com/termina/ui/WindowRules.java:100), where one window's request closes that window. Held by src/test/java/com/termina/ui/WindowManagerFxTest.java:272, which fires the requests, and src/test/java/com/termina/ui/WindowRulesPureTest.java:13. The macOS path is read from JavaFX's source (GlassStage.requestClosingAllWindows) and has not been run on a Mac (fixed in be081c5)"
     },
     {
       "id": "WIN-14",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "`app.quit` is not registered (no match for `app.quit` or a quit command in src/main), and the File menu has no Quit row: it ends closeWindow … settings, syncNow, configureProfiles (src/main/java/com/termina/ui/MenuBarModel.java:55-72). The app ends only with its last window (src/main/java/com/termina/ui/WindowManager.java:217). (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "app.quit is registered and the palette lists it (src/main/java/com/termina/ui/TerminalWindow.java:2954, command.app.quit in the six catalogs), and the File menu's last row runs it (src/main/java/com/termina/ui/MenuBarModel.java:75), on every OS; closing the last window still ends the app as well; held by src/test/java/com/termina/ui/MenuBarModelTest.java and src/test/java/com/termina/ui/WindowManagerFxTest.java:272 (fixed in be081c5)"
     },
     {
       "id": "WIN-15",
@@ -839,8 +839,8 @@
     {
       "id": "ICON-06",
       "level": "SHOULD",
-      "status": "fail",
-      "evidence": "No keyboard token: the `.root` block of src/main/resources/com/termina/styles/app.css:16-27 has no `-state-key` or other ladder() (no `ladder(` in app.css or settings.css); the chord chip uses -color-accent-fg (:404) and the menus' chord column -color-fg-muted (:722)."
+      "status": "pass",
+      "evidence": "the keyboard's colour is one token on .root, -state-key, Editora's ladder() over -color-bg-default (src/main/resources/com/termina/styles/app.css:26), used by the menus' chord columns, the palette's chords and its chip; src/test/java/com/termina/ui/StyleContrastTest.java:208 resolves the ladder against Editora Light and Editora Dark and finds 4.5:1 or more on the default, subtle and overlay grounds, the chip's tint included (fixed in be081c5)"
     },
     {
       "id": "ICON-07",
@@ -1175,8 +1175,8 @@
     {
       "id": "MENU-15",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "right-click rows have no chord cell: `tabItem` (src/main/java/com/termina/ui/TerminalWindow.java:1598) and the terminal menu's `item` (src/main/java/com/termina/ui/TerminalView.java:2536) build plain `MenuItem`s with no accelerator text, so New Tab, Close Tab, Copy, Paste show none; the menu bar's chords are `-color-fg-muted`, not a keyboard color (src/main/resources/com/termina/styles/app.css:721-724) (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "every menu the app draws has a chord cell filled from the keymap in force: the bar's rows have a chord label (src/main/java/com/termina/ui/MenuRows.java), and each right-click row that runs a command names it and shows its accelerator text, set as the menu shows and empty for an unbound command (src/main/java/com/termina/ui/MenuChords.java:40): a tab's (src/main/java/com/termina/ui/TerminalWindow.java:1593), the terminal's (src/main/java/com/termina/ui/TerminalView.java:2386), the Debug Log's, the Message Log's and the profile list's (src/main/java/com/termina/ui/DebugLogWindow.java:110, src/main/java/com/termina/ui/MessageLogWindow.java:114, src/main/java/com/termina/ui/SettingsWindow.java:1766), and the profile drop-down's rows (src/main/java/com/termina/ui/TerminalWindow.java:823). Both columns are drawn in the keyboard colour, -state-key, at 11px (src/main/resources/com/termina/styles/app.css:747-758). Held by src/test/java/com/termina/ui/MenuChordsTest.java, src/test/java/com/termina/ui/MenusFxTest.java:273 and src/test/java/com/termina/ui/StyleContrastTest.java:208; seen in a headless capture of the terminal's menu. The size does not scale: there is no UI zoom (MENU-16, WIN-12) (fixed in be081c5)"
     },
     {
       "id": "MENU-16",
@@ -1367,8 +1367,8 @@
     {
       "id": "SET-03",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/SettingsSearch.java:20 scores title, description, heading plus page name, and keywords, ranks them 8/4/2/1 and whole word over word start (:36-72), and src/main/java/com/termina/ui/SettingsWindow.java:486-523 hides non-matches and opens the best page; missing: a row's visible text (its controls' labels and choices) is never searched, only hand-typed English keywords stand in (:493-495)"
+      "status": "pass",
+      "evidence": "src/main/java/com/termina/ui/SettingsSearch.java scores a row's title, description, visible text, heading plus page name and keywords, 8/4/3/2/1, a whole word over a word start (:39, :60), and src/main/java/com/termina/ui/SettingsWindow.java:565 reads the visible text from the row's controls at each search: a button's or a switch's label, every option of a choice, a field's prompt (:604); non-matches are hidden and the best page opens; held by src/test/java/com/termina/ui/SettingsSearchTest.java:29 and src/test/java/com/termina/ui/SettingsWindowFxTest.java:196 (fixed in be081c5)"
     },
     {
       "id": "SET-04",
@@ -2450,6 +2450,7 @@
     "Six more were judged again the same day, after the fixes in 32baadd: FIND-01, FIND-02, FIND-03, FIND-04, FIND-06, FIND-07. KBD-01 and MENU-05 were brought up to date with them; both still fail, for what is left.",
     "Two more were judged again the same day, after the fixes in ef3fdfa: KBD-01, MENU-05. MENU-12 and PWIN-04 were brought up to date with them; both still fail.",
     "Five more were judged again on 2026-11-12, after the tests and fixes in 55cb94f: ICON-09, ICON-10, ICON-11, ICON-12, ACC-01.",
+    "Five more were judged again the same day, after the fixes in be081c5: WIN-13, WIN-14, SET-03, MENU-15, ICON-06.",
     "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails."
   ]
 }
