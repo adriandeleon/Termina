@@ -58,8 +58,53 @@ public final class App extends Application {
      */
     @Override
     public void init() {
-        prepared = prepare(getParameters().getRaw());
+        Config config = takeReadAhead();
+        // Read here only when main's read failed or there was none: the failure is then reported
+        // as it always was.
+        prepared = finish(config != null ? config : readConfig(getParameters().getRaw()));
     }
+
+    /** The result of the read {@code main} started, once; null when there was none or it failed. */
+    static @Nullable Config takeReadAhead() {
+        java.util.concurrent.CompletableFuture<Config> ahead = readAhead;
+        readAhead = null;
+        if (ahead == null) return null;
+        try {
+            return ahead.join();
+        } catch (RuntimeException failed) {
+            return null;
+        }
+    }
+
+    /**
+     * The config read that {@code main} started before the toolkit (PERF-16, Pauta 6.0.1), or null
+     * when the app was started another way, by a test.
+     */
+    private static volatile java.util.concurrent.@Nullable CompletableFuture<Config> readAhead;
+
+    /**
+     * Starts reading the configuration on a thread of its own. Called from {@code main} before
+     * {@code launch}, so the read and the toolkit's start overlap and {@link #init} only takes the
+     * result.
+     */
+    static void readAhead(java.util.List<String> args) {
+        java.util.concurrent.CompletableFuture<Config> reading = new java.util.concurrent.CompletableFuture<>();
+        readAhead = reading;
+        Thread reader = new Thread(
+                () -> {
+                    try {
+                        reading.complete(readConfig(args));
+                    } catch (Throwable failed) {
+                        reading.completeExceptionally(failed);
+                    }
+                },
+                "termina-config");
+        reader.setDaemon(true);
+        reader.start();
+    }
+
+    /** What the config read gives: the command line and the settings, with everything read beside them warm. */
+    record Config(CommandLine cli, Settings settings) {}
 
     /** What {@link #init} read, for {@link #start}; null when a test starts the app without it. */
     private @Nullable Prepared prepared;
@@ -72,6 +117,15 @@ public final class App extends Application {
      * themes — every file the first window needs, read before the toolkit asks for any of them.
      */
     static Prepared prepare(java.util.List<String> args) {
+        return finish(readConfig(args));
+    }
+
+    /**
+     * The half that needs no toolkit: the settings, the shell's answer, the Pauta list, the
+     * stylesheets at the UI zoom, the catalogue and the imported themes. What {@code main} starts
+     * ahead of the toolkit.
+     */
+    static Config readConfig(java.util.List<String> args) {
         com.termina.perf.Startup.mark("init");
         CommandLine cli = CommandLine.parse(args.toArray(String[]::new));
         Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir(), cli.dev()));
@@ -86,13 +140,6 @@ public final class App extends Application {
         // The stylesheets at the UI zoom, where it is not 100%: read and scaled here, not on the
         // FX thread (PERF-01).
         if (settings.uiZoom() != Settings.DEFAULT_UI_ZOOM) com.termina.ui.UiZoom.prepare(settings.uiZoom());
-
-        // Before the stylesheet and before any window: CSS naming a font that is not yet registered
-        // does not wait for it, it silently resolves to the system face. Only what the first window
-        // draws — the interface font, the icons, the terminal's family; the other bundled families
-        // follow the first frame (PERF-15).
-        com.termina.ui.Fonts.load(settings.fontFamily());
-        com.termina.perf.Startup.mark("fonts");
         com.termina.ui.DebugLog.attachFile(settings.directory());
 
         // Before the command names, menus and Settings rows are built — all of which read the
@@ -110,7 +157,21 @@ public final class App extends Application {
 
         // The imported themes, read now: the stored theme may be one of them.
         com.termina.ui.Themes.useDirectory(settings.directory().resolve("themes"));
-        return new Prepared(cli, settings);
+        return new Config(cli, settings);
+    }
+
+    /**
+     * The half that asks JavaFX: the fonts the first window draws. After the toolkit has started,
+     * on the launcher thread, never the FX thread.
+     */
+    private static Prepared finish(Config config) {
+        // Before the stylesheet and before any window: CSS naming a font that is not yet registered
+        // does not wait for it, it silently resolves to the system face. Only what the first window
+        // draws — the interface font, the icons, the terminal's family; the other bundled families
+        // follow the first frame (PERF-15).
+        com.termina.ui.Fonts.load(config.settings().fontFamily());
+        com.termina.perf.Startup.mark("fonts");
+        return new Prepared(config.cli(), config.settings());
     }
 
     @Override
@@ -166,10 +227,11 @@ public final class App extends Application {
         }
 
         // What nobody waits for, after the first frame (PERF-15, DIAG-05): the font picker's other
-        // families, the window icons a title bar never shows, and — a few seconds later still,
-        // so it never competes with the shell's own startup — the daily update check.
+        // families and which of the installed ones are monospace, the window icons a title bar
+        // never shows, and — a few seconds later still, so it never competes with the shell's own
+        // startup — the daily update check.
         com.termina.ui.FirstFrame.after(() -> {
-            com.termina.ui.Fonts.loadRestInBackground(com.termina.ui.MonospaceFonts::forget);
+            com.termina.ui.MonospaceFonts.warmInBackground();
             com.termina.ui.Icons.loadLarge();
             javafx.animation.PauseTransition settle =
                     new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));

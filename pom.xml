@@ -241,6 +241,31 @@
             </resource>
         </resources>
         <plugins>
+            <!-- A release build precompiles the stylesheets into target/classes (PERF-17, the dist
+                 profile's compile-styles), and JavaFX, asked for app.css, loads the app.bss beside
+                 it without looking at which is newer. So every build starts by removing them: left
+                 behind, they hide each later edit to a stylesheet until the next clean. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>drop-stale-bss</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>clean</goal></goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.outputDirectory}/com/termina/styles</directory>
+                                    <includes><include>*.bss</include></includes>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <!-- The JDK floor as a check, not only as maven.compiler.release (PLAT-01, Pauta 2.0.2):
                  an older JDK otherwise gets as far as an obscure compiler error. -->
             <plugin>
@@ -984,6 +1009,22 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.4</version>
                 <executions>
+                    <execution>
+                        <!--
+                          PERF-17 (Pauta 6.0.1): each stylesheet gets a .bss beside it, which
+                          JavaFX loads without parsing. On the compiled resources, before the jar
+                          that jlink links is made, so the image carries both forms.
+                        -->
+                        <id>compile-styles</id>
+                        <phase>process-classes</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>com.termina.ui.StyleCompiler</mainClass>
+                            <arguments>
+                                <argument>${project.build.outputDirectory}/com/termina/styles</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <!--
                           First after jpackage, and before training and the macOS re-sign, so the

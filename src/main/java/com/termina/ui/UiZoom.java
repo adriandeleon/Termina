@@ -402,6 +402,10 @@ public final class UiZoom {
         return url;
     }
 
+    /**
+     * The sheet as the build left it. Where a release build precompiled it (PERF-17, Pauta 6.0.1)
+     * JavaFX takes the {@code .bss} beside this by itself, without parsing; nothing here asks.
+     */
     private static String bundled(String name) {
         java.net.URL url = UiZoom.class.getResource(FOLDER + name);
         if (url == null) throw new IllegalStateException("missing stylesheet " + name);

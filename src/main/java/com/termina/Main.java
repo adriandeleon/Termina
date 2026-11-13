@@ -52,6 +52,9 @@ public final class Main {
         // Before the toolkit as well: a launch that only hands its arguments to the Termina
         // already running needs no display either, and should not wait for one to come up.
         if (!ownProcess) App.hold(claimOrHandOff(cli, args));
+        // The config read starts here, on a thread of its own, so it overlaps the toolkit's start
+        // and the app's init only takes its result (PERF-16, Pauta 6.0.1).
+        App.readAhead(java.util.List.of(args));
         Application.launch(App.class, args);
     }
 

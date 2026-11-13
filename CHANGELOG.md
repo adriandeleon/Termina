@@ -42,6 +42,8 @@ done.
 - **Focus Menu Bar** (Ctrl+Shift+F10) puts the keyboard in the menu bar and opens its first menu,
   so the arrow keys walk it. A plain F10 and a lone Alt, which do this in most apps, belong to the
   program running in the terminal.
+- **`-Dtermina.stallLog` says where, not only for how long.** While the UI thread is stuck, a
+  watcher prints its stack, once for each stall, before the line that reports the gap.
 - **Interface zoom.** Settings ▸ Appearance ▸ Window ▸ Interface zoom, from 80% to 200%, makes the
   menus, the tab strip, the status bar, the palette and every other window larger or smaller, at
   once. Zoom Interface In, Zoom Interface Out and Reset Interface Zoom are in the palette and can be
@@ -120,6 +122,12 @@ done.
 
 ### Changed
 
+- **A quicker start.** The settings are read on a thread of their own while JavaFX starts, not
+  after it, and release builds carry their stylesheets precompiled, so they are loaded without
+  being parsed.
+- **The font picker's list is made in the background** after the first frame. Working out which
+  installed fonts are monospace used to happen when Settings first opened, and held the window for
+  a quarter of a second on a machine with many fonts.
 - **The status bar is shown, and on Windows and Linux the menu bar is in the title bar, unless you
   turn them off.** Both were options that started off. If you never changed either you will see
   both after this update: a row under the terminal that says what the last command reported, where

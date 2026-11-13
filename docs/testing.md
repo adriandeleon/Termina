@@ -229,5 +229,18 @@ scripts/dev-run.sh -Dtermina.stallLog=400
 JAVA_TOOL_OPTIONS=-Dtermina.stallLog=400 ./target/dist/Termina.app/Contents/MacOS/Termina
 ```
 
+The gap says how long; a second line says where. While the thread is stuck, a watcher on a thread
+of its own (`ui.StallSampler`) prints its stack, once for each stall:
+
+```
+[termina] UI thread not responding for 412ms; it is in:
+[termina]   at com.termina/com.termina.ui.MonospaceFonts.isMonospace(MonospaceFonts.java:147)
+[termina]   …
+[termina] UI thread blocked for 431ms
+```
+
+That one is real: it is how the font picker's measuring was found on the FX thread, and moved off
+it.
+
 It is opt-in because an always-running `AnimationTimer` forces a 60fps pulse even when the terminal
 is idle.

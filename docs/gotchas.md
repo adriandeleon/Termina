@@ -386,3 +386,19 @@ is broken.
   a question left up is the one the next test's `DialogAnswers` presses, leaving its own unanswered.
   Surefire's default order is the filesystem's, which differs between a laptop and a runner, so
   the order is pinned (`runOrder` in the pom): what fails on CI fails here.
+- **JavaFX loads the `.bss` beside a `.css` by itself, and never asks which is newer.** Asked for
+  `app.css` it tries `app.bss` first, so a release build's precompiled sheets (`-Pdist`,
+  `ui.StyleCompiler`; PERF-17, Pauta 6.0.1) left in `target/classes` would hide every later edit to
+  a stylesheet. Every build therefore deletes them at `process-resources` (`drop-stale-bss` in the
+  pom) and only `-Pdist` writes them again. Two more things about the binary form: a sheet's own
+  address is written into it with each `url()`, so a relative one would point into the build's
+  folder for good (the sheets have only `data:` and absolute ones, held by `StyleCompilerFxTest`);
+  and at any UI zoom but 100% the scaled `.css` text is used, since a binary cannot be scaled.
+- **`Os.runAs` reaches only what asks when it is called.** Thirteen classes read the OS once, as
+  they load, into a constant; a class first loaded while a test runs as another system keeps that
+  answer for the rest of the JVM, and every later test inherits a Windows that is not there.
+  `SameOnEveryOsTest` builds its lists once before any override for that reason, and compares
+  only lists made by pure functions (`MenuBarModel`, `SettingsWindow.Category.keys`, `Keymap.load`).
+- **The stall sampler reads a window that is not drawing as stalled.** `-Dtermina.stallLog` beats
+  once a frame, and a minimised or covered window may get no frames; the stack printed then is the
+  event loop waiting, which is how to tell it from a real one.

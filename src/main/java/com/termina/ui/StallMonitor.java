@@ -10,6 +10,9 @@ import javafx.animation.AnimationTimer;
  * the gap between animation frames — the FX thread drives that timer, so a long gap means it was
  * blocked. Slow rendering shows up as a steady 30-50ms; blocking shows up as one enormous gap.
  *
+ * <p>With it comes {@link StallSampler}, which prints the thread's stack <em>while</em> it is
+ * stuck: how long a stall lasted says there is a problem, and the stack says where.
+ *
  * <p><b>Opt-in.</b> Nothing is created unless {@code -Dtermina.stallLog=<milliseconds>} is set,
  * because an always-running {@code AnimationTimer} forces a 60fps pulse even when the terminal is
  * idle, which on a laptop is a battery cost for a diagnostic almost nobody needs.
@@ -33,11 +36,17 @@ public final class StallMonitor {
         System.getLogger(StallMonitor.class.getName())
                 .log(System.Logger.Level.INFO, "stall monitor on, reporting gaps over " + threshold + "ms");
 
+        // And what it was doing, sampled from a thread of its own while it is stuck (PERF-20,
+        // Pauta 6.0.1): this timer runs on the stuck thread and can only speak afterwards.
+        StallSampler sampler = new StallSampler(Thread.currentThread(), threshold);
+        sampler.start();
+
         new AnimationTimer() {
             private long previous;
 
             @Override
             public void handle(long now) {
+                sampler.beat();
                 if (previous != 0) {
                     long gapMs = (now - previous) / 1_000_000;
                     if (gapMs >= threshold) {

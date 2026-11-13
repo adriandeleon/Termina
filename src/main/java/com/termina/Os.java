@@ -39,9 +39,22 @@ public final class Os {
         return System.getProperty("os.name", "");
     }
 
-    /** The system this process runs on. */
+    /** The system this process runs on, or the one a test said to run as. */
     public static Kind current() {
-        return of(name());
+        Kind as = override;
+        return as != null ? as : of(name());
+    }
+
+    private static volatile @org.jspecify.annotations.Nullable Kind override;
+
+    /**
+     * Runs as another system until given null (OS-03, Pauta 6.0.1): for the test that asks whether
+     * the commands, the menu bar's rows and the Settings pages are the same on all three. What a
+     * class worked out as it loaded is not asked again, so the override is set before the classes
+     * a test builds its lists from are first used, or the lists are built by pure functions.
+     */
+    public static void runAs(@org.jspecify.annotations.Nullable Kind kind) {
+        override = kind;
     }
 
     public static boolean isWindows() {

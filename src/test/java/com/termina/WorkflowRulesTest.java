@@ -239,4 +239,30 @@ class WorkflowRulesTest {
                 read(Path.of(".github/workflows/ci.yml")).contains("termina-cli.exe --version"),
                 "CI runs it on the Windows image");
     }
+
+    /**
+     * PERF-17 (Pauta 6.0.1): the release build precompiles the stylesheets, every build first
+     * removes the ones an earlier release build left, and CI asks the linked image for them.
+     */
+    @Test
+    void theReleaseBuildPrecompilesTheStylesheetsAndCiLooksInTheImage() throws IOException {
+        String pom = read(Path.of("pom.xml"));
+        int dist = pom.indexOf("<id>dist</id>");
+        int compile = pom.indexOf("<id>compile-styles</id>");
+        assertTrue(dist > 0 && compile > dist, "the dist profile compiles the styles");
+        String step = pom.substring(compile, pom.indexOf("</execution>", compile));
+        assertTrue(step.contains("<phase>process-classes</phase>"), "before the jar is made");
+        assertTrue(step.contains("com.termina.ui.StyleCompiler"));
+
+        int drop = pom.indexOf("<id>drop-stale-bss</id>");
+        assertTrue(drop > 0 && drop < dist, "every build, not only a release, drops the stale ones");
+        String dropStep = pom.substring(drop, pom.indexOf("</execution>", drop));
+        assertTrue(dropStep.contains("<phase>process-resources</phase>"), "before they are compiled again");
+        assertTrue(
+                dropStep.contains("<excludeDefaultDirectories>true</excludeDefaultDirectories>"), "and nothing else");
+
+        String ci = read(Path.of(".github/workflows/ci.yml"));
+        assertTrue(ci.contains("jimage list"), "CI lists the linked image");
+        assertTrue(ci.contains("com/termina/styles/$sheet\\.bss"), "and looks for each sheet's .bss");
+    }
 }

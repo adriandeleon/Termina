@@ -1,14 +1,6 @@
 {
   "exceptions": [
     {
-      "rule": "OS-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/same-on-every-os/#os-03",
-      "kind": "pending",
-      "reason": "No test yet runs Termina as each operating system and compares its commands, menus and settings.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "OS-04",
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/same-on-every-os/#os-04",
@@ -94,30 +86,6 @@
       "url": "https://pauta-project.dev/6.0.1/performance/#perf-09",
       "kind": "pending",
       "reason": "Drawing the terminal copies each run of text every frame.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-16",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-16",
-      "kind": "pending",
-      "reason": "The settings are read after the window toolkit starts, not alongside it.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-17",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-17",
-      "kind": "pending",
-      "reason": "The stylesheets are shipped as text and parsed at every launch.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PERF-20",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-20",
-      "kind": "pending",
-      "reason": "When the window stalls, Termina can say for how long but not what it was doing.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

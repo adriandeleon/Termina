@@ -84,7 +84,7 @@ public final class SettingsWindow {
     }
 
     /** Pages, in sidebar order within their group. */
-    private enum Category {
+    enum Category {
         APPEARANCE(Group.GENERAL, "settings.cat.appearance", MenuIcons::appearance),
         TERMINAL(Group.GENERAL, "settings.cat.terminal", MenuIcons::terminal),
         PROFILES(Group.GENERAL, "settings.cat.profiles", MenuIcons::profiles),
@@ -105,6 +105,17 @@ public final class SettingsWindow {
 
         String title() {
             return tr(key);
+        }
+
+        /**
+         * The pages by catalogue key, in the sidebar's order: the same on every OS (OS-01), which
+         * {@code SameOnEveryOsTest} asks as each of them (OS-03). Here and not on the window, so
+         * asking loads no control.
+         */
+        static List<String> keys() {
+            List<String> keys = new ArrayList<>();
+            for (Category category : values()) keys.add(category.key);
+            return keys;
         }
     }
 

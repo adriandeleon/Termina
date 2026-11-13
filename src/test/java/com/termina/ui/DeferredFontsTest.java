@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -78,5 +79,24 @@ class DeferredFontsTest {
             Thread.sleep(20);
         }
         assertTrue(families.containsAll(Fonts.BUNDLED_MONO), families::toString);
+    }
+
+    /**
+     * PERF-01 (Pauta 6.0.1): after the first frame a worker makes the list, measuring every
+     * installed family, so the font picker's first opening measures nothing on the FX thread.
+     */
+    @Test
+    @Order(3)
+    void theListIsMadeOnAWorkerBeforeThePickerAsks() throws Exception {
+        MonospaceFonts.forget();
+        assertFalse(MonospaceFonts.isListed());
+        Thread worker = MonospaceFonts.warmInBackground();
+        assertEquals("termina-fonts", worker.getName());
+        worker.join(TimeUnit.SECONDS.toMillis(30));
+        assertTrue(MonospaceFonts.isListed(), "the worker left the list made");
+
+        CompletableFuture<java.util.List<String>> listed = new CompletableFuture<>();
+        Platform.runLater(() -> listed.complete(MonospaceFonts.available()));
+        assertTrue(listed.get(10, TimeUnit.SECONDS).containsAll(Fonts.BUNDLED_MONO));
     }
 }
