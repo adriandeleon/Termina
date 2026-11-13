@@ -55,26 +55,6 @@ final class WindowRules {
     }
 
     /**
-     * Whether the View menu shows zoom as one row of buttons rather than as plain items.
-     *
-     * <p>False under a system menu bar, and that is not a matter of taste. The row is a {@code
-     * CustomMenuItem}, and macOS's menus are drawn by AppKit, which cannot
-     * render a JavaFX node — so {@code MenuBarSkin} refuses {@code useSystemMenuBar} for the
-     * <em>whole</em> bar if any menu anywhere in it holds one, printing "MenuBar ignored property
-     * useSystemMenuBar because menus contain CustomMenuItem" to stderr and falling back to the
-     * in-window bar. Which this window collapses to zero height on macOS, on the assumption that
-     * the screen bar has the menus. The two together left a Mac with no menus at all: nothing in
-     * the screen bar, nothing in the window, and the only ways to any of it were the chords, the
-     * palette and the right-click menu.
-     *
-     * <p>The row survives everywhere it can actually be drawn. The right-click menu keeps it on
-     * every platform — it is a window popup JavaFX draws itself, not a screen menu.
-     */
-    static boolean showsZoomRow(boolean systemMenuBar) {
-        return !systemMenuBar;
-    }
-
-    /**
      * Whether showing and hiding the menu bar can do anything: not under a system menu bar, where
      * there is nothing in the window to hide.
      *
@@ -117,11 +97,18 @@ final class WindowRules {
      * rows of chords that do nothing.
      */
     static boolean listsProfileChord(@Nullable String id, int profileCount) {
-        if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return true;
+        int number = profileNumber(id);
+        return number == 0 || number <= profileCount;
+    }
+
+    /** Which profile a numbered profile command opens, 1 to 9; 0 for any other id. */
+    static int profileNumber(@Nullable String id) {
+        if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return 0;
         try {
-            return Integer.parseInt(id.substring(PROFILE_CHORD_ID.length())) <= profileCount;
+            int number = Integer.parseInt(id.substring(PROFILE_CHORD_ID.length()));
+            return number >= 1 && number <= TAB_CHORD_COUNT ? number : 0;
         } catch (NumberFormatException notANumberedChord) {
-            return true;
+            return 0;
         }
     }
 

@@ -2483,7 +2483,8 @@ public final class TerminalView extends Region {
         MenuItem openLinkItem = commandItem("openLink", MenuIcons.openLink(), () -> openLink(menuLink));
         // The right-clicked link, not the one under the pointer now: the menu can be raised from
         // the keyboard. The commands of the same names act on the pointer's.
-        MenuItem copyLinkItem = commandItem("copyLinkAddress", MenuIcons.copy(), () -> copyLinkAddress(menuLink));
+        MenuItem copyLinkItem =
+                commandItem("copyLinkAddress", MenuIcons.command("copyLinkAddress"), () -> copyLinkAddress(menuLink));
 
         // Hidden together with the items they divide: a separator left behind when the pointer was
         // not over a link is a rule across the top of the menu with nothing above it.

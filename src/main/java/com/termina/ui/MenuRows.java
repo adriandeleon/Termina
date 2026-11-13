@@ -50,6 +50,7 @@ final class MenuRows {
 
     private static final String TITLE = "termina.menuRow.title";
     private static final String CHORD = "termina.menuRow.chord";
+    private static final String ICON = "termina.menuRow.icon";
 
     /** Between the title and the chord on the screen menu bar, which has no column to put it in. */
     static final String SYSTEM_GAP = "   ";
@@ -72,8 +73,10 @@ final class MenuRows {
         titleLabel.getStyleClass().add("menu-item-title");
         Label chordLabel = new Label();
         chordLabel.getStyleClass().add("menu-item-chord");
-        CustomMenuItem item = new CustomMenuItem(content(icon, titleLabel, chordLabel));
+        HBox content = content(icon, titleLabel, chordLabel);
+        CustomMenuItem item = new CustomMenuItem(content);
         item.setHideOnClick(true);
+        item.getProperties().put(ICON, content.getChildren().getFirst());
         item.getProperties().put(TITLE, titleLabel);
         item.getProperties().put(CHORD, chordLabel);
         return item;
@@ -89,10 +92,28 @@ final class MenuRows {
         titleLabel.getStyleClass().add("menu-item-title");
         Label chordLabel = new Label();
         chordLabel.getStyleClass().add("menu-item-chord");
-        Menu menu = new Menu("", content(icon, titleLabel, chordLabel));
+        HBox content = content(icon, titleLabel, chordLabel);
+        Menu menu = new Menu("", content);
+        menu.getProperties().put(ICON, content.getChildren().getFirst());
         menu.getProperties().put(TITLE, titleLabel);
         menu.getProperties().put(CHORD, chordLabel);
         return menu;
+    }
+
+    /**
+     * Replaces the glyph in a row's icon column, for a row whose command names a different thing
+     * from one opening to the next (a profile). Nothing to do on the system bar, which draws none.
+     */
+    static void setIcon(MenuItem item, @Nullable Node icon) {
+        if (!(item.getProperties().get(ICON) instanceof StackPane column)) return;
+        if (icon == null) column.getChildren().clear();
+        else column.getChildren().setAll(icon);
+    }
+
+    /** The glyph in a row's icon column, or null for an empty column or a system-bar row. */
+    static @Nullable Node iconOf(MenuItem item) {
+        if (!(item.getProperties().get(ICON) instanceof StackPane column)) return null;
+        return column.getChildren().isEmpty() ? null : column.getChildren().getFirst();
     }
 
     /** Sets a row's title, keeping its chord. */

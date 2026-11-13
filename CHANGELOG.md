@@ -115,6 +115,14 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **Every menu row has an icon.** About half of the menu bar's rows had an empty icon column, and
+  Copy Link Address borrowed Copy's. Each command a menu lists now has a picture of its own, in the
+  bar, the right-click menus, a tab's menu, the two logs' and the profile list's.
+- **Zoom In, Zoom Out and Actual Size are rows of the View menu**, each with its icon and its
+  shortcut, on every system as they already were on macOS. The row of four buttons is the
+  right-click menu's alone.
+- **File ▸ New Tab With lists the first nine profiles**, the ones with a shortcut. A tenth onwards
+  is in the tab strip's drop-down and the palette, as all of them are.
 - **The coverage floors are one set of numbers in the build.** No Windows profile lowers them; the
   Windows CI runner passes its own on its command line.
 - **Termina follows Pauta 6.0.1** (it named 2.0.2), and says "working toward" it: the rules it does

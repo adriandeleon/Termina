@@ -313,14 +313,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "MENU-14",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-14",
-      "kind": "pending",
-      "reason": "About half of the menu rows have no icon yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "MENU-16",
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/menus/#menu-16",
@@ -334,22 +326,6 @@
       "url": "https://pauta-project.dev/6.0.1/menus/#menu-18",
       "kind": "pending",
       "reason": "Right-click menus have the theme's own corners and shadow, smaller than the guidelines'.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-01",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-01",
-      "kind": "pending",
-      "reason": "Two rows of the menu bar are not single commands: the list of profiles under New Tab With, and the zoom row with its four buttons.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "MENU-02",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/menus/#menu-02",
-      "kind": "pending",
-      "reason": "The zoom row in the View menu is laid out as a row of buttons, without the icon and shortcut columns the other rows have.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

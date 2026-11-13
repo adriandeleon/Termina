@@ -18,12 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The menu bar's shape as ids (MENU-01), on every combination the platforms produce. */
 class MenuBarModelTest {
 
-    private static final boolean[] ZOOM_ROWS = {true, false};
-
     /** ABOUT-01, PAL-01, DOCS-06, MLOG-02 (Pauta 6.0.1): the ids those rules name, as spelled. */
     @Test
     void theCommandsPautaNamesHaveItsIds() {
-        List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus(true));
+        List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus());
         assertTrue(ids.containsAll(
                 List.of("help.about", "palette.show", "help.documentation", "view.messageLog", "find.show")));
         // FIND-04: every other find bar has a command of its own, and KBD-01: so do the logs' buttons.
@@ -50,7 +48,7 @@ class MenuBarModelTest {
             assertFalse(ids.contains(old), old);
         }
         // About, Documentation and the Message Log are rows of the Help menu.
-        List<String> help = MenuBarModel.menus(true).stream()
+        List<String> help = MenuBarModel.menus().stream()
                 .filter(menu -> menu.titleKey().equals("menu.help"))
                 .findFirst()
                 .orElseThrow()
@@ -60,18 +58,40 @@ class MenuBarModelTest {
 
     @Test
     void everyCommandIsInTheBarOnceAndNothingElseIs() {
-        for (boolean zoomRow : ZOOM_ROWS) {
-            List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus(zoomRow));
-            Set<String> seen = new HashSet<>();
-            for (String id : ids) {
-                assertTrue(seen.add(id), id + " twice");
-                assertTrue(MenuBarModel.isCommand(id), id);
-            }
-            // The zoom commands are there either way: as rows, or behind the row's buttons.
-            assertTrue(seen.containsAll(MenuBarModel.ZOOM_COMMANDS));
-            // OS-01 (Pauta 6.0.1): on every OS, disabled where there is no bar to hide.
-            assertTrue(seen.contains("hideMenuBar"));
+        List<String> ids = MenuBarModel.commandIds(MenuBarModel.menus());
+        Set<String> seen = new HashSet<>();
+        for (String id : ids) {
+            assertTrue(seen.add(id), id + " twice");
+            assertTrue(MenuBarModel.isCommand(id), id);
         }
+        assertTrue(seen.containsAll(MenuBarModel.ZOOM_COMMANDS));
+        // OS-01 (Pauta 6.0.1): on every OS, disabled where there is no bar to hide.
+        assertTrue(seen.contains("hideMenuBar"));
+    }
+
+    @Test
+    void everyRowIsACommandARuleOrASubmenuOfCommands() {
+        // MENU-01 (Pauta 6.0.1): the model lists command ids only, beside the rules and the
+        // submenus that group them. A row built by hand, with a title and a handler of its own,
+        // would be a row that is none of the three.
+        int submenus = 0;
+        for (MenuBarModel.Menu menu : MenuBarModel.menus()) {
+            for (String row : menu.rows()) {
+                if (row.equals(MenuBarModel.SEPARATOR) || MenuBarModel.isCommand(row)) continue;
+                submenus++;
+                List<String> grouped = MenuBarModel.submenuRows(row);
+                assertFalse(grouped.isEmpty(), row + " groups nothing");
+                for (String id : grouped) assertTrue(MenuBarModel.isCommand(id), id);
+                assertFalse(MenuBarModel.submenuTitleKey(row).isBlank());
+            }
+        }
+        assertEquals(1, submenus, "New Tab With Profile");
+        assertEquals(
+                List.of("newTabProfile1", "newTabProfile9"),
+                List.of(
+                        MenuBarModel.submenuRows(MenuBarModel.PROFILE_SUBMENU).getFirst(),
+                        MenuBarModel.submenuRows(MenuBarModel.PROFILE_SUBMENU).getLast()));
+        assertEquals(List.of(), MenuBarModel.submenuRows("newTab"));
     }
 
     @Test
@@ -81,12 +101,12 @@ class MenuBarModelTest {
             english.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         }
         List<String> missing = new ArrayList<>();
-        for (String id : MenuBarModel.commandIds(MenuBarModel.menus(true))) {
+        for (String id : MenuBarModel.commandIds(MenuBarModel.menus())) {
             // KBD-03 (Pauta 6.0.1): command.<id> and command.<id>.desc, the numbered ones too.
             if (!english.containsKey("command." + id)) missing.add("command." + id);
             if (!english.containsKey("command." + id + ".desc")) missing.add("command." + id + ".desc");
         }
-        for (MenuBarModel.Menu menu : MenuBarModel.menus(true)) {
+        for (MenuBarModel.Menu menu : MenuBarModel.menus()) {
             if (!english.containsKey(menu.titleKey())) missing.add(menu.titleKey());
         }
         assertEquals(List.of(), missing);
@@ -94,32 +114,27 @@ class MenuBarModelTest {
 
     @Test
     void rulesOnlyBetweenRows() {
-        for (boolean zoomRow : ZOOM_ROWS) {
-            for (MenuBarModel.Menu menu : MenuBarModel.menus(zoomRow)) {
-                List<String> rows = menu.rows();
-                assertFalse(rows.isEmpty(), menu.titleKey());
-                assertFalse(rows.get(0).equals(MenuBarModel.SEPARATOR), menu.titleKey() + " starts with a rule");
+        for (MenuBarModel.Menu menu : MenuBarModel.menus()) {
+            List<String> rows = menu.rows();
+            assertFalse(rows.isEmpty(), menu.titleKey());
+            assertFalse(rows.get(0).equals(MenuBarModel.SEPARATOR), menu.titleKey() + " starts with a rule");
+            assertFalse(rows.get(rows.size() - 1).equals(MenuBarModel.SEPARATOR), menu.titleKey() + " ends with one");
+            for (int i = 1; i < rows.size(); i++) {
                 assertFalse(
-                        rows.get(rows.size() - 1).equals(MenuBarModel.SEPARATOR), menu.titleKey() + " ends with one");
-                for (int i = 1; i < rows.size(); i++) {
-                    assertFalse(
-                            rows.get(i).equals(MenuBarModel.SEPARATOR)
-                                    && rows.get(i - 1).equals(MenuBarModel.SEPARATOR),
-                            menu.titleKey() + " has two rules together");
-                }
+                        rows.get(i).equals(MenuBarModel.SEPARATOR)
+                                && rows.get(i - 1).equals(MenuBarModel.SEPARATOR),
+                        menu.titleKey() + " has two rules together");
             }
         }
     }
 
     @Test
-    void theZoomRowStandsForItsCommandsOrTheyAreRows() {
-        List<String> withRow = MenuBarModel.menus(true).get(2).rows();
-        assertEquals(MenuBarModel.ZOOM_ROW, withRow.get(0));
-        for (String id : MenuBarModel.ZOOM_COMMANDS) assertFalse(withRow.contains(id), id);
-        List<String> without = MenuBarModel.menus(false).get(2).rows();
-        assertFalse(without.contains(MenuBarModel.ZOOM_ROW));
-        assertTrue(without.containsAll(MenuBarModel.ZOOM_COMMANDS));
-        assertEquals("fullScreen", without.get(without.indexOf(MenuBarModel.SEPARATOR) + 1), "on its own");
+    void eachZoomCommandIsARowOfItsOwn() {
+        // MENU-01, MENU-02 (Pauta 6.0.1): no row of four buttons in the bar; Full Screen on its own.
+        List<String> view = MenuBarModel.menus().get(2).rows();
+        assertEquals(
+                List.of("zoomIn", "zoomOut", "actualSize", MenuBarModel.SEPARATOR, "fullScreen"), view.subList(0, 5));
+        for (String row : view) assertFalse(row.startsWith("+"), row);
     }
 
     @Test
@@ -130,7 +145,7 @@ class MenuBarModelTest {
         assertFalse(MenuBarModel.isNumbered("goToTabs"));
         assertFalse(MenuBarModel.isNumbered("newTab"));
         assertFalse(MenuBarModel.isNumbered("goToTab10"));
-        long numbered = MenuBarModel.commandIds(MenuBarModel.menus(true)).stream()
+        long numbered = MenuBarModel.commandIds(MenuBarModel.menus()).stream()
                 .filter(MenuBarModel::isNumbered)
                 .count();
         assertEquals(2L * WindowRules.TAB_CHORD_COUNT, numbered);

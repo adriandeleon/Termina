@@ -121,8 +121,9 @@ is broken.
   and cannot render a JavaFX node. It says so only as `Warning: MenuBar ignored property
   useSystemMenuBar because menus contain CustomMenuItem` on stderr; there is no API to ask, and a
   packaged app has no stderr anyone reads. Together with the collapse above, the zoom row left macOS
-  with **no menus anywhere** — none in the screen bar, and the window's at zero height. So the row
-  is built only where it can be drawn (`WindowRules.showsZoomRow`), and the collapse now asks
+  with **no menus anywhere** — none in the screen bar, and the window's at zero height. The row has
+  since left the bar on every platform (each zoom command is a row of its own, MENU-01 and MENU-02,
+  Pauta 6.0.1), and the collapse asks
   `menusFitASystemMenuBar` first, which mirrors JavaFX's rule — including that `SeparatorMenuItem`
   extends `CustomMenuItem` and does not count — so a future custom item degrades to an in-window bar
   rather than to nothing. The right-click menu is a popup JavaFX draws itself and keeps its row on

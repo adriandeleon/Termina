@@ -102,8 +102,12 @@ final class DebugLogWindow {
                 MenuChords.command(row(tr("debuglog.find"), MenuIcons.search(), this::find), "debugLog.find"),
                 MenuChords.command(row(tr("debuglog.copy"), MenuIcons.copy(), this::copy), "debugLog.copy"),
                 new javafx.scene.control.SeparatorMenuItem(),
-                MenuChords.command(row(tr("debuglog.refresh"), null, this::refresh), "debugLog.refresh"),
-                MenuChords.command(row(tr("debuglog.export"), null, this::export), "debugLog.export"),
+                MenuChords.command(
+                        row(tr("debuglog.refresh"), MenuIcons.command("debugLog.refresh"), this::refresh),
+                        "debugLog.refresh"),
+                MenuChords.command(
+                        row(tr("debuglog.export"), MenuIcons.command("debugLog.export"), this::export),
+                        "debugLog.export"),
                 MenuChords.command(
                         dangerous(row(tr("debuglog.clear"), MenuIcons.clear(), this::clear)), "debugLog.clear"));
         // Each row's chord, from the bindings in force as the menu shows (MENU-15).
@@ -112,7 +116,9 @@ final class DebugLogWindow {
             menu.getItems()
                     .addAll(
                             new javafx.scene.control.SeparatorMenuItem(),
-                            MenuChords.command(row(tr("command.reportProblem"), null, onReport), "reportProblem"));
+                            MenuChords.command(
+                                    row(tr("command.reportProblem"), MenuIcons.command("reportProblem"), onReport),
+                                    "reportProblem"));
         }
         text.setContextMenu(OneMenu.installRightClick(menu));
 

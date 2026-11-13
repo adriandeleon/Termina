@@ -1787,9 +1787,11 @@ public final class SettingsWindow {
         // A row's own menu (MENU-05, Pauta 6.0.1): the list's two actions, each a command. Remove
         // is the row's, so it is styled as dangerous (MENU-12) and greyed for a profile that is
         // not the user's to remove, decided as the menu shows.
-        javafx.scene.control.MenuItem addRow = new javafx.scene.control.MenuItem(tr("settings.profileAdd"));
+        javafx.scene.control.MenuItem addRow = new javafx.scene.control.MenuItem(
+                tr("settings.profileAdd"), MenuIcons.command(SettingsActions.Action.ADD_PROFILE.id()));
         addRow.setOnAction(e -> act(SettingsActions.Action.ADD_PROFILE));
-        javafx.scene.control.MenuItem removeRow = new javafx.scene.control.MenuItem(tr("settings.profileRemove"));
+        javafx.scene.control.MenuItem removeRow = new javafx.scene.control.MenuItem(
+                tr("settings.profileRemove"), MenuIcons.command(SettingsActions.Action.REMOVE_PROFILE.id()));
         removeRow.getStyleClass().add("danger");
         removeRow.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
         javafx.scene.control.ContextMenu profileMenu = new javafx.scene.control.ContextMenu(addRow, removeRow);

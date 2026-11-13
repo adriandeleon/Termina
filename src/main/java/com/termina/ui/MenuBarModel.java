@@ -9,11 +9,11 @@ import java.util.List;
  * CommandRegistry}; neither this nor the bar holds a rule about what a command does, is called or
  * whether it can run.
  *
- * <p>A row is a command id, {@link #SEPARATOR}, or one of the two placeholders for something that
- * is not a command: the New Tab With Profile submenu, whose rows are the profiles there are when it
- * opens, and the zoom row, whose buttons are the four zoom commands. Each menu also names the
- * commands that belong to it without a row of their own — palette and chord only — so the keyboard
- * settings and the palette group them under it.
+ * <p>A row is a command id, {@link #SEPARATOR}, or a submenu that groups command ids (MENU-01, Pauta
+ * 6.0.1): New Tab With Profile, whose rows are the nine numbered profile commands. Nothing in the
+ * bar is built by hand with a title and a handler of its own. Each menu also names the commands
+ * that belong to it without a row of their own — palette and chord only — so the keyboard settings
+ * and the palette group them under it.
  *
  * <p>Pure: no JavaFX, so the shape is tested without a toolkit.
  */
@@ -22,14 +22,25 @@ final class MenuBarModel {
     /** A rule between two groups of rows. */
     static final String SEPARATOR = "-";
 
-    /** The New Tab With Profile submenu: one row per profile, made when it opens. */
+    /**
+     * The New Tab With Profile submenu: its rows are {@link #submenuRows}, the numbered profile
+     * commands, each shown under the name of the profile it opens and only while there is one.
+     */
     static final String PROFILE_SUBMENU = "+newTabProfile";
 
-    /** The zoom row: one row of buttons running {@link #ZOOM_COMMANDS}. */
-    static final String ZOOM_ROW = "+zoomRow";
-
-    /** The commands the zoom row's buttons run, which are View's rows where the row cannot be drawn. */
+    /** View's zoom commands, in the order of their rows. */
     static final List<String> ZOOM_COMMANDS = List.of("zoomIn", "zoomOut", "actualSize", "fullScreen");
+
+    /** The command ids a submenu row groups, in order; empty for a row that is not a submenu. */
+    static List<String> submenuRows(String row) {
+        return row.equals(PROFILE_SUBMENU) ? numbered(WindowRules.PROFILE_CHORD_ID) : List.of();
+    }
+
+    /** The catalogue key of a submenu row's title. */
+    static String submenuTitleKey(String row) {
+        if (row.equals(PROFILE_SUBMENU)) return "menu.newTabProfile";
+        throw new IllegalArgumentException(row + " is not a submenu");
+    }
 
     /**
      * One menu.
@@ -42,15 +53,9 @@ final class MenuBarModel {
 
     private MenuBarModel() {}
 
-    /**
-     * The bar.
-     *
-     * @param zoomRow whether View can carry the zoom row; where it cannot (a system menu bar draws
-     *     no JavaFX node) the four zoom commands are rows instead
-     */
-    static List<Menu> menus(boolean zoomRow) {
-        List<String> fileUnlisted = new ArrayList<>(numbered(WindowRules.PROFILE_CHORD_ID));
-        fileUnlisted.addAll(List.of("exportConfiguration", "importConfiguration"));
+    /** The bar: the same rows on every OS. */
+    static List<Menu> menus() {
+        List<String> fileUnlisted = new ArrayList<>(List.of("exportConfiguration", "importConfiguration"));
         // The Settings window's buttons (KBD-01): palette and chord only, beside Settings itself.
         for (SettingsActions.Action action : SettingsActions.Action.values()) fileUnlisted.add(action.id());
         Menu file = new Menu(
@@ -95,15 +100,12 @@ final class MenuBarModel {
                 // (KBD-01); and the find bar's switch, whose row is the switch itself (FIND-16).
                 List.of("openLink", "copyLinkAddress", "findRegex"));
 
-        List<String> viewRows = new ArrayList<>();
-        if (zoomRow) {
-            viewRows.add(ZOOM_ROW);
-        } else {
-            // Full Screen last and on its own, which is where macOS's own View menus put it.
-            viewRows.addAll(ZOOM_COMMANDS.subList(0, 3));
-            viewRows.add(SEPARATOR);
-            viewRows.add("fullScreen");
-        }
+        // Each zoom command a row of its own, as every row of the bar is one command with its
+        // icon, title and chord (MENU-01, MENU-02). The row of four buttons the bar once carried
+        // is the right-click menu's alone. Full Screen last and on its own.
+        List<String> viewRows = new ArrayList<>(ZOOM_COMMANDS.subList(0, 3));
+        viewRows.add(SEPARATOR);
+        viewRows.add("fullScreen");
         // On every OS (OS-01, Pauta 6.0.1): disabled, with its reason, where there is no bar in
         // the window to hide.
         viewRows.add(SEPARATOR);
@@ -174,20 +176,20 @@ final class MenuBarModel {
         return List.of(file, edit, view, window, help);
     }
 
-    /** Every command id in the bar, rows and unlisted, in order; placeholders expanded. */
+    /** Every command id in the bar, rows and unlisted, in order; a submenu's rows in its place. */
     static List<String> commandIds(List<Menu> menus) {
         List<String> ids = new ArrayList<>();
         for (Menu menu : menus) {
             for (String row : menu.rows()) {
-                if (row.equals(ZOOM_ROW)) ids.addAll(ZOOM_COMMANDS);
-                else if (isCommand(row)) ids.add(row);
+                if (isCommand(row)) ids.add(row);
+                else ids.addAll(submenuRows(row));
             }
             ids.addAll(menu.unlisted());
         }
         return ids;
     }
 
-    /** Whether a row runs a command, rather than being a rule or a placeholder. */
+    /** Whether a row runs a command, rather than being a rule or a submenu. */
     static boolean isCommand(String row) {
         return !row.equals(SEPARATOR) && !row.startsWith("+");
     }

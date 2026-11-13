@@ -68,6 +68,25 @@
     -fx-opacity: 0.5;
 }
 
+/* The outline glyphs (MENU-14): the same three states, on the stroke. */
+.menu-icon-line {
+    -fx-fill: transparent;
+    -fx-stroke: -color-fg-muted;
+    -fx-stroke-width: 1.3;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.menu-item:focused .menu-icon-line,
+.menu-item:hover .menu-icon-line {
+    -fx-stroke: -color-fg-default;
+}
+
+.menu-item:disabled .menu-icon-line {
+    -fx-stroke: -color-fg-subtle;
+    -fx-opacity: 0.5;
+}
+
 /*
  * The strip's right end, kept clear for the two buttons that float over it, and JavaFX's overflow
  * control, which is what keeps it clear.

@@ -2640,6 +2640,14 @@ public final class TerminalWindow {
     private MenuBar menuBar;
 
     /** The window's tabs, for the test that fires each one's menu. */
+    /** The tab strip's profile drop-down, as it would open now. */
+    List<MenuItem> profileMenuItemsForTest() {
+        showProfileMenu();
+        List<MenuItem> items = List.copyOf(profileMenu.getItems());
+        profileMenu.hide();
+        return items;
+    }
+
     List<Tab> tabsForTest() {
         return tabs.getTabs();
     }
@@ -2824,24 +2832,21 @@ public final class TerminalWindow {
         // The commands, by id; then the bar, assembled from MenuBarModel's ids (MENU-01). Nothing
         // below decides what a row does, is called or whether it can run: that is the registry's.
         Map<String, MenuAction> defined = menuCommands();
-        boolean zoomRow = WindowRules.showsZoomRow(SYSTEM_MENU_BAR);
         menuBarToggle = defined.get("hideMenuBar");
-        for (MenuBarModel.Menu spec : MenuBarModel.menus(zoomRow)) {
+        for (MenuBarModel.Menu spec : MenuBarModel.menus()) {
             String title = tr(spec.titleKey());
             Menu menu = new Menu(title);
             for (String row : spec.rows()) {
                 switch (row) {
                     case MenuBarModel.SEPARATOR -> menu.getItems().add(new SeparatorMenuItem());
-                    case MenuBarModel.PROFILE_SUBMENU -> menu.getItems().add(profileSubmenu());
-                    case MenuBarModel.ZOOM_ROW -> {
-                        // The same four commands, shown as one row of buttons: each keeps its chord
-                        // and its palette row through enlist, with no item of its own.
-                        ZoomMenuRow zoomMenuRow = new ZoomMenuRow(zoomActions());
-                        menu.getItems().add(zoomMenuRow.item());
-                        // The level can have moved since the row was last shown — from a chord, the
-                        // other menu, or another window entirely.
-                        menu.setOnShowing(e -> zoomMenuRow.refresh());
-                        for (String id : MenuBarModel.ZOOM_COMMANDS) enlist(defined(defined, id), title);
+                    case MenuBarModel.PROFILE_SUBMENU -> {
+                        List<MenuAction> rows = new ArrayList<>();
+                        for (String id : MenuBarModel.submenuRows(row)) {
+                            MenuAction action = defined(defined, id);
+                            rows.add(action);
+                            enlist(action, title);
+                        }
+                        menu.getItems().add(profileSubmenu(tr(MenuBarModel.submenuTitleKey(row)), rows));
                     }
                     default -> {
                         MenuAction action = defined(defined, row);
@@ -2895,42 +2900,37 @@ public final class TerminalWindow {
     }
 
     /**
-     * File's New Tab With Profile: a submenu, not a command, whose rows are the profiles there are
-     * when it opens. Its entries reach the palette by name instead (paletteRows), which is more use
-     * there than "New Tab with Profile 3".
+     * File's New Tab With Profile: a submenu that groups the nine numbered profile commands
+     * (MENU-01, Pauta 6.0.1). Each row is its command's, run through the registry like any other
+     * row of the bar; as the submenu opens it takes the name of the profile it opens from the
+     * registry, wears that profile's mark, and is shown only while there is such a profile. A
+     * tenth profile onwards has no command and so no row here: the tab strip's drop-down lists
+     * every profile, and the palette finds each by name.
      */
-    private Menu profileSubmenu() {
-        Menu newTabAs = MenuRows.submenu(tr("menu.newTabProfile"), MenuIcons.newTab(), SYSTEM_MENU_BAR);
-        // A Menu with no items renders as a dead entry with no arrow, and the items are only known
-        // at show time — so it is seeded with one that is replaced before it is ever drawn.
-        newTabAs.getItems().add(new MenuItem(""));
-        newTabAs.setOnShowing(e -> {
-            newTabAs.getItems().setAll(profileBarRows());
-            MenuRows.alignChords(newTabAs.getItems());
-        });
+    private Menu profileSubmenu(String title, List<MenuAction> numbered) {
+        Menu newTabAs = MenuRows.submenu(title, MenuIcons.newTab(), SYSTEM_MENU_BAR);
+        for (MenuAction action : numbered) newTabAs.getItems().add(menuItem(action));
+        newTabAs.addEventHandler(Menu.ON_SHOWING, e -> refreshProfileRows(newTabAs));
         return newTabAs;
     }
 
-    /**
-     * The profiles as the bar's rows (MENU-02): the chord drawn by the row rather than an
-     * accelerator, and on the macOS screen menu bar, no icon. The right-click menus keep
-     * {@link #profileMenuItems}.
-     */
-    private List<MenuItem> profileBarRows() {
-        List<MenuItem> rows = new ArrayList<>();
+    /** The submenu's rows as the profiles are now: named, marked, and hidden past the last one. */
+    private void refreshProfileRows(Menu newTabAs) {
         List<com.termina.shell.Profile> all = windows.profiles().all();
         String defaultId = windows.profiles().defaultProfileId();
-        for (int index = 0; index < all.size(); index++) {
+        for (int index = 0; index < newTabAs.getItems().size(); index++) {
+            MenuItem row = newTabAs.getItems().get(index);
+            boolean exists = index < all.size();
+            row.setVisible(exists);
+            row.getProperties().remove(DEFAULT_PROFILE_ITEM);
+            if (!exists) continue;
             com.termina.shell.Profile profile = all.get(index);
-            int number = index + 1;
-            boolean isDefault = profile.id().equals(defaultId) || (defaultId.isBlank() && number == 1);
-            MenuItem row = MenuRows.row(profile.name(), profileGraphic(profile, isDefault), SYSTEM_MENU_BAR);
-            if (number <= TAB_CHORD_COUNT) MenuRows.setChord(row, chordOf(PROFILE_CHORD_ID + number));
+            boolean isDefault = profile.id().equals(defaultId) || (defaultId.isBlank() && index == 0);
+            MenuRows.setIcon(row, profileGraphic(profile, isDefault));
             if (isDefault) row.getProperties().put(DEFAULT_PROFILE_ITEM, Boolean.TRUE);
-            row.setOnAction(e -> openTab(profile));
-            rows.add(row);
         }
-        return rows;
+        // The names, from the registry, and the chords' column after them.
+        refreshItems(newTabAs);
     }
 
     /**
@@ -3409,6 +3409,9 @@ public final class TerminalWindow {
             var update = windows.availableUpdate();
             if (update != null) return tr("menu.updateAvailable", update.version());
         }
+        // A numbered profile command is called what it opens, while there is such a profile.
+        com.termina.shell.Profile opens = profileNumbered(id);
+        if (opens != null) return opens.name();
         return standing;
     }
 
@@ -3431,7 +3434,18 @@ public final class TerminalWindow {
         if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
         }
+        int profileNumber = WindowRules.profileNumber(id);
+        if (profileNumber > 0 && profileNumbered(id) == null) {
+            return tr("palette.disabled.noSuchProfile", profileNumber);
+        }
         return null;
+    }
+
+    /** The profile a numbered profile command opens now, or null: no such profile, or another command. */
+    private com.termina.shell.@Nullable Profile profileNumbered(String id) {
+        int number = WindowRules.profileNumber(id);
+        List<com.termina.shell.Profile> all = windows.profiles().all();
+        return number >= 1 && number <= all.size() ? all.get(number - 1) : null;
     }
 
     /** Every menu item of {@code menu} named and greyed as the registry says now. */

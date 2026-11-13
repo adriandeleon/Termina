@@ -79,7 +79,13 @@ final class ZoomMenuRow {
                 item.getParentPopup().hide();
         });
 
-        HBox row = new HBox(title, spacer, out, reset, in, fullScreen);
+        // The row's glyph, the zoom family's (MENU-14, Pauta 6.0.1), in a column as wide as the
+        // other rows' so the title starts where theirs do.
+        javafx.scene.layout.StackPane icon = new javafx.scene.layout.StackPane(MenuIcons.zoom());
+        icon.setMinWidth(MenuRows.ICON_COLUMN);
+        icon.setAlignment(Pos.CENTER_LEFT);
+        icon.getStyleClass().add("menu-item-icon");
+        HBox row = new HBox(icon, title, spacer, out, reset, in, fullScreen);
         // A gap before full screen, wider than the 4px between the zoom controls. Those three are one
         // control — a value with a decrement and an increment — and full screen is a different action
         // that happens to live on the same row: it is the one button here that closes the menu. Set
