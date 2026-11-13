@@ -127,6 +127,79 @@ class PaletteFocusFxTest {
     }
 
     @Test
+    void theTerminalAndTheStatusBarSayWhatTheyAreToAScreenReader() throws Exception {
+        // ACC-03, ACC-02 (Pauta 6.0.1): the terminal stands for its canvas, as a text area whose
+        // text is the screen; the status bar's message is a button whose press opens the log.
+        Settings settings = new Settings(dir.resolve("reader.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+        onFx(() -> {
+            java.util.Objects.requireNonNull(window.activeTerminal())
+                    .getSession()
+                    .sendString("echo reader-can-hear\r");
+            return null;
+        });
+        waitFor(
+                () -> {
+                    try {
+                        return onFx(() -> String.valueOf(java.util.Objects.requireNonNull(window.activeTerminal())
+                                        .queryAccessibleAttribute(javafx.scene.AccessibleAttribute.TEXT))
+                                .lines()
+                                .anyMatch("reader-can-hear"::equals));
+                    } catch (Exception e) {
+                        return false;
+                    }
+                },
+                "the screen's text to reach the accessible text");
+        String said = onFx(() -> {
+            TerminalView view = java.util.Objects.requireNonNull(window.activeTerminal());
+            String text = String.valueOf(view.queryAccessibleAttribute(javafx.scene.AccessibleAttribute.TEXT));
+            return view.getAccessibleRole() + " " + view.getAccessibleText() + " " + text.endsWith(" ") + " "
+                    + text.endsWith("\n");
+        });
+        assertEquals("TEXT_AREA " + com.termina.i18n.Messages.tr("terminal.accessibleName") + " false false", said);
+
+        boolean[] pressed = onFx(() -> {
+            java.util.List<PressLabel> labels = new java.util.ArrayList<>();
+            collect(window.stage().getScene().getRoot(), labels);
+            boolean roles = !labels.isEmpty();
+            for (PressLabel label : labels) roles &= label.getAccessibleRole() == javafx.scene.AccessibleRole.BUTTON;
+            int logs = openLogs();
+            labels.getFirst().executeAccessibleAction(javafx.scene.AccessibleAction.FIRE);
+            boolean opened = openLogs() > logs;
+            for (javafx.stage.Window open : java.util.List.copyOf(javafx.stage.Window.getWindows())) {
+                if (open instanceof javafx.stage.Stage stage
+                        && com.termina.i18n.Messages.tr("messagelog.title").equals(stage.getTitle())) {
+                    stage.hide();
+                }
+            }
+            return new boolean[] {roles, opened};
+        });
+        assertTrue(pressed[0], "the status bar's labels are buttons to a screen reader");
+        assertTrue(pressed[1], "and a press opens the Message Log");
+    }
+
+    private static int openLogs() {
+        int count = 0;
+        for (javafx.stage.Window open : javafx.stage.Window.getWindows()) {
+            if (open instanceof javafx.stage.Stage stage
+                    && stage.isShowing()
+                    && com.termina.i18n.Messages.tr("messagelog.title").equals(stage.getTitle())) count++;
+        }
+        return count;
+    }
+
+    private static void collect(Node node, java.util.List<PressLabel> out) {
+        if (node instanceof PressLabel label) out.add(label);
+        if (node instanceof javafx.scene.Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) collect(child, out);
+        }
+    }
+
+    @Test
     void theKeyboardReachesTheMenuBarThroughItsCommand() throws Exception {
         Settings settings = new Settings(dir.resolve("bar.json"));
         settings.load();

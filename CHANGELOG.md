@@ -126,6 +126,12 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **The on and off rows of Settings are switches.** Tab reaches each one, Space or Enter flips it,
+  and a screen reader announces it as a toggle with its state; they were check boxes.
+- **A screen reader can read the terminal.** The terminal is announced as a text area named
+  Terminal whose text is what is on screen. The status bar's message is announced as a button that
+  opens the Message Log, and the Command Palette says which row is highlighted and why a greyed
+  one cannot run.
 - **A settings sync that fails on its own says so.** A failed automatic sync, or one started on
   the Settings page, now goes to the Message Log and the status bar, once per kind of failure; it
   used to show only on the Sync page. That page has a status pill: Off, Synced, Syncing or Problem.

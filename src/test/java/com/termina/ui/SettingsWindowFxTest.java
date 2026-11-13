@@ -360,6 +360,7 @@ class SettingsWindowFxTest {
     /** As above; with {@code disabledToo}, the ones a state of the page has greyed as well. */
     private static void valueControls(Node node, List<Node> out, boolean disabledToo) {
         boolean takesAValue = (node instanceof CheckBox
+                        || node instanceof SettingSwitch
                         || node instanceof Slider
                         || (node instanceof ComboBox<?> combo
                                 && !combo.getItems().isEmpty())
@@ -395,6 +396,7 @@ class SettingsWindowFxTest {
 
     private static String valueOf(Node control) {
         if (control instanceof CheckBox box) return String.valueOf(box.isSelected());
+        if (control instanceof SettingSwitch sw) return String.valueOf(sw.isSelected());
         if (control instanceof Slider slider) return String.valueOf(Math.round(slider.getValue()));
         if (control instanceof ComboBox<?> combo) return String.valueOf(combo.getValue());
         if (control instanceof Spinner<?> spinner) return String.valueOf(spinner.getValue());
@@ -405,6 +407,8 @@ class SettingsWindowFxTest {
     private static void change(Node control) {
         if (control instanceof CheckBox box) {
             box.fire();
+        } else if (control instanceof SettingSwitch sw) {
+            sw.toggle();
         } else if (control instanceof Slider slider) {
             double middle = (slider.getMin() + slider.getMax()) / 2;
             slider.setValue(Math.round(slider.getValue()) == Math.round(middle) ? slider.getMin() : middle);
@@ -431,6 +435,31 @@ class SettingsWindowFxTest {
         if (node instanceof CheckBox box && !box.isDisabled()) {
             box.fire();
             box.fire();
+            counts[0]++;
+        } else if (node instanceof SettingSwitch sw && !sw.isDisabled()) {
+            // KBD-18 (Pauta 6.0.1): an on/off row is a switch the keyboard works. Space flips it,
+            // and so does a screen reader's press; there and back.
+            boolean was = sw.isSelected();
+            javafx.event.Event.fireEvent(
+                    sw,
+                    new javafx.scene.input.KeyEvent(
+                            javafx.scene.input.KeyEvent.KEY_PRESSED,
+                            " ",
+                            " ",
+                            javafx.scene.input.KeyCode.SPACE,
+                            false,
+                            false,
+                            false,
+                            false));
+            if (sw.isSelected() == was) throw new AssertionError("Space did not flip " + sw.getAccessibleText());
+            sw.executeAccessibleAction(javafx.scene.AccessibleAction.FIRE);
+            if (sw.isSelected() != was) throw new AssertionError("a press did not flip it back");
+            if (sw.getAccessibleRole() != javafx.scene.AccessibleRole.TOGGLE_BUTTON || !sw.isFocusTraversable()) {
+                throw new AssertionError(sw.getAccessibleText() + " is not a focusable toggle");
+            }
+            if (!Boolean.valueOf(was).equals(sw.queryAccessibleAttribute(javafx.scene.AccessibleAttribute.SELECTED))) {
+                throw new AssertionError(sw.getAccessibleText() + " does not say whether it is on");
+            }
             counts[0]++;
         } else if (node instanceof ComboBox<?> combo
                 && !combo.isDisabled()

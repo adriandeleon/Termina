@@ -679,6 +679,13 @@ public final class SettingsWindow {
     /** A titled row with an explanatory line under it, in the shape Editora's settings use. */
     private Node row(
             Category category, VBox section, String title, String description, Region control, String keywords) {
+        // An on/off row is a switch (KBD-18, Pauta 6.0.1): it takes focus, Space flips it, and it
+        // is announced as a toggle. The checkbox the setting lives on stays, out of the scene, and
+        // the switch is its view.
+        if (control instanceof CheckBox check) {
+            SettingSwitch shown = SettingSwitch.boundTo(check);
+            return row(category, section, title, description, shown, shown, keywords);
+        }
         return row(category, section, title, description, control, control, keywords);
     }
 

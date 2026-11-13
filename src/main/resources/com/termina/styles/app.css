@@ -804,6 +804,14 @@
 .check-box:focus-visible > .box {
     -fx-border-radius: 6;
 }
+/* A settings switch reached with Tab: the same ring, round its track. */
+.toggle-switch:focus-visible > .thumb-area {
+    -fx-border-color: -focus-ring;
+    -fx-border-width: 2;
+    -fx-border-insets: -3;
+    -fx-border-radius: 12;
+    -fx-border-style: solid;
+}
 /* A text field already gets the theme's accent border on focus; from the keyboard it is thickened to
    the same 2px weight by widening that border layer, which keeps the ring inside the field. */
 .text-field:focus-visible,

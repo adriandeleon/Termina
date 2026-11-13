@@ -2152,8 +2152,12 @@ public final class TerminalWindow {
         addTab(tab, group, index);
         if (entry.pinned()) setPinned(tab, true);
         // Splits made in this pulse have no skin and their panes are not in the scene yet; laid out
-        // first, every shell starts at its real size. See splitActivePane.
-        tabs.applyCss();
+        // first, every shell starts at its real size. See splitActivePane. Styled where it is new,
+        // the tab's own content and the strip that gained a header, not the whole tab pane and
+        // every other tab's panes with it (PERF-10, Pauta 6.0.1).
+        javafx.scene.Node strip = tabs.lookup(".tab-header-area");
+        if (strip != null) strip.applyCss();
+        group.applyCss();
         tabs.layout();
         for (TerminalView pane : new ArrayList<>(group.panes())) {
             endPaneWithItsShell(tab, pane);

@@ -97,14 +97,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "PERF-10",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/performance/#perf-10",
-      "kind": "pending",
-      "reason": "Reopening a closed tab restyles the whole tab strip, and the palette restyles its rows on every keystroke.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "PERF-16",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/performance/#perf-16",
@@ -150,38 +142,6 @@
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-04",
       "kind": "pending",
       "reason": "A greyed menu row does not say why it cannot run; the Command Palette does.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "KBD-18",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-18",
-      "kind": "pending",
-      "reason": "The on and off rows of Settings are announced as check boxes, not as switches.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-02",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-02",
-      "kind": "pending",
-      "reason": "The status bar opens the Message Log on a click but is not announced as something to press.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-03",
-      "kind": "pending",
-      "reason": "A screen reader cannot read the terminal's text.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "ACC-08",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/accessibility/#acc-08",
-      "kind": "pending",
-      "reason": "Moving through the Command Palette is not announced to a screen reader, and a row that cannot run gives its reason only as a tooltip.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

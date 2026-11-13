@@ -20,7 +20,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.util.Duration;
 
-import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.ui.TerminalView;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
@@ -553,7 +552,7 @@ final class DevCapture {
         Timeline typing = new Timeline();
         for (int i = 0; i < attempts; i++) {
             typing.getKeyFrames().add(new KeyFrame(retryEvery.multiply(i), e -> {
-                if (screenText(terminal).contains(command)) {
+                if (terminal.screenText().contains(command)) {
                     typing.stop();
                     return;
                 }
@@ -561,21 +560,6 @@ final class DevCapture {
             }));
         }
         typing.play();
-    }
-
-    /** The visible screen as text. Used to tell "the shell ran it" from "the shell ignored it". */
-    private static String screenText(TerminalView terminal) {
-        TerminalTextBuffer buffer = terminal.getSession().getTextBuffer();
-        buffer.lock();
-        try {
-            StringBuilder out = new StringBuilder();
-            for (int row = 0; row < buffer.getHeight(); row++) {
-                out.append(buffer.getLine(row).getText()).append('\n');
-            }
-            return out.toString();
-        } finally {
-            buffer.unlock();
-        }
     }
 
     /**
@@ -588,7 +572,7 @@ final class DevCapture {
     private static void printScreenTextIfRequested(@Nullable TerminalView terminal) {
         if (System.getProperty("termina.captureScreenText") == null || terminal == null) return;
         System.out.println("[capture] screen<<<");
-        System.out.println(screenText(terminal).stripTrailing());
+        System.out.println(terminal.screenText().stripTrailing());
         System.out.println("[capture] >>>");
     }
 

@@ -347,6 +347,39 @@ public final class TerminalView extends Region {
     /** Set once the view is closed, so a late emulator callback cannot restart the timer. */
     private volatile boolean viewClosed;
 
+    /** What is on screen, row by row, as the emulator holds it; empty before the shell has started. */
+    public String screenText() {
+        if (!isStarted()) return "";
+        TerminalTextBuffer text = buffer();
+        text.lock();
+        try {
+            StringBuilder out = new StringBuilder();
+            for (int row = 0; row < text.getHeight(); row++) {
+                out.append(text.getLine(row).getText()).append('\n');
+            }
+            return out.toString();
+        } finally {
+            text.unlock();
+        }
+    }
+
+    @Override
+    public Object queryAccessibleAttribute(javafx.scene.AccessibleAttribute attribute, Object... parameters) {
+        // The screen as text, asked for by a screen reader and built only then.
+        if (attribute == javafx.scene.AccessibleAttribute.TEXT) return ScreenText.tidy(screenText());
+        if (attribute == javafx.scene.AccessibleAttribute.EDITABLE) return Boolean.FALSE;
+        return super.queryAccessibleAttribute(attribute, parameters);
+    }
+
+    @Override
+    public void executeAccessibleAction(javafx.scene.AccessibleAction action, Object... parameters) {
+        if (action == javafx.scene.AccessibleAction.REQUEST_FOCUS) requestFocus();
+        else super.executeAccessibleAction(action, parameters);
+    }
+
+    /** When a listening screen reader was last told the screen changed. */
+    private long lastAnnouncedMs;
+
     private final AnimationTimer painter = new AnimationTimer() {
         @Override
         public void handle(long now) {
@@ -357,6 +390,13 @@ public final class TerminalView extends Region {
                 outputPending = false;
                 onOutput.run();
                 worked = true;
+                // A screen reader that is listening is told the text changed, at most twice a
+                // second: output arrives per frame, and nobody can hear that fast.
+                long nowMs = now / 1_000_000;
+                if (ScreenText.announces(Platform.isAccessibilityActive(), nowMs, lastAnnouncedMs)) {
+                    lastAnnouncedMs = nowMs;
+                    notifyAccessibleAttributeChanged(javafx.scene.AccessibleAttribute.TEXT);
+                }
             }
             // Drawn only where it can be seen. A tab that is not selected keeps its dirty flag and
             // is painted when it is shown again — rendering it per frame took the buffer lock and
@@ -460,6 +500,10 @@ public final class TerminalView extends Region {
         getChildren().addAll(canvas, scrollBar);
         setFocusTraversable(true);
         canvas.setFocusTraversable(false);
+        // Painted on a canvas, which a screen reader cannot read: the view stands for it, as a
+        // text area named Terminal whose text is what is on screen (ACC-03, ACC-02, Pauta 6.0.1).
+        setAccessibleRole(javafx.scene.AccessibleRole.TEXT_AREA);
+        setAccessibleText(tr("terminal.accessibleName"));
 
         addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
         addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);

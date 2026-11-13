@@ -336,6 +336,68 @@ class ChromeHabitsTest {
     }
 
     @Test
+    void anOnOffRowIsASwitchTheKeyboardWorks() throws IOException {
+        // KBD-18 (Pauta 6.0.1): an unmodified Space or Enter flips it; a chord does not.
+        assertTrue(SwitchKeys.toggles(javafx.scene.input.KeyCode.SPACE, false));
+        assertTrue(SwitchKeys.toggles(javafx.scene.input.KeyCode.ENTER, false));
+        assertFalse(SwitchKeys.toggles(javafx.scene.input.KeyCode.SPACE, true));
+        assertFalse(SwitchKeys.toggles(javafx.scene.input.KeyCode.A, false));
+        // No on/off row is added to a page as a bare check box: the row helper turns each into a
+        // switch, and nothing else puts a CheckBox in the Settings scene.
+        String settings = Files.readString(Path.of("src/main/java/com/termina/ui/SettingsWindow.java"));
+        assertTrue(settings.contains("SettingSwitch.boundTo(check)"));
+        assertFalse(settings.contains("getChildren().add(new CheckBox"), "a check box put on a page directly");
+    }
+
+    @Test
+    void theScreenIsGivenToAScreenReaderAsText() throws IOException {
+        // ACC-03 (Pauta 6.0.1): the grid as a reader hears it, without the padding a grid has.
+        assertEquals("$ ls\nfile.txt", ScreenText.tidy("$ ls      \nfile.txt  \n          \n\n"));
+        assertEquals("", ScreenText.tidy("   \n\n"));
+        assertEquals("a\n\nb", ScreenText.tidy("a\n\nb\n"), "a blank line between two is kept");
+        // Told of a change no more than twice a second, and only to a reader that is listening.
+        assertTrue(ScreenText.announces(true, 1_000, 400));
+        assertFalse(ScreenText.announces(true, 1_000, 700));
+        assertFalse(ScreenText.announces(false, 1_000, 0));
+        // And a row of the palette that cannot run says why (ACC-08).
+        assertEquals("New Tab", CommandPalette.accessibleRow("New Tab", null));
+        assertEquals(
+                "Reopen Closed Tab. No tab has been closed.",
+                CommandPalette.accessibleRow("Reopen Closed Tab", "No tab has been closed."));
+        // The palette tells the reader its highlighted row moved, and the terminal stands for its canvas.
+        assertTrue(Files.readString(Path.of("src/main/java/com/termina/ui/PaletteNav.java"))
+                .contains("notifyAccessibleAttributeChanged(javafx.scene.AccessibleAttribute.FOCUS_ITEM)"));
+        String view = Files.readString(Path.of("src/main/java/com/termina/ui/TerminalView.java"));
+        assertTrue(view.contains("setAccessibleRole(javafx.scene.AccessibleRole.TEXT_AREA)"));
+        assertTrue(view.contains("setAccessibleText(tr(\"terminal.accessibleName\"))"));
+    }
+
+    @Test
+    void aLabelOrPaneThatTakesAClickSaysItIsAButton() throws IOException {
+        // ACC-02 (Pauta 6.0.1): a click handler on a label, a pane or a region comes with a role
+        // and the role's action. The ones there are: the status bar's two labels, through
+        // PressLabel, and the palette's scrim. A new one has to go through the same door.
+        List<String> bare = new ArrayList<>();
+        for (Path file : sources()) {
+            String name = file.getFileName().toString();
+            if (name.equals("DevCapture.java") || name.equals("PressLabel.java")) continue;
+            String text = Files.readString(file);
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\w+)\\.setOnMouse(?:Clicked|Pressed)\\(")
+                    .matcher(text);
+            while (m.find()) {
+                String target = m.group(1);
+                // The palette's scrim sets its role beside its handler; a tab's header is the
+                // skin's own tab item, which has one.
+                boolean hasRole = text.contains(target + ".setAccessibleRole(") || target.equals("header");
+                if (!hasRole) bare.add(name + ": " + target);
+            }
+        }
+        assertEquals(List.of(), bare);
+        String label = Files.readString(Path.of("src/main/java/com/termina/ui/PressLabel.java"));
+        assertTrue(label.contains("AccessibleRole.BUTTON") && label.contains("AccessibleAction.FIRE"));
+    }
+
+    @Test
     void cannotBeUndoneIsSaidOnlyWhereItIsTrue() throws IOException {
         Properties english = new Properties();
         try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {
