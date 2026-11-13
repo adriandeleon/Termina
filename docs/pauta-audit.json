@@ -22,8 +22,8 @@
     {
       "id": "OS-03",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "No test yet runs Termina as each operating system and compares its commands, menus and settings."
+      "status": "pass",
+      "evidence": "the one class that says which OS this is takes an override, Os.runAs (src/main/java/com/termina/Os.java:56, read by current() at :44), and one test sets Windows, macOS and Linux in turn through it and compares the command ids, the menu bar's rows, the Settings pages and the commands the keymap binds (src/test/java/com/termina/ui/SameOnEveryOsTest.java:30). src/test/java/com/termina/OsTest.java holds the override itself, and that nothing in src/main calls it. Thirteen classes read the OS once as they load, so the test builds its lists before any override and compares only lists made when asked (docs/gotchas.md) (fixed in 4cba88f)"
     },
     {
       "id": "OS-04",
@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 30 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 26 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 30 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 26 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 30 entries link issue #92, read with `gh issue view`: open, and naming each of the 30 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 26 entries link issue #92, read with `gh issue view`: open, and naming each of the 26 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 30 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 26 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 30 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 26 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -544,14 +544,14 @@
     {
       "id": "PERF-16",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The settings are read after the window toolkit starts, not alongside it."
+      "status": "pass",
+      "evidence": "main, in a class that is not the Application subclass, starts the config read on a thread of its own before launch (src/main/java/com/termina/Main.java:57, App.readAhead at src/main/java/com/termina/App.java:90, thread \"termina-config\"); init() takes that result (src/main/java/com/termina/App.java:61, takeReadAhead at :68) and start() uses what init prepared (:189). The read is the half that needs no toolkit (readConfig, :128); only the fonts are loaded after it (finish, :167). init reads the files itself only when main's read failed or there was none, which is the fallback the rule allows. src/test/java/com/termina/AppReadAheadFxTest.java holds the result, the fallback and the order in the source (fixed in 4cba88f)"
     },
     {
       "id": "PERF-17",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The stylesheets are shipped as text and parsed at every launch."
+      "status": "pass",
+      "evidence": "the release build converts every stylesheet to .bss: ui.StyleCompiler calls Stylesheet.convertToBinary (src/main/java/com/termina/ui/StyleCompiler.java:42) and the dist profile runs it on target/classes at process-classes (pom.xml:1018, compile-styles), before the jar that jlink links is made, so the image carries both forms; `./mvnw -o -Pdist process-classes` wrote five .bss files here. JavaFX takes the .bss beside a .css by itself, so every build first deletes the ones a release build left (pom.xml:254). src/test/java/com/termina/ui/StyleCompilerFxTest.java holds that a compiled sheet styles as its source does, that the app's five compile, and that none has a relative url(); a headless capture of the main window and of Settings from the binaries matched the ones from the text pixel for pixel. The CI package job checks the jar for app.bss (fixed in 4cba88f)"
     },
     {
       "id": "PERF-18",
@@ -568,8 +568,8 @@
     {
       "id": "PERF-20",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "When the window stalls, Termina can say for how long but not what it was doing."
+      "status": "pass",
+      "evidence": "-Dtermina.stallLog=<ms> turns on a sampler of the FX thread's stack beside the frame-gap monitor (src/main/java/com/termina/ui/StallMonitor.java:41): a watcher on its own thread samples the thread when it has not beaten for the threshold and prints the stack once for each stall (src/main/java/com/termina/ui/StallSampler.java:39, :60). src/test/java/com/termina/ui/StallSamplerTest.java holds the rule, the report and a stuck thread's stack. A headless run with it on printed the stacks, and one of them was the font picker measuring every installed family on the FX thread, now done on a worker after the first frame (src/main/java/com/termina/ui/MonospaceFonts.java:108) (fixed in 4cba88f)"
     },
     {
       "id": "PERF-21",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (30 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (26 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 30 pending entries (5 MUST, 25 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 26 pending entries (5 MUST, 21 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2456,11 +2456,12 @@
     "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json.",
     "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json.",
     "Two of the three differences behind OS-04 were removed the same day (a middle-click pastes nothing outside Linux; a shell's reported folder fills in only where the OS has no answer, on every OS). The third, the key-binding sync files, keeps it pending.",
-    "Two more pending MUSTs were met on 2026-11-13, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json.",
-    "Twelve pending SHOULDs were met on 2026-11-13, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json.",
-    "Eight more pending SHOULDs were settled on 2026-11-13, in 17edb17: REL-25, INTL-10, MENU-18, MENU-11, PAL-07 now pass; ACC-07, MENU-17, TBAR-06 are for a person to check in the running app, and their entries are out of pauta.json.",
-    "Five more pending SHOULDs were settled on 2026-11-13, in bf3faee: TABS-12, INTL-07, DOCS-15, INTL-12 now pass; ACC-05 are for a person to check in the running app, and their entries are out of pauta.json.",
-    "Four more pending SHOULDs were settled on 2026-11-13, in a fifth batch, in f74928d: PAL-09, QUAL-13, QUAL-03 now pass; SET-21 are for a person to check in the running app, and their entries are out of pauta.json.",
-    "Five more pending SHOULDs were settled on 2026-11-13, in a sixth batch, in 1fa40cf: KBD-18, ACC-02, ACC-03, ACC-08, PERF-10 now pass, and their entries are out of pauta.json."
+    "Two more pending MUSTs were met on 2026-11-12, the interface zoom's, in 8a39ef5: WIN-12, MENU-16 now pass, and their entries are out of pauta.json.",
+    "Twelve pending SHOULDs were met on 2026-11-12, in d67554b: DOCS-07, MENU-12, CONF-10, CONF-11, ABOUT-10, PERF-04, TBAR-14, ACC-04, INTL-13, MLOG-03, MLOG-04, QUAL-04 now pass, and their entries are out of pauta.json.",
+    "Eight more pending SHOULDs were settled on 2026-11-12, in 17edb17: REL-25, INTL-10, MENU-18, MENU-11, PAL-07 now pass; ACC-07, MENU-17, TBAR-06 are for a person to check in the running app, and their entries are out of pauta.json.",
+    "Five more pending SHOULDs were settled on 2026-11-12, in bf3faee: TABS-12, INTL-07, DOCS-15, INTL-12 now pass; ACC-05 are for a person to check in the running app, and their entries are out of pauta.json.",
+    "Four more pending SHOULDs were settled on 2026-11-12, in a fifth batch, in f74928d: PAL-09, QUAL-13, QUAL-03 now pass; SET-21 are for a person to check in the running app, and their entries are out of pauta.json.",
+    "Five more pending SHOULDs were settled on 2026-11-12, in a sixth batch, in 1fa40cf: KBD-18, ACC-02, ACC-03, ACC-08, PERF-10 now pass, and their entries are out of pauta.json.",
+    "Four more pending SHOULDs were settled on 2026-11-12, in a seventh batch, in 4cba88f: OS-03, PERF-16, PERF-17, PERF-20 now pass, and their entries are out of pauta.json."
   ]
 }
