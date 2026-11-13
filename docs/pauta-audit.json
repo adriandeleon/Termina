@@ -54,7 +54,7 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "fail",
-      "evidence": "no pauta.json, so no unmet rule has an exception: 36 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, ACC-01, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, ICON-09, ICON-10, ICON-11, ICON-12, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, SET-03) and so do the 66 SHOULDs this report lists as fail; no entry exists for a rule that passes"
+      "evidence": "no pauta.json, so no unmet rule has an exception: 31 MUSTs fail (OS-02, OS-04, PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-13, PAUTA-15, ABOUT-09, PWIN-01, PWIN-02, PWIN-03, PWIN-04, PLAT-12, REL-19, DOCS-01, DOCS-02, CLI-11, PERF-01, PERF-07, WIN-01, WIN-03, WIN-12, WIN-13, WIN-14, MENU-14, MENU-15, MENU-16, MENU-01, MENU-02, SET-03) and so do the 66 SHOULDs this report lists as fail; no entry exists for a rule that passes"
     },
     {
       "id": "PAUTA-05",
@@ -695,8 +695,8 @@
     {
       "id": "ACC-01",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "no test sweeps every control: src/test/java/com/termina/ui/IconOnlyButtonsFxTest.java:61 checks icon-only buttons and tab close buttons only (check() returns 0 for anything else, :108) in the main window, Settings and About; no field, combo box, list cell or menu row, and not the Shortcuts, Debug Log, Message Log or Report windows or the dialogs (upgrade work: not in 2.0.2)"
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/NamedControlsFxTest.java:55 opens the main window with two tabs, its find bar, the status bar's link and the palette, every page of Settings, About, Report a Problem, the Debug Log with its find bar, the Message Log and Keyboard Shortcuts, and fails on a button, toggle, field, combo box, spinner, slider or list with no text, no accessible text and no label pointing at it, on a list cell that reads as nothing, and on a menu row with no title: the bar's rows, a tab's, the terminal's (src/test/java/com/termina/ui/NamedControls.java); each dialog is swept as the tests answer it (src/test/java/com/termina/ui/DialogsFxTest.java:151). It found fifteen and each is named now; the bar's custom rows take their name from their title (src/main/java/com/termina/ui/MenuRows.java:190) (fixed in 55cb94f)"
     },
     {
       "id": "ACC-02",
@@ -857,26 +857,26 @@
     {
       "id": "ICON-09",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "No contrast test of the chrome stylesheets: src/test/java/com/termina/ui/ThemeTest.java:38 computes ratios for the terminal schemes only, and no test computes muted ink on the themes' grounds or walks app.css/settings.css for text set in -color-fg-subtle (searched src/test for color-fg, contrast, .css)."
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/StyleContrastTest.java:110 computes -color-fg-muted on the default, subtle and overlay grounds of Editora Light and Editora Dark (src/main/resources/com/termina/styles/editora-light.css, editora-dark.css) and finds 4.5:1 or more, and :132 walks every rule of the app's own sheets (app.css, settings.css, ui-font.css) and fails one that sets -fx-text-fill or -fx-fill to -color-fg-subtle unless its selector is on a named list, which holds one: a disabled menu row's icon (:126); the test also fails when a listed selector no longer does so. Not walked: settings.css sets -fx-prompt-text-fill, a field's placeholder, in the subtle role (fixed in 55cb94f)"
     },
     {
       "id": "ICON-10",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "No test computes a role's -fg on its -subtle fill or on the default and subtle grounds of editora-light.css and editora-dark.css: src/test/java/com/termina/ui/ThemeTest.java is the only contrast test and reads the terminal palettes, not the stylesheets; not found in src/test."
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/StyleContrastTest.java:150 computes each of the accent, success, warning and danger roles' -fg on its own -subtle fill, on -color-bg-subtle and on -color-bg-default, in Editora Light and Editora Dark, and finds 4.5:1 or more (fixed in 55cb94f)"
     },
     {
       "id": "ICON-11",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "No test computes -color-fg-emphasis on the accent, success, warning and danger -emphasis fills of the two themes: `fg-emphasis` does not occur in src/test (only src/test/java/com/termina/ui/ThemeTest.java computes contrast, for terminal schemes)."
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/StyleContrastTest.java:165 computes -color-fg-emphasis on the -emphasis fill of the accent, success, warning and danger roles in both themes and finds 4.5:1 or more; it also walks the app's own rules: one that paints an emphasis fill and sets its ink must set -color-fg-emphasis, and none may set a fixed white or black ink. No rule of app.css or settings.css paints on an emphasis fill today (fixed in 55cb94f)"
     },
     {
       "id": "ICON-12",
       "level": "MUST",
-      "status": "fail",
-      "evidence": "The token and block exist (src/main/resources/com/termina/styles/app.css:693 `-focus-ring: -color-accent-emphasis`, :695-715 `:focus-visible`), but no test reads `-focus-ring` and computes it on the themes' grounds: `focus-ring` does not occur in src/test."
+      "status": "pass",
+      "evidence": "src/test/java/com/termina/ui/StyleContrastTest.java:192 reads the ring's token from the app's sheets, finds it named once, on .root, as -color-accent-emphasis (src/main/resources/com/termina/styles/app.css), and computes it on the default, subtle, inset and overlay grounds of both themes: 3:1 or more on each (fixed in 55cb94f)"
     },
     {
       "id": "ICON-13",
@@ -2449,6 +2449,7 @@
     "Five more were judged again the same day, after the fixes in 9261b38: KBD-03, ABOUT-01, PAL-01, DOCS-06, MLOG-02. KBD-02's evidence was brought up to date with them; it still fails.",
     "Six more were judged again the same day, after the fixes in 32baadd: FIND-01, FIND-02, FIND-03, FIND-04, FIND-06, FIND-07. KBD-01 and MENU-05 were brought up to date with them; both still fail, for what is left.",
     "Two more were judged again the same day, after the fixes in ef3fdfa: KBD-01, MENU-05. MENU-12 and PWIN-04 were brought up to date with them; both still fail.",
+    "Five more were judged again on 2026-11-12, after the tests and fixes in 55cb94f: ICON-09, ICON-10, ICON-11, ICON-12, ACC-01.",
     "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails."
   ]
 }
