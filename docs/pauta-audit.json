@@ -250,8 +250,8 @@
     {
       "id": "REPO-08",
       "level": "MAY",
-      "status": "fail",
-      "evidence": "no TODO.md at the repository root (`ls TODO.md`: not found); a MAY, so no consequence"
+      "status": "pass",
+      "evidence": "TODO.md exists at the root and holds the open list: the rules not met yet, what has never been run, the terminal features and the performance work not done. src/test/java/com/termina/RepositoryDocsTest.java:35 fails when its rules and pauta.json's differ, which is what keeps it in the same change, and AGENTS.md names it as the list (fixed in a6026f5)"
     },
     {
       "id": "REPO-09",
@@ -328,8 +328,8 @@
     {
       "id": "DOCS-11",
       "level": "MAY",
-      "status": "fail",
-      "evidence": "src/main/java/com/termina/ui/SettingsWindow.java has no help link on any page and no page-to-slug map (searched it for help, docs, slug, DOCUMENTATION; searched messages.properties for settings.help: not found)"
+      "status": "pass",
+      "evidence": "one map from Settings page to docs slug (src/main/java/com/termina/ui/SettingsHelp.java:22) feeds the link every page ends in, Help for and the page's name (src/main/java/com/termina/ui/SettingsWindow.java:657, :676), opened through the application's link opener (src/main/java/com/termina/ui/WindowManager.java:859); src/test/java/com/termina/ui/SettingsHelpTest.java:15 holds the map to every page and src/test/java/com/termina/ui/SettingsWindowFxTest.java:227 fires each page's link and reads the address it opens (fixed in a6026f5)"
     },
     {
       "id": "DOCS-12",
@@ -2465,6 +2465,7 @@
     "Four more pending SHOULDs were settled on 2026-11-12, in a seventh batch, in 4cba88f: OS-03, PERF-16, PERF-17, PERF-20 now pass, and their entries are out of pauta.json.",
     "Two more pending SHOULDs were settled on 2026-11-12, in an eighth batch, in df9f4d6: CONF-12, PERF-21 now pass, and their entries are out of pauta.json.",
     "One more pending SHOULD was settled on 2026-11-12, in a ninth batch, in f8e4411: the Doctor is built, so DIAG-07 is now for a person to check in the running app, and its entry is out of pauta.json.",
-    "Two more pending SHOULDs were settled and one narrowed on 2026-11-13, in a tenth batch, in 6f2fa27: QUAL-07, PERF-09 now pass, and their entries are out of pauta.json. DOCS-18 stays pending for the website alone: the README's hero is now a dark and a light picture at 2× from the capture hook."
+    "Two more pending SHOULDs were settled and one narrowed on 2026-11-13, in a tenth batch, in 6f2fa27: QUAL-07, PERF-09 now pass, and their entries are out of pauta.json. DOCS-18 stays pending for the website alone: the README's hero is now a dark and a light picture at 2× from the capture hook.",
+    "Two of the three optional rules not met were settled on 2026-11-13, in an eleventh batch, in a6026f5: REPO-08, DOCS-11 now pass. They were optional, so neither had an entry in pauta.json; WIN-10 is the one optional rule left not met."
   ]
 }

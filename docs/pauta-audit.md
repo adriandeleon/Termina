@@ -8,7 +8,7 @@ The audit began with the app naming Pauta 2.0.2. It names 6.0.1 now (`pauta.vers
 |--------|-----:|-----:|-----:|-----:|-----:|
 | MUST | 172 | 0 | 6 | 5 | 12 |
 | SHOULD | 109 | 0 | 19 | 16 | 57 |
-| MAY | 1 | 3 | 0 | 0 | 5 |
+| MAY | 3 | 1 | 0 | 0 | 5 |
 
 A failed MUST blocks a release. A `manual` or `not-checked` MUST does not: it is reported until someone settles it.
 
@@ -45,13 +45,12 @@ None.
 - Two more pending SHOULDs were settled on 2026-11-12, in an eighth batch, in df9f4d6: CONF-12, PERF-21 now pass, and their entries are out of pauta.json.
 - One more pending SHOULD was settled on 2026-11-12, in a ninth batch, in f8e4411: the Doctor is built, so DIAG-07 is now for a person to check in the running app, and its entry is out of pauta.json.
 - Two more pending SHOULDs were settled and one narrowed on 2026-11-13, in a tenth batch, in 6f2fa27: QUAL-07, PERF-09 now pass, and their entries are out of pauta.json. DOCS-18 stays pending for the website alone: the README's hero is now a dark and a light picture at 2× from the capture hook.
+- Two of the three optional rules not met were settled on 2026-11-13, in an eleventh batch, in a6026f5: REPO-08, DOCS-11 now pass. They were optional, so neither had an entry in pauta.json; WIN-10 is the one optional rule left not met.
 
 ## Other failures
 
 | ID | Level | Status | Evidence | Rule |
 |----|-------|--------|----------|------|
-| REPO-08 | MAY | fail | no TODO.md at the repository root (`ls TODO.md`: not found); a MAY, so no consequence | https://pauta-project.dev/6.0.1/repository/#repo-08 |
-| DOCS-11 | MAY | fail | src/main/java/com/termina/ui/SettingsWindow.java has no help link on any page and no page-to-slug map (searched it for help, docs, slug, DOCUMENTATION; searched messages.properties for settings.help: not found) | https://pauta-project.dev/6.0.1/documentation/#docs-11 |
 | WIN-10 | MAY | fail | No Zen, Expert or Simple mode: no such command or chrome truth table found in src/main (searched zen, expertMode, simpleMode); the nearest are the separate menu-bar and status-bar toggles (src/main/java/com/termina/ui/TerminalWindow.java:129). | https://pauta-project.dev/6.0.1/window-shell/#win-10 |
 
 ## Manual checks
@@ -148,6 +147,7 @@ None.
 | REPO-05 | MUST | pass | AGENTS.md:25 'Essential commands', AGENTS.md:41 'Worktrees — one per task', AGENTS.md:53 'Change checklist', and it says it is never a changelog (AGENTS.md:8); CLAUDE.md is 6 lines that point to AGENTS.md (CLAUDE.md:3) | https://pauta-project.dev/6.0.1/repository/#repo-05 |
 | REPO-06 | MUST | pass | CONTRIBUTING.md:9 run, :10 `./mvnw test`, :11 `./mvnw spotless:apply`, :12 `./mvnw verify` (the build CI runs), :14 links building-and-packaging.md, and :31 the pull request step | https://pauta-project.dev/6.0.1/repository/#repo-06 |
 | REPO-07 | MUST | pass | docs/architecture.md, docs/conventions.md, docs/testing.md, docs/gotchas.md, docs/release.md, docs/building-and-packaging.md and docs/decisions/ (nine ADRs and a README) all exist | https://pauta-project.dev/6.0.1/repository/#repo-07 |
+| REPO-08 | MAY | pass | TODO.md exists at the root and holds the open list: the rules not met yet, what has never been run, the terminal features and the performance work not done. src/test/java/com/termina/RepositoryDocsTest.java:35 fails when its rules and pauta.json's differ, which is what keeps it in the same change, and AGENTS.md names it as the list (fixed in a6026f5) | https://pauta-project.dev/6.0.1/repository/#repo-08 |
 | REPO-09 | MUST | pass | .github/ISSUE_TEMPLATE/bug_report.yml:21 `id: environment` and :27 `id: report`; src/main/java/com/termina/report/ProblemReport.java:86 builds `issues/new?template=bug_report.yml&environment=…&report=…`, which Report a Problem opens (ui/ReportProblemWindow.java:108) | https://pauta-project.dev/6.0.1/repository/#repo-09 |
 | REPO-10 | MUST | pass | branding/termina-icon.svg is the source, with termina.png, termina.icns and termina.ico beside it; `jpackage.icon` points at them (pom.xml:50, :592, :606, :614, used at pom.xml:828) | https://pauta-project.dev/6.0.1/repository/#repo-10 |
 | REPO-11 | SHOULD | pass | all 13 files in scripts/ are `.sh` with the shebang `#!/usr/bin/env bash` (e.g. scripts/dev-run.sh:1); none has a Python, JS, PowerShell or batch extension (made the Command's find and shebang check by hand) | https://pauta-project.dev/6.0.1/repository/#repo-11 |
@@ -155,6 +155,7 @@ None.
 | DOCS-06 | MUST | pass | the command is registered as help.documentation and opens AppInfo.DOCUMENTATION in the browser (src/main/java/com/termina/ui/TerminalWindow.java:2992); a Documentation row of the Help menu runs it through the registry (src/main/java/com/termina/ui/MenuBarModel.java:139); in the palette and bindable like any command; no Welcome page; the id is held by src/test/java/com/termina/ui/MenuBarModelTest.java:25 (fixed in 9261b38) | https://pauta-project.dev/6.0.1/documentation/#docs-06 |
 | DOCS-07 | SHOULD | pass | src/main/java/com/termina/ui/MenuBarModel.java:146: Help runs Command Palette, Documentation, What's New, Keyboard Shortcuts, Check for Updates, Message Log, Debug Log, Report a Problem, Pauta Conformance, About: Pauta's order, with no Welcome page to list and What's New, which is Termina's own, beside the documentation. src/test/java/com/termina/ui/MenuBarModelTest.java:60 holds the order and that the palette's row is in no other menu (fixed in d67554b) | https://pauta-project.dev/6.0.1/documentation/#docs-07 |
 | DOCS-10 | MAY | limited | no Search Everywhere picker: no SearchEverywhere class or command in src/main/java | https://pauta-project.dev/6.0.1/documentation/#docs-10 |
+| DOCS-11 | MAY | pass | one map from Settings page to docs slug (src/main/java/com/termina/ui/SettingsHelp.java:22) feeds the link every page ends in, Help for and the page's name (src/main/java/com/termina/ui/SettingsWindow.java:657, :676), opened through the application's link opener (src/main/java/com/termina/ui/WindowManager.java:859); src/test/java/com/termina/ui/SettingsHelpTest.java:15 holds the map to every page and src/test/java/com/termina/ui/SettingsWindowFxTest.java:227 fires each page's link and reads the address it opens (fixed in a6026f5) | https://pauta-project.dev/6.0.1/documentation/#docs-11 |
 | DOCS-12 | MUST | pass | docs/README.md:3-5 says the folder is for people working on Termina and that user docs live on the website; :13-24 link each guide with one line (architecture, conventions, testing, gotchas, building-and-packaging, release, decisions/), :26-30 reference/ | https://pauta-project.dev/6.0.1/documentation/#docs-12 |
 | DOCS-13 | SHOULD | pass | docs/decisions/0001-jediterm-emulation.md to 0009-config-in-json.md, each with ## Context, ## Decision and ## Consequences (e.g. docs/decisions/0001-jediterm-emulation.md:5, :11, :17) | https://pauta-project.dev/6.0.1/documentation/#docs-13 |
 | DOCS-14 | MUST | pass | CONTRIBUTING.md:4, :14, :20 and :25 link into docs/; AGENTS.md:8 keeps itself short and never a changelog; the catalogues and history (features.md, the audit, the reviews) are under docs/reference/ (docs/reference/README.md:9-23) | https://pauta-project.dev/6.0.1/documentation/#docs-14 |
