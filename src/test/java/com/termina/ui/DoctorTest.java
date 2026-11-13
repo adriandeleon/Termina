@@ -235,7 +235,7 @@ class DoctorTest {
         machine.tools.remove("git");
         String text = Doctor.asText(Doctor.run(Os.Kind.MAC, machine, "", BASH, CONFIG), key -> "<" + key + ">");
         String[] lines = text.split("\n");
-        assertEquals("<doctor.status.ok>  <doctor.row.shell>  /bin/bash", lines[0]);
+        assertEquals("<doctor.status.ok>  <doctor.row.shell>  " + BASH, lines[0]);
         assertEquals("<doctor.status.optional>  <doctor.row.git>", lines[2]);
         assertEquals("    <doctor.fix.git> https://git-scm.com/downloads", lines[3]);
         assertFalse(text.contains("null"));
