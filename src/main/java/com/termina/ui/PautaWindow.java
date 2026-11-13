@@ -103,9 +103,8 @@ final class PautaWindow {
         content.getChildren().addAll(new VBox(2, rules, docs), buttons);
         content.setPadding(new Insets(18));
 
-        Scene scene = new Scene(content, 640, 560);
-        var css = PautaWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(content, 640, 560);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         stage.setTitle(tr("pauta.title"));

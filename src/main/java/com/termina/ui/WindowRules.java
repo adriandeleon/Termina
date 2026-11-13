@@ -101,6 +101,23 @@ final class WindowRules {
         return number == 0 || number <= profileCount;
     }
 
+    /**
+     * Why a UI zoom command cannot run at {@code percent}, as a catalogue key, or null when it can
+     * or {@code id} is another command: there is no larger than the largest, no smaller than the
+     * smallest, and nothing to reset at 100%.
+     */
+    static @Nullable String uiZoomUnavailableKey(String id, int percent) {
+        return switch (id) {
+            case "uiZoomIn" ->
+                percent >= com.termina.config.Settings.MAX_UI_ZOOM ? "palette.disabled.uiZoomLargest" : null;
+            case "uiZoomOut" ->
+                percent <= com.termina.config.Settings.MIN_UI_ZOOM ? "palette.disabled.uiZoomSmallest" : null;
+            case "uiZoomReset" ->
+                percent == com.termina.config.Settings.DEFAULT_UI_ZOOM ? "palette.disabled.uiZoomDefault" : null;
+            default -> null;
+        };
+    }
+
     /** Which profile a numbered profile command opens, 1 to 9; 0 for any other id. */
     static int profileNumber(@Nullable String id) {
         if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return 0;

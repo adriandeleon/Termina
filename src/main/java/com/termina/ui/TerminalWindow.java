@@ -322,8 +322,7 @@ public final class TerminalWindow {
         scene.setFill(theme.palette().background());
         // Before the first frame, so the title bar is never drawn in the desktop's scheme first.
         scene.getPreferences().setColorScheme(theme.colorScheme());
-        var appCss = TerminalWindow.class.getResource("/com/termina/styles/app.css");
-        if (appCss != null) scene.getStylesheets().add(appCss.toExternalForm());
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
 
         // A scene FILTER, not the menu's accelerators: filters run in the capturing phase, before
@@ -795,11 +794,13 @@ public final class TerminalWindow {
      */
     private static javafx.scene.Node profileGraphic(com.termina.shell.Profile profile, boolean isDefault) {
         StackPane tick = new StackPane();
-        tick.setMinWidth(TICK_SLOT_WIDTH);
-        tick.setPrefWidth(TICK_SLOT_WIDTH);
-        tick.setMaxWidth(TICK_SLOT_WIDTH);
+        // Bound to the UI zoom here: a menu's rows are in a popup, which nothing adopts.
+        UiZoom.bind(tick.minWidthProperty(), TICK_SLOT_WIDTH);
+        UiZoom.bind(tick.prefWidthProperty(), TICK_SLOT_WIDTH);
+        UiZoom.bind(tick.maxWidthProperty(), TICK_SLOT_WIDTH);
         if (isDefault) tick.getChildren().add(MenuIcons.check());
-        javafx.scene.layout.HBox graphic = new javafx.scene.layout.HBox(6, tick, ProfileIcons.forProfile(profile));
+        javafx.scene.layout.HBox graphic = new javafx.scene.layout.HBox(tick, ProfileIcons.forProfile(profile));
+        UiZoom.bind(graphic.spacingProperty(), 6);
         graphic.setAlignment(Pos.CENTER_LEFT);
         return graphic;
     }
@@ -2991,6 +2992,11 @@ public final class TerminalWindow {
                 item("command.zoomOut", () -> zoom(-1)),
                 item("command.actualSize", this::resetZoom),
                 item("command.fullScreen", this::toggleFullScreen),
+                // The UI zoom (WIN-12, Pauta 6.0.1): the chrome, not the terminal's text, which
+                // keeps Ctrl+=, Ctrl+- and Ctrl+0. No chord of their own by default.
+                item("command.uiZoomIn", () -> UiZoom.change(settings, UiZoom.in(settings.uiZoom()))),
+                item("command.uiZoomOut", () -> UiZoom.change(settings, UiZoom.out(settings.uiZoom()))),
+                item("command.uiZoomReset", () -> UiZoom.change(settings, Settings.DEFAULT_UI_ZOOM)),
                 // "Hide", not a checkbox: the in-window bar's menu can only be opened while the bar
                 // is showing. The way back is the right-click menu, which carries a checkbox.
                 // Defined everywhere and in a menu only where there is a bar to hide: under a system
@@ -3436,6 +3442,8 @@ public final class TerminalWindow {
         if (("openLink".equals(id) || "copyLinkAddress".equals(id)) && paneWithLinkUnderPointer() == null) {
             return tr("palette.disabled.noLinkUnderPointer");
         }
+        String zoomLimit = WindowRules.uiZoomUnavailableKey(id, settings.uiZoom());
+        if (zoomLimit != null) return tr(zoomLimit);
         int profileNumber = WindowRules.profileNumber(id);
         if (profileNumber > 0 && profileNumbered(id) == null) {
             return tr("palette.disabled.noSuchProfile", profileNumber);

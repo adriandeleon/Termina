@@ -115,8 +115,13 @@ final class CommandPalette {
         list.setAccessibleText(tr("palette.list"));
         list.setPlaceholder(new Label(tr("palette.empty")));
         // A whole number of rows: a fixed pixel height cut the last row in half.
-        list.setFixedCellSize(ROW_HEIGHT);
-        list.setPrefHeight(listHeight(0));
+        // Both follow the UI zoom (WIN-12, Pauta 6.0.1), and the list works its height out itself.
+        UiZoom.own(list);
+        UiZoom.follow(list, () -> {
+            list.setFixedCellSize(UiZoom.px(ROW_HEIGHT));
+            list.setPrefHeight(
+                    listHeight(list.getInsets().getTop() + list.getInsets().getBottom()));
+        });
         list.insetsProperty().addListener((o, was, in) -> list.setPrefHeight(listHeight(in.getTop() + in.getBottom())));
         list.setCellFactory(view -> new CommandCell());
         // The query field keeps the keyboard; the list is driven from it. A click on a row runs
@@ -151,7 +156,12 @@ final class CommandPalette {
 
     /** The list height that shows exactly {@link #VISIBLE_ROWS} rows inside {@code insets} of chrome. Pure. */
     static double listHeight(double insets) {
-        return VISIBLE_ROWS * ROW_HEIGHT + insets;
+        return listHeight(insets, UiZoom.factor().get());
+    }
+
+    /** The same at a UI zoom of {@code factor}: the rows grow with it, the chrome's insets already have. Pure. */
+    static double listHeight(double insets, double factor) {
+        return VISIBLE_ROWS * ROW_HEIGHT * factor + insets;
     }
 
     /** Names the chord that opens the palette on the chip; null hides the chip rather than lying. */

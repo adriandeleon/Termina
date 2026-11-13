@@ -83,6 +83,9 @@ public final class App extends Application {
         // And the bundled list of Pauta exceptions, which About and the Pauta window show: read
         // here once, so neither reads a file when it opens.
         PautaConformance.warm();
+        // The stylesheets at the UI zoom, where it is not 100%: read and scaled here, not on the
+        // FX thread (PERF-01).
+        if (settings.uiZoom() != Settings.DEFAULT_UI_ZOOM) com.termina.ui.UiZoom.prepare(settings.uiZoom());
 
         // Before the stylesheet and before any window: CSS naming a font that is not yet registered
         // does not wait for it, it silently resolves to the system face. Only what the first window
@@ -129,8 +132,11 @@ public final class App extends Application {
         // Applied before any window is built, so the first frame is already themed.
         com.termina.ui.Themes.followSystem(
                 javafx.application.Platform.getPreferences().getColorScheme() == javafx.application.ColorScheme.DARK);
-        Application.setUserAgentStylesheet(
-                com.termina.ui.Themes.byId(settings.themeId()).stylesheet());
+        // The UI zoom before any window is built too (WIN-12, Pauta 6.0.1): its sheets were read
+        // and scaled in prepare, off this thread.
+        com.termina.ui.UiZoom.apply(settings.uiZoom());
+        Application.setUserAgentStylesheet(com.termina.ui.UiZoom.theme(
+                com.termina.ui.Themes.byId(settings.themeId()).stylesheet()));
 
         com.termina.ui.StallMonitor.installIfRequested();
         WindowManager manager = new WindowManager(settings);

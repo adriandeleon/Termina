@@ -124,9 +124,8 @@ final class MessageLogWindow {
 
         VBox root = new VBox(10, filter, list, buttons);
         root.setPadding(new Insets(12));
-        Scene scene = new Scene(root, 640, 380);
-        var css = MessageLogWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 640, 380);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         // Escape in the filter is the filter's; anywhere else it closes the window.
         SecondaryWindows.closeOnEscape(stage, scene, filter::isFocused);

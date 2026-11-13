@@ -36,6 +36,11 @@ done.
 - **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
   Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
   bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Interface zoom.** Settings ▸ Appearance ▸ Window ▸ Interface zoom, from 80% to 200%, makes the
+  menus, the tab strip, the status bar, the palette and every other window larger or smaller, at
+  once. Zoom Interface In, Zoom Interface Out and Reset Interface Zoom are in the palette and can be
+  given shortcuts on the Keyboard page. The terminal's text is not touched: Zoom In, Zoom Out and
+  Actual Size, and their shortcuts, are still its own.
 - **`termina-cli.exe`, on Windows.** `Termina.exe` is a window program and has no console, so
   `--help`, `--version` and `--report` printed nothing in the terminal they were typed in. The
   installer now carries a second launcher that prints there; with no such option it opens a window

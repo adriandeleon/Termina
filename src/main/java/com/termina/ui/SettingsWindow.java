@@ -362,16 +362,16 @@ public final class SettingsWindow {
         // since the first version has pushed this up; the clamp is what stops that becoming a
         // problem on a laptop.
         javafx.geometry.Rectangle2D visible = javafx.stage.Screen.getPrimary().getVisualBounds();
-        Scene scene =
-                new Scene(root, Math.min(1153, visible.getWidth() * 0.95), Math.min(985, visible.getHeight() * 0.92));
+        Scene scene = new Scene(
+                root,
+                Math.min(UiZoom.px(1153), visible.getWidth() * 0.95),
+                Math.min(UiZoom.px(985), visible.getHeight() * 0.92));
         // Scene stylesheets, not part of the theme: they must survive the runtime
         // setUserAgentStylesheet swap that changing the theme performs. app.css first, for the
         // state colours and the keyboard focus ring every window shares; settings.css after it,
         // so the window's own rules win where the two meet.
-        var app = SettingsWindow.class.getResource("/com/termina/styles/app.css");
-        if (app != null) scene.getStylesheets().add(app.toExternalForm());
-        var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
+        scene.getStylesheets().add(UiZoom.sheet("settings.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         // A press anywhere in the window closes the profile list's right-click menu (MENU-07).
@@ -861,6 +861,7 @@ public final class SettingsWindow {
     private CheckBox hideTabBar;
     private CheckBox showMenuBar;
     private CheckBox menuBarInTitleBar;
+    private Spinner<Integer> uiZoom;
     private CheckBox showScrollBar;
     private CheckBox showStatusBar;
     private CheckBox confirmClose;
@@ -1113,6 +1114,25 @@ public final class SettingsWindow {
                 titleBarReason,
                 menuBarInTitleBar,
                 "title bar titlebar header menu bar unified decorations window buttons");
+
+        // The UI zoom (WIN-12, Pauta 6.0.1): the whole chrome, at once. Written through UiZoom,
+        // which scales the stylesheets on a worker before the setting changes.
+        uiZoom = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                Settings.MIN_UI_ZOOM, Settings.MAX_UI_ZOOM, Settings.DEFAULT_UI_ZOOM, UiZoom.STEP));
+        uiZoom.setEditable(true);
+        UiZoom.bind(uiZoom.prefWidthProperty(), 110);
+        makeLenient(uiZoom, d -> (int) Math.round(d));
+        uiZoom.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            UiZoom.change(settings, value);
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.uiZoom"),
+                tr("settings.uiZoom.desc"),
+                uiZoom,
+                "interface ui zoom scale size chrome menus tabs larger smaller percent");
 
         showScrollBar = new CheckBox();
         showScrollBar.selectedProperty().addListener((o, old, value) -> {
@@ -2564,6 +2584,7 @@ public final class SettingsWindow {
             removeTheme.setDisable(theme.isBuiltIn());
             fontCombo.setValue(MonospaceFonts.resolve(settings.fontFamily()));
             fontSize.getValueFactory().setValue(settings.fontSize());
+            uiZoom.getValueFactory().setValue(settings.uiZoom());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
             padding.getValueFactory().setValue(settings.padding());

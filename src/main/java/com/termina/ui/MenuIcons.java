@@ -63,8 +63,8 @@ public final class MenuIcons {
     static Node tabPin() {
         SVGPath svg = new SVGPath();
         svg.setContent(PIN);
-        svg.setScaleX(0.5);
-        svg.setScaleY(0.5);
+        svg.scaleXProperty().bind(UiZoom.times(0.5));
+        svg.scaleYProperty().bind(UiZoom.times(0.5));
         svg.getStyleClass().add("tab-pin");
         return new javafx.scene.Group(svg);
     }
@@ -466,8 +466,8 @@ public final class MenuIcons {
     private static Node line(String path) {
         SVGPath svg = new SVGPath();
         svg.setContent(path);
-        svg.setScaleX(SCALE * 24 / 16);
-        svg.setScaleY(SCALE * 24 / 16);
+        svg.scaleXProperty().bind(UiZoom.times(SCALE * 24 / 16));
+        svg.scaleYProperty().bind(UiZoom.times(SCALE * 24 / 16));
         svg.getStyleClass().add("menu-icon-line");
         return svg;
     }
@@ -475,8 +475,9 @@ public final class MenuIcons {
     private static Node of(String path) {
         SVGPath svg = new SVGPath();
         svg.setContent(path);
-        svg.setScaleX(SCALE);
-        svg.setScaleY(SCALE);
+        // With the UI zoom (WIN-12, Pauta 6.0.1): a glyph is chrome, and grows with the text beside it.
+        svg.scaleXProperty().bind(UiZoom.times(SCALE));
+        svg.scaleYProperty().bind(UiZoom.times(SCALE));
         svg.getStyleClass().add("menu-icon");
         return svg;
     }

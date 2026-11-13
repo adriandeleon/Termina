@@ -203,9 +203,8 @@ public final class AboutWindow {
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = new Scene(root, 480, 440);
-        var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 480, 440);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         stage.setScene(scene);

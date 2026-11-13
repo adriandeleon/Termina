@@ -1,6 +1,5 @@
 package com.termina.ui;
 
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CustomMenuItem;
@@ -82,7 +81,7 @@ final class ZoomMenuRow {
         // The row's glyph, the zoom family's (MENU-14, Pauta 6.0.1), in a column as wide as the
         // other rows' so the title starts where theirs do.
         javafx.scene.layout.StackPane icon = new javafx.scene.layout.StackPane(MenuIcons.zoom());
-        icon.setMinWidth(MenuRows.ICON_COLUMN);
+        UiZoom.bind(icon.minWidthProperty(), MenuRows.ICON_COLUMN);
         icon.setAlignment(Pos.CENTER_LEFT);
         icon.getStyleClass().add("menu-item-icon");
         HBox row = new HBox(icon, title, spacer, out, reset, in, fullScreen);
@@ -91,7 +90,7 @@ final class ZoomMenuRow {
         // that happens to live on the same row: it is the one button here that closes the menu. Set
         // as a layout margin rather than in CSS because JavaFX has no -fx-margin; spacing between
         // children belongs to the parent.
-        HBox.setMargin(fullScreen, new Insets(0, 0, 0, FULL_SCREEN_GAP));
+        UiZoom.hboxMargin(fullScreen, 0, 0, 0, FULL_SCREEN_GAP);
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("zoom-row");
         // The row's own name; each button in it has one of its own (ACC-01).

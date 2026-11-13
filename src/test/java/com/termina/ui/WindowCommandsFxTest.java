@@ -56,6 +56,9 @@ class WindowCommandsFxTest {
             "help.sourceCode", // a browser
             "help.pautaRules", // a browser
             "help.pautaDocs", // a browser
+            "uiZoomIn", // the zoom is the whole app's, and every other test expects 100%: UiZoomFxTest's
+            "uiZoomOut",
+            "uiZoomReset",
             "renameTab", // a modal dialog
             "closeWindow", // WindowLifecycleTest's
             "app.quit", // ends the app, and the toolkit the other tests share

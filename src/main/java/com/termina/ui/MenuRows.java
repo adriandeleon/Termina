@@ -2,7 +2,6 @@ package com.termina.ui;
 
 import java.util.List;
 
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.CustomMenuItem;
@@ -45,8 +44,13 @@ final class MenuRows {
     /** The icon column's width: a glyph's, so rows with and without one start their titles together. */
     static final double ICON_COLUMN = 22;
 
-    /** The chrome's font, as {@code ui-font.css} and the themes' 14px root size set it. */
-    private static final Font TITLE_FONT = Font.font("Inter", 14);
+    /** The size of a title at 100%: the menus' 14 px (MENU-16), which the UI zoom multiplies. */
+    static final double TITLE_SIZE = 14;
+
+    /** A title's font now: Inter at {@link #TITLE_SIZE} times the UI zoom, as the stylesheet draws it. */
+    private static Font titleFont() {
+        return Font.font("Inter", UiZoom.px(TITLE_SIZE));
+    }
 
     private static final String TITLE = "termina.menuRow.title";
     private static final String CHORD = "termina.menuRow.chord";
@@ -171,7 +175,7 @@ final class MenuRows {
     static void alignChords(List<MenuItem> items) {
         double widest = 0;
         Text measure = new Text();
-        measure.setFont(TITLE_FONT);
+        measure.setFont(titleFont());
         for (MenuItem item : items) {
             if (item.getProperties().get(TITLE) instanceof Label label) {
                 measure.setText(label.getText());
@@ -192,7 +196,7 @@ final class MenuRows {
         StackPane iconColumn = new StackPane();
         // At least a glyph's width, and wider only for a graphic that needs it (a profile's tick and
         // icon): every row of one menu has the same kind, so the titles still start together.
-        iconColumn.setMinWidth(ICON_COLUMN);
+        UiZoom.bind(iconColumn.minWidthProperty(), ICON_COLUMN);
         iconColumn.setAlignment(Pos.CENTER_LEFT);
         iconColumn.getStyleClass().add("menu-item-icon");
         if (icon != null) iconColumn.getChildren().add(icon);
@@ -201,8 +205,8 @@ final class MenuRows {
         HBox box = new HBox(iconColumn, title, spacer, chord);
         // One small gap after the icon and a wide one before the chord column, which one spacing
         // value cannot say.
-        HBox.setMargin(title, new Insets(0, 0, 0, 8));
-        HBox.setMargin(chord, new Insets(0, 0, 0, 18));
+        UiZoom.hboxMargin(title, 0, 0, 0, 8);
+        UiZoom.hboxMargin(chord, 0, 0, 0, 18);
         box.setAlignment(Pos.CENTER_LEFT);
         box.setMaxWidth(Double.MAX_VALUE);
         // A row drawn from its own nodes reads as nothing unless it says what it is: JavaFX names

@@ -125,9 +125,8 @@ final class DebugLogWindow {
         VBox root = new VBox(10, findBar, text, path, buttons);
         root.setPadding(new Insets(12));
 
-        Scene scene = new Scene(root, 780, 460);
-        var css = DebugLogWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 780, 460);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         // Escape in the find field closes the bar; anywhere else, the window.
         SecondaryWindows.closeOnEscape(stage, scene, findField::isFocused);

@@ -210,6 +210,21 @@ One thing a capture cannot show: the window buttons are an overlay JavaFX draws 
 graph, so a scene snapshot has the menus and the title but a blank where the buttons are. The
 layout report prints the system insets JavaFX reserved for them instead.
 
+### The interface zoom
+
+Settings ▸ Appearance ▸ Window has **Interface zoom**, 80% to 200% in steps of ten, and the palette
+has Zoom Interface In, Zoom Interface Out and Reset Interface Zoom (no shortcut by default; the
+Keyboard page gives them one). It scales the chrome and nothing else: the menu bar and every menu,
+the tab strip, the status bar, the palette, and the Settings, About, log and other windows, at
+once and with no restart. The terminal's text keeps its own size and its own zoom, which is what
+`Ctrl+=`, `Ctrl+-` and `Ctrl+0` change.
+
+At 100% the stylesheets are the bundled files. At any other zoom each window gets a copy with
+every length multiplied, the theme's 14 px root size among them, so every font follows one size;
+the copies are made on a worker before the setting changes. Sizes fixed in code follow through
+`UiZoom` (see `docs/gotchas.md`). A menu draws its titles in Inter 14 px and its shortcuts in
+Inter 11 px times the zoom, whatever it was opened from.
+
 ### The tab strip
 
 Tabs tile the full width and shrink as more are added, the way macOS Terminal and GNOME Terminal

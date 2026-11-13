@@ -782,12 +782,30 @@
     -fx-background-insets: 0, 2px;
 }
 
+/*
+ * Every menu the app draws (MENU-16): titles in Inter 14 px and chords in Inter 11 px at 100%,
+ * whatever node the menu was opened from. Set here, on the menu and on its rows' labels, in pixels
+ * and never in em, so the font of the node behind a menu cannot reach it; the UI zoom rewrites
+ * these values with every other length in this file (UiZoom.scale), so both sizes follow it.
+ */
+.context-menu {
+    -fx-font-family: "Inter";
+    -fx-font-size: 14px;
+}
+.context-menu .menu-item > .label,
+.context-menu .menu-item .menu-item-title {
+    -fx-font-family: "Inter";
+    -fx-font-size: 14px;
+}
+
 /* The menu bar's rows (MENU-02): a title and the chord the row draws itself, in its own column. */
 .menu-item .menu-item-title {
     -fx-text-fill: -color-fg-default;
 }
+.context-menu .menu-item .menu-item-chord,
 .menu-item .menu-item-chord {
     -fx-text-fill: -state-key;
+    -fx-font-family: "Inter";
     -fx-font-size: 11px;
 }
 
@@ -798,5 +816,6 @@
 .context-menu .menu-item:focused > .accelerator-text,
 .context-menu .menu-item.danger > .accelerator-text {
     -fx-text-fill: -state-key;
+    -fx-font-family: "Inter";
     -fx-font-size: 11px;
 }

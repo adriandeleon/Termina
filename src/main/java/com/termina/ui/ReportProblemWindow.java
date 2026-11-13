@@ -66,9 +66,8 @@ final class ReportProblemWindow {
         reportLabel.setLabelFor(report);
         VBox root = new VBox(8, intro, environmentLabel, environment, reportLabel, report, status, buttons);
         root.setPadding(new Insets(14));
-        Scene scene = new Scene(root, 760, 560);
-        var css = ReportProblemWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 760, 560);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         stage.setTitle(tr("report.title"));
