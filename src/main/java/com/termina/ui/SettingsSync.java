@@ -210,6 +210,26 @@ final class SettingsSync {
         return settings.directory().resolve("sync");
     }
 
+    /** Where a failure goes when nobody asked for the run: the Message Log, once the manager says. */
+    private Reporter unasked = (severity, message) -> {};
+
+    void setUnaskedReporter(Reporter reporter) {
+        this.unasked = reporter;
+    }
+
+    /**
+     * Whether an unasked run's result is told: a failure, and not the same failure as the run
+     * before it, so a repository that stays unreachable is one message and not one each interval.
+     * A run that only found the bindings busy, or was cancelled, is not a failure.
+     */
+    static boolean tellsOfFailure(SyncReport report, @Nullable SyncReport before) {
+        if (report.ok()) return false;
+        if (report.status() == SyncReport.Status.LOCAL_BUSY || report.status() == SyncReport.Status.CANCELLED) {
+            return false;
+        }
+        return before == null || before.status() != report.status();
+    }
+
     private void setState(State next) {
         state = next;
         for (Runnable listener : List.copyOf(listeners)) listener.run();
@@ -588,6 +608,10 @@ final class SettingsSync {
         if (asker != null) {
             if (report.ok()) asker.info(tr("sync.done", summary(report, waitingLabels)));
             else asker.error(problemText(report));
+        } else if (tellsOfFailure(report, state.report())) {
+            // Nobody asked for this run: it was automatic, or started on the Settings page. Its
+            // failure still goes to the Message Log, and so to the echo area (SET-21, Pauta 6.0.1).
+            unasked.error(problemText(report));
         }
         if (report.status() == SyncReport.Status.CANCELLED) {
             again = false;

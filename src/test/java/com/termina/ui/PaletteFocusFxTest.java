@@ -99,6 +99,34 @@ class PaletteFocusFxTest {
     }
 
     @Test
+    void anOpenPaletteFollowsAChangeOfBindings() throws Exception {
+        // PAL-09 (Pauta 6.0.1): the opener's chip and the rows are rebuilt as the bindings change,
+        // so a palette that is up never shows a chord that has moved.
+        Settings settings = new Settings(dir.resolve("rebind.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+
+        String[] seen = onFx(() -> {
+            run(window, "palette.show");
+            String before = window.paletteChordForTest("newTab") + " " + window.paletteOpenerForTest();
+            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y", "palette.show", "Alt+X"));
+            String after = window.paletteChordForTest("newTab") + " " + window.paletteOpenerForTest();
+            run(window, "palette.show");
+            settings.replaceKeyBindings(java.util.Map.of());
+            return new String[] {before, after};
+        });
+        String y = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+Y").getDisplayText();
+        String t = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+T").getDisplayText();
+        String p = javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+P").getDisplayText();
+        String x = javafx.scene.input.KeyCombination.valueOf("Alt+X").getDisplayText();
+        assertEquals(t + " " + p, seen[0]);
+        assertEquals(y + " " + x, seen[1], "the open palette shows the chords in force");
+    }
+
+    @Test
     void theKeyboardReachesTheMenuBarThroughItsCommand() throws Exception {
         Settings settings = new Settings(dir.resolve("bar.json"));
         settings.load();

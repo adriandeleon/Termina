@@ -101,6 +101,7 @@ public final class WindowManager {
             applySettingsEverywhere();
         });
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
+        this.sync.setUnaskedReporter(messages::add);
         // A window joins this list as it is shown, before its first frame: the one place that
         // catches every window — settings, About, a confirmation dialog — however it was made.
         // The sizes the code fixes, in every window, follow the UI zoom (WIN-12, Pauta 6.0.1).

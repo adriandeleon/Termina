@@ -2713,6 +2713,15 @@ public final class TerminalWindow {
         menuBar.getMenus().getFirst().show();
     }
 
+    /** What the open palette shows as command {@code id}'s chord, and as its own opener: for tests. */
+    String paletteChordForTest(String id) {
+        return palette == null ? "" : palette.chordForTest(id);
+    }
+
+    String paletteOpenerForTest() {
+        return palette == null ? "" : palette.openerForTest();
+    }
+
     /** A tab's menu as it would open now: built if this is its first asking, and set up for the showing. */
     List<MenuItem> tabMenuItemsForTest(Tab tab) {
         ContextMenu menu = tab.getContextMenu();
@@ -3250,7 +3259,12 @@ public final class TerminalWindow {
             KeyCombination chord = chords.get(id);
             for (MenuItem item : items) MenuRows.setChord(item, chord);
         });
-        if (palette != null) palette.setOpener(chordOf(paletteAction.id()));
+        if (palette != null) {
+            // The whole palette, not only its opener (PAL-09): an open one re-renders its rows.
+            palette.rebind(
+                    chordOf(paletteAction.id()),
+                    palette.isShowing() ? paletteRows(new java.util.IdentityHashMap<>()) : List.of());
+        }
         newTabTipText.set(withChord("command.newTab", "tooltip.newTab", chordOf("newTab")));
         closeTabTipText.set(withChord("command.closeTab", "tooltip.closeTab", chordOf("closeTab")));
     }

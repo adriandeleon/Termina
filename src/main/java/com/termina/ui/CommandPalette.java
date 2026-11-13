@@ -171,8 +171,50 @@ final class CommandPalette {
         prefixChip.setManaged(opener != null);
     }
 
+    /**
+     * The bindings changed (PAL-09, Pauta 6.0.1): the opener's chip, the key legend and, when the
+     * palette is up, its rows are rebuilt, so an open palette never shows a chord that has moved.
+     *
+     * @param commands the rows as they are now, each with its chord in force; ignored while hidden,
+     *     since showing takes them fresh
+     */
+    void rebind(@Nullable KeyCombination opener, List<MenuAction> commands) {
+        setOpener(opener);
+        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        if (!isShowing()) return;
+        MenuAction selected = list.getSelectionModel().getSelectedItem();
+        String id = selected == null ? null : selected.id();
+        this.commands = List.copyOf(commands);
+        items.setAll(orderedMatches(this.commands, currentQuery, enabled));
+        // The same row stays selected, by its command: its object is a new one.
+        int at = -1;
+        for (int i = 0; i < items.size() && id != null; i++) {
+            if (id.equals(items.get(i).id())) {
+                at = i;
+                break;
+            }
+        }
+        if (at >= 0) list.getSelectionModel().select(at);
+        else selectFirstEnabled();
+    }
+
     boolean isShowing() {
         return host.getChildren().contains(card);
+    }
+
+    /** The chord the open palette shows for command {@code id}, or "" for none or no such row: for tests. */
+    String chordForTest(String id) {
+        for (MenuAction row : items) {
+            if (id.equals(row.id())) {
+                return row.accelerator() == null ? "" : row.accelerator().getDisplayText();
+            }
+        }
+        return "";
+    }
+
+    /** The opener chip's text: for tests. */
+    String openerForTest() {
+        return prefixChip.getText();
     }
 
     /**

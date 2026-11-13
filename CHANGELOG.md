@@ -126,6 +126,11 @@ done.
   a dialog used to appear, and one row at the top holding the menus, the title and the window
   buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
   had already chosen is left as it is.
+- **A settings sync that fails on its own says so.** A failed automatic sync, or one started on
+  the Settings page, now goes to the Message Log and the status bar, once per kind of failure; it
+  used to show only on the Sync page. That page has a status pill: Off, Synced, Syncing or Problem.
+- **An open Command Palette follows a change of key bindings**, its rows and its own shortcut
+  included.
 - **A tab's marks differ by shape as well as color**: a dot for new output, a ring for the bell, a
   diamond for a program asking for attention. In gray they were three identical dots.
 - **Counts read right for one.** "1 unread error", "1 file", in every language; they were worded

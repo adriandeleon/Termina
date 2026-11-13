@@ -311,6 +311,31 @@ class ChromeHabitsTest {
     }
 
     @Test
+    void aSyncThatFailsOnItsOwnIsToldOnce() {
+        // SET-21 (Pauta 6.0.1): a failure of a run nobody asked for reaches the Message Log, and a
+        // repository that stays unreachable is one message, not one each interval.
+        var ok = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.OK, List.of(), List.of(), List.of(), "");
+        var unreachable = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.FETCH_FAILED, List.of(), List.of(), List.of(), "no route");
+        var refused = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.PUSH_FAILED, List.of(), List.of(), List.of(), "denied");
+        var busy = new com.termina.sync.SyncReport(
+                com.termina.sync.SyncReport.Status.LOCAL_BUSY, List.of(), List.of(), List.of(), "");
+        assertFalse(SettingsSync.tellsOfFailure(ok, null));
+        assertTrue(SettingsSync.tellsOfFailure(unreachable, null), "the first failure");
+        assertTrue(SettingsSync.tellsOfFailure(unreachable, ok), "a failure after a good run");
+        assertFalse(SettingsSync.tellsOfFailure(unreachable, unreachable), "the same failure again");
+        assertTrue(SettingsSync.tellsOfFailure(refused, unreachable), "another kind of failure");
+        assertFalse(SettingsSync.tellsOfFailure(busy, ok), "the bindings changing mid-run is no failure");
+        // The pill's word for each phase has a key in the catalog.
+        for (SettingsSync.Phase phase : SettingsSync.Phase.values()) {
+            String key = SettingsWindow.syncPillKey(phase);
+            assertFalse(com.termina.i18n.Messages.tr(key).equals(key), key + " is not in the catalog");
+        }
+    }
+
+    @Test
     void cannotBeUndoneIsSaidOnlyWhereItIsTrue() throws IOException {
         Properties english = new Properties();
         try (var in = Files.newBufferedReader(Path.of("src/main/resources/com/termina/i18n/messages.properties"))) {

@@ -2262,6 +2262,10 @@ public final class SettingsWindow {
     private boolean syncCreating;
 
     private Label syncState;
+
+    /** The sync's phase as a pill (SET-21, Pauta 6.0.1): one word, colored for how it stands. */
+    private final Label syncPill = new Label();
+
     private Label syncAccount;
     private Button syncNow;
     private Button syncCancel;
@@ -2347,7 +2351,8 @@ public final class SettingsWindow {
         syncRemoveCredentials = new Button(tr("settings.sync.removeCredentials"));
         syncRemoveCredentials.setOnAction(e -> act(SettingsActions.Action.SYNC_REMOVE_CREDENTIALS));
         HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway, syncRemoveCredentials);
-        VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
+        syncPill.getStyleClass().add("sync-pill");
+        VBox stateControl = new VBox(6, new HBox(syncPill), syncState, syncAccount, buttons);
         stateControl.setMaxWidth(420);
         stateControl.setPrefWidth(420);
         row(
@@ -2537,6 +2542,11 @@ public final class SettingsWindow {
         return null;
     }
 
+    /** The pill's word for a phase, as a catalogue key. */
+    static String syncPillKey(SettingsSync.Phase phase) {
+        return "sync.pill." + phase.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
     /** Puts the sync's state on the page: which button says what, and what the last run did. */
     private void refreshSync() {
         if (syncState == null) return;
@@ -2545,6 +2555,9 @@ public final class SettingsWindow {
                 sync == null ? SettingsSync.Phase.OFF : sync.state().phase();
         syncConnect.setText(tr(connected ? "settings.sync.disconnect" : "settings.sync.connect"));
         syncConnect.setDisable(sync == null || syncCreating);
+        syncPill.setText(tr(syncPillKey(phase)));
+        syncPill.getStyleClass().removeAll("off", "idle", "syncing", "problem");
+        syncPill.getStyleClass().add(phase.name().toLowerCase(java.util.Locale.ROOT));
         syncRepository.setDisable(connected || syncCreating);
         syncBranch.setDisable(connected || syncCreating);
         setShown(syncCreateGitHub, sync != null && !connected && sync.gitHubAvailable());

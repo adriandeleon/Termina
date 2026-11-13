@@ -81,27 +81,11 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "QUAL-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-03",
-      "kind": "pending",
-      "reason": "The largest parts of the code have no coverage floor of their own.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "QUAL-07",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/quality/#qual-07",
       "kind": "pending",
       "reason": "Some tests wait a fixed time for the shell, which makes them slower than they need to be.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "QUAL-13",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/quality/#qual-13",
-      "kind": "pending",
-      "reason": "No test changes every setting, restarts and reads each one back.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -225,14 +209,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "SET-21",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/settings/#set-21",
-      "kind": "pending",
-      "reason": "A sync that fails on its own, or from Settings, shows only on the Sync page and not in the status bar or the Message Log.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "DIAG-07",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/diagnostics/#diag-07",
@@ -262,14 +238,6 @@
       "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08",
       "kind": "pending",
       "reason": "The Command Palette has no key that opens the documentation for the highlighted command.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PAL-09",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-09",
-      "kind": "pending",
-      "reason": "An open Command Palette keeps showing the old shortcut after a key binding changes.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
