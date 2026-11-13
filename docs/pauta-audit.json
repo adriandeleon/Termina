@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 69 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 66 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 69 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 66 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 69 entries link issue #92, read with `gh issue view`: open, and naming each of the 69 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 66 entries link issue #92, read with `gh issue view`: open, and naming each of the 66 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 69 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 66 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 69 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 66 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -1168,8 +1168,8 @@
     {
       "id": "MENU-14",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "About half of the menu rows have no icon yet."
+      "status": "pass",
+      "evidence": "one table gives every command a menu lists its glyph (src/main/java/com/termina/ui/MenuIcons.java:362, forCommand :444): Material 24 dp paths, and outline glyphs in the kit's style where the set has none (:466). The bar's rows draw it in their icon column, the right-click menus as their graphic; the zoom row of the right-click menu wears the zoom family's (src/main/java/com/termina/ui/ZoomMenuRow.java:84), and Copy Link Address has its own. Only the Show Menu Bar check row goes without. src/test/java/com/termina/ui/MenuIconsTest.java:42 fails a bar row with no entry, :55 a glyph that does not draw, :72 a glyph borrowed from another action; src/test/java/com/termina/ui/NamedControlsFxTest.java:113-123 opens the bar's menus, a tab's, the terminal's, the profile drop-down, the two logs' and the profile list's and fails on a visible row with no glyph (fixed in 85a589b)"
     },
     {
       "id": "MENU-15",
@@ -1192,14 +1192,14 @@
     {
       "id": "MENU-01",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "Two rows of the menu bar are not single commands: the list of profiles under New Tab With, and the zoom row with its four buttons."
+      "status": "pass",
+      "evidence": "the bar's model lists command ids only, beside rules and one submenu that groups command ids (src/main/java/com/termina/ui/MenuBarModel.java:57; New Tab With is the nine numbered profile commands, :35, :65; each zoom command is a row, :106). Every row runs its id through the registry (src/main/java/com/termina/ui/TerminalWindow.java:3499-3509), the submenu's rows included (:2842, :2910), and takes its title, chord and enabled state from it as its menu opens; a profile row is named for the profile it opens by the registry's own label. src/test/java/com/termina/ui/MenuBarModelTest.java:73 fails a row that is none of the three, and src/test/java/com/termina/ui/MenusFxTest.java:321 lays the bar as built against the model, row for row (fixed in 85a589b)"
     },
     {
       "id": "MENU-02",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "The zoom row in the View menu is laid out as a row of buttons, without the icon and shortcut columns the other rows have."
+      "status": "pass",
+      "evidence": "no bar row calls setAccelerator, and each row of the in-window bar is a CustomMenuItem of icon, title, spacer and chord (src/main/java/com/termina/ui/MenuRows.java:66, :191); the row of four zoom buttons is out of the bar (src/main/java/com/termina/ui/MenuBarModel.java:106), so no row has another layout. On the macOS system menu bar a row is its title with the chord appended and no graphic (:162). src/test/java/com/termina/ui/MenusFxTest.java:483 reads every row of every menu, the profile submenu's too (fixed in 85a589b)"
     },
     {
       "id": "MENU-03",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (69 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (66 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 69 pending entries (10 MUST, 59 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 66 pending entries (7 MUST, 59 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2453,6 +2453,7 @@
     "Three more were judged again the same day, after the fixes in 892280f: OS-02, PERF-01, PERF-07. OS-04 was read again through the new Os class and still fails, for the three differences it names.",
     "The conformance work was judged the same day, in a78d371: PAUTA-01, PAUTA-02, PAUTA-09, PAUTA-10, PAUTA-15, ABOUT-09, PWIN-01, PWIN-03, PWIN-04, PWIN-05, PWIN-06, PWIN-07, WIN-04 and ABOUT-07 pass; PWIN-02, PWIN-08, MENU-10, PAUTA-08 are for a person to check in the running app; and the 73 rules with an entry are pending.",
     "Found while driving the command line, and since fixed: the main class extended Application, so the Java launcher started the JavaFX toolkit before main ran, and with no display --version, --help and --report ended in \"Unable to open DISPLAY\". master's 6bf1f68 (pull request 91) moved the entry point to com.termina.Main, and this branch has it merged in. Results judged at 6de43a1 that cite lines of App.java predate that change; PERF-16 alone was brought up to date, and still fails.",
-    "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json."
+    "Four pending MUSTs were met on 2026-11-12, in c167783: PLAT-12, CLI-11, WIN-01, WIN-03 now pass, and their entries are out of pauta.json.",
+    "Three more pending MUSTs were met on 2026-11-12, the menus', in 85a589b: MENU-01, MENU-02, MENU-14 now pass, and their entries are out of pauta.json."
   ]
 }
