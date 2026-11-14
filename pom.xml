@@ -25,7 +25,7 @@
              src/test/resources/pauta-rules.json with that edition's, audit again, update pauta.json,
              then change this, AGENTS.md and the README together. What is still unmet is in
              src/main/resources/com/termina/pauta.json. -->
-        <pauta.version>6.0.1</pauta.version>
+        <pauta.version>6.1.0</pauta.version>
 
         <javafx.version>27.0.1</javafx.version>
         <spotless.version>3.11.0</spotless.version>

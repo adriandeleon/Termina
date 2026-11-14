@@ -10,15 +10,15 @@ it, and fix the documentation in the same change.
 
 ## Pauta
 
-This app is working toward Pauta 6.0.1. Its rules: https://pauta-project.dev/6.0.1/llms.txt (every
-rule in one file: https://pauta-project.dev/6.0.1/llms-full.txt). What it does not meet yet is in
+This app is working toward Pauta 6.1.0. Its rules: https://pauta-project.dev/6.1.0/llms.txt (every
+rule in one file: https://pauta-project.dev/6.1.0/llms-full.txt). What it does not meet yet is in
 `src/main/resources/com/termina/pauta.json`, one entry per rule, each with a reason and an issue;
 the app's conformance (Complete, Core or Partial) is computed from that file by
 `PautaConformance`, never typed in. The last full audit is `docs/pauta-audit.md`.
 
 - Before building a feature, read the rules on its page and copy from the code each rule's
   Reference names (Editora, usually checked out beside this repository).
-- Cite a rule by its ID and edition: "KBD-07 (Pauta 6.0.1)". Older comments cite the edition they
+- Cite a rule by its ID and edition: "KBD-07 (Pauta 6.1.0)". Older comments cite the edition they
   were written against.
 - A change that meets a rule removes its entry from `pauta.json` in the same change, and one that
   stops meeting a rule adds an entry (PAUTA-04). `PautaConformanceTest` holds the file to the
