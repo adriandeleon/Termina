@@ -16,3 +16,4 @@ that says which one it replaces.
 - [0010. The status bar and the title-bar menus are on by default](0010-status-bar-and-title-bar-menus-on-by-default.md)
 - [0011. The last session's tabs come back at launch](0011-the-last-session-comes-back.md)
 - [0012. Key bindings sync as one file, and a Mac's Command is Ctrl+Shift in it](0012-one-file-of-key-bindings.md)
+- [0013. Config files are plain classes, read and written by Jackson](0013-config-files-are-plain-classes.md)

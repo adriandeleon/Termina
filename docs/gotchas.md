@@ -513,3 +513,11 @@ is broken.
   else changed. Change a control's rule in the dark sheet and `HighContrastTest` fails until
   `scripts/high-contrast-theme.py` has been run. A stylesheet the zoom should scale is also named
   in `UiZoom.SHEETS`: one left out draws at 100% whatever the interface zoom.
+- **A class Jackson fills needs its package opened, and no test will say so.** The config files
+  are read and written as plain classes (`ConfigJson.Stored`, `SessionStore.Stored`,
+  `ThemeFile.Stored`) through one `ObjectMapper`, `ConfigJson.mapper()`. Jackson sets their fields
+  by reflection, so `module-info` has `opens <package> to com.fasterxml.jackson.databind` for each
+  package holding one. The tests run on the class path, where everything is open: a stored class
+  in a new package passes every test and fails in the running application with
+  `InaccessibleObjectException`. Run it on the module path (`scripts/dev-run.sh`, or a capture)
+  before believing it.

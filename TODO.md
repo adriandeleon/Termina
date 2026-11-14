@@ -20,7 +20,6 @@ A test fails when this list and that file disagree.
 ### SHOULD
 
 - [ ] **[PAUTA-14](https://pauta-project.dev/6.0.1/conformance/#pauta-14)** The website builds its conformance page from this list, in a version of the site that is not published yet.
-- [ ] **[PLAT-14](https://pauta-project.dev/6.0.1/platform/#plat-14)** The settings file is read and written by hand-written code and not by the JSON library the guidelines name.
 - [ ] **[DOCS-03](https://pauta-project.dev/6.0.1/documentation/#docs-03)** The app opens the user guide for its own version, which the website does not serve yet.
 - [ ] **[DOCS-04](https://pauta-project.dev/6.0.1/documentation/#docs-04)** The website's What's New, command and roadmap pages are built from the app, in a version of the site that is not published yet.
 - [ ] **[DOCS-18](https://pauta-project.dev/6.0.1/documentation/#docs-18)** The website's screenshots are retaken at double size but not published yet.

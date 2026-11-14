@@ -106,16 +106,21 @@ class SessionStoreTest {
         assertThrows(IOException.class, () -> SessionStore.read("{\"tabs\": []}"));
         assertThrows(IOException.class, () -> SessionStore.read("{\"version\": 1, \"tabs\": ["));
 
+        // A value of the wrong kind where a tab or a pane belongs is not a session either.
+        assertThrows(IOException.class, () -> SessionStore.read("{\"version\": 1, \"tabs\": [\"a string\"]}"));
+        assertThrows(IOException.class, () -> SessionStore.read("{\"version\": 1, \"tabs\": [{\"panes\": [1, 2]}]}"));
+
         ClosedTabs.Window some = SessionStore.read("""
-                {"version": 1, "selected": 5, "tabs": [
-                  "a string",
+                {"version": 1, "selected": 5, "later": true, "tabs": [
                   {"pinned": true},
                   {"panes": {"split": "DIAGONAL", "children": []}},
-                  {"panes": {"split": "VERTICAL", "dividers": [7, "x"], "children": [{"directory": "/a"}]}},
-                  {"active": 9, "panes": {"directory": "/b", "title": 3}}
+                  {"panes": {"split": "VERTICAL", "dividers": [7, 0.4], "children": [{"directory": "/a"}]}},
+                  {"active": 9, "panes": {"directory": "/b"}}
                 ]}
                 """);
-        // The split with one pane left is that pane; the active pane out of range is the first.
+        // A tab with no panes and one split in no known direction are left out; the split with
+        // one pane left is that pane; the active pane out of range is the first; a field this
+        // build does not know is passed over.
         assertEquals(2, some.tabs().size());
         assertEquals(
                 "/a",
@@ -123,6 +128,26 @@ class SessionStoreTest {
         assertEquals(0, some.tabs().get(1).layout().activeLeaf());
         assertEquals("", some.tabs().get(1).layout().root().leaves().get(0).userTitle());
         assertEquals(1, some.tabs().get(1).index(), "each tab's place is its place among those kept");
+    }
+
+    /** PLAT-14 (Pauta 6.0.1): the value is written by Jackson from plain classes, in one order. */
+    @Test
+    void theValueIsWrittenByTheConfigFilesOwnMapper() throws IOException {
+        String stored = SessionStore.write(twoTabs());
+        assertTrue(
+                stored.startsWith("{\"version\":1,\"selected\":1,\"tabs\":[{\"pinned\":false,\"active\":0,"), stored);
+        // A pane has no split's fields and a split no pane's.
+        assertTrue(
+                stored.contains(
+                        "{\"shell\":\"/bin/zsh\",\"directory\":\"/home/me\",\"profile\":\"\",\"title\":\"build\"}"),
+                stored);
+        assertTrue(stored.contains("{\"split\":\"HORIZONTAL\",\"dividers\":[0.3],\"children\":["), stored);
+        String source =
+                java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/termina/ui/SessionStore.java"));
+        assertTrue(source.contains("ConfigJson.mapper()"));
+        for (String byHand : java.util.List.of("JsonGenerator", "JsonParser", "JsonFactory")) {
+            assertFalse(source.contains(byHand), byHand);
+        }
     }
 
     @Test

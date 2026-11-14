@@ -29,7 +29,7 @@ parameters rather than static calls, because the Windows branch is the one the f
 the one that cannot be run here.
 
 **Importing a colour scheme is in `com.termina.theme`**: one reader per format, all to a
-JavaFX-free `ColorScheme`, stored as `<config>/themes/*.properties` and listed with the built-ins by
+JavaFX-free `ColorScheme`, stored as `<config>/themes/*.json` and listed with the built-ins by
 `ui.Themes`. Anything that draws asks `Themes.drawn`, never the `Theme` enum, which is only the five
 built-ins: it gives the theme an id names, or the high-contrast one while Windows' high-contrast
 mode is on (`ui.HighContrast`, ACC-09). `Themes.byId` is for what shows or edits the choice

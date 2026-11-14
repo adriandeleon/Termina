@@ -145,6 +145,12 @@ done.
 
 ### Changed
 
+- **An imported colour scheme is stored as JSON.** A theme is `themes/<name>.json` in the settings
+  folder, where it was `<name>.properties`. Each theme you have is rewritten the first time
+  Termina starts, under the same name, and the file it was is kept beside it as
+  `<name>.properties.migrated`. Nothing that uses a theme changes. A configuration zip exported
+  by an older Termina still imports. The settings, the window state and the session's tabs are
+  read and written by Jackson as plain classes now and look the same on disk.
 - **Help opens the guide for the version you are running.** Documentation, the Help link on each
   page of Settings and the Pauta window's link open `termina-project.dev/docs/v-<version>/`, where
   they opened the newest guide whatever the version.

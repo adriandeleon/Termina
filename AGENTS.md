@@ -161,6 +161,7 @@ touching its area.
 - Keys and mouse reports fired at a shell's prompt are commands.
 - `Themes.byId` is the choice; `Themes.drawn` is what to draw with.
 - `editora-contrast.css` is written by a script, and a test holds it to the dark sheet.
+- A class Jackson fills needs its package opened, and no test will say so.
 
 ## Where things are
 

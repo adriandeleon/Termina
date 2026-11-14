@@ -79,8 +79,10 @@
 
         <!-- The release-check response is a large JSON document with user-authored text in it, so
              it gets a real parser. Hand-rolling one to save a dependency would mean hand-rolling
-             string-escape handling, which is the entire hard part. jackson-core only — no
-             databind, and it is already a proper JPMS module, so jlink links it without moditect. -->
+             string-escape handling, which is the entire hard part. jackson-databind as well since
+             0.15: the config files are read and written through ObjectMapper as plain classes
+             (PLAT-14, Pauta 6.0.1). All three Jackson jars are proper JPMS modules, so jlink links
+             them without moditect. -->
         <jackson.version>2.22.4</jackson.version>
 
         <junit.version>6.1.3</junit.version>
@@ -199,6 +201,11 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
 

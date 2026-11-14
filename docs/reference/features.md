@@ -631,7 +631,7 @@ ratio rather than leaving it to judgement, for every colour in both themes.
 **Importing.** Settings → Appearance → **Import…** reads a scheme another terminal wrote: an iTerm2
 `.itermcolors`, a Terminal `.terminal` profile, a Windows Terminal scheme or a whole `settings.json`
 (every scheme in it), or a Ghostty, kitty or Alacritty theme — the formats iTerm2-Color-Schemes
-publishes every scheme in. It is stored as `<config>/themes/<name>.properties`, plain and editable,
+publishes every scheme in. It is stored as `<config>/themes/<name>.json`, plain and editable,
 and listed after the built-in four; importing it again replaces it, and **Remove** deletes it. Its
 colours are taken exactly as the file has them, cursor and selection included where it names them,
 and the chrome follows its background. A `.terminal` profile is the awkward one: each colour is an
