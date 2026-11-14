@@ -472,6 +472,10 @@ done.
 
 ### Fixed
 
+- **A profile's folder could be undone by the edit before it.** In Settings ▸ Profiles, changing
+  the command and then the folder a moment later could leave the folder as it was: each edit
+  checks its paths on its own thread, and the first edit's answer sometimes arrived last and was
+  written over the second. Only the newest edit of a profile is applied now.
 - **Settings sync's `gh` is given the login shell's `PATH`,** as `git` already was: started from a
   desktop launcher, a `gh` installed by Homebrew could be found and then fail to find `git`. The
   link opener and the desktop's own tools (`xclip`, `notify-send`) get it too once it is known.

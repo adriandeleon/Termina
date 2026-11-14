@@ -2081,13 +2081,23 @@ public final class SettingsWindow {
         String directory = profileDirectory.getText();
         // Whether the command and the folder are there is the disk's to say, so it is asked on a
         // worker (PERF-01, Pauta 6.0.1) and the edit is made back here with the two answers.
+        // Each check is on a thread of its own, so two commits a moment apart can answer out of
+        // order. Only the newest for its profile is applied: it was made from the form as it stood
+        // last, and an older one applied after it wrote its stale folder back.
+        String id = selected.id();
+        long edit = profileEdits.begin(id);
         PATH_CHECKS.execute(() -> {
             boolean commandPasses = commits(ShellLauncher.validateCommand(command));
             boolean directoryPasses = commits(ShellLauncher.validateDirectory(directory));
-            Platform.runLater(
-                    () -> applyProfileEdit(selected.id(), name, command, commandPasses, directory, directoryPasses));
+            Platform.runLater(() -> {
+                if (!profileEdits.isNewest(id, edit)) return;
+                applyProfileEdit(id, name, command, commandPasses, directory, directoryPasses);
+            });
         });
     }
+
+    /** Numbers the commits of a profile's form, so a late answer to an older one is dropped. */
+    private final LatestEdit profileEdits = new LatestEdit();
 
     /** The edit itself, on the FX thread, once the worker has said which of the two paths pass. */
     private void applyProfileEdit(
