@@ -1,59 +1,11 @@
 {
   "exceptions": [
     {
-      "rule": "PAUTA-13",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/conformance/#pauta-13",
-      "kind": "pending",
-      "reason": "The website's page that lists the Pauta edition, the conformance and these exceptions is written but not published yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PAUTA-14",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/conformance/#pauta-14",
-      "kind": "pending",
-      "reason": "The website builds its conformance page from this list, in a version of the site that is not published yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "DOCS-01",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-01",
-      "kind": "pending",
-      "reason": "The user guide's screenshots are taken but not on the website yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "DOCS-02",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-02",
-      "kind": "pending",
-      "reason": "The user guide's page on installing a download and checking its signature is written but not on the website yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "DOCS-03",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-03",
-      "kind": "pending",
-      "reason": "The app opens the user guide for its own version, which the website does not serve yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "DOCS-04",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-04",
       "kind": "pending",
-      "reason": "The website's What's New, command and roadmap pages are built from the app, in a version of the site that is not published yet.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "DOCS-18",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-18",
-      "kind": "pending",
-      "reason": "The website's screenshots are retaken at double size but not published yet.",
+      "reason": "The website checks the commands and keys its guide quotes on pull requests, and not yet in the build that deploys the site.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -62,14 +14,6 @@
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-04",
       "kind": "pending",
       "reason": "On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "PAL-08",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08",
-      "kind": "pending",
-      "reason": "The Command Palette's help key opens a command's page of the user guide, which the website does not serve yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
