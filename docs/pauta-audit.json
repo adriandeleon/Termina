@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 13 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 12 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 13 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 12 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 13 entries link issue #92, read with `gh issue view`: open, and naming each of the 13 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 12 entries link issue #92, read with `gh issue view`: open, and naming each of the 12 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 13 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 12 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 13 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 12 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -1750,8 +1750,8 @@
     {
       "id": "PAL-06",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The Command Palette's movement keys are fixed and do not follow the key bindings."
+      "status": "pass",
+      "evidence": "a row and a page move on the chords the bindings in force give four commands, nav.lineDown, nav.lineUp, nav.pageDown and nav.pageUp, looked up and not written into the palette: the window hands the palette the tokens of those chords whenever the bindings are applied (src/main/java/com/termina/ui/TerminalWindow.java:3366; src/main/java/com/termina/ui/PaletteKeys.java:72), and the key handler resolves a press against them after the arrows and Page Up and Page Down, which move whatever the bindings say (:90). The four are rebound in Settings like any command; their defaults, Emacs's own, are in src/main/resources/com/termina/keymaps/lists.json, apart from the platform key maps because they are plain Ctrl and Alt with a letter, and the window's key filter passes them over (src/main/java/com/termina/ui/WindowRules.java:159; src/main/java/com/termina/ui/TerminalWindow.java:3297), so with the terminal in front those keys stay the shell's. The run path hides the card before it runs the command and does nothing on a greyed row (src/main/java/com/termina/ui/CommandPalette.java:337). src/test/java/com/termina/ui/PaletteKeysTest.java:52 holds the lookup, the arrows and the legend, and src/test/java/com/termina/ui/PaletteFocusFxTest.java:156 moves a real palette on Ctrl+N, rebinds it to Ctrl+J and finds Ctrl+N dead and the window's filter taking neither (fixed in 954f2c3)"
     },
     {
       "id": "PAL-07",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (13 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (12 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 13 pending entries (3 MUST, 10 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 12 pending entries (3 MUST, 9 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2471,6 +2471,7 @@
     "One more pending SHOULD was settled on 2026-11-13, in a thirteenth batch, in 60cf356: KBD-02 now pass, and its entry is out of pauta.json. Twelve rows that named a command by its old id name it by the new one.",
     "One more pending SHOULD was built on 2026-11-13, in a fourteenth batch, in 2a8c950: WIN-15 is for a person to check on a Mac, where it has never run, and its entry is out of pauta.json. ACC-09 was looked at and left: it needs a high-contrast theme designed and a Windows machine to see it on.",
     "One more pending SHOULD was settled on 2026-11-13, in a fifteenth batch, in ad55f30: ACC-09 now passes, and its entry is out of pauta.json. OS-04 was read again against the guidelines, which name this difference themselves; what a chord rebound on one system becomes on another is left for a decision.",
-    "Two pending MUSTs were settled on 2026-11-13, in a sixteenth batch, in a757229: OS-04, REL-19 now pass, and their entries are out of pauta.json."
+    "Two pending MUSTs were settled on 2026-11-13, in a sixteenth batch, in a757229: OS-04, REL-19 now pass, and their entries are out of pauta.json.",
+    "One more pending SHOULD was settled on 2026-11-13, in a seventeenth batch, in 954f2c3: PAL-06 now passes, and its entry is out of pauta.json. The install page left the repository for the website the same day; DOCS-02 stays pending until the website carries it."
   ]
 }
