@@ -1,14 +1,6 @@
 {
   "exceptions": [
     {
-      "rule": "DOCS-04",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/documentation/#docs-04",
-      "kind": "pending",
-      "reason": "The website checks the commands and keys its guide quotes on pull requests, and not yet in the build that deploys the site.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "KBD-04",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/keyboard/#kbd-04",
