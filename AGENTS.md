@@ -114,6 +114,7 @@ touching its area.
 - The deb's dependencies are the build host's package names for whatever is in the image.
 - GNOME Software has two pages for a package, and only one reads the listing.
 - Full-screen geometry cannot be diagnosed from inside the app on Wayland.
+- On Linux an opacity set before the window is shown never reaches it.
 - Closing asks; shutting down does not.
 - Tab disposal is driven off the tab list, not the close button.
 - The macOS system menu bar still occupies layout.
