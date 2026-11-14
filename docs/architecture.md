@@ -37,8 +37,10 @@ itself. The high-contrast control stylesheet is the dark one with other values f
 tokens, written by `scripts/high-contrast-theme.py`.
 
 **Settings sync is a fifth, in `com.termina.sync`, ported from Editora's.** It carries only the key
-bindings, one file per platform family (`keybindings/macos.properties`,
-`keybindings/windows-linux.properties`), through a private clone in `<config>/sync/repo` that git
+bindings, in one file for every system (`keybindings/keybindings.properties`, OS-04) whose chords
+are in the Windows and Linux form: a Mac reads `Ctrl+Shift` as Command and writes Command as
+`Ctrl+Shift` (`sync.SharedChords`; [decision 0012](decisions/0012-one-file-of-key-bindings.md)). It
+goes through a private clone in `<config>/sync/repo` that git
 never merges: the remote is checked out, a per-command three-way merge against
 `refs/termina/base` is written over it, and that is pushed. `ui.SettingsSync` schedules runs and
 writes results into the live `Settings`; one process per config folder syncs, by file lock. For an

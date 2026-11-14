@@ -98,11 +98,10 @@ class SettingsSyncFxTest {
                         Settings.DEFAULT_SYNC_BRANCH,
                         bare.toString(),
                         other.toString()));
-        String file = com.termina.ui.Keybindings.MAC
-                ? com.termina.sync.KeybindingsFile.MAC_PATH
-                : com.termina.sync.KeybindingsFile.OTHER_PATH;
+        // The one file every system shares, in the Windows and Linux form (OS-04).
+        String file = com.termina.sync.KeybindingsFile.PATH;
         Files.createDirectories(other.resolve(file).getParent());
-        Files.writeString(other.resolve(file), "file.newTab=Shortcut+Shift+K\n");
+        Files.writeString(other.resolve(file), "file.newTab=Ctrl+Shift+K\n");
         assertEquals(0, git(other, "add", file));
         assertEquals(
                 0,
@@ -113,7 +112,8 @@ class SettingsSyncFxTest {
             return null;
         });
         waitFor(
-                () -> "Shortcut+Shift+K".equals(settings.values().get("keys.file.newTab")),
+                () -> com.termina.sync.SharedChords.fromShared("Ctrl+Shift+K", com.termina.ui.Keybindings.MAC)
+                        .equals(settings.values().get("keys.file.newTab")),
                 "the other computer's binding");
 
         // What the Sync page asks, and the buttons it offers, with a run settled.

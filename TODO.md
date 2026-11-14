@@ -13,11 +13,9 @@ A test fails when this list and that file disagree.
 
 ### MUST
 
-- [ ] **[OS-04](https://pauta-project.dev/6.0.1/same-on-every-os/#os-04)** Key bindings sync through one file for macOS and another for Windows and Linux, so a shortcut changed on a Mac is not changed on the others.
 - [ ] **[PAUTA-13](https://pauta-project.dev/6.0.1/conformance/#pauta-13)** The website has no page yet that lists the Pauta edition, the conformance and these exceptions.
 - [ ] **[DOCS-01](https://pauta-project.dev/6.0.1/documentation/#docs-01)** The user guide on the website has no screenshots yet.
 - [ ] **[DOCS-02](https://pauta-project.dev/6.0.1/documentation/#docs-02)** How to install a download and check its signature is explained in the repository, not in the user guide on the website.
-- [ ] **[REL-19](https://pauta-project.dev/6.0.1/release/#rel-19)** A change can still be merged without the format and test checks having passed.
 
 ### SHOULD
 

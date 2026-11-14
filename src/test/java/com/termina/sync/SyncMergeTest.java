@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /** The three-way merge, one command at a time. */
 class SyncMergeTest {
 
-    private static final String PATH = KeybindingsFile.OTHER_PATH;
+    private static final String PATH = KeybindingsFile.PATH;
 
     private static String file(Map<String, String> bindings) {
         return KeybindingsFile.text(PATH, bindings);

@@ -15,11 +15,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class KeybindingsFileTest {
 
     @Test
-    void eachPlatformFamilyHasItsOwnFile() {
-        // A chord recorded on Linux names Control, which on a Mac is not the key the user pressed.
-        assertEquals(KeybindingsFile.MAC_PATH, KeybindingsFile.pathFor(true));
-        assertEquals(KeybindingsFile.OTHER_PATH, KeybindingsFile.pathFor(false));
-        assertNotEquals(KeybindingsFile.pathFor(true), KeybindingsFile.pathFor(false));
+    void everySystemSharesOneFile() {
+        // OS-04 (Pauta 6.0.1): the two files per platform family are no longer written.
+        assertEquals("keybindings/keybindings.properties", KeybindingsFile.PATH);
+        assertNotEquals(KeybindingsFile.PATH, KeybindingsFile.MAC_PATH);
+        assertNotEquals(KeybindingsFile.PATH, KeybindingsFile.OTHER_PATH);
+        assertTrue(KeybindingsFile.isKeybindings(KeybindingsFile.PATH));
         assertTrue(KeybindingsFile.isKeybindings(KeybindingsFile.MAC_PATH));
         assertFalse(KeybindingsFile.isKeybindings("README.md"));
     }
@@ -33,8 +34,8 @@ class KeybindingsFileTest {
         b.put("file.closeTab", "none");
         b.put("file.newTab", "Ctrl+Shift+Y");
 
-        String text = KeybindingsFile.text(KeybindingsFile.OTHER_PATH, a);
-        assertEquals(text, KeybindingsFile.text(KeybindingsFile.OTHER_PATH, b));
+        String text = KeybindingsFile.text(KeybindingsFile.PATH, a);
+        assertEquals(text, KeybindingsFile.text(KeybindingsFile.PATH, b));
         assertTrue(text.indexOf("file.closeTab=none") < text.indexOf("file.newTab=Ctrl+Shift+Y"), text);
         assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", "none"), KeybindingsFile.entries(text));
     }
@@ -42,8 +43,8 @@ class KeybindingsFileTest {
     @Test
     void noBindingsIsNoFile() {
         // Every command on its default: a file listing nothing would only say that at greater length.
-        assertNull(KeybindingsFile.text(KeybindingsFile.MAC_PATH, Map.of()));
-        assertNull(KeybindingsFile.text(KeybindingsFile.MAC_PATH, null));
+        assertNull(KeybindingsFile.text(KeybindingsFile.PATH, Map.of()));
+        assertNull(KeybindingsFile.text(KeybindingsFile.PATH, null));
         assertEquals(Map.of(), KeybindingsFile.entries(null));
     }
 
@@ -68,7 +69,7 @@ class KeybindingsFileTest {
         Map<String, String> bindings = Map.of("file.newTab", "Ctrl+Y\nevil=Ctrl+E", "edit.paste", "Ctrl+Shift+V");
         assertEquals(
                 Map.of("edit.paste", "Ctrl+Shift+V"),
-                KeybindingsFile.entries(KeybindingsFile.text(KeybindingsFile.OTHER_PATH, bindings)));
+                KeybindingsFile.entries(KeybindingsFile.text(KeybindingsFile.PATH, bindings)));
     }
 
     /**
@@ -80,7 +81,7 @@ class KeybindingsFileTest {
         String theirs = "commandPalette=Alt+X\nabout=none\nnewTab=Ctrl+Shift+Y\n";
         Map<String, String> read = KeybindingsFile.entries(theirs);
         assertEquals(Map.of("palette.show", "Alt+X", "help.about", "none", "file.newTab", "Ctrl+Shift+Y"), read);
-        String written = KeybindingsFile.text(KeybindingsFile.OTHER_PATH, read);
+        String written = KeybindingsFile.text(KeybindingsFile.PATH, read);
         assertTrue(written.contains("palette.show=Alt+X\n"), written);
         assertFalse(written.contains("commandPalette"), written);
         // Both in one file, as after an old and a new computer have each written: the new id's stands.

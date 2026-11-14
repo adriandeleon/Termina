@@ -1,14 +1,6 @@
 {
   "exceptions": [
     {
-      "rule": "OS-04",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/same-on-every-os/#os-04",
-      "kind": "pending",
-      "reason": "Key bindings sync through one file for macOS and another for Windows and Linux, so a shortcut changed on a Mac is not changed on the others.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "PAUTA-13",
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/conformance/#pauta-13",
@@ -110,14 +102,6 @@
       "url": "https://pauta-project.dev/6.0.1/release/#rel-17",
       "kind": "pending",
       "reason": "The Windows installer is not signed.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
-      "rule": "REL-19",
-      "level": "MUST",
-      "url": "https://pauta-project.dev/6.0.1/release/#rel-19",
-      "kind": "pending",
-      "reason": "A change can still be merged without the format and test checks having passed.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     }
   ]

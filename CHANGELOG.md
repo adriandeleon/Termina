@@ -142,6 +142,13 @@ done.
 
 ### Changed
 
+- **Settings sync carries a changed shortcut to every system.** Key bindings sync as one file
+  where there was one for macOS and one for Windows and Linux, so a shortcut you change on a Mac
+  changes on your Linux and Windows computers, and the other way. Command on a Mac is Ctrl+Shift
+  elsewhere: `Cmd+K` there is `Ctrl+Shift+K` here. Update every computer that shares a sync
+  repository: one still on an older Termina will say the repository is newer than it is and stop
+  syncing until it is updated. Two computers that had each changed the same command will disagree
+  once, and the one that syncs second wins.
 - **On macOS, Settings is in the application menu**, under About, where every Mac app has it. It
   shows the shortcut bound to Settings and follows it when you change it. The File menu keeps
   its row. This has not yet been run on a Mac.

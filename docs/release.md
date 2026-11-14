@@ -19,6 +19,13 @@ Palette, run a command, and move through Settings, listening for each control's 
 smoke test starts the app with nobody there to listen, so this is a step of its own and a person's.
 Record the pass in `pauta.json`'s `checked` list, with the version it was made on.
 
+`master` is a protected branch (REL-19, Pauta 6.0.1): **Format** and the three **Test** jobs of
+`ci.yml` are required status checks, so a pull request cannot be merged until they have passed.
+Administrators are not held to it, which is what lets the release commit and the `-SNAPSHOT` commit
+after it be pushed straight to `master`; GitHub says so on each such push. To read the setting:
+`gh api repos/adriandeleon/Termina/branches/master/protection`. A job renamed in `ci.yml` has to be
+renamed there too, or the pull requests wait for a check that never reports.
+
 After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
 source says it is one: the update check treats a snapshot as the release it leads up to, and never
 offers it the release it is already ahead of.
