@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 11 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 10 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 11 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 10 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 11 entries link issue #92, read with `gh issue view`: open, and naming each of the 11 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 10 entries link issue #92, read with `gh issue view`: open, and naming each of the 10 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 11 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 10 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 11 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 10 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -623,7 +623,7 @@
       "id": "KBD-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:296 makes the scene root a StackPane and :3100 hands it to the palette, which adds its backdrop and card to it (src/main/java/com/termina/ui/CommandPalette.java:184); no `javafx.stage.Popup` is created in src/main, and the app has no picker"
+      "evidence": "src/main/java/com/termina/ui/TerminalWindow.java:317 makes the scene root a StackPane and :318 gives it to the overlay host, which adds the backdrop and the card of the palette and of every picker to it (src/main/java/com/termina/ui/OverlayHost.java:85; src/main/java/com/termina/ui/CommandPalette.java:279; src/main/java/com/termina/ui/QuickPick.java:188); no `javafx.stage.Popup` is created in src/main"
     },
     {
       "id": "KBD-09",
@@ -1757,7 +1757,7 @@
       "id": "PAL-07",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "Esc and a press on the backdrop hide the palette (the key table binds no cancel command), and hiding gives the keyboard back to the node that had it before it opened (src/main/java/com/termina/ui/CommandPalette.java:198, :210-227): the find bar's field when it was opened from there, the terminal when that node is gone or cannot take it, and nowhere when the command it ran put the keyboard somewhere of its own. src/test/java/com/termina/ui/PaletteFocusFxTest.java:48 opens it from the terminal and from the find bar's field (fixed in 17edb17)"
+      "evidence": "Esc, the chord the key table binds to the cancel command and a press on the backdrop hide the palette. Cancelling is the nav.cancel command, Ctrl+G by default in src/main/resources/com/termina/keymaps/lists.json and rebound in Settings (src/main/java/com/termina/ui/PaletteKeys.java:63; src/test/java/com/termina/ui/PaletteKeysTest.java:175). Hiding is the overlay host's, which gives the keyboard back to the node that had it before the card opened (src/main/java/com/termina/ui/OverlayHost.java:93, returnsTo :146): the find bar's field when it was opened from there, the terminal when that node is gone or cannot take it, and nowhere when something outside the card took the keyboard meanwhile. src/test/java/com/termina/ui/PaletteFocusFxTest.java:49 opens it from the terminal and from the find bar's field"
     },
     {
       "id": "PAL-08",
@@ -1774,74 +1774,74 @@
     {
       "id": "QOPEN-01",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette."
+      "status": "pass",
+      "evidence": "one generic class, QuickPick<T> (src/main/java/com/termina/ui/QuickPick.java:52), serves every list choice the app has: Select Color Theme, Select Font, Select Cursor Shape (a setting's values) and New Tab from Profile are four instances built by one helper (src/main/java/com/termina/ui/TerminalWindow.java:3413; :3436, :3460, :3478, :3494), each a registered command. No ChoiceDialog and no second list-picker class exists: src/test/java/com/termina/ui/QuickPickTest.java:78 walks src/main for both and for any class but the palette, the Message Log and the picker that shows a card. src/test/java/com/termina/ui/QuickPickFxTest.java:251 opens each of the four in a real window and chooses from it. Seen in a headless capture (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-02",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "the picker is the palette's card (style class command-palette) shown through the overlay host the palette and the Message Log use (src/main/java/com/termina/ui/QuickPick.java:188; src/main/java/com/termina/ui/OverlayHost.java:75), with a title that is the command's name over the field (src/main/java/com/termina/ui/QuickPick.java:112; src/main/java/com/termina/ui/WindowRules.java, pickerTitle) and a prompt in the field (:115). src/test/java/com/termina/ui/QuickPickFxTest.java:81 reads both off a shown picker (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-03",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "show() calls the items supplier and keeps a copy for the showing (src/main/java/com/termina/ui/QuickPick.java:181), so typing filters a list that does not move; reload() reads the supplier again and filters with the text still in the field (:201). The font picker uses it: the bundled families are registered off the FX thread, and a picker opened before they all are reads again when they arrive (src/main/java/com/termina/ui/TerminalWindow.java:3473). src/test/java/com/termina/ui/QuickPickFxTest.java:81 adds an item to the source, sees the open picker unchanged, and after reload sees it with the query kept (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-04",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "an empty query passes the items through in the supplier's order (src/main/java/com/termina/ui/QuickPick.java:278) and selects the value in force when the picker was given one (setCurrent, :157; startIndex, :298); all four pickers give one. src/test/java/com/termina/ui/QuickPickTest.java:22, :47 and src/test/java/com/termina/ui/QuickPickFxTest.java:81 (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-05",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "typed, the rows are sorted by fuzzy score and the last tiebreak is the supplier's index (src/main/java/com/termina/ui/QuickPick.java:288); src/test/java/com/termina/ui/QuickPickTest.java:29 holds it with rows that score the same in both orders (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-06",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "the picker's key handler resolves a press through the palette's own table (src/main/java/com/termina/ui/QuickPick.java:242; src/main/java/com/termina/ui/PaletteKeys.java, resolve): the arrows, Page Up and Down and Ctrl+Home and End always, plain Home and End left to the field, and a line and a page on the chords the bindings in force give nav.lineDown, nav.lineUp, nav.pageDown and nav.pageUp, read at each key from the window (src/main/java/com/termina/ui/TerminalWindow.java, listMoves). Enter or a click chooses, and the accept path hides the card before it calls the choice handler (:254). src/test/java/com/termina/ui/QuickPickFxTest.java:119 moves on Ctrl+N, Ctrl+P and the arrows and finds the host empty and the keyboard back when the choice runs (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-07",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "Esc, the chord the key table binds to the cancel command and a press on the backdrop each hide the picker. Cancelling is a command now, nav.cancel, Ctrl+G by default in src/main/resources/com/termina/keymaps/lists.json:9 and rebound in Settings like any other (src/main/java/com/termina/ui/PaletteKeys.java:63; no letter is fixed for it, src/test/java/com/termina/ui/PaletteKeysTest.java:175). Hiding is the overlay host's, which gives the keyboard back to the node that had it before the card opened, or to the terminal (src/main/java/com/termina/ui/OverlayHost.java:93; the backdrop's press, :63). A picker that previewed runs its undo when it comes down without a choice (src/main/java/com/termina/ui/QuickPick.java:191), which src/test/java/com/termina/ui/QuickPickFxTest.java:173 asserts for Escape and for a close from outside the card, and src/test/java/com/termina/ui/QuickPickFxTest.java:251 for the theme in a real window (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-08",
       "level": "MAY",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "Select Color Theme previews: the selection listener shows the theme the selection moves to once the picker is showing, never for the row it opens on (src/main/java/com/termina/ui/QuickPick.java:140), and a dismissal puts back the theme there was while a choice does not (src/main/java/com/termina/ui/TerminalWindow.java:3451). The other three pickers apply on Enter. src/test/java/com/termina/ui/QuickPickFxTest.java:173 asserts all four clauses; :251 moves a row in the real theme picker, reads a new theme id, presses Escape and reads the old one (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-09",
       "level": "MAY",
       "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "evidence": "no picker has a row action: the four pickers choose and close (src/main/java/com/termina/ui/QuickPick.java has no key that acts on a row and stays open), so there is nothing for the rule's check to run"
     },
     {
       "id": "QOPEN-10",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "every picker has a placeholder sentence: the constructor sets one for a list with no rows (src/main/java/com/termina/ui/QuickPick.java:127), and the profile picker, the one whose source could in principle be empty, sets its own (src/main/java/com/termina/ui/TerminalWindow.java:3505). The list keeps one row's height with nothing in it, so the sentence has somewhere to be (listHeight; src/test/java/com/termina/ui/QuickPickTest.java:56); src/test/java/com/termina/ui/QuickPickFxTest.java:81 filters to nothing and reads the sentence (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-11",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "the overlay host holds one card: show removes the card that was up before it adds the new one, and keeps the focus owner from before the first (src/main/java/com/termina/ui/OverlayHost.java:78). The palette, the Message Log and the pickers all show through it and nowhere else (src/test/java/com/termina/ui/QuickPickTest.java:78). src/test/java/com/termina/ui/QuickPickFxTest.java:212 shows a second card over a first and finds one card, the first's hidden hook run, and the keyboard back at the original node after the close; :251 opens the palette over a picker in a real window (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-12",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no picker: the one card is the Command Palette, which lists commands (src/main/java/com/termina/ui/CommandPalette.java:53); profiles are a ContextMenu and the other lists combo boxes in Settings"
+      "status": "pass",
+      "evidence": "the picker's relatives are the Command Palette and the Message Log's card, the app's other list overlays. The palette and the picker map their keys through the same helper (src/main/java/com/termina/ui/PaletteNav.java and src/main/java/com/termina/ui/PaletteKeys.java). The Message Log is a log to read and copy from, with nothing to accept; it moves on the chords bound to a line and a page and closes on the one bound to cancelling, through the same table (src/main/java/com/termina/ui/MessageLogCard.java:179), beside the list's own arrows and Esc (:168). src/test/java/com/termina/ui/LogWindowsFxTest.java:297 moves and closes a shown log on Ctrl+N, Ctrl+P and Ctrl+G (fixed in 7ec50ba)"
     },
     {
       "id": "WELC-01",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (11 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (10 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2201,7 +2201,7 @@
       "id": "MLOG-08",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the log is a card added to the window's overlay host with its backdrop, and no Stage (src/main/java/com/termina/ui/MessageLogCard.java:241; built per window at src/main/java/com/termina/ui/TerminalWindow.java:3311), aligned to the bottom left with the status bar's height under it (:239), 773 wide with a list 336 high at the default zoom and both times the interface zoom (WIDTH :45, LIST_HEIGHT :48, sizeAt), over the newest 200 messages (src/main/java/com/termina/ui/MessageLog.java:30). src/test/java/com/termina/ui/LogWindowsFxTest.java:296 lays it out in a 1200 by 800 window and reads 773 and 336, 8 px from the left and 8 above the bar, with no window opened, and holds the cap and the absence of a Stage in the source; src/test/java/com/termina/ui/PaletteFocusFxTest.java:103 opens it in a real terminal window. Seen in a headless capture (fixed in 3af07ed)"
+      "evidence": "the log is a card shown through the window's overlay host, and no Stage (src/main/java/com/termina/ui/MessageLogCard.java:247; built per window at src/main/java/com/termina/ui/TerminalWindow.java:3364), aligned to the bottom left with the status bar's height under it (:244), 773 wide with a list 336 high at the default zoom and both times the interface zoom (WIDTH :45, LIST_HEIGHT :48, sizeAt), over the newest 200 messages (src/main/java/com/termina/ui/MessageLog.java:30). src/test/java/com/termina/ui/LogWindowsFxTest.java:296 lays it out in a 1200 by 800 window and reads 773 and 336, 8 px from the left and 8 above the bar, with no window opened, and holds the cap and the absence of a Stage in the source; src/test/java/com/termina/ui/PaletteFocusFxTest.java:103 opens it in a real terminal window. Seen in a headless capture (fixed in 3af07ed)"
     },
     {
       "id": "MLOG-02",
@@ -2213,7 +2213,7 @@
       "id": "MLOG-03",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the Message Log's card closes on Escape (src/main/java/com/termina/ui/MessageLogCard.java:205), on a press on the backdrop behind it (:179) and on the chord bound to the command that opened it (:206); there is no fixed Ctrl+G, and Termina's one key table binds no cancel command for a chord to be read from (src/main/resources/com/termina/keymaps/keymap.json), which the rule leaves at Escape and the press outside. src/test/java/com/termina/ui/LogWindowsFxTest.java:296 presses each and :400 holds the rule; src/test/java/com/termina/ui/ChromeHabitsTest.java:114 fails a fixed G in the card (fixed in d67554b)"
+      "evidence": "the Message Log's card closes on Escape (src/main/java/com/termina/ui/MessageLogCard.java:168), on the chord the key table binds to the cancel command, nav.cancel, read from the bindings in force and not a fixed Ctrl+G (:179; src/main/java/com/termina/ui/PaletteKeys.java:63), on a press on the backdrop behind it (src/main/java/com/termina/ui/OverlayHost.java:63) and on the chord bound to the command that opened it. src/test/java/com/termina/ui/LogWindowsFxTest.java:297 closes a shown log on the bound chord and finds a rebound table no longer closing on Ctrl+G; :352 presses Escape, the backdrop, Close and the opener's chord; src/test/java/com/termina/ui/ChromeHabitsTest.java fails a fixed G in the card"
     },
     {
       "id": "MLOG-04",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 11 pending entries (3 MUST, 8 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 10 pending entries (3 MUST, 7 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2474,6 +2474,7 @@
     "Two pending MUSTs were settled on 2026-11-13, in a sixteenth batch, in a757229: OS-04, REL-19 now pass, and their entries are out of pauta.json.",
     "One more pending SHOULD was settled on 2026-11-13, in a seventeenth batch, in 954f2c3: PAL-06 now passes, and its entry is out of pauta.json. The install page left the repository for the website the same day; DOCS-02 stays pending until the website carries it.",
     "Eight rules that wait on the website were built on 2026-11-13, in a branch of termina-website that describes 0.15.0 and is not merged: PAUTA-13, PAUTA-14, DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-18 and PAL-08, with the app's half of DOCS-02, DOCS-03 and PAL-08 in this repository. They stay pending until the site is live; their rows say what is done.",
-    "One more pending SHOULD was settled on 2026-11-13, in an eighteenth batch, in 2639478: PLAT-14 now pass, and its entry is out of pauta.json."
+    "One more pending SHOULD was settled on 2026-11-13, in an eighteenth batch, in 2639478: PLAT-14 now pass, and its entry is out of pauta.json.",
+    "One more pending SHOULD was settled on 2026-11-13, in a nineteenth batch, and the picker it adds brought ten more rules into scope, in 7ec50ba: QOPEN-01, QOPEN-02, QOPEN-03, QOPEN-04, QOPEN-05, QOPEN-06, QOPEN-07, QOPEN-08, QOPEN-10, QOPEN-11, QOPEN-12 now pass, and QOPEN-01 is out of pauta.json. QOPEN-09 stays limited: no picker has a row action."
   ]
 }
