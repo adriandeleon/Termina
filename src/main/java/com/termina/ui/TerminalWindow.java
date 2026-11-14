@@ -335,6 +335,7 @@ public final class TerminalWindow {
         Icons.applyTo(stage);
         if (settings.windowMaximized()) stage.setMaximized(true);
         stage.setOpacity(WindowOpacity.clamp(settings.windowOpacity()));
+        stage.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN, e -> resendOpacity());
         trackGeometry();
         stage.setOnCloseRequest(e -> {
             if (!confirmClose(new ArrayList<>(tabs.getTabs()))) e.consume();
@@ -3331,6 +3332,24 @@ public final class TerminalWindow {
     }
 
     // ---------------------------------------------------------------- settings
+
+    /**
+     * Sends the window's opacity to the window system again, once the window exists there.
+     *
+     * <p>On Linux an opacity set before the window is shown never arrives. JavaFX hands it to
+     * {@code gtk_widget_set_opacity}, which records it and writes {@code _NET_WM_WINDOW_OPACITY}
+     * only on a realized window; realizing then re-derives the same value, finds it unchanged and
+     * writes nothing. The window came up opaque, with {@code stage.getOpacity()} reporting the
+     * setting, until anything that changed the value — or a trip through full screen — sent it.
+     * {@code Stage.setOpacity} with the value it already holds is not a change and reaches nothing,
+     * hence the step through opaque.
+     */
+    private void resendOpacity() {
+        double opacity = stage.getOpacity();
+        if (opacity >= WindowOpacity.MAX) return;
+        stage.setOpacity(WindowOpacity.MAX);
+        stage.setOpacity(opacity);
+    }
 
     /** Re-applies everything that can change while a session is running, to every tab. */
     public void applySettings() {

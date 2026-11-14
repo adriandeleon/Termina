@@ -144,6 +144,12 @@ Each of these cost real time, and none of them announces itself.
   can write reads JavaFX's own state, so it will agree with itself and say nothing. The check that
   distinguishes it is outside the app: `xrandr` for the panel size against what `Screen` reports, and
   `gsettings get org.gnome.mutter experimental-features`.
+- **On Linux an opacity set before the window is shown never reaches it.** GTK records it and
+  writes `_NET_WM_WINDOW_OPACITY` only on a realized window, and realizing finds the value
+  unchanged and writes nothing — so the window came up opaque, and became see-through only after
+  full screen (which steps the alpha to 1 and back) or a settings change. `stage.getOpacity()` says
+  the setting throughout. `TerminalWindow.resendOpacity` steps it through opaque on `WINDOW_SHOWN`;
+  `xprop -id <window> _NET_WM_WINDOW_OPACITY` is the check.
 - **Closing asks; shutting down does not.** `TerminalWindow.close()` is the user's request and
   prompts when a shell has children; `closeForShutdown()` is teardown and must not. `App.stop()`
   reaches `WindowManager.closeAll()` after the quit is already decided and while the toolkit is
