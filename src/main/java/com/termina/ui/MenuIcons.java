@@ -280,6 +280,15 @@ public final class MenuIcons {
     /** showStatusBar: a window with its bottom row marked. */
     private static final String SHOWSTATUSBAR = "M2.5 3h11v10h-11zM2.5 10h11";
 
+    /** toggleSimpleMode: a window with two short rows of menu. */
+    private static final String SIMPLEMODE = "M2.5 3h11v10h-11zM5 6.5h4M5 9.5h2.5";
+
+    /** toggleZen: a window with nothing in it but a cursor. */
+    private static final String ZENMODE = "M2.5 3h11v10h-11zM6 8h4";
+
+    /** toggleExpert: a window with a prompt and its bottom row marked. */
+    private static final String EXPERTMODE = "M2.5 3h11v10h-11zM2.5 10.5h11M5 5.5l2 1.5l-2 1.5";
+
     /** nextTab: Material's chevron right. */
     private static final String NEXTTAB = "M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
 
@@ -412,6 +421,9 @@ public final class MenuIcons {
         add("view.fullScreen", () -> of(FULLSCREEN));
         add("view.toggleMenuBar", () -> line(HIDEMENUBAR));
         add("view.toggleStatusBar", () -> line(SHOWSTATUSBAR));
+        add("view.toggleSimpleMode", () -> line(SIMPLEMODE));
+        add("view.toggleZen", () -> line(ZENMODE));
+        add("view.toggleExpert", () -> line(EXPERTMODE));
         add("tab.next", () -> of(NEXTTAB));
         add("tab.previous", () -> of(PREVIOUSTAB));
         add("pane.splitRight", () -> line(SPLITRIGHT));

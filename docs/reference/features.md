@@ -257,6 +257,15 @@ Settings: click the field and press another one. A bare key is refused — the s
 so is a chord another command already has, since the first binding on a chord is the only one
 that runs.
 
+**Window modes** change how much chrome a window shows. **Zen Mode** hides the menu bar, the tab
+strip and the status bar; **Expert Mode** hides the menu bar and the tab strip and keeps the status
+bar; **Simple Mode** hides nothing and shortens the menu bar to File, Edit, View and Help with the
+everyday commands in each. Zen and Expert are a window's own, last until it closes and write no
+setting: what shows is what the settings say less what the mode hides (`ui.Chrome`, one table), so
+leaving the mode brings back what was there. Simple is the setting `ui.simpleMode`, in every window.
+Each is a command in the View menu, named for the way it will go ("Leave Zen Mode" while it is on);
+with the bar hidden the palette is the way back, and the Message Log says so as the mode starts.
+
 A **picker** is the palette's card for a choice from a list: a title naming the command, a field
 to type in, the list with the value in force selected, and the palette's own keys. Four commands
 open one, each in the palette and bindable: **Select Color Theme**, which shows each theme in the

@@ -73,6 +73,12 @@ gives the keyboard back, when the card closes, to the node that had it before th
 opened, or to the terminal. All three move on `PaletteKeys`' table: the arrows, and the chords the
 bindings give the four `nav` commands.
 
+**How much chrome a window shows is `ui.Chrome`'s**, one pure truth table (WIN-10): the menu bar,
+the tab strip and the status bar each show when their setting says so and no mode in force hides
+them. Zen and Expert are a field of the window (`Chrome.Modes`) and are never written to a setting.
+Simple mode is the setting `ui.simpleMode` and changes which of two sets of menus the bar holds,
+both built once from `MenuBarModel.menus(boolean)` and swapped only when the mode changes (MENU-04).
+
 **Commands are by id, in `ui.CommandRegistry`.** Each window registers every command with its
 action, its label now and its gate now (`TerminalWindow.currentLabel`, `unavailableNow`). Menu items,
 the palette and the key bindings all run and name a command through it, and a menu refreshes its

@@ -50,6 +50,7 @@ final class SettingCommands {
             Map.entry("settings.theme", "the palette lists every theme (palette.theme)"),
             Map.entry("settings.showMenuBar", "View ▸ Hide Menu Bar, view.toggleMenuBar"),
             Map.entry("settings.showStatusBar", "View ▸ Show Status Bar, view.toggleStatusBar"),
+            Map.entry("settings.simpleMode", "View ▸ Simple Mode, view.toggleSimpleMode"),
             Map.entry("settings.exportConfig", "the settings.exportConfiguration command"),
             Map.entry("settings.importConfig", "the settings.importConfiguration command"),
             Map.entry("settings.debugLog", "Help ▸ Debug Log, help.debugLog"),

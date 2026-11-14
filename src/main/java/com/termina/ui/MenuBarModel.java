@@ -56,6 +56,57 @@ final class MenuBarModel {
 
     /** The bar: the same rows on every OS. */
     static List<Menu> menus() {
+        return menus(false);
+    }
+
+    /**
+     * The bar for the window's mode (MENU-04, WIN-10, Pauta 6.0.1). Simple mode keeps the bar and
+     * shortens it: the menu is the map of what the app can do, which someone new needs most, so
+     * what Simple changes is how much of the map there is. Every command is still in the palette.
+     */
+    static List<Menu> menus(boolean simple) {
+        return simple ? simpleMenus() : fullMenus();
+    }
+
+    /**
+     * Simple mode's bar: four menus of what a terminal is used for on the first day. Every row is
+     * a row of the full bar too, and View ends in the command that brings the full bar back. No
+     * menu here owns a command without a row; those belong to the full bar's menus.
+     */
+    private static List<Menu> simpleMenus() {
+        Menu file = new Menu(
+                "menu.file",
+                List.of(
+                        "file.newTab",
+                        "file.newWindow",
+                        SEPARATOR,
+                        "file.closeTab",
+                        SEPARATOR,
+                        "settings.show",
+                        SEPARATOR,
+                        "app.quit"),
+                List.of());
+        Menu edit = new Menu(
+                "menu.edit", List.of("edit.copy", "edit.paste", "edit.selectAll", SEPARATOR, "find.show"), List.of());
+        Menu view = new Menu(
+                "menu.view",
+                List.of(
+                        "view.zoomIn",
+                        "view.zoomOut",
+                        "view.actualSize",
+                        SEPARATOR,
+                        "view.fullScreen",
+                        SEPARATOR,
+                        "view.toggleSimpleMode"),
+                List.of());
+        Menu help = new Menu(
+                "menu.help",
+                List.of("palette.show", "help.documentation", "help.keyboardShortcuts", SEPARATOR, "help.about"),
+                List.of());
+        return List.of(file, edit, view, help);
+    }
+
+    private static List<Menu> fullMenus() {
         List<String> fileUnlisted =
                 new ArrayList<>(List.of("settings.exportConfiguration", "settings.importConfiguration"));
         // The Settings window's buttons (KBD-01): palette and chord only, beside Settings itself.
@@ -114,6 +165,11 @@ final class MenuBarModel {
         viewRows.add("view.toggleMenuBar");
         viewRows.add("view.toggleTabBar");
         viewRows.add("view.toggleStatusBar");
+        // The window's modes (WIN-10, Pauta 6.0.1): how much chrome, and how much menu.
+        viewRows.add(SEPARATOR);
+        viewRows.add("view.toggleSimpleMode");
+        viewRows.add("view.toggleZen");
+        viewRows.add("view.toggleExpert");
         // The UI zoom's three commands: palette and chord only. View's zoom rows are the
         // terminal text's, which is the zoom a terminal's user reaches for.
         Menu view = new Menu(

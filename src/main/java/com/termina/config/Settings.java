@@ -78,6 +78,7 @@ public final class Settings {
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
     public static final String SHOW_STATUS_BAR = "ui.showStatusBar";
+    public static final String SIMPLE_MODE = "ui.simpleMode";
     public static final String RESTORE_SESSION = "session.restore";
     public static final String SESSION_TABS = "session.tabs";
     public static final String UI_ZOOM = "ui.zoom";
@@ -1083,6 +1084,19 @@ public final class Settings {
 
     public void setShowStatusBar(boolean show) {
         put(SHOW_STATUS_BAR, String.valueOf(show));
+    }
+
+    /**
+     * Simple mode (WIN-10, MENU-04, Pauta 6.0.1): the menu bar lists a shorter set of commands,
+     * for someone new. Off by default. A setting and not a window's own state, unlike Zen and
+     * Expert: menus that were short yesterday should be short today.
+     */
+    public boolean simpleMode() {
+        return readBoolean(SIMPLE_MODE, false);
+    }
+
+    public void setSimpleMode(boolean simple) {
+        put(SIMPLE_MODE, String.valueOf(simple));
     }
 
     /** Width a new window opens at, or 0 when none has been recorded yet. */

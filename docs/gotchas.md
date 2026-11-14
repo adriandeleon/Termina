@@ -528,3 +528,14 @@ is broken.
   in a new package passes every test and fails in the running application with
   `InaccessibleObjectException`. Run it on the module path (`scripts/dev-run.sh`, or a capture)
   before believing it.
+- **What chrome shows is `Chrome`'s answer, not the setting's.** A window in Zen or Expert mode
+  hides chrome its settings have on, without writing them. Code that asks
+  `settings.showStatusBar()` to decide where a message goes, or how tall something is, is wrong in
+  Zen: ask `statusBarShown()` and `tabStripShown()`, which put the setting through the table.
+  `report` did ask the setting, and in Zen would have sent a message to a status bar that was not
+  there.
+- **The menu bar has two sets of menus, and holds one.** Simple mode's shorter set is built beside
+  the full one and the bar is handed whichever the mode asks for. `menuBar.getMenus()` is
+  therefore what is on screen, not every command: the shortcut reference walks `fullMenus`. A set
+  that is out of the bar is not refreshed by opening, so `applyMenuShape` refreshes it as it goes
+  in; without that the row that leaves Simple mode still read "Simple Mode".

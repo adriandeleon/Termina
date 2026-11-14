@@ -13,6 +13,20 @@ done.
 
 ### Added
 
+- **Three window modes**, in the View menu, the Command Palette and bindable under Settings ▸
+  Keyboard:
+  - **Zen Mode** hides the window's menu bar, tab strip and status bar and leaves the terminal
+    alone.
+  - **Expert Mode** hides the menu bar and the tab strip and keeps the status bar.
+  - **Simple Mode** keeps everything and shortens the menu bar to four menus of everyday
+    commands, for someone new to Termina. It is also Settings ▸ Appearance ▸ Simple mode.
+
+  Zen and Expert belong to one window, last until it closes and change no setting, so leaving
+  the mode brings back exactly what was there. With the menu bar hidden the way out is the
+  Command Palette, which lists Leave Zen Mode or Leave Expert Mode, and the Message Log says so
+  when the mode starts. Simple Mode is a setting and applies to every window. In every mode each
+  command keeps its chord and its row in the palette. On macOS the menus are in the screen's menu
+  bar, which Zen and Expert do not hide.
 - **Pickers: a list to type into for a choice from a list.** Four commands, in the Command
   Palette and bindable under Settings ▸ Keyboard: **Select Color Theme**, **Select Font**,
   **Select Cursor Shape** and **New Tab from Profile**. Each opens on the value in force. Type to

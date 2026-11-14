@@ -77,6 +77,10 @@ class MessagesTest {
             "menu.updateAvailable",
             "menu.hideStatusBar",
             "menu.hideTabBar",
+            // The three modes' commands while their mode is on (WIN-10): the way out, by name.
+            "menu.leaveSimpleMode",
+            "menu.leaveZen",
+            "menu.leaveExpert",
             "menu.unpinTab",
             "menu.showMenuBar",
             "menu.showMenuBar.desc",

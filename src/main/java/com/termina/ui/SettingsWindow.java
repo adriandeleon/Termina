@@ -896,6 +896,7 @@ public final class SettingsWindow {
     private Spinner<Integer> uiZoom;
     private CheckBox showScrollBar;
     private CheckBox showStatusBar;
+    private CheckBox simpleMode;
     private CheckBox confirmClose;
     private CheckBox restoreSession;
     private ComboBox<String> language;
@@ -1200,6 +1201,19 @@ public final class SettingsWindow {
                 tr("settings.showStatusBar.desc"),
                 showStatusBar,
                 "status bar statusbar messages message log echo errors");
+
+        simpleMode = new CheckBox();
+        simpleMode.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setSimpleMode(value));
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.simpleMode"),
+                tr("settings.simpleMode.desc"),
+                simpleMode,
+                "simple mode menus menu bar short fewer beginner new zen expert");
 
         windowOpacity = new Slider(WindowOpacity.MIN * 100, WindowOpacity.MAX * 100, 100);
         windowOpacity.setPrefWidth(180);
@@ -2658,6 +2672,7 @@ public final class SettingsWindow {
             menuBarInTitleBar.setSelected(settings.menuBarInTitleBar());
             showScrollBar.setSelected(settings.showScrollBar());
             showStatusBar.setSelected(settings.showStatusBar());
+            simpleMode.setSelected(settings.simpleMode());
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             language.setValue(settings.uiLanguage());
             // Not under the user's fingers: a change from elsewhere — a sync run, a zoom chord in a

@@ -134,6 +134,29 @@ public final class TerminalWindow {
     /** Hide Tab Bar, or Show Tab Bar: named for the way it will go, like the status bar's. */
     private final MenuAction tabBarAction = item("command.view.toggleTabBar", this::toggleTabBar);
 
+    /**
+     * The window's modes (WIN-10, Pauta 6.0.1), each a command named for the way it will go. Simple
+     * is a setting, and shortens the menu bar in every window; Zen and Expert are this window's
+     * own, strip its chrome as {@link Chrome} says, and write no setting.
+     */
+    private final MenuAction simpleModeAction = item("command.view.toggleSimpleMode", this::toggleSimpleMode);
+
+    private final MenuAction zenAction = item("command.view.toggleZen", this::toggleZen);
+    private final MenuAction expertAction = item("command.view.toggleExpert", this::toggleExpert);
+
+    /** Whether this window is in Zen or in Expert mode; neither when it opens. */
+    private Chrome.Modes modes = Chrome.Modes.NONE;
+
+    /** The bar's two sets of menus, built once: every command's, and Simple mode's shorter one. */
+    private List<Menu> fullMenus = List.of();
+
+    private List<Menu> simpleMenus = List.of();
+
+    /** Which set the bar holds now, and how often it has been swapped: it changes only with the mode. */
+    private boolean menusAreSimple;
+
+    private int menuShapeChanges;
+
     private final MenuAction closeRightAction =
             item("command.file.closeTabsToTheRight", () -> withActiveTab(this::closeTabsToTheRight));
 
@@ -584,7 +607,7 @@ public final class TerminalWindow {
     private void applyMenuBarVisibility() {
         if (menuBar == null) return;
         boolean systemBar = SYSTEM_MENU_BAR && menusFitASystemMenuBar(menuBar.getMenus());
-        boolean occupies = WindowRules.menuBarOccupiesSpace(systemBar, settings.showMenuBar());
+        boolean occupies = WindowRules.menuBarOccupiesSpace(systemBar, Chrome.menuBar(settings.showMenuBar(), modes));
         // The style class is touched only when it changes: this runs on every settings write, and
         // a remove-then-add of the same class restyles the bar for nothing.
         boolean collapsed = menuBar.getStyleClass().contains(COLLAPSED_MENU_BAR);
@@ -600,6 +623,76 @@ public final class TerminalWindow {
     }
 
     private static final String COLLAPSED_MENU_BAR = "collapsed-menu-bar";
+
+    /** Whether the tab strip shows: the settings and the number of tabs say so, and no mode hides it. */
+    private boolean tabStripShown() {
+        return Chrome.tabBar(
+                WindowRules.shouldShowTabBar(
+                        tabs.getTabs().size(), settings.hideTabBarWhenSingle(), settings.showTabBar()),
+                modes);
+    }
+
+    /** Whether the status bar shows: the setting has it and Zen is not on. */
+    private boolean statusBarShown() {
+        return Chrome.statusBar(settings.showStatusBar(), modes);
+    }
+
+    /**
+     * Enters or leaves Zen or Expert (WIN-10, Pauta 6.0.1): this window's chrome follows, and no
+     * setting is written, so leaving brings back exactly what was there. With the menu bar gone
+     * the palette is the way back, and the Message Log says so.
+     */
+    private void setModes(Chrome.Modes next) {
+        if (next.equals(modes)) return;
+        modes = next;
+        applyTabBarVisibility();
+        applyMenuBarVisibility();
+        applyStatusBarVisibility();
+        if (next.focus()) {
+            windows.messages()
+                    .add(MessageLog.Severity.INFO, tr(next.zen() ? "mode.zen.entered" : "mode.expert.entered"));
+        }
+        focusActiveTerminal();
+    }
+
+    private void toggleSimpleMode() {
+        settings.setSimpleMode(!settings.simpleMode());
+    }
+
+    private void toggleZen() {
+        setModes(modes.toggleZen());
+    }
+
+    private void toggleExpert() {
+        setModes(modes.toggleExpert());
+    }
+
+    /**
+     * Puts the bar in the shape the mode asks for, every command's menus or Simple mode's shorter
+     * ones, and only when that is not the shape it is in (MENU-04, Pauta 6.0.1): this runs on
+     * every settings write, and swapping a bar's menus closes one that is open.
+     */
+    private void applyMenuShape() {
+        if (menuBar == null) return;
+        boolean simple = settings.simpleMode();
+        if (simple == menusAreSimple) return;
+        menusAreSimple = simple;
+        menuShapeChanges++;
+        menuBar.getMenus().setAll(simple ? simpleMenus : fullMenus);
+        // Named as the registry names them now, the mode's own command included: a set that has
+        // been out of the bar has not been opened since, and opening is what refreshes a menu.
+        for (Menu menu : menuBar.getMenus()) refreshItems(menu);
+    }
+
+    /** The modes, the chrome showing and how often the bar's menus were swapped: for tests. */
+    String chromeForTest() {
+        return (modes.zen() ? "zen" : modes.expert() ? "expert" : "none")
+                + (settings.simpleMode() ? "+simple" : "")
+                + " menuBar=" + (menuBar != null && menuBar.isVisible())
+                + " tabs=" + !tabs.getStyleClass().contains(HIDE_TAB_BAR)
+                + " status=" + (windowRoot.getBottom() == statusBar)
+                + " swaps=" + menuShapeChanges;
+    }
 
     /**
      * Takes the header bar out for full screen and puts it back after. The menu bar moves rather
@@ -626,8 +719,7 @@ public final class TerminalWindow {
      * the PTY — the shell learns about it the same way it learns about a window resize.
      */
     private void applyTabBarVisibility() {
-        boolean show = WindowRules.shouldShowTabBar(
-                tabs.getTabs().size(), settings.hideTabBarWhenSingle(), settings.showTabBar());
+        boolean show = tabStripShown();
         boolean hidden = tabs.getStyleClass().contains(HIDE_TAB_BAR);
         if (show && hidden) tabs.getStyleClass().remove(HIDE_TAB_BAR);
         if (!show && !hidden) tabs.getStyleClass().add(HIDE_TAB_BAR);
@@ -680,8 +772,7 @@ public final class TerminalWindow {
         // A missing header means the skin is still building it — but only while the strip is
         // shown. Hidden for a single tab, no header exists and none is coming, so retrying to the
         // budget every time would be twenty passes spent on a header nobody can see.
-        boolean stripShown = WindowRules.shouldShowTabBar(
-                tabs.getTabs().size(), settings.hideTabBarWhenSingle(), settings.showTabBar());
+        boolean stripShown = tabStripShown();
         if (stripShown && found < tabs.getTabs().size() && attempt < DECORATE_ATTEMPTS) {
             Platform.runLater(() -> decorateHeaders(attempt + 1));
         }
@@ -1989,7 +2080,8 @@ public final class TerminalWindow {
     List<ShortcutReference.Shortcut> shortcuts() {
         List<ShortcutReference.Shortcut> out = new ArrayList<>();
         java.util.Set<KeyCombination> listed = new java.util.HashSet<>();
-        for (Menu menu : menuBar.getMenus()) {
+        // Every command's menus, whichever set the bar holds: a chord works in Simple mode too.
+        for (Menu menu : fullMenus) {
             for (MenuItem item : menu.getItems()) {
                 KeyCombination chord = item.getUserData() instanceof String id ? chordOf(id) : null;
                 if (chord == null) continue;
@@ -2965,7 +3057,8 @@ public final class TerminalWindow {
         // below decides what a row does, is called or whether it can run: that is the registry's.
         Map<String, MenuAction> defined = menuCommands();
         menuBarToggle = defined.get("view.toggleMenuBar");
-        for (MenuBarModel.Menu spec : MenuBarModel.menus()) {
+        List<Menu> full = new ArrayList<>();
+        for (MenuBarModel.Menu spec : MenuBarModel.menus(false)) {
             String title = tr(spec.titleKey());
             Menu menu = new Menu(title);
             for (String row : spec.rows()) {
@@ -2988,8 +3081,26 @@ public final class TerminalWindow {
                 }
             }
             for (String id : spec.unlisted()) enlist(defined(defined, id), title);
-            bar.getMenus().add(menu);
+            full.add(menu);
         }
+        fullMenus = List.copyOf(full);
+        // Simple mode's bar (MENU-04): rows for commands the full bar has already entered, so
+        // nothing is registered here. Built once; the mode swaps which set the bar holds.
+        List<Menu> simple = new ArrayList<>();
+        for (MenuBarModel.Menu spec : MenuBarModel.menus(true)) {
+            Menu menu = new Menu(tr(spec.titleKey()));
+            for (String row : spec.rows()) {
+                menu.getItems()
+                        .add(
+                                row.equals(MenuBarModel.SEPARATOR)
+                                        ? new SeparatorMenuItem()
+                                        : menuItem(defined(defined, row)));
+            }
+            simple.add(menu);
+        }
+        simpleMenus = List.copyOf(simple);
+        menusAreSimple = settings.simpleMode();
+        bar.getMenus().setAll(menusAreSimple ? simpleMenus : fullMenus);
         // Loud, like a chord bound twice: a command the model leaves out has no group, no palette
         // row and no way to be reached but its chord.
         List<String> stray = new ArrayList<>(defined.keySet());
@@ -3010,7 +3121,9 @@ public final class TerminalWindow {
         // Every menu, as it opens, names and greys its items as the registry says (MENU-01): the
         // bar holds no rule of its own about what can run. A handler, not setOnShowing, which the
         // View menu's zoom row and the File menu's profile submenu use.
-        for (Menu menu : bar.getMenus()) {
+        List<Menu> both = new ArrayList<>(fullMenus);
+        both.addAll(simpleMenus);
+        for (Menu menu : both) {
             menu.addEventHandler(Menu.ON_SHOWING, e -> refreshItems(menu));
             menu.addEventHandler(Menu.ON_SHOWN, e -> MenuReasons.attach(menu.getItems()));
         }
@@ -3147,6 +3260,9 @@ public final class TerminalWindow {
                 }),
                 tabBarAction,
                 statusBarAction,
+                simpleModeAction,
+                zenAction,
+                expertAction,
                 // Listed in the palette like any other command (PAL-02, Pauta 2.0.2).
                 paletteAction,
                 // Window.
@@ -3634,7 +3750,7 @@ public final class TerminalWindow {
      */
     private void report(MessageLog.Severity severity, String message) {
         windows.messages().add(severity, message);
-        if (settings.showStatusBar()) return;
+        if (statusBarShown()) return;
         showReportDialog(message);
     }
 
@@ -3650,9 +3766,9 @@ public final class TerminalWindow {
         return settings.showStatusBar() ? tr("menu.hideStatusBar") : tr("command.view.toggleStatusBar");
     }
 
-    /** Places or removes the status bar, as the setting says. */
+    /** Places or removes the status bar, as the setting and the window's mode say. */
     private void applyStatusBarVisibility() {
-        boolean show = settings.showStatusBar();
+        boolean show = statusBarShown();
         if (show == (windowRoot.getBottom() == statusBar)) return;
         if (show) {
             statusBar.attach();
@@ -3746,6 +3862,13 @@ public final class TerminalWindow {
     private String currentLabel(String id, String standing) {
         if (id.equals(pinAction.id())) return pinLabel(tabs.getSelectionModel().getSelectedItem());
         if (id.equals(statusBarAction.id())) return statusBarLabel();
+        if (id.equals(simpleModeAction.id())) {
+            return tr(settings.simpleMode() ? "menu.leaveSimpleMode" : "command.view.toggleSimpleMode");
+        }
+        if (id.equals(zenAction.id())) return tr(modes.zen() ? "menu.leaveZen" : "command.view.toggleZen");
+        if (id.equals(expertAction.id())) {
+            return tr(modes.expert() ? "menu.leaveExpert" : "command.view.toggleExpert");
+        }
         if (id.equals(tabBarAction.id()))
             return tr(settings.showTabBar() ? "menu.hideTabBar" : "command.view.toggleTabBar");
         MenuAction toggle = menuBarToggle;
@@ -4019,6 +4142,7 @@ public final class TerminalWindow {
     /** Re-applies everything that can change while a session is running, to every tab. */
     public void applySettings() {
         applyTabBarVisibility();
+        applyMenuShape();
         applyMenuBarVisibility();
         applyStatusBarVisibility();
         // Live, and on the stage rather than the scene: a decorated window's native background is

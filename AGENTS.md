@@ -163,6 +163,8 @@ touching its area.
 - `Themes.byId` is the choice; `Themes.drawn` is what to draw with.
 - `editora-contrast.css` is written by a script, and a test holds it to the dark sheet.
 - A class Jackson fills needs its package opened, and no test will say so.
+- What chrome shows is `Chrome`'s answer, not the setting's.
+- The menu bar has two sets of menus, and holds one.
 
 ## Where things are
 
