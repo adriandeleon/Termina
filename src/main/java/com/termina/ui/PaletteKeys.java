@@ -80,6 +80,23 @@ final class PaletteKeys {
 
     private PaletteKeys() {}
 
+    /** The keys that may open a command's page of the guide, in the order they are tried (PAL-08). */
+    static final List<String> HELP_KEYS = List.of("C-h", "f1", "S-f1");
+
+    /**
+     * The palette's help key (PAL-08, Pauta 6.0.1): the first of {@code Ctrl+H}, {@code F1} and
+     * {@code Shift+F1} that no command is bound to, or null when all three are taken. The same on
+     * macOS, where {@code Ctrl+H} is the Control key.
+     *
+     * @param bound the {@link KeyChord} tokens of every chord the bindings in force use
+     */
+    static @Nullable String helpKey(java.util.Collection<String> bound) {
+        for (String key : HELP_KEYS) {
+            if (!bound.contains(key)) return key;
+        }
+        return null;
+    }
+
     /**
      * The action for a key, by {@link KeyChord} token ({@link PaletteNav#action} reads it off the
      * event): the fixed keys first, then the chords in force for a row and a page ({@code moves},

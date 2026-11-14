@@ -5,7 +5,7 @@
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/conformance/#pauta-13",
       "kind": "pending",
-      "reason": "The website has no page yet that lists the Pauta edition, the conformance and these exceptions.",
+      "reason": "The website's page that lists the Pauta edition, the conformance and these exceptions is written but not published yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -13,7 +13,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/conformance/#pauta-14",
       "kind": "pending",
-      "reason": "The website cannot build its conformance page from this list yet.",
+      "reason": "The website builds its conformance page from this list, in a version of the site that is not published yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -29,7 +29,7 @@
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-01",
       "kind": "pending",
-      "reason": "The user guide on the website has no screenshots yet.",
+      "reason": "The user guide's screenshots are taken but not on the website yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -37,7 +37,7 @@
       "level": "MUST",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-02",
       "kind": "pending",
-      "reason": "How to install a download and check its signature is explained in the repository, not in the user guide on the website.",
+      "reason": "The user guide's page on installing a download and checking its signature is written but not on the website yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -45,7 +45,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-03",
       "kind": "pending",
-      "reason": "The Documentation command opens the newest user guide, not the one for the version you are running.",
+      "reason": "The app opens the user guide for its own version, which the website does not serve yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -53,7 +53,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-04",
       "kind": "pending",
-      "reason": "The website's What's New page is written by hand, and nothing checks the command names and shortcuts the guide quotes.",
+      "reason": "The website's What's New, command and roadmap pages are built from the app, in a version of the site that is not published yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -61,7 +61,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/documentation/#docs-18",
       "kind": "pending",
-      "reason": "The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's.",
+      "reason": "The website's screenshots are retaken at double size but not published yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
@@ -77,7 +77,7 @@
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08",
       "kind": "pending",
-      "reason": "The Command Palette has no key that opens the documentation for the highlighted command.",
+      "reason": "The Command Palette's help key opens a command's page of the user guide, which the website does not serve yet.",
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {

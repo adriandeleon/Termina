@@ -101,7 +101,37 @@ final class CommandPalette {
     /** The bindings changed, or were first applied: the movement chords are looked up again. */
     void setMoves(java.util.Map<String, PaletteKeys.Action> moves) {
         this.moves = java.util.Map.copyOf(moves);
-        hint.setText(PaletteKeys.legend(this.moves, PaletteKeys.hint("run", "↵")));
+        hint.setText(legend());
+    }
+
+    /** The key that opens the highlighted command's page of the guide, as a token; null for none. */
+    private @Nullable String helpKey;
+
+    /** Opens a command's page, given its id, or the list of commands for null. */
+    private java.util.function.Consumer<@Nullable String> openHelp = id -> {};
+
+    /**
+     * The help key (PAL-08, Pauta 6.0.1) and what it opens. The window works the key out from the
+     * bindings in force, the first of Ctrl+H, F1 and Shift+F1 that no command has, and says again
+     * when they change.
+     */
+    void setHelp(@Nullable String helpKey, java.util.function.Consumer<@Nullable String> openHelp) {
+        this.helpKey = helpKey;
+        this.openHelp = openHelp;
+        hint.setText(legend());
+    }
+
+    private String legend() {
+        return PaletteKeys.legend(
+                moves,
+                PaletteKeys.hint("run", "↵"),
+                helpKey == null ? null : PaletteKeys.hint("help", KeyChord.display(helpKey)));
+    }
+
+    /** The help key's token: for tests. */
+    @Nullable
+    String helpKeyForTest() {
+        return helpKey;
     }
 
     /** The legend's text: for tests. */
@@ -169,7 +199,7 @@ final class CommandPalette {
         desc.setTextOverrun(OverrunStyle.ELLIPSIS);
         desc.setText(" ");
         hint.getStyleClass().add("palette-hint");
-        hint.setText(PaletteKeys.legend(moves, PaletteKeys.hint("run", "↵")));
+        hint.setText(legend());
 
         card.getStyleClass().add("command-palette");
         card.getChildren().addAll(inputRow, list, desc, hint);
@@ -211,7 +241,7 @@ final class CommandPalette {
      */
     void rebind(@Nullable KeyCombination opener, List<MenuAction> commands) {
         setOpener(opener);
-        hint.setText(PaletteKeys.legend(moves, PaletteKeys.hint("run", "↵")));
+        hint.setText(legend());
         if (!isShowing()) return;
         MenuAction selected = list.getSelectionModel().getSelectedItem();
         String id = selected == null ? null : selected.id();
@@ -322,6 +352,14 @@ final class CommandPalette {
     }
 
     private void onKey(KeyEvent e) {
+        // The help key first (PAL-08): the highlighted command's page of the guide, in the
+        // browser. The palette stays up, so the next row's page is one arrow and one key away.
+        if (helpKey != null && helpKey.equals(KeyChord.of(e))) {
+            MenuAction selected = list.getSelectionModel().getSelectedItem();
+            openHelp.accept(selected == null ? null : selected.id());
+            e.consume();
+            return;
+        }
         PaletteKeys.Action action = PaletteNav.action(e, true, moves);
         switch (action) {
             case CANCEL -> hide();

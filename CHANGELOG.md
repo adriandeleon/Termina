@@ -13,6 +13,9 @@ done.
 
 ### Added
 
+- **A help key in the Command Palette.** Ctrl+H opens the highlighted command's page of the user
+  guide in your browser; the palette stays open. It is F1, or Shift+F1, if you have given Ctrl+H
+  to a command. The palette's legend names the key.
 - **A High Contrast theme**: white on black, a single cyan accent, and every colour of the
   terminal and of the windows at 7:1 or better on the black. Choose it like any theme. On Windows,
   Termina switches to it while the system's high-contrast mode is on and back to your own theme
@@ -142,6 +145,9 @@ done.
 
 ### Changed
 
+- **Help opens the guide for the version you are running.** Documentation, the Help link on each
+  page of Settings and the Pauta window's link open `termina-project.dev/docs/v-<version>/`, where
+  they opened the newest guide whatever the version.
 - **The palette's movement keys can be changed.** Moving a line and a page in the Command
   Palette are four commands now, Line Down, Line Up, Page Down and Page Up, under Settings ▸
   Keyboard: Ctrl+N, Ctrl+P, Ctrl+V and Alt+V as before, until you move them. The arrows and Page

@@ -229,6 +229,46 @@ class PaletteFocusFxTest {
     }
 
     @Test
+    void theHelpKeyOpensTheHighlightedCommandsPageForThisVersion() throws Exception {
+        // PAL-08 (Pauta 6.0.1): Ctrl+H in the palette opens the page of the command under the
+        // highlight, in the guide of the running version; a command put on Ctrl+H moves the help
+        // key to F1.
+        Settings settings = new Settings(dir.resolve("help.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        java.util.List<String> opened = new java.util.concurrent.CopyOnWriteArrayList<>();
+        WindowManager windows = onFx(() -> {
+            WindowManager manager = new WindowManager(settings);
+            manager.setLinkOpener(opened::add);
+            return manager;
+        });
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+
+        String[] seen = onFx(() -> {
+            window.showPaletteForCapture("keyboard shortcuts");
+            String key = window.paletteHelpKeyForTest();
+            String legend = window.paletteLegendForTest();
+            window.firePaletteKeysForCapture("C-h");
+            boolean stillUp = window.paletteLegendForTest().equals(legend);
+            settings.replaceKeyBindings(java.util.Map.of("file.newWindow", "Ctrl+H"));
+            String moved = window.paletteHelpKeyForTest();
+            window.firePaletteKeysForCapture("f1");
+            run(window, "palette.show");
+            settings.replaceKeyBindings(java.util.Map.of());
+            return new String[] {key, legend, String.valueOf(stillUp), moved};
+        });
+        assertEquals("C-h", seen[0]);
+        assertTrue(seen[1].contains(KeyChord.display("C-h")), "the legend names the help key: " + seen[1]);
+        assertEquals("true", seen[2]);
+        assertEquals("f1", seen[3], "Ctrl+H is a command's now, so help is on F1");
+        assertEquals(2, opened.size(), opened.toString());
+        String page = com.termina.AppInfo.commandPage("help.keyboardShortcuts");
+        assertEquals(java.util.List.of(page, page), opened, "Keyboard Shortcuts is the row under the highlight");
+        assertTrue(page.contains("/docs/v-"), page);
+    }
+
+    @Test
     void anOpenPaletteFollowsAChangeOfBindings() throws Exception {
         // PAL-09 (Pauta 6.0.1): the opener's chip and the rows are rebuilt as the bindings change,
         // so a palette that is up never shows a chord that has moved.

@@ -76,6 +76,25 @@ class PaletteKeysTest {
         assertTrue(PaletteKeys.legend(java.util.Map.of()).startsWith(tr("pickerKeys.move", "↑↓")));
     }
 
+    /** PAL-08 (Pauta 6.0.1): the first of Ctrl+H, F1 and Shift+F1 that no command is on. */
+    @Test
+    void theHelpKeyIsTheFirstOfThreeThatIsFree() {
+        assertEquals("C-h", PaletteKeys.helpKey(java.util.Set.of()));
+        assertEquals("C-h", PaletteKeys.helpKey(java.util.Set.of("C-S-t", "C-n")));
+        assertEquals("f1", PaletteKeys.helpKey(java.util.Set.of("C-h")));
+        assertEquals("S-f1", PaletteKeys.helpKey(java.util.Set.of("C-h", "f1")));
+        assertEquals(null, PaletteKeys.helpKey(java.util.Set.of("C-h", "f1", "S-f1")), "all three taken: no key");
+        assertEquals("f1", KeyChord.token(javafx.scene.input.KeyCode.F1, false, false, false, false));
+        assertEquals("C-h", KeyChord.token(javafx.scene.input.KeyCode.H, true, false, false, false));
+        // None of the defaults takes any of the three, on either system.
+        for (boolean mac : new boolean[] {false, true}) {
+            java.util.Set<String> bound = new java.util.HashSet<>();
+            Keymap.load(mac).values().forEach(chord -> bound.add(String.valueOf(KeyChord.of(chord, mac))));
+            Keymap.lists().values().forEach(chord -> bound.add(String.valueOf(KeyChord.of(chord, mac))));
+            assertEquals("C-h", PaletteKeys.helpKey(bound), mac ? "macOS" : "Windows and Linux");
+        }
+    }
+
     @Test
     void theFourCommandsAndTheirDefaultsAreTheListKeyMaps() {
         assertEquals(

@@ -113,13 +113,13 @@
       "id": "PAUTA-13",
       "level": "MUST",
       "status": "pending",
-      "evidence": "The website has no page yet that lists the Pauta edition, the conformance and these exceptions."
+      "evidence": "pending in pauta.json. The page is written: /docs/pauta/ on the website lists the edition, the conformance and every exception with its rule linked, its reason and its issue, and the app's Pauta window and README badge link it. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "PAUTA-14",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "The website cannot build its conformance page from this list yet."
+      "evidence": "pending in pauta.json. The website's page is generated from this app's pauta.json and pom.xml at a git ref by its scripts/GenPauta.java, ported from editora-website, so it cannot list a different set. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "PAUTA-15",
@@ -275,25 +275,25 @@
       "id": "DOCS-01",
       "level": "MUST",
       "status": "pending",
-      "evidence": "The user guide on the website has no screenshots yet."
+      "evidence": "pending in pauta.json. The guide has Getting started, a page per area, the keyboard reference, Settings and an FAQ, and now screenshots of the real window on ten of its pages, taken headless at 2x in both themes by the website's scripts/screenshots.sh. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "DOCS-02",
       "level": "MUST",
       "status": "pending",
-      "evidence": "How to install a download and check its signature is explained in the repository, not in the user guide on the website."
+      "evidence": "pending in pauta.json. The app's half is met: no page under docs/ tells the user how to install or use anything, the one that did (docs/reference/installing.md) is gone, and src/test/java/com/termina/RepositoryDocsTest.java:36 holds it. The website has the page, /docs/installing/, and every docs page there gives its category and order. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "DOCS-03",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "The Documentation command opens the newest user guide, not the one for the version you are running."
+      "evidence": "pending in pauta.json. The app's half is met: every link into the guide starts with the website's /docs/v- and the app's version without -SNAPSHOT (src/main/java/com/termina/AppInfo.java:56; the Documentation command, each Settings page's help link, the Pauta window's link and the palette's help key all build on it), and src/test/java/com/termina/AppInfoTest.java:93 holds that and that no other class writes a docs address. The website serves /docs/v-0.15.0/ and redirects bare /docs and every unversioned slug (astro.config.mjs). This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "DOCS-04",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "The website's What's New page is written by hand, and nothing checks the command names and shortcuts the guide quotes."
+      "evidence": "pending in pauta.json. The website's Commands page, a page per command and Keybindings are generated from this app's catalogue and key maps (scripts/GenCommands.java), What's New from CHANGELOG.md and the Roadmap from TODO.md (scripts/GenChangelog.java), the version from pom.xml, all committed; scripts/check-doc-commands.mjs fails on a command id that does not exist and on a key listed beside a command that the app gives to another, and a Check workflow runs it on pull requests. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "DOCS-05",
@@ -371,7 +371,7 @@
       "id": "DOCS-18",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's."
+      "evidence": "pending in pauta.json. The README's hero is retaken at 2x in dark and light by scripts/screenshots.sh. The website's guide, feature and home pictures are retaken at 2x by a script of its own, the guide's in both themes. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "QUAL-02",
@@ -1763,7 +1763,7 @@
       "id": "PAL-08",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "The Command Palette has no key that opens the documentation for the highlighted command."
+      "evidence": "pending in pauta.json. The app's half is met: in the palette the first of Ctrl+H, F1 and Shift+F1 that no command is bound to (src/main/java/com/termina/ui/PaletteKeys.java:93) opens the highlighted command's page, built from the versioned docs address and the command's id (AppInfo.commandPage), and the legend names the key; src/test/java/com/termina/ui/PaletteFocusFxTest.java:232 presses it in a real palette, reads the address opened, and moves it to F1 by binding Ctrl+H to a command. The website has a page for each command at that address. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
     },
     {
       "id": "PAL-09",
@@ -2472,6 +2472,7 @@
     "One more pending SHOULD was built on 2026-11-13, in a fourteenth batch, in 2a8c950: WIN-15 is for a person to check on a Mac, where it has never run, and its entry is out of pauta.json. ACC-09 was looked at and left: it needs a high-contrast theme designed and a Windows machine to see it on.",
     "One more pending SHOULD was settled on 2026-11-13, in a fifteenth batch, in ad55f30: ACC-09 now passes, and its entry is out of pauta.json. OS-04 was read again against the guidelines, which name this difference themselves; what a chord rebound on one system becomes on another is left for a decision.",
     "Two pending MUSTs were settled on 2026-11-13, in a sixteenth batch, in a757229: OS-04, REL-19 now pass, and their entries are out of pauta.json.",
-    "One more pending SHOULD was settled on 2026-11-13, in a seventeenth batch, in 954f2c3: PAL-06 now passes, and its entry is out of pauta.json. The install page left the repository for the website the same day; DOCS-02 stays pending until the website carries it."
+    "One more pending SHOULD was settled on 2026-11-13, in a seventeenth batch, in 954f2c3: PAL-06 now passes, and its entry is out of pauta.json. The install page left the repository for the website the same day; DOCS-02 stays pending until the website carries it.",
+    "Eight rules that wait on the website were built on 2026-11-13, in a branch of termina-website that describes 0.15.0 and is not merged: PAUTA-13, PAUTA-14, DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-18 and PAL-08, with the app's half of DOCS-02, DOCS-03 and PAL-08 in this repository. They stay pending until the site is live; their rows say what is done."
   ]
 }

@@ -41,8 +41,33 @@ public final class AppInfo {
     public static final String HOMEPAGE = "https://termina-project.dev";
     public static final String RELEASES_PAGE = "https://github.com/" + GITHUB_REPO + "/releases";
 
-    /** The user documentation, on the website (DOCS-06, Pauta 2.0.2). */
-    public static final String DOCUMENTATION = HOMEPAGE + "/docs/";
+    /**
+     * The user documentation for this version, on the website (DOCS-06, DOCS-03, Pauta 6.0.1):
+     * {@code /docs/v-<version>/}, which every link from the app into the guide starts with, so an
+     * installed release opens the guide as it was written for it. The website redirects the bare
+     * {@code /docs/} to its current version.
+     */
+    public static final String DOCUMENTATION = documentation(VERSION);
+
+    /**
+     * The guide's address for {@code version}, with {@code -SNAPSHOT} dropped: a development build
+     * points at the release it is working toward, not at a path no site will ever serve.
+     */
+    static String documentation(String version) {
+        String release =
+                version.endsWith("-SNAPSHOT") ? version.substring(0, version.length() - "-SNAPSHOT".length()) : version;
+        return HOMEPAGE + "/docs/v-" + release + "/";
+    }
+
+    /** A command's own page of the guide, which the palette's help key opens (PAL-08). */
+    public static String commandPage(String id) {
+        return DOCUMENTATION + "commands/" + id + "/";
+    }
+
+    /** The guide's list of every command: where the help key goes from a row that is no command. */
+    public static String commandsPage() {
+        return DOCUMENTATION + "commands/";
+    }
 
     /**
      * This build's release notes (DOCS-05): its own release's page, or the list of releases for a

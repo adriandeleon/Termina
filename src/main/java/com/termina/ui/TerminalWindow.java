@@ -2724,6 +2724,12 @@ public final class TerminalWindow {
         return palette == null ? "" : palette.chordForTest(id);
     }
 
+    /** The palette's help key, as a token: for tests. */
+    @Nullable
+    String paletteHelpKeyForTest() {
+        return palette == null ? null : palette.helpKeyForTest();
+    }
+
     /** The open palette's key legend: for tests. */
     String paletteLegendForTest() {
         return palette == null ? "" : palette.legendForTest();
@@ -3304,6 +3310,7 @@ public final class TerminalWindow {
         });
         if (palette != null) {
             palette.setMoves(listMoves());
+            palette.setHelp(paletteHelpKey(), this::openCommandHelp);
             // The whole palette, not only its opener (PAL-09): an open one re-renders its rows.
             palette.rebind(
                     chordOf(paletteAction.id()),
@@ -3362,6 +3369,21 @@ public final class TerminalWindow {
         if (terminal != null) terminal.scrollHistory(direction, page);
     }
 
+    /** The palette's help key for the bindings in force (PAL-08): a key no command is on. */
+    private @Nullable String paletteHelpKey() {
+        java.util.Set<String> bound = new java.util.HashSet<>();
+        for (KeyCombination chord : chords.values()) {
+            String token = KeyChord.of(chord, MAC);
+            if (token != null) bound.add(token);
+        }
+        return PaletteKeys.helpKey(bound);
+    }
+
+    /** Opens a command's page of the guide for this version, or the list of commands for no id. */
+    private void openCommandHelp(@Nullable String id) {
+        windows.openLink(id == null ? com.termina.AppInfo.commandsPage() : com.termina.AppInfo.commandPage(id));
+    }
+
     /** The chords in force for moving a list's selection a row and a page (PAL-06). */
     private Map<String, PaletteKeys.Action> listMoves() {
         return PaletteKeys.moves(id -> KeyChord.of(chordOf(id), MAC));
@@ -3374,6 +3396,7 @@ public final class TerminalWindow {
             palette = built = new CommandPalette(overlay, this::focusActiveTerminal);
             built.setOpener(chordOf(paletteAction.id()));
             built.setMoves(listMoves());
+            built.setHelp(paletteHelpKey(), this::openCommandHelp);
         }
         return built;
     }
