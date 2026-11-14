@@ -35,7 +35,7 @@
       "id": "PAUTA-01",
       "level": "MUST",
       "status": "pass",
-      "evidence": "pom.xml:28 defines `pauta.version` (6.0.1) and src/main/resources/com/termina/pauta.json exists; the app states its conformance, Partial, in About (src/main/java/com/termina/ui/AboutWindow.java:167), the Pauta window and the README (README.md:14, :29) (fixed in a78d371)"
+      "evidence": "pom.xml:28 defines `pauta.version` (6.0.1) and src/main/resources/com/termina/pauta.json exists; the app states its conformance, Core, in About (src/main/java/com/termina/ui/AboutWindow.java:167), the Pauta window and the README (README.md:14, :32) (fixed in a78d371)"
     },
     {
       "id": "PAUTA-02",
@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 10 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 3 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 10 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 3 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 10 entries link issue #92, read with `gh issue view`: open, and naming each of the 10 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 3 entries link issue #92, read with `gh issue view`: open, and naming each of the 3 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 10 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 3 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 10 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 3 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -112,20 +112,20 @@
     {
       "id": "PAUTA-13",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The page is written: /docs/pauta/ on the website lists the edition, the conformance and every exception with its rule linked, its reason and its issue, and the app's Pauta window and README badge link it. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "the website has a Pauta conformance page under /docs/: https://termina-project.dev/docs/pauta/ redirects to /docs/v-0.15.0/pauta/, which answered on 2026-11-13 with the edition, the conformance and every exception under its kind, each with its rule ID linked to the edition's rule, its reason and its link (termina-website at c3e5a10: src/content/docs/pauta.md, written by scripts/GenPauta.java from this app's pauta.json). The Pauta window and the README's badge and line link it. The page is regenerated in the same step as this change to pauta.json, so the two list the same rules; until the regenerated page is published it still shows the ten exceptions the file had at f896197 (fixed in 1a262f8)"
     },
     {
       "id": "PAUTA-14",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The website's page is generated from this app's pauta.json and pom.xml at a git ref by its scripts/GenPauta.java, ported from editora-website, so it cannot list a different set. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "the website's conformance page is generated from this app's pauta.json and pom.xml at a git ref by a generator beside the others in its scripts/ (termina-website at c3e5a10: scripts/GenPauta.java), and its output, src/content/docs/pauta.md, is committed, so the page cannot list a different set from the file it was generated from (fixed in 1a262f8)"
     },
     {
       "id": "PAUTA-15",
       "level": "MUST",
       "status": "pass",
-      "evidence": "README.md:14 is the badge `Pauta-6.0.1 · Partial` in amber and README.md:29 the line \"Working toward Pauta …, edition 6.0.1, Pauta conformance: Partial\"; both link https://termina-project.dev/docs/pauta/. src/test/java/com/termina/PautaConformanceTest.java:358 holds the edition to pauta.version, the conformance to the helper's, the opening words and both links (fixed in a78d371)"
+      "evidence": "README.md:14 is the badge `Pauta-6.0.1 · Core` in blue and README.md:32 the line \"Built to Pauta …, edition 6.0.1, Pauta conformance: Core\"; both link https://termina-project.dev/docs/pauta/. src/test/java/com/termina/PautaConformanceTest.java holds the edition to pauta.version, the conformance to the helper's, the opening words, the badge's colour and both links"
     },
     {
       "id": "PAUTA-17",
@@ -274,26 +274,26 @@
     {
       "id": "DOCS-01",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The guide has Getting started, a page per area, the keyboard reference, Settings and an FAQ, and now screenshots of the real window on ten of its pages, taken headless at 2x in both themes by the website's scripts/screenshots.sh. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "the app names a website for its user docs (README.md, and help.documentation opens https://termina-project.dev/docs/v-0.15.0/). The site's guide, published on 2026-11-13, has Getting started, a page per feature area (tabs and windows, appearance, shell profiles, selection and mouse, links, search and prompts, programs, sync, the command line), the keyboard reference, Settings and an FAQ (termina-website at c3e5a10: 20 pages in src/content/docs/, each fetched from the live site with status 200). Eleven of them carry screenshots of the real window, 14 pictures each in light and dark, taken headless at 2x by the website's scripts/screenshots.sh (fixed in 1a262f8)"
     },
     {
       "id": "DOCS-02",
       "level": "MUST",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The app's half is met: no page under docs/ tells the user how to install or use anything, the one that did (docs/reference/installing.md) is gone, and src/test/java/com/termina/RepositoryDocsTest.java:36 holds it. The website has the page, /docs/installing/, and every docs page there gives its category and order. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "the user docs live on the website under /docs/, in the app's termina-website repository beside the feature pages and the posts, and every one of its 20 docs pages gives its category and its order in its frontmatter (termina-website at c3e5a10: src/content/docs/*.md, read for both keys). The app's repository carries none: no page under docs/ tells the user how to install or use anything, the one that did (docs/reference/installing.md) is on the website as /docs/installing/, and src/test/java/com/termina/RepositoryDocsTest.java holds it (fixed in 1a262f8)"
     },
     {
       "id": "DOCS-03",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The app's half is met: every link into the guide starts with the website's /docs/v- and the app's version without -SNAPSHOT (src/main/java/com/termina/AppInfo.java:56; the Documentation command, each Settings page's help link, the Pauta window's link and the palette's help key all build on it), and src/test/java/com/termina/AppInfoTest.java:93 holds that and that no other class writes a docs address. The website serves /docs/v-0.15.0/ and redirects bare /docs and every unversioned slug (astro.config.mjs). This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "every link from the app into the guide starts with the website's /docs/v- and the app's version without -SNAPSHOT (src/main/java/com/termina/AppInfo.java, DOCUMENTATION; the Documentation command, each Settings page's help link, the Pauta window's link and the palette's help key all build on it), and src/test/java/com/termina/AppInfoTest.java holds that and that no other class writes a docs address. The website serves /docs/v-0.15.0/ and redirects bare /docs and every unversioned slug to it (termina-website at c3e5a10: astro.config.mjs and src/pages/docs/[version]/): on 2026-11-13 https://termina-project.dev/docs/v-0.15.0/ answered 200 and /docs/pauta/ answered with a redirect to /docs/v-0.15.0/pauta/ (fixed in 1a262f8)"
     },
     {
       "id": "DOCS-04",
       "level": "SHOULD",
       "status": "pending",
-      "evidence": "pending in pauta.json. The website's Commands page, a page per command and Keybindings are generated from this app's catalogue and key maps (scripts/GenCommands.java), What's New from CHANGELOG.md and the Roadmap from TODO.md (scripts/GenChangelog.java), the version from pom.xml, all committed; scripts/check-doc-commands.mjs fails on a command id that does not exist and on a key listed beside a command that the app gives to another, and a Check workflow runs it on pull requests. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "evidence": "pending in pauta.json. The generators and their committed output are in the website's repository (termina-website at c3e5a10: scripts/GenCommands.java for the Commands page, a page per command and the key bindings; scripts/GenChangelog.java for What's New from CHANGELOG.md and the Roadmap from TODO.md; the version from pom.xml), and scripts/check-doc-commands.mjs fails on a command id that does not exist and on a key listed beside a command that the app gives to another. What is left: that check runs in the Check workflow on pull requests, and neither the site's build script nor the workflow that deploys it runs it, so a push straight to master would publish without it"
     },
     {
       "id": "DOCS-05",
@@ -370,8 +370,8 @@
     {
       "id": "DOCS-18",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The README's hero is retaken at 2x in dark and light by scripts/screenshots.sh. The website's guide, feature and home pictures are retaken at 2x by a script of its own, the guide's in both themes. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "the README's hero is retaken at 2x in dark and light by scripts/screenshots.sh, from the real window through the capture hook, headless. The website's pictures are retaken the same way by a script of its own (termina-website at c3e5a10: scripts/screenshots.sh): the guide's 14 at 2x in both themes, and the feature pages' and the home page's at 2x, published on 2026-11-13. The Settings and conformance pictures and a new one of a picker were retaken after the pickers and the window modes went in (fixed in 1a262f8)"
     },
     {
       "id": "QUAL-02",
@@ -1762,8 +1762,8 @@
     {
       "id": "PAL-08",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "pending in pauta.json. The app's half is met: in the palette the first of Ctrl+H, F1 and Shift+F1 that no command is bound to (src/main/java/com/termina/ui/PaletteKeys.java:93) opens the highlighted command's page, built from the versioned docs address and the command's id (AppInfo.commandPage), and the legend names the key; src/test/java/com/termina/ui/PaletteFocusFxTest.java:232 presses it in a real palette, reads the address opened, and moves it to F1 by binding Ctrl+H to a command. The website has a page for each command at that address. This is on the website's branch pauta-docs (termina-website, 9f34632), which describes 0.15.0 and is not merged, so the live site does not have it yet"
+      "status": "pass",
+      "evidence": "in the palette the first of Ctrl+H, F1 and Shift+F1 that no command is bound to (src/main/java/com/termina/ui/PaletteKeys.java, helpKey) opens the highlighted command's page, built from the versioned docs address and the command's id (AppInfo.commandPage), and the legend names the key; src/test/java/com/termina/ui/PaletteFocusFxTest.java presses it in a real palette, reads the address opened, and moves it to F1 by binding Ctrl+H to a command. The pages exist: the website has one for each of the 122 commands under /docs/v-0.15.0/commands/<id>/ (termina-website at c3e5a10: src/pages/docs/[version]/commands/[id].astro, from src/lib/commands.ts), and on 2026-11-13 https://termina-project.dev/docs/v-0.15.0/commands/view.toggleZen/ and /commands/nav.cancel/ answered 200 (fixed in 1a262f8)"
     },
     {
       "id": "PAL-09",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (10 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Core\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Core (3 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 10 pending entries (3 MUST, 7 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 3 pending entries (0 MUST, 3 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2476,6 +2476,7 @@
     "Eight rules that wait on the website were built on 2026-11-13, in a branch of termina-website that describes 0.15.0 and is not merged: PAUTA-13, PAUTA-14, DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-18 and PAL-08, with the app's half of DOCS-02, DOCS-03 and PAL-08 in this repository. They stay pending until the site is live; their rows say what is done.",
     "One more pending SHOULD was settled on 2026-11-13, in an eighteenth batch, in 2639478: PLAT-14 now pass, and its entry is out of pauta.json.",
     "One more pending SHOULD was settled on 2026-11-13, in a nineteenth batch, and the picker it adds brought ten more rules into scope, in 7ec50ba: QOPEN-01, QOPEN-02, QOPEN-03, QOPEN-04, QOPEN-05, QOPEN-06, QOPEN-07, QOPEN-08, QOPEN-10, QOPEN-11, QOPEN-12 now pass, and QOPEN-01 is out of pauta.json. QOPEN-09 stays limited: no picker has a row action.",
-    "A failing MAY was met on 2026-11-13, in a twentieth batch, and a SHOULD it brings into scope with it, in 54fcb53: WIN-10, MENU-04 now pass. Neither was in pauta.json: WIN-10 is a MAY, and MENU-04 applied to nothing while there was no Simple mode."
+    "A failing MAY was met on 2026-11-13, in a twentieth batch, and a SHOULD it brings into scope with it, in 54fcb53: WIN-10, MENU-04 now pass. Neither was in pauta.json: WIN-10 is a MAY, and MENU-04 applied to nothing while there was no Simple mode.",
+    "The website for 0.15.0 was published on 2026-11-13 (termina-website c3e5a10), and the seven rules that waited on it were judged again from the live site and that repository, in a twenty-first batch, in 1a262f8: PAUTA-13, DOCS-01, DOCS-02, PAUTA-14, DOCS-03, DOCS-18, PAL-08 now pass, and their entries are out of pauta.json, which leaves 3, all SHOULD. With no MUST pending the conformance is Core, where it was Partial. DOCS-04 stays pending: the website checks the commands and keys its guide quotes on pull requests, and not yet in the build that deploys it."
   ]
 }
