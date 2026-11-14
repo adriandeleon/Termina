@@ -21,14 +21,26 @@ Record the pass in `pauta.json`'s `checked` list, with the version it was made o
 
 `master` is a protected branch (REL-19, Pauta 6.0.1): **Format** and the three **Test** jobs of
 `ci.yml` are required status checks, so a pull request cannot be merged until they have passed.
-Administrators are not held to it, which is what lets the release commit and the `-SNAPSHOT` commit
-after it be pushed straight to `master`; GitHub says so on each such push. To read the setting:
+Administrators are not held to it, which is what lets the release commit be pushed straight to
+`master`; GitHub says so on each such push. To read the setting:
 `gh api repos/adriandeleon/Termina/branches/master/protection`. A job renamed in `ci.yml` has to be
 renamed there too, or the pull requests wait for a check that never reports.
 
-After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
-source says it is one: the update check treats a snapshot as the release it leads up to, and never
-offers it the release it is already ahead of.
+After tagging, `master` goes to the next `-SNAPSHOT`, so a build from source says it is one: the
+update check treats a snapshot as the release it leads up to, and never offers it the release it is
+already ahead of. **The release workflow's Start the next snapshot job does this; do not push the
+bump by hand.** Once the release is published it pushes a branch, `build/start-X.Y.0-SNAPSHOT`,
+with the minor number up (`0.16.0-SNAPSHOT` after 0.15.0, and after 0.15.1), and opens a pull
+request from it. Opened with the workflow's own token, that pull request starts no CI: close and
+reopen it to run the checks, then merge it. If `master` is already on that version the job says so
+and does nothing.
+
+The pull request needs **Allow GitHub Actions to create and approve pull requests** in the
+repository's Actions settings (`gh api repos/adriandeleon/Termina/actions/permissions/workflow`,
+`can_approve_pull_request_reviews`). It is off, so today the job pushes the branch and then fails,
+"GitHub Actions is not permitted to create or approve pull requests", which fails the run after
+everything is published. Open the pull request from that branch by hand
+(`gh pr create --head build/start-X.Y.0-SNAPSHOT --fill`); it runs CI, being yours.
 
 The release builds run the tests (`verify`, not CI's `-DskipTests package`) — a tag is not gated on
 CI, and the `linux-arm64` and `macos-x64` runners build nowhere else — and then the same checks CI
