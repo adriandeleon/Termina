@@ -53,13 +53,13 @@
       "id": "PAUTA-04",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no MUST or SHOULD is fail: each of the 12 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
+      "evidence": "no MUST or SHOULD is fail: each of the 11 unmet rules has a pending entry in src/main/resources/com/termina/pauta.json, and no entry names a rule that passes. The manual results are not recorded (no checked list), and none is out of reach (fixed in a78d371)"
     },
     {
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 12 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: all 11 entries of src/main/resources/com/termina/pauta.json are pending"
     },
     {
       "id": "PAUTA-06",
@@ -71,13 +71,13 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 12 entries link issue #92, read with `gh issue view`: open, and naming each of the 12 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 11 entries link issue #92, read with `gh issue view`: open, and naming each of the 11 rules as \"ID (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
       "level": "MUST",
       "status": "manual",
-      "evidence": "Read each of the 12 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
+      "evidence": "Read each of the 11 reasons in the Pauta window as a user would. The source settles the two cases it can: src/test/java/com/termina/PautaConformanceTest.java:282 fails a reason that is not one sentence or that names a rule ID, and none has a class name (read through); not recorded"
     },
     {
       "id": "PAUTA-16",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 12 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 11 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -202,8 +202,8 @@
     {
       "id": "PLAT-14",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "The settings file is read and written by hand-written code and not by the JSON library the guidelines name."
+      "status": "pass",
+      "evidence": "every file the app writes whole into its config folder and reads back is JSON, read and written through one Jackson ObjectMapper (src/main/java/com/termina/config/ConfigJson.java:63, handed out by mapper(), :70) as a plain class of public fields: settings.json and workspace-state.json as ConfigJson.Stored (:79; read :100, written :135), the last session's tabs as SessionStore.Stored, StoredTab and StoredPane (src/main/java/com/termina/ui/SessionStore.java:160, :168, :180; written :203, read :235), and an imported colour scheme as ThemeFile.Stored (src/main/java/com/termina/theme/ThemeFile.java:71; written :126, read :141), which was a properties file until this change. No store builds or parses its JSON by hand: the three sources have no JsonGenerator, JsonParser or JsonFactory left, which src/test/java/com/termina/config/ConfigJsonTest.java:69, src/test/java/com/termina/ui/SessionStoreTest.java:135 and src/test/java/com/termina/theme/ThemeImportTest.java:181 each assert of its own store beside a round trip through the class. A theme still stored as <name>.properties is read, written as <name>.json under the same id and kept as <name>.properties.migrated the first time the folder is read (src/main/java/com/termina/ui/Themes.java:127; src/test/java/com/termina/ui/ThemesTest.java:147). The module opens the three packages to Jackson and nothing else (src/main/java/module-info.java:49-54); the tests run on the class path, so that was checked by running the stores on the module path and by a headless run of the application over a folder holding an old theme, which left night-owl.json, night-owl.properties.migrated and a workspace-state.json written through the mapper. The files inside the sync clone stay properties: SET-22 says a clone's working tree is not a config file. docs/decisions/0013 records the choice (fixed in 2639478)"
     },
     {
       "id": "REPO-01",
@@ -521,7 +521,7 @@
       "id": "PERF-12",
       "level": "MUST",
       "status": "pass",
-      "evidence": "theme import reads at most 8 MB (src/main/java/com/termina/ui/Themes.java:163) and refuses over MAX_BYTES 4 MB (src/main/java/com/termina/theme/ThemeImport.java:21, :33); config zip: MAX_ENTRY_BYTES, MAX_TOTAL_BYTES, MAX_ENTRIES checked while reading (src/main/java/com/termina/config/ConfigArchive.java:120, :240, :282); neither input has anything to step down to"
+      "evidence": "theme import reads at most 8 MB (src/main/java/com/termina/ui/Themes.java:275) and refuses over MAX_BYTES 4 MB (src/main/java/com/termina/theme/ThemeImport.java:21, :33); config zip: MAX_ENTRY_BYTES, MAX_TOTAL_BYTES, MAX_ENTRIES checked while reading (src/main/java/com/termina/config/ConfigArchive.java:120, :240, :282); neither input has anything to step down to"
     },
     {
       "id": "PERF-13",
@@ -743,7 +743,7 @@
       "id": "ACC-09",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the theme list has a high-contrast theme, High Contrast (src/main/java/com/termina/ui/Theme.java:119): white on black with a control stylesheet of its own, the dark one with other values for its colour tokens (src/main/resources/com/termina/styles/editora-contrast.css, written by scripts/high-contrast-theme.py). A listener on Platform.getPreferences() reads Windows.SPI.HighContrast (src/main/java/com/termina/ui/WindowManager.java:106; src/main/java/com/termina/ui/HighContrast.java:23; read at startup too, src/main/java/com/termina/App.java:203) and everything that draws then asks for the theme in force (src/main/java/com/termina/ui/Themes.java:164), which is the high-contrast one while the mode is on and the chosen one again when it ends, the stored choice untouched. src/test/java/com/termina/ui/HighContrastTest.java:44 turns the mode on and off, :69 holds every colour of the terminal and of the chrome to 7:1 on the black, and :110 holds the sheet to the dark one outside its tokens. The theme was seen in headless captures of a terminal and of Settings; the switch has never run on Windows (fixed in ad55f30)"
+      "evidence": "the theme list has a high-contrast theme, High Contrast (src/main/java/com/termina/ui/Theme.java:119): white on black with a control stylesheet of its own, the dark one with other values for its colour tokens (src/main/resources/com/termina/styles/editora-contrast.css, written by scripts/high-contrast-theme.py). A listener on Platform.getPreferences() reads Windows.SPI.HighContrast (src/main/java/com/termina/ui/WindowManager.java:106; src/main/java/com/termina/ui/HighContrast.java:23; read at startup too, src/main/java/com/termina/App.java:203) and everything that draws then asks for the theme in force (src/main/java/com/termina/ui/Themes.java:222), which is the high-contrast one while the mode is on and the chosen one again when it ends, the stored choice untouched. src/test/java/com/termina/ui/HighContrastTest.java:44 turns the mode on and off, :69 holds every colour of the terminal and of the chrome to 7:1 on the black, and :110 holds the sheet to the dark one outside its tokens. The theme was seen in headless captures of a terminal and of Settings; the switch has never run on Windows (fixed in ad55f30)"
     },
     {
       "id": "WIN-01",
@@ -833,7 +833,7 @@
       "id": "ICON-05",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/styles/editora-light.css and editora-dark.css are byte-identical (cmp) to Editora's styles/atlantafx-themes/ files at Editora bab4437e7; the pair is the default (src/main/java/com/termina/config/Settings.java:658, src/main/java/com/termina/ui/Themes.java:121)."
+      "evidence": "src/main/resources/com/termina/styles/editora-light.css and editora-dark.css are byte-identical (cmp) to Editora's styles/atlantafx-themes/ files at Editora bab4437e7; the pair is the default (src/main/java/com/termina/config/Settings.java:658, src/main/java/com/termina/ui/Themes.java:193)."
     },
     {
       "id": "ICON-06",
@@ -893,19 +893,19 @@
       "id": "ICON-15",
       "level": "MUST",
       "status": "pass",
-      "evidence": "Light and dark themes (src/main/java/com/termina/ui/Themes.java:121, Theme.EDITORA_LIGHT/EDITORA_DARK); a theme change calls Application.setUserAgentStylesheet in the running app (src/main/java/com/termina/ui/WindowManager.java:279)."
+      "evidence": "Light and dark themes (src/main/java/com/termina/ui/Themes.java:193, Theme.EDITORA_LIGHT/EDITORA_DARK); a theme change calls Application.setUserAgentStylesheet in the running app (src/main/java/com/termina/ui/WindowManager.java:279)."
     },
     {
       "id": "ICON-16",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/Themes.java:54 `SYSTEM_ID`, listed first by byDisplayName (:148), which fills the Settings picker (src/main/java/com/termina/ui/SettingsWindow.java:839); a listener on Platform.getPreferences().colorSchemeProperty() re-applies the theme (src/main/java/com/termina/ui/WindowManager.java:91-94)."
+      "evidence": "src/main/java/com/termina/ui/Themes.java:54 `SYSTEM_ID`, listed first by byDisplayName (:258), which fills the Settings picker (src/main/java/com/termina/ui/SettingsWindow.java:839); a listener on Platform.getPreferences().colorSchemeProperty() re-applies the theme (src/main/java/com/termina/ui/WindowManager.java:91-94)."
     },
     {
       "id": "ICON-17",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/Themes.java:138: byId ends in FALLBACK, Editora Dark (:47), which is the first-run default (src/main/java/com/termina/config/Settings.java:658); held by src/test/java/com/termina/ui/ThemeTest.java:111."
+      "evidence": "src/main/java/com/termina/ui/Themes.java:242: byId ends in FALLBACK, Editora Dark (:47), which is the first-run default (src/main/java/com/termina/config/Settings.java:658); held by src/test/java/com/termina/ui/ThemeTest.java:111."
     },
     {
       "id": "ICON-18",
@@ -1397,31 +1397,31 @@
       "id": "SET-08",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/config/Settings.java:275-299: preferences in settings.json, window geometry and the update check's memory in workspace-state.json, sorted by `isStateKey`; imported themes are files of their own under themes/ (src/main/java/com/termina/ui/Themes.java:180)"
+      "evidence": "src/main/java/com/termina/config/Settings.java:275-299: preferences in settings.json, window geometry and the update check's memory in workspace-state.json, sorted by `isStateKey`; imported themes are files of their own under themes/ (src/main/java/com/termina/ui/Themes.java:292, as <name>.json)"
     },
     {
       "id": "SET-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "settings.json and workspace-state.json carry schemaVersion with a migration list (src/main/java/com/termina/config/ConfigJson.java:43,51,103,116), and an imported color scheme now does too: src/main/java/com/termina/theme/ThemeFile.java:35 SCHEMA_VERSION 1, written at :65 and read back by versionOf (:51), with one step for every version below it (MIGRATIONS, :44; an identity step, the version being all that 1 added); held by src/test/java/com/termina/theme/ThemeImportTest.java:134, :146 (fixed in 26adef2)"
+      "evidence": "settings.json and workspace-state.json carry schemaVersion with a migration list (src/main/java/com/termina/config/ConfigJson.java:44, :55; written :130, read back :105, steps applied by migrate, :119), and so does an imported colour scheme: src/main/java/com/termina/theme/ThemeFile.java:47 SCHEMA_VERSION 2, written at :114 and read back by versionOf (:91), with one step for every version below it (MIGRATIONS, :65: an identity step for 1, which only added the version, and ansiAsAList for 2, the JSON file whose sixteen colours are one list, :183); held by src/test/java/com/termina/theme/ThemeImportTest.java:135, :211. The session's tabs carry a version of their own inside workspace-state.json (src/main/java/com/termina/ui/SessionStore.java)"
     },
     {
       "id": "SET-10",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/config/Settings.java:416-423 keeps a newer settings.json or workspace-state.json as <name>.v<n>.bak and loads defaults, and src/main/java/com/termina/ui/Themes.java:84 does the same for a theme file whose schemaVersion is higher than the build's (setAside, :105: kept as <name>.properties.v<n>.bak, not read, the theme then falling back like any that is missing); held by src/test/java/com/termina/config/SettingsTest.java and src/test/java/com/termina/ui/ThemesTest.java:101 (fixed in 26adef2)"
+      "evidence": "src/main/java/com/termina/config/Settings.java:416-423 keeps a newer settings.json or workspace-state.json as <name>.v<n>.bak and loads defaults, and src/main/java/com/termina/ui/Themes.java:83 does the same for a theme file whose schemaVersion is higher than the build's (setAside, :163: kept as <name>.json.v<n>.bak, not read, the theme then falling back like any that is missing); held by src/test/java/com/termina/config/SettingsTest.java and src/test/java/com/termina/ui/ThemesTest.java:101"
     },
     {
       "id": "SET-11",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/config/Settings.java:708,730,1158 clamp on read, :714-721 an unknown value reads as its default, :413-414 a file that will not decode is copied to <name>.corrupt.bak and defaults load, catching RuntimeException too; src/test/java/com/termina/config/SettingsTest.java:82,318,370. A theme file that will not decode is skipped and left in place (src/main/java/com/termina/ui/Themes.java reload)"
+      "evidence": "src/main/java/com/termina/config/Settings.java:708,730,1158 clamp on read, :714-721 an unknown value reads as its default, :413-414 a file that will not decode is copied to <name>.corrupt.bak and defaults load, catching RuntimeException too; src/test/java/com/termina/config/SettingsTest.java:82,318,370. A theme file that will not decode is skipped and left in place (src/main/java/com/termina/ui/Themes.java:74 reload; src/test/java/com/termina/ui/ThemesTest.java, aBrokenFileInTheFolderIsSkipped)"
     },
     {
       "id": "SET-22",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/config/Settings.java:499-501 writes a temp file beside the target and :626-630 moves it (ATOMIC_MOVE, else replace); imported themes likewise (src/main/java/com/termina/ui/Themes.java:181-186, src/main/java/com/termina/config/ConfigArchive.java:357-360); src/main/java/com/termina/sync/SyncEngine.java:445,450 write in place only inside the clone, and the merge base is a Git ref"
+      "evidence": "src/main/java/com/termina/config/Settings.java:525-527 writes a temp file beside the target and :652-657 moves it (ATOMIC_MOVE, else replace); imported themes likewise (src/main/java/com/termina/ui/Themes.java:147-155, writeWhole, which the import and the one-time rewrite of an older properties theme both go through, src/main/java/com/termina/config/ConfigArchive.java:368-371); src/main/java/com/termina/sync/SyncEngine.java:445,450 write in place only inside the clone, and the merge base is a Git ref"
     },
     {
       "id": "SET-12",
@@ -1967,7 +1967,7 @@
       "id": "ABOUT-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (12 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
+      "evidence": "About calls the helper (src/main/java/com/termina/ui/AboutWindow.java:160) and holds no conformance name (the words are the catalog's, src/main/resources/com/termina/i18n/messages.properties:110); its \"Pauta conformance: Partial\" link, right after the edition's (:167), calls what `help.pauta` calls and opens the Pauta window (src/main/java/com/termina/ui/WindowManager.java:418, :426); the environment block writes `Pauta conformance: Partial (11 exceptions)` right after `Pauta:` (src/main/java/com/termina/AppInfo.java:143, src/test/java/com/termina/PautaConformanceTest.java:389); at Partial the edition link reads \"Working toward Pauta 6.0.1\" (`about.pautaWorkingToward`, :163; src/test/java/com/termina/ui/PautaWindowFxTest.java:184) (fixed in a78d371)"
     },
     {
       "id": "PWIN-01",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 12 pending entries (3 MUST, 9 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 11 pending entries (3 MUST, 8 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2473,6 +2473,7 @@
     "One more pending SHOULD was settled on 2026-11-13, in a fifteenth batch, in ad55f30: ACC-09 now passes, and its entry is out of pauta.json. OS-04 was read again against the guidelines, which name this difference themselves; what a chord rebound on one system becomes on another is left for a decision.",
     "Two pending MUSTs were settled on 2026-11-13, in a sixteenth batch, in a757229: OS-04, REL-19 now pass, and their entries are out of pauta.json.",
     "One more pending SHOULD was settled on 2026-11-13, in a seventeenth batch, in 954f2c3: PAL-06 now passes, and its entry is out of pauta.json. The install page left the repository for the website the same day; DOCS-02 stays pending until the website carries it.",
-    "Eight rules that wait on the website were built on 2026-11-13, in a branch of termina-website that describes 0.15.0 and is not merged: PAUTA-13, PAUTA-14, DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-18 and PAL-08, with the app's half of DOCS-02, DOCS-03 and PAL-08 in this repository. They stay pending until the site is live; their rows say what is done."
+    "Eight rules that wait on the website were built on 2026-11-13, in a branch of termina-website that describes 0.15.0 and is not merged: PAUTA-13, PAUTA-14, DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-18 and PAL-08, with the app's half of DOCS-02, DOCS-03 and PAL-08 in this repository. They stay pending until the site is live; their rows say what is done.",
+    "One more pending SHOULD was settled on 2026-11-13, in an eighteenth batch, in 2639478: PLAT-14 now pass, and its entry is out of pauta.json."
   ]
 }
