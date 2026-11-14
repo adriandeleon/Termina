@@ -54,22 +54,37 @@ class RepositoryDocsTest {
     /**
      * REPO-08 (Pauta 6.0.1): the open list is {@code TODO.md}, and it is kept with the change. The
      * part of it a test can hold to that is the rules not met yet: the list names each one
-     * {@code pauta.json} records and no other, so a rule met without its line taken out, or left
-     * open without one put in, fails here.
+     * {@code pauta.json} records as pending and no other, so a rule met without its line taken
+     * out, or left open without one put in, fails here.
+     *
+     * <p>A deviation is a choice and not open work (PAUTA-06): it has no box to tick. The list
+     * still names it, with its decision record, so someone reading what is left sees what was
+     * decided against as well.
      */
     @Test
     void theOpenListNamesTheRulesNotMetAndNoOthers() throws IOException {
         String todo = read("TODO.md");
-        java.util.Set<String> recorded = new java.util.TreeSet<>();
-        java.util.regex.Matcher rule = java.util.regex.Pattern.compile("\"rule\"\\s*:\\s*\"([A-Z]+-\\d+)\"")
-                .matcher(read("src/main/resources/com/termina/pauta.json"));
-        while (rule.find()) recorded.add(rule.group(1));
+        java.util.Set<String> pending = new java.util.TreeSet<>();
+        java.util.Set<String> deviations = new java.util.TreeSet<>();
+        var exceptions = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(read("src/main/resources/com/termina/pauta.json"))
+                .get("exceptions");
+        for (var entry : exceptions) {
+            String kind = entry.get("kind").asText();
+            if (kind.equals("pending")) pending.add(entry.get("rule").asText());
+            if (kind.equals("deviation")) deviations.add(entry.get("rule").asText());
+        }
         java.util.Set<String> listed = new java.util.TreeSet<>();
         java.util.regex.Matcher line = java.util.regex.Pattern.compile("(?m)^- \\[ \\] \\*\\*\\[([A-Z]+-\\d+)\\]\\(")
                 .matcher(todo);
         while (line.find()) listed.add(line.group(1));
-        assertTrue(!recorded.isEmpty(), "pauta.json was read");
-        assertEquals(recorded, listed, "TODO.md and pauta.json name the same rules");
+        assertTrue(exceptions.size() > 0, "pauta.json was read");
+        assertEquals(pending, listed, "TODO.md lists the rules pauta.json has pending");
+        for (String rule : deviations) {
+            assertTrue(
+                    todo.contains("[" + rule + "](") && todo.contains("docs/decisions/"),
+                    "TODO.md names the deviation " + rule + " and its decision record");
+        }
         assertTrue(read("AGENTS.md").contains("TODO.md"), "and the agent guide says where the list is");
     }
 
