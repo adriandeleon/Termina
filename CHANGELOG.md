@@ -7,6 +7,10 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-14
+
+Built to Pauta 6.1.0, and the find bar's arrows match the menus.
+
 ### Changed
 
 - **Built to [Pauta 6.1.0](https://pauta-project.dev/6.1.0/)**, still at Core conformance. The
@@ -1648,7 +1652,8 @@ First release.
   elsewhere.
 - **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
 
-[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/adriandeleon/Termina/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/adriandeleon/Termina/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/adriandeleon/Termina/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/adriandeleon/Termina/compare/v0.12.0...v0.13.0
