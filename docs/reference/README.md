@@ -9,8 +9,10 @@ and the guides in [`docs/`](../README.md). Read a guide first; come here for the
 - [features.md](features.md) — every part of Termina as built: rendering, input, selection, mouse
   reporting, tabs and windows, panes, search, shell integration, settings, profiles and themes,
   the command line, and the gaps that are known. What used to be the README's body.
-- [installing.md](installing.md) — what each installer puts where, how the downloads are signed and
-  checked, and what the Linux packages declare.
+- Installing is not here any more (DOCS-02, Pauta 6.0.1): how to install a download and check its
+  signature is user documentation, on the website's
+  [Installing](https://termina-project.dev/docs/installing/) page. Why the packages are built the
+  way they are is in [`packaging/linux/NOTES.md`](../../packaging/linux/NOTES.md).
 - [jediterm-capabilities.md](jediterm-capabilities.md) — what JediTerm already handles and what each
   missing capability would cost.
 - [competitive-landscape.md](competitive-landscape.md) — how other terminals compare.

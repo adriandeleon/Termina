@@ -119,7 +119,15 @@ final class MenuBarModel {
         Menu view = new Menu(
                 "menu.view",
                 viewRows,
-                List.of("view.uiZoomIn", "view.uiZoomOut", "view.uiZoomReset", "view.focusMenuBar"));
+                List.of(
+                        "view.uiZoomIn",
+                        "view.uiZoomOut",
+                        "view.uiZoomReset",
+                        "view.focusMenuBar",
+                        "nav.lineDown",
+                        "nav.lineUp",
+                        "nav.pageDown",
+                        "nav.pageUp"));
 
         List<String> windowUnlisted = new ArrayList<>();
         for (String direction : List.of("Left", "Right", "Up", "Down")) windowUnlisted.add("pane.focus" + direction);

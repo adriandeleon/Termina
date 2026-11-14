@@ -268,8 +268,13 @@ is broken.
 - **The command palette is a port of Editora's, and the pure parts are verbatim.** `FuzzyMatch`,
   `PaletteKeys`, `TextInputKeys` and `MatchText` are Editora's `search.FuzzyMatch`, `ui.PickerKeys`,
   `command.TextInputKeymap` and `ui.MatchText` with the keymap manager replaced by a fixed Emacs
-  table in `KeyChord` tokens (`C-n`, `M-S-.`). A ranking or navigation change belongs in both
-  projects, or the two palettes stop agreeing. One place differs on purpose: `PickerKeys`'
+  table in `KeyChord` tokens (`M-S-.`, `C-g`). A ranking or navigation change belongs in both
+  projects, or the two palettes stop agreeing. A row and a page are not in that table any more
+  (PAL-06): they move on the chords bound to `nav.lineDown`, `nav.lineUp`, `nav.pageDown` and
+  `nav.pageUp`, as Editora's do. Their defaults are in `keymaps/lists.json` and not in
+  `keymap.json`, because they are plain `Ctrl` and `Alt` with a letter, and
+  `WindowRules.actsOnlyInLists` keeps them out of the window's key filter: bound where an
+  application chord is bound, `Ctrl+N` would be taken from the shell in every tab. One place differs on purpose: `PickerKeys`'
   JavaFX half (the event, the `ListView`) is `PaletteNav` here, so `PaletteKeys` imports no JavaFX
   type (QUAL-05); worth porting back. The chord that opens it is an ordinary
   key binding (`keys.palette.show`, which was `keys.commandPalette` until the command took the id

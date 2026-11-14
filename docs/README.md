@@ -26,5 +26,5 @@ the short version for a person.
 ## Reference and history
 
 [reference/](reference/README.md) holds the long catalogues and the history: every feature as built
-(what used to be the README's body), installing in detail, JediTerm's capabilities, the competitive
+(what used to be the README's body), JediTerm's capabilities, the competitive
 landscape, the Pauta audit and the reviews.

@@ -142,6 +142,13 @@ done.
 
 ### Changed
 
+- **The palette's movement keys can be changed.** Moving a line and a page in the Command
+  Palette are four commands now, Line Down, Line Up, Page Down and Page Up, under Settings ▸
+  Keyboard: Ctrl+N, Ctrl+P, Ctrl+V and Alt+V as before, until you move them. The arrows and Page
+  Up and Page Down always work. Their keys act only in a list, so in the terminal Ctrl+N and
+  Ctrl+P still reach the shell. Run from the palette, the four scroll the terminal's history.
+- **How to install a download and check its signature is on the website**, in the user guide's
+  Installing page, and no longer in the repository's `docs/`.
 - **Settings sync carries a changed shortcut to every system.** Key bindings sync as one file
   where there was one for macOS and one for Windows and Linux, so a shortcut you change on a Mac
   changes on your Linux and Windows computers, and the other way. Command on a Mac is Ctrl+Shift

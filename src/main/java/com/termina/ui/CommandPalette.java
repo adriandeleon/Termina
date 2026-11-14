@@ -89,6 +89,25 @@ final class CommandPalette {
     };
 
     private List<MenuAction> commands = List.of();
+
+    /**
+     * The chords that move the selection a row and a page, as the bindings in force have them
+     * (PAL-06, Pauta 6.0.1): {@link KeyChord} token to action. Until the window says, the
+     * defaults of {@code keymaps/lists.json}.
+     */
+    private java.util.Map<String, PaletteKeys.Action> moves =
+            PaletteKeys.moves(id -> KeyChord.of(Keymap.lists().get(id), Keybindings.MAC));
+
+    /** The bindings changed, or were first applied: the movement chords are looked up again. */
+    void setMoves(java.util.Map<String, PaletteKeys.Action> moves) {
+        this.moves = java.util.Map.copyOf(moves);
+        hint.setText(PaletteKeys.legend(this.moves, PaletteKeys.hint("run", "↵")));
+    }
+
+    /** The legend's text: for tests. */
+    String legendForTest() {
+        return hint.getText();
+    }
     /** The query of the current filter pass, read by the cells to highlight the matched characters. */
     private String currentQuery = "";
     /** Which commands can run right now; the rest are listed greyed and stepped over. */
@@ -150,7 +169,7 @@ final class CommandPalette {
         desc.setTextOverrun(OverrunStyle.ELLIPSIS);
         desc.setText(" ");
         hint.getStyleClass().add("palette-hint");
-        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        hint.setText(PaletteKeys.legend(moves, PaletteKeys.hint("run", "↵")));
 
         card.getStyleClass().add("command-palette");
         card.getChildren().addAll(inputRow, list, desc, hint);
@@ -192,7 +211,7 @@ final class CommandPalette {
      */
     void rebind(@Nullable KeyCombination opener, List<MenuAction> commands) {
         setOpener(opener);
-        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        hint.setText(PaletteKeys.legend(moves, PaletteKeys.hint("run", "↵")));
         if (!isShowing()) return;
         MenuAction selected = list.getSelectionModel().getSelectedItem();
         String id = selected == null ? null : selected.id();
@@ -303,7 +322,7 @@ final class CommandPalette {
     }
 
     private void onKey(KeyEvent e) {
-        PaletteKeys.Action action = PaletteNav.action(e, true);
+        PaletteKeys.Action action = PaletteNav.action(e, true, moves);
         switch (action) {
             case CANCEL -> hide();
             case ACCEPT -> runSelected();

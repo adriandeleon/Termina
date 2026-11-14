@@ -17,10 +17,10 @@ final class PaletteNav {
 
     /**
      * The action for a key press. {@code queryField} says whether a text field has the focus: then
-     * plain Home/End stay with its caret.
+     * plain Home/End stay with its caret. {@code moves} is the movement chords in force.
      */
-    static PaletteKeys.Action action(KeyEvent e, boolean queryField) {
-        return PaletteKeys.resolve(KeyChord.of(e), queryField);
+    static PaletteKeys.Action action(KeyEvent e, boolean queryField, java.util.Map<String, PaletteKeys.Action> moves) {
+        return PaletteKeys.resolve(KeyChord.of(e), queryField, moves);
     }
 
     /** How many rows a page moves: one less than the list shows, so a row of context remains. */

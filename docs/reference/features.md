@@ -669,7 +669,7 @@ bindings — and a settings file naming a theme this machine does not have falls
   notification and Option+drag blocks. PRIMARY and `notify-send` have not been tried on a machine
   that has `wl-clipboard`, `xclip` or `libnotify-bin`; the `gdbus` route has.
 - **Signing on Windows.** The macOS dmgs are signed and notarized and the Linux downloads are
-  OpenPGP-signed (see [installing.md](installing.md)); the MSI is not signed — see
+  OpenPGP-signed (see [Installing](https://termina-project.dev/docs/installing/) in the user guide); the MSI is not signed — see
   [Known issues](#known-issues).
 - **Windows has not been run by a human.** CI builds and packages it on every commit, and pty4j
   carries the ConPTY natives, but nobody has opened a window there. macOS and Linux are run; the

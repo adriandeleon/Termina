@@ -150,6 +150,16 @@ final class WindowRules {
         return "edit.clearScrollback".equals(id);
     }
 
+    /**
+     * Whether a command's chord acts only while a list has the keyboard (PAL-06, Pauta 6.0.1): the
+     * four that move the selection a line or a page. The window's key filter passes their chords
+     * over, so Ctrl+N and Ctrl+P reach the shell with the terminal in front; the palette looks
+     * them up in the bindings in force.
+     */
+    static boolean actsOnlyInLists(@Nullable String id) {
+        return id != null && id.startsWith("nav.");
+    }
+
     /** Which profile a numbered profile command opens, 1 to 9; 0 for any other id. */
     static int profileNumber(@Nullable String id) {
         if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return 0;

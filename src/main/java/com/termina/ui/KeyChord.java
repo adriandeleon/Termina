@@ -34,6 +34,21 @@ final class KeyChord {
                 event.getCode(), event.isControlDown(), event.isAltDown(), event.isMetaDown(), event.isShiftDown());
     }
 
+    /**
+     * The token for a chord as the bindings hold it, or null for none or one that names no key code.
+     * {@code Shortcut} is Command on a Mac and Control elsewhere.
+     */
+    static @Nullable String of(javafx.scene.input.@Nullable KeyCombination chord, boolean mac) {
+        if (!(chord instanceof javafx.scene.input.KeyCodeCombination code)) return null;
+        boolean shortcut = code.getShortcut() == javafx.scene.input.KeyCombination.ModifierValue.DOWN;
+        return token(
+                code.getCode(),
+                code.getControl() == javafx.scene.input.KeyCombination.ModifierValue.DOWN || (shortcut && !mac),
+                code.getAlt() == javafx.scene.input.KeyCombination.ModifierValue.DOWN,
+                code.getMeta() == javafx.scene.input.KeyCombination.ModifierValue.DOWN || (shortcut && mac),
+                code.getShift() == javafx.scene.input.KeyCombination.ModifierValue.DOWN);
+    }
+
     /** The token for a key with these modifiers held, or null for a modifier or an unknown key. Pure. */
     static @Nullable String token(KeyCode code, boolean control, boolean alt, boolean meta, boolean shift) {
         if (code == null || code == KeyCode.UNDEFINED || code.isModifierKey()) return null;

@@ -2724,6 +2724,19 @@ public final class TerminalWindow {
         return palette == null ? "" : palette.chordForTest(id);
     }
 
+    /** The open palette's key legend: for tests. */
+    String paletteLegendForTest() {
+        return palette == null ? "" : palette.legendForTest();
+    }
+
+    /** Whether the window's key filter would run a command for {@code e}: for tests. */
+    boolean keyFilterTakesForTest(KeyEvent e) {
+        for (MenuAction binding : bindings) {
+            if (binding.matches(e)) return true;
+        }
+        return false;
+    }
+
     String paletteOpenerForTest() {
         return palette == null ? "" : palette.openerForTest();
     }
@@ -3197,6 +3210,13 @@ public final class TerminalWindow {
         // most of the Window menu. iTerm2's Cmd+Option+arrows on macOS; the same with Shift added
         // elsewhere, where Ctrl+Alt+arrows switch workspaces in GNOME and Ctrl+Shift+arrows are
         // already Move Tab and the prompt jumps.
+        // Moving a line and a page (PAL-06, Pauta 6.0.1). Their chords act in a list, the palette's
+        // and a picker's, and are passed over by this window's key filter, so with the terminal in
+        // front those keys stay the shell's. Run as commands they scroll the terminal's history.
+        all.add(item("command.nav.lineDown", () -> scrollHistory(1, false)));
+        all.add(item("command.nav.lineUp", () -> scrollHistory(-1, false)));
+        all.add(item("command.nav.pageDown", () -> scrollHistory(1, true)));
+        all.add(item("command.nav.pageUp", () -> scrollHistory(-1, true)));
         for (PaneGroup.Direction direction : PaneGroup.Direction.values()) {
             String key = "command.pane.focus" + direction.name().charAt(0)
                     + direction.name().substring(1).toLowerCase(java.util.Locale.ROOT);
@@ -3272,13 +3292,18 @@ public final class TerminalWindow {
         bindings.clear();
         for (MenuAction action : table) {
             KeyCombination chord = chords.get(action.id());
-            if (chord != null) bindings.add(action.withAccelerator(chord));
+            // Not the chords that act only in a list (PAL-06): with the terminal in front, Ctrl+N
+            // and Ctrl+P are the shell's.
+            if (chord != null && !WindowRules.actsOnlyInLists(action.id())) {
+                bindings.add(action.withAccelerator(chord));
+            }
         }
         itemsById.forEach((id, items) -> {
             KeyCombination chord = chords.get(id);
             for (MenuItem item : items) MenuRows.setChord(item, chord);
         });
         if (palette != null) {
+            palette.setMoves(listMoves());
             // The whole palette, not only its opener (PAL-09): an open one re-renders its rows.
             palette.rebind(
                     chordOf(paletteAction.id()),
@@ -3331,12 +3356,24 @@ public final class TerminalWindow {
         messageLog().show();
     }
 
+    /** Scrolls the active terminal's history a line or a page: what the four {@code nav} commands run. */
+    private void scrollHistory(int direction, boolean page) {
+        TerminalView terminal = activeTerminal();
+        if (terminal != null) terminal.scrollHistory(direction, page);
+    }
+
+    /** The chords in force for moving a list's selection a row and a page (PAL-06). */
+    private Map<String, PaletteKeys.Action> listMoves() {
+        return PaletteKeys.moves(id -> KeyChord.of(chordOf(id), MAC));
+    }
+
     /** The palette, built the first time it is wanted. */
     private CommandPalette palette() {
         CommandPalette built = palette;
         if (built == null) {
             palette = built = new CommandPalette(overlay, this::focusActiveTerminal);
             built.setOpener(chordOf(paletteAction.id()));
+            built.setMoves(listMoves());
         }
         return built;
     }

@@ -25,7 +25,6 @@ A test fails when this list and that file disagree.
 - [ ] **[DOCS-04](https://pauta-project.dev/6.0.1/documentation/#docs-04)** The website's What's New page is written by hand, and nothing checks the command names and shortcuts the guide quotes.
 - [ ] **[DOCS-18](https://pauta-project.dev/6.0.1/documentation/#docs-18)** The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's.
 - [ ] **[KBD-04](https://pauta-project.dev/6.0.1/keyboard/#kbd-04)** On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.
-- [ ] **[PAL-06](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-06)** The Command Palette's movement keys are fixed and do not follow the key bindings.
 - [ ] **[PAL-08](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08)** The Command Palette has no key that opens the documentation for the highlighted command.
 - [ ] **[QOPEN-01](https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01)** There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.
 - [ ] **[REL-17](https://pauta-project.dev/6.0.1/release/#rel-17)** The Windows installer is not signed.
