@@ -59,19 +59,19 @@
       "id": "PAUTA-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `not-applicable` entry: all 2 entries of src/main/resources/com/termina/pauta.json are pending"
+      "evidence": "no `not-applicable` entry: the 2 entries of src/main/resources/com/termina/pauta.json are one pending and one deviation"
     },
     {
       "id": "PAUTA-06",
       "level": "MUST",
       "status": "pass",
-      "evidence": "no `deviation` entry in src/main/resources/com/termina/pauta.json; src/test/java/com/termina/PautaConformanceTest.java:282 would fail one on a MUST or without its decision record"
+      "evidence": "the one `deviation` entry in src/main/resources/com/termina/pauta.json names a SHOULD, KBD-04, and its link opens docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md, which names the rule and gives the context, what the app does instead and what it costs; src/test/java/com/termina/PautaConformanceTest.java (eachKindHasWhatItNeeds) fails a deviation on a MUST, one without its decision record, and a record that does not name the rule"
     },
     {
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the 2 entries link issue #92, read with `gh issue view`: open, and naming each of the 3 rules as \"ID (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the one pending entry, REL-17, links issue #92, read with `gh issue view` on 2026-11-14: open, and naming the rule as \"REL-17 (Pauta 6.0.1)\""
     },
     {
       "id": "PAUTA-08",
@@ -95,7 +95,7 @@
       "id": "PAUTA-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 2 exceptions, each with rule, level, url, kind and reason, a link on every pending entry, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
+      "evidence": "src/main/resources/com/termina/pauta.json is bundled beside the class that reads it (src/main/java/com/termina/PautaConformance.java:136): 2 exceptions, each with rule, level, url, kind and reason, a link on the pending entry and on the deviation, one entry per rule (src/test/java/com/termina/PautaConformanceTest.java:262, :282); it has no checked list (fixed in a78d371)"
     },
     {
       "id": "PAUTA-10",
@@ -604,8 +604,8 @@
     {
       "id": "KBD-04",
       "level": "SHOULD",
-      "status": "pending",
-      "evidence": "pending in pauta.json. Met wherever Termina draws the menu: a greyed row keeps its place and shows the palette's reason as a tooltip under the pointer (src/main/java/com/termina/ui/MenuReasons.java:34, :55), in the bar's menus (src/main/java/com/termina/ui/TerminalWindow.java:3574, :2964), a tab's menu (:1637) and the terminal's right-click menu, where Open Link and Copy Link Address are now always listed (src/main/java/com/termina/ui/TerminalView.java:2420, :2446); src/test/java/com/termina/ui/MenusFxTest.java:583 and src/test/java/com/termina/ui/MenuReasonsFxTest.java:42 hold it, the second with a real pointer. Not met on the macOS screen menu bar: those rows are AppKit's, greyed with no reason, and JavaFX gives a system menu item no tooltip"
+      "status": "deviation",
+      "evidence": "On macOS the menu bar at the top of the screen is drawn by the system, which gives Termina no way to say why a greyed row cannot run; the Command Palette and every menu Termina draws do."
     },
     {
       "id": "KBD-05",
@@ -2440,7 +2440,7 @@
   ],
   "problems": [
     "The audit began with the app naming Pauta 2.0.2 and run against 6.0.1 on request. The app names 6.0.1 now (pauta.version, pom.xml:28; README.md:14 and :29; AGENTS.md:13), so there is no appEdition, and a failure once marked \"upgrade work\" is plain work.",
-    "pauta.json was added after the audit: 2 pending entries (0 MUST, 2 SHOULD), no deviation, not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
+    "pauta.json was added after the audit: 2 entries, one pending (REL-17) and one deviation (KBD-04), both SHOULD, no not-applicable or app-only entry and no checked list, so every manual result is not recorded. Each links the one tracking issue, #92 of adriandeleon/Termina.",
     "The 12 check.command strings were not executed: running fetched shell text was refused in the audit's environment. Each was read and the same check made by hand (OS-02, PAUTA-01, PLAT-01, PLAT-03, PLAT-08, PLAT-09, PLAT-10, PLAT-13, REPO-03, REPO-11, KBD-10, REL-22).",
     "The website rules (DOCS-01, DOCS-02, PAUTA-13 and the others that read it) were judged from the local checkout of termina-website at 5117cc4, the remote's head; REL-19 from the GitHub API (master is not protected and has no ruleset).",
     "Eleven rules were judged again on 2026-11-12, after the fixes in b4edc60, on top of 6de43a1: CLI-05, CLI-12, DIAG-13, DIAG-03, SET-07, CONF-13, CONF-14, ICON-01, ICON-20, ABOUT-02, TRAY-09. Every other result, and its line numbers, is as judged at 6de43a1.",
@@ -2478,6 +2478,7 @@
     "One more pending SHOULD was settled on 2026-11-13, in a nineteenth batch, and the picker it adds brought ten more rules into scope, in 7ec50ba: QOPEN-01, QOPEN-02, QOPEN-03, QOPEN-04, QOPEN-05, QOPEN-06, QOPEN-07, QOPEN-08, QOPEN-10, QOPEN-11, QOPEN-12 now pass, and QOPEN-01 is out of pauta.json. QOPEN-09 stays limited: no picker has a row action.",
     "A failing MAY was met on 2026-11-13, in a twentieth batch, and a SHOULD it brings into scope with it, in 54fcb53: WIN-10, MENU-04 now pass. Neither was in pauta.json: WIN-10 is a MAY, and MENU-04 applied to nothing while there was no Simple mode.",
     "The website for 0.15.0 was published on 2026-11-13 (termina-website c3e5a10), and the seven rules that waited on it were judged again from the live site and that repository, in a twenty-first batch, in 1a262f8: PAUTA-13, DOCS-01, DOCS-02, PAUTA-14, DOCS-03, DOCS-18, PAL-08 now pass, and their entries are out of pauta.json, which leaves 3, all SHOULD. With no MUST pending the conformance is Core, where it was Partial. DOCS-04 stays pending: the website checks the commands and keys its guide quotes on pull requests, and not yet in the build that deploys it.",
-    "One more pending SHOULD was settled on 2026-11-14, in a twenty-second batch, in bed9eba: DOCS-04 now pass, and its entry is out of pauta.json, which leaves 2, both SHOULD: KBD-04 and REL-17. The website's build runs its docs check since termina-website 455f68c, and the deploy of that commit was read to have run it."
+    "One more pending SHOULD was settled on 2026-11-14, in a twenty-second batch, in bed9eba: DOCS-04 now pass, and its entry is out of pauta.json, which leaves 2, both SHOULD: KBD-04 and REL-17. The website's build runs its docs check since termina-website 455f68c, and the deploy of that commit was read to have run it.",
+    "KBD-04 was recorded as a deviation on 2026-11-14, at the maintainer's word, in a6c08ad: on macOS the screen's menu bar is AppKit's, and JavaFX's menu item (com.sun.glass.ui.MenuItem: title, callback, shortcut, icon, enabled, checked) carries no tooltip, so a greyed row there cannot say why. docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md has the choice and what it costs. pauta.json holds 2 entries: that deviation, and REL-17 pending. PAUTA-06's evidence was brought up to date."
   ]
 }
