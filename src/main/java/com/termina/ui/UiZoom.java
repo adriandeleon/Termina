@@ -38,9 +38,9 @@ public final class UiZoom {
     /** One step of Zoom Interface In or Out, in percent. */
     public static final int STEP = 10;
 
-    /** The sheets the zoom scales: the two control themes and the app's own. */
+    /** The sheets the zoom scales: the control themes and the app's own. */
     private static final List<String> SHEETS =
-            List.of("app.css", "settings.css", "editora-dark.css", "editora-light.css");
+            List.of("app.css", "settings.css", "editora-dark.css", "editora-light.css", "editora-contrast.css");
 
     private static final String FOLDER = "/com/termina/styles/";
 

@@ -335,7 +335,7 @@ public final class TerminalWindow {
                     stage.setX(at[0]);
                     stage.setY(at[1]);
                 }));
-        ThemeEntry theme = Themes.byId(settings.themeId());
+        ThemeEntry theme = Themes.drawn(settings.themeId());
         scene.setFill(theme.palette().background());
         // Before the first frame, so the title bar is never drawn in the desktop's scheme first.
         scene.getPreferences().setColorScheme(theme.colorScheme());
@@ -1020,7 +1020,7 @@ public final class TerminalWindow {
         // A dot after the title when something happened here while another tab was selected:
         // a bell, or output after a quiet spell. See TabMarks for the rule.
         TabMarkState marks = new TabMarkState(title);
-        marks.setColours(Themes.byId(settings.themeId()).palette());
+        marks.setColours(Themes.drawn(settings.themeId()).palette());
         tab.getProperties().put(TAB_MARKS, marks);
         tab.setGraphic(title);
         tab.setContextMenu(buildTabMenu(tab));
@@ -3853,7 +3853,7 @@ public final class TerminalWindow {
      */
     private void applyWindowTheme() {
         TerminalView active = activeTerminal();
-        ThemeEntry theme = active == null ? Themes.byId(settings.themeId()) : themeOf(active);
+        ThemeEntry theme = active == null ? Themes.drawn(settings.themeId()) : themeOf(active);
         Scene scene = stage.getScene();
         if (scene != null) {
             scene.setFill(theme.palette().background());
@@ -3869,9 +3869,14 @@ public final class TerminalWindow {
         }
     }
 
-    /** The theme a pane draws in: its profile's, if it names one that exists, else the global one. */
+    /**
+     * The theme a pane draws in: its profile's, if it names one that exists, else the global one;
+     * and the high-contrast one whatever they say while the system's mode is on (ACC-09).
+     */
     private ThemeEntry themeOf(TerminalView terminal) {
-        return themeFor(settings.profileStyle(terminal.launchOptions().profileId()), settings.themeId());
+        return Themes.drawn(
+                themeFor(settings.profileStyle(terminal.launchOptions().profileId()), settings.themeId())
+                        .id());
     }
 
     /** Pure: a profile's theme id if it names a theme, otherwise the global one. */

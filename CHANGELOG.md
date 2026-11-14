@@ -13,6 +13,10 @@ done.
 
 ### Added
 
+- **A High Contrast theme**: white on black, a single cyan accent, and every colour of the
+  terminal and of the windows at 7:1 or better on the black. Choose it like any theme. On Windows,
+  Termina switches to it while the system's high-contrast mode is on and back to your own theme
+  when it ends; that switch has not yet been run on Windows.
 - **The tabs you had open come back at the next launch.** Each tab and pane reopens as a new
   shell in the folder it was in, with the names you gave, the pinned tabs pinned and the same tab
   in front. The programs that were running are not started again, and a tab opened with `-e` comes

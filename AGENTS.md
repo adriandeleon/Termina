@@ -159,6 +159,8 @@ touching its area.
 - A card over the terminal has to be claimed in three places.
 - A capture run, and a test's `WindowManager`, keep no session and restore none.
 - Keys and mouse reports fired at a shell's prompt are commands.
+- `Themes.byId` is the choice; `Themes.drawn` is what to draw with.
+- `editora-contrast.css` is written by a script, and a test holds it to the dark sheet.
 
 ## Where things are
 

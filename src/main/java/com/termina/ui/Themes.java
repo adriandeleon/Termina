@@ -147,6 +147,24 @@ public final class Themes {
         systemDark = dark;
     }
 
+    /** Whether the system's high-contrast mode is on (ACC-09): then one theme draws everything. */
+    private static volatile boolean highContrast;
+
+    /** The system's high-contrast mode began or ended, or was read at startup ({@link HighContrast}). */
+    public static void followHighContrast(boolean on) {
+        highContrast = on;
+    }
+
+    /**
+     * The theme to draw with for the id a setting or a profile holds: that theme, or the
+     * high-contrast one while the system's high-contrast mode is on (ACC-09, Pauta 6.0.1). The
+     * stored choice is untouched, so the mode's end brings it back. Everything that draws asks
+     * this; {@link #byId} is for what shows or edits the choice itself.
+     */
+    public static ThemeEntry drawn(String id) {
+        return highContrast ? byId(Theme.HIGH_CONTRAST.id()) : byId(id);
+    }
+
     /** Whether an id is the follow-the-system choice rather than a theme. */
     public static boolean followsSystem(String id) {
         return SYSTEM_ID.equals(id);

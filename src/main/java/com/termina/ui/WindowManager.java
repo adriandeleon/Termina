@@ -99,6 +99,14 @@ public final class WindowManager {
             Themes.followSystem(now == javafx.application.ColorScheme.DARK);
             applySettingsEverywhere();
         });
+        // And Windows' high-contrast mode (ACC-09, Pauta 6.0.1): on, everything is drawn with the
+        // high-contrast theme; off, with the one that was chosen.
+        javafx.application.Platform.getPreferences()
+                .addListener((javafx.collections.MapChangeListener<String, Object>) change -> {
+                    if (!HighContrast.KEY.equals(change.getKey())) return;
+                    Themes.followHighContrast(HighContrast.isOn(change.getMap()));
+                    applySettingsEverywhere();
+                });
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
         this.sync.setUnaskedReporter(messages::add);
         // A window joins this list as it is shown, before its first frame: the one place that
@@ -111,7 +119,8 @@ public final class WindowManager {
             javafx.application.@Nullable ColorScheme scheme = null;
             while (change.next()) {
                 for (Window added : change.getAddedSubList()) {
-                    if (scheme == null) scheme = Themes.byId(settings.themeId()).colorScheme();
+                    if (scheme == null)
+                        scheme = Themes.drawn(settings.themeId()).colorScheme();
                     applyColorScheme(added, scheme);
                     installUiFont(added);
                 }
@@ -373,7 +382,7 @@ public final class WindowManager {
      * settings window says so on those rows.
      */
     private void applySettingsEverywhere() {
-        ThemeEntry theme = Themes.byId(settings.themeId());
+        ThemeEntry theme = Themes.drawn(settings.themeId());
         // The user-agent stylesheet is application-wide, so this restyles every window at once —
         // including the settings window that is probably the one being used to change it.
         // The UI zoom first (WIN-12, Pauta 6.0.1): every open window's own sheets, then the theme

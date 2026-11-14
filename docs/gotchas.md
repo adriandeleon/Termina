@@ -497,3 +497,14 @@ is broken.
   deadline without waiting for a pipe's end, so a shell that does hang costs five seconds on a
   worker and no more. The method is `synchronized`, so a caller that arrives while the launch-time
   request is out waits for that one answer and does not start a second shell.
+- **`Themes.byId` is the choice; `Themes.drawn` is what to draw with.** While Windows'
+  high-contrast mode is on, `drawn` answers with the High Contrast theme whatever id it is given,
+  and the stored choice is left alone so the mode's end brings it back. A new place that paints
+  with a theme and asks `byId` will ignore the mode; Settings, which shows and edits the choice,
+  is the one caller that should. The mode's flag is static, so a test that turns it on turns it
+  off again (`HighContrastTest`).
+- **`editora-contrast.css` is written by a script, and a test holds it to the dark sheet.** It is
+  `editora-dark.css` with other values for the `-color-*` tokens of its palette block and nothing
+  else changed. Change a control's rule in the dark sheet and `HighContrastTest` fails until
+  `scripts/high-contrast-theme.py` has been run. A stylesheet the zoom should scale is also named
+  in `UiZoom.SHEETS`: one left out draws at 100% whatever the interface zoom.

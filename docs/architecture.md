@@ -30,8 +30,11 @@ the one that cannot be run here.
 
 **Importing a colour scheme is in `com.termina.theme`**: one reader per format, all to a
 JavaFX-free `ColorScheme`, stored as `<config>/themes/*.properties` and listed with the built-ins by
-`ui.Themes`. Anything that draws asks `Themes.byId`, never the `Theme` enum, which is only the four
-built-ins.
+`ui.Themes`. Anything that draws asks `Themes.drawn`, never the `Theme` enum, which is only the five
+built-ins: it gives the theme an id names, or the high-contrast one while Windows' high-contrast
+mode is on (`ui.HighContrast`, ACC-09). `Themes.byId` is for what shows or edits the choice
+itself. The high-contrast control stylesheet is the dark one with other values for its colour
+tokens, written by `scripts/high-contrast-theme.py`.
 
 **Settings sync is a fifth, in `com.termina.sync`, ported from Editora's.** It carries only the key
 bindings, one file per platform family (`keybindings/macos.properties`,
