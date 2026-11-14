@@ -18,9 +18,10 @@ import static com.termina.i18n.Messages.tr;
  * {@code nav.pageDown} and {@code nav.pageUp} (PAL-06, Pauta 6.0.1), looked up and not written
  * here: by default Emacs's own, {@code C-n}/{@code C-p} and {@code C-v}/{@code M-v}, which is what
  * the hands of anyone who reaches for {@code M-x} already do, and whatever Settings ▸ Keyboard has
- * moved them to. {@code M-<}/{@code M->} for the ends and {@code C-g} to cancel stay as they are:
- * Termina's key table has no command for them to follow. All of it is safe to take here: while the
- * palette is open it owns the keyboard, so nothing is stolen from the shell.
+ * moved them to. Cancelling is a fifth, {@code nav.cancel} (PAL-07, QOPEN-07, MLOG-03): {@code C-g}
+ * by default, beside Escape, which always cancels. {@code M-<}/{@code M->} for the ends stay as
+ * they are: Termina's key table has no command for them to follow. All of it is safe to take here:
+ * while a list is open it owns the keyboard, so nothing is stolen from the shell.
  *
  * <p>The legend is built from the same table, so it can only name keys that reach the palette.
  */
@@ -45,12 +46,12 @@ final class PaletteKeys {
     private static final String SEPARATOR = "  ·  ";
 
     /** The chords no command stands behind, in {@link KeyChord} tokens, and what each means here. */
-    static final Map<String, Action> EMACS = Map.of(
-            "M-S-,", Action.FIRST,
-            "M-S-.", Action.LAST,
-            "C-g", Action.CANCEL);
+    static final Map<String, Action> EMACS = Map.of("M-S-,", Action.FIRST, "M-S-.", Action.LAST);
 
-    /** The four commands whose chords move the selection, and what each does to it. */
+    /**
+     * The commands whose chords act in a list, and what each does there: the four that move the
+     * selection, and the one that cancels.
+     */
     static final Map<String, Action> MOVES = movesById();
 
     private static Map<String, Action> movesById() {
@@ -59,6 +60,7 @@ final class PaletteKeys {
         moves.put("nav.lineUp", Action.UP);
         moves.put("nav.pageDown", Action.PAGE_DOWN);
         moves.put("nav.pageUp", Action.PAGE_UP);
+        moves.put("nav.cancel", Action.CANCEL);
         return java.util.Collections.unmodifiableMap(moves);
     }
 
@@ -203,8 +205,9 @@ final class PaletteKeys {
 
     /**
      * The palette legend: "move", the palette's own entries (nulls skipped), "cancel". The chords
-     * in force for a row down and a row up are shown beside the arrows, in the platform's notation,
-     * which is what the menus use; with neither on a key, the arrows alone.
+     * in force for a row down and a row up are shown beside the arrows, and the one for cancelling
+     * beside Esc, in the platform's notation, which is what the menus use; with none on a key, the
+     * arrows and Esc alone.
      *
      * @param moves the movement chords in force ({@link #moves})
      */
@@ -220,7 +223,11 @@ final class PaletteKeys {
         for (String entry : entries) {
             if (entry != null) parts.add(entry);
         }
-        parts.add(hint("cancel", "Esc / " + KeyChord.display("C-g")));
+        List<String> cancels = new ArrayList<>();
+        moves.forEach((token, action) -> {
+            if (action == Action.CANCEL) cancels.add(KeyChord.display(token));
+        });
+        parts.add(hint("cancel", cancels.isEmpty() ? "Esc" : "Esc / " + String.join(" ", cancels)));
         return String.join(SEPARATOR, parts);
     }
 }

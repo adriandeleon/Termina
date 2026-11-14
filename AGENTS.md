@@ -156,7 +156,8 @@ touching its area.
 - Keys fired at a program right after it starts can race its startup.
 - An `--add-opens` for a package only one platform has warns on every launch elsewhere.
 - The close prompt is modal, and a capture run that reaches it hangs.
-- A card over the terminal has to be claimed in three places.
+- A card over the terminal shows through `OverlayHost`, and nowhere else.
+- A picker's preview fires on every selection change, so its first selection is made before it is "showing".
 - A capture run, and a test's `WindowManager`, keep no session and restore none.
 - Keys and mouse reports fired at a shell's prompt are commands.
 - `Themes.byId` is the choice; `Themes.drawn` is what to draw with.

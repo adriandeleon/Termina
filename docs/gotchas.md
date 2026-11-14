@@ -481,13 +481,20 @@ is broken.
 - **The Linux listing's screenshot is `docs/screenshot.png` on master, by URL.** It is in the
   metainfo of packages already installed, so the dark hero keeps that path and only the light one
   has a new name.
-- **A card over the terminal has to be claimed in three places.** The palette and the Message
-  Log's card are nodes in the window's overlay `StackPane`, not windows. Each is named in
-  `TerminalWindow.overlayWantsKeys`, or `FocusGuard` takes the keyboard back from it a pulse after
-  it opens; each makes `onKeyPressed` return early, or a bound chord runs behind it; and opening
-  one closes the other, since both keep "the node that had the keyboard" to give it back. A third
-  card needs all three. `PaletteFocusFxTest` waits three frames and asks who has the keyboard,
-  which is the check the first of them needs.
+- **A card over the terminal shows through `OverlayHost`, and nowhere else.** The palette, the
+  Message Log and every `QuickPick` are nodes in the window's overlay `StackPane`, not windows,
+  and the host shows one at a time: it owns the backdrop and remembers which node had the keyboard
+  before the first card opened. `TerminalWindow.overlayWantsKeys` and `onKeyPressed` ask the host
+  whether a card is up, so a new card is claimed by showing it there. Before the host each card
+  kept its own backdrop and focus memory and had three places to be named in; one added straight
+  to the `StackPane` again would lose the keyboard to `FocusGuard` a pulse after it opened and let
+  bound chords run behind it. `QuickPickTest` fails on a fourth class that calls `host.show`
+  without being listed, and `PaletteFocusFxTest` waits three frames and asks who has the keyboard.
+- **A picker's preview fires on every selection change, so its first selection is made before it
+  is "showing".** `QuickPick` selects the value in force while `showing` is still false, and
+  `reload` lowers the flag around its own reselect: a preview for a row nobody moved to would
+  change the theme the moment the card appeared. The undo runs from the host's `onHidden`, which
+  is why `chosen` is set before `hide()`.
 - **A capture run, and a test's `WindowManager`, keep no session and restore none.** `App` calls
   `keepSession` only for its own runs, so a picture never depends on the run before it and a test
   leaves no tabs in its settings. A test that wants a session calls `keepSession` and

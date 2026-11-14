@@ -896,3 +896,9 @@
     -fx-font-family: "Inter";
     -fx-font-size: 11px;
 }
+
+/* A picker's title (QOPEN-02): the command's name over the field, on the palette's card. */
+.command-palette .palette-title {
+    -fx-font-weight: bold;
+    -fx-padding: 4 10 0 10;
+}

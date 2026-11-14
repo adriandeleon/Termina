@@ -93,8 +93,11 @@ public final class TerminalWindow {
     /** The Message Log's card over this window, built the first time it is wanted. */
     private @Nullable MessageLogCard messageLog;
 
-    /** What the palette hangs from once it is built: a layer over the whole window, empty until then. */
+    /** The layer over the whole window that a card shows in; empty until one does. */
     private final StackPane overlay;
+
+    /** Shows one card at a time in {@link #overlay}: the palette, the Message Log, a picker. */
+    private final OverlayHost overlayHost;
 
     // The actions below are made here, not in buildMenuBar where they are registered: the palette
     // and the constructor ask after them, and NullAway cannot see an assignment in a builder as
@@ -312,6 +315,7 @@ public final class TerminalWindow {
         // A StackPane over the whole window so the palette has somewhere to be. It is empty until
         // the palette opens, so it costs a node and nothing else.
         overlay = new StackPane(root);
+        overlayHost = new OverlayHost(overlay, this::focusActiveTerminal);
 
         javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
         double width = WindowGeometry.fit(settings.windowWidth(), DEFAULT_WIDTH, screen.getWidth());
@@ -483,8 +487,8 @@ public final class TerminalWindow {
 
     /** Whether something on screen is entitled to the keyboard instead of the terminal. */
     private boolean overlayWantsKeys(@Nullable TerminalView terminal) {
-        if (palette != null && palette.isShowing()) return true;
-        if (messageLog != null && messageLog.isShowing()) return true;
+        // Any card in the overlay host: the palette, the Message Log, a picker.
+        if (overlayHost.isShowing()) return true;
         // The find bar's field. Only while it has the keyboard: with the bar open and the terminal
         // clicked, the terminal is entitled to focus back like any other time.
         if (terminal != null && terminal.searchHasFocus()) return true;
@@ -3192,6 +3196,12 @@ public final class TerminalWindow {
                 item("command.debugLog.clear", () -> windows.debugLog(stage).clear()),
                 item("command.messageLog.copy", () -> messageLog().copy()),
                 item("command.messageLog.clear", () -> messageLog().clear()),
+                // The pickers (QOPEN-01, Pauta 6.0.1): one card, a list to type into, for a choice
+                // from a list. Palette and chord only; the Settings rows are where the menus lead.
+                item("command.view.selectTheme", this::selectTheme),
+                item("command.view.selectFont", this::selectFont),
+                item("command.view.selectCursorShape", this::selectCursorShape),
+                item("command.file.newTabFromProfile", this::newTabFromProfile),
                 // Report a Problem's and About's buttons and links, as commands.
                 item("command.report.copy", () -> windows.reportProblemAction(stage, false)),
                 item("command.report.open", () -> windows.reportProblemAction(stage, true)),
@@ -3223,6 +3233,10 @@ public final class TerminalWindow {
         all.add(item("command.nav.lineUp", () -> scrollHistory(-1, false)));
         all.add(item("command.nav.pageDown", () -> scrollHistory(1, true)));
         all.add(item("command.nav.pageUp", () -> scrollHistory(-1, true)));
+        // Cancelling a list (PAL-07, QOPEN-07, MLOG-03): the palette, a picker and the Message
+        // Log read this command's chord, Ctrl+G by default. Run as a command it closes the card
+        // that is up; Escape always does.
+        all.add(item("command.nav.cancel", () -> overlayHost.hide()));
         for (PaneGroup.Direction direction : PaneGroup.Direction.values()) {
             String key = "command.pane.focus" + direction.name().charAt(0)
                     + direction.name().substring(1).toLowerCase(java.util.Locale.ROOT);
@@ -3349,17 +3363,16 @@ public final class TerminalWindow {
         if (built == null) {
             messageLog = built = new MessageLogCard(
                     windows.messages(),
-                    overlay,
-                    this::focusActiveTerminal,
+                    overlayHost,
                     () -> windowRoot.getBottom() == statusBar ? statusBar.getHeight() : 0);
             built.setChords(this::chordOf);
+            built.setMoves(this::listMoves);
         }
         return built;
     }
 
     /** Opens the Message Log over this window, or closes it; one card over the terminal at a time. */
     void showMessageLog() {
-        if (palette != null && palette.isShowing()) palette.hide();
         messageLog().show();
     }
 
@@ -3389,11 +3402,128 @@ public final class TerminalWindow {
         return PaletteKeys.moves(id -> KeyChord.of(chordOf(id), MAC));
     }
 
+    // ---- the pickers (QOPEN-01, Pauta 6.0.1): each an instance of the one QuickPick ----
+
+    private @Nullable QuickPick<ThemeEntry> themePicker;
+    private @Nullable QuickPick<String> fontPicker;
+    private @Nullable QuickPick<Settings.CursorShape> cursorShapePicker;
+    private @Nullable QuickPick<com.termina.shell.Profile> profilePicker;
+
+    /** A picker in this window's overlay host, titled by its command and moving on the bindings in force. */
+    private <T> QuickPick<T> picker(
+            String command,
+            String prompt,
+            java.util.function.Supplier<List<T>> items,
+            java.util.function.Function<T, String> label,
+            java.util.function.Function<T, String> detail,
+            java.util.function.Consumer<T> choose) {
+        return new QuickPick<>(
+                overlayHost,
+                WindowRules.pickerTitle(tr(command)),
+                tr(prompt),
+                items,
+                label,
+                detail,
+                choose,
+                this::listMoves);
+    }
+
+    /**
+     * Select Color Theme: every theme, the one in force selected. The row the selection moves to
+     * is shown at once, in every window, and a dismissal puts back the theme there was (QOPEN-08).
+     * Setting it is enough: {@code Settings.onChange} re-applies to every window.
+     */
+    private void selectTheme() {
+        QuickPick<ThemeEntry> built = themePicker;
+        if (built == null) {
+            themePicker = built = picker(
+                    "command.view.selectTheme",
+                    "picker.theme.prompt",
+                    () -> List.copyOf(Themes.byDisplayName().values()),
+                    ThemeEntry::displayName,
+                    theme -> Themes.followsSystem(theme.id())
+                            ? ""
+                            : tr(theme.isDark() ? "picker.theme.dark" : "picker.theme.light"),
+                    theme -> settings.setThemeId(theme.id()));
+            built.setCurrent(theme -> theme.id().equals(settings.themeId()));
+        }
+        String before = settings.themeId();
+        built.setPreview(theme -> settings.setThemeId(theme.id()), () -> settings.setThemeId(before));
+        built.show();
+    }
+
+    /**
+     * Select Font: the monospace families installed. The bundled ones are registered off the FX
+     * thread after the first frame; a picker opened before they all are reads the list again when
+     * they arrive, and keeps what was typed (QOPEN-03).
+     */
+    private void selectFont() {
+        QuickPick<String> built = fontPicker;
+        if (built == null) {
+            fontPicker = built = picker(
+                    "command.view.selectFont",
+                    "picker.font.prompt",
+                    MonospaceFonts::available,
+                    family -> family,
+                    family -> "",
+                    settings::setFontFamily);
+            built.setCurrent(family -> family.equals(MonospaceFonts.resolve(settings.fontFamily())));
+        }
+        QuickPick<String> shown = built;
+        if (!Fonts.restLoaded()) Fonts.loadRestInBackground(() -> Platform.runLater(shown::reload));
+        built.show();
+    }
+
+    /** Select Cursor Shape: the three shapes, the one in force selected. */
+    private void selectCursorShape() {
+        QuickPick<Settings.CursorShape> built = cursorShapePicker;
+        if (built == null) {
+            cursorShapePicker = built = picker(
+                    "command.view.selectCursorShape",
+                    "picker.cursorShape.prompt",
+                    () -> List.of(Settings.CursorShape.values()),
+                    shape -> tr("cursor." + shape.name().toLowerCase(java.util.Locale.ROOT)),
+                    shape -> "",
+                    settings::setCursorShape);
+            built.setCurrent(shape -> shape == settings.cursorShape());
+        }
+        built.show();
+    }
+
+    /** New Tab from Profile: every profile by name, with the command it runs; the default one selected. */
+    private void newTabFromProfile() {
+        QuickPick<com.termina.shell.Profile> built = profilePicker;
+        if (built == null) {
+            profilePicker = built = picker(
+                    "command.file.newTabFromProfile",
+                    "picker.profile.prompt",
+                    () -> windows.profiles().all(),
+                    com.termina.shell.Profile::name,
+                    profile -> String.join(" ", profile.command()),
+                    this::openTab);
+            built.setCurrent(profile -> profile.id().equals(windows.profiles().defaultProfileId()));
+            built.setPlaceholder(tr("picker.profile.none"));
+        }
+        built.show();
+    }
+
+    /** The picker showing in this window, by its command id, or null: for tests and capture runs. */
+    @Nullable
+    QuickPick<?> pickerForTest(String id) {
+        return switch (id) {
+            case "view.selectTheme" -> themePicker;
+            case "view.selectFont" -> fontPicker;
+            case "view.selectCursorShape" -> cursorShapePicker;
+            case "file.newTabFromProfile" -> profilePicker;
+            default -> null;
+        };
+    }
+
     /** The palette, built the first time it is wanted. */
     private CommandPalette palette() {
         CommandPalette built = palette;
         if (built == null) {
-            palette = built = new CommandPalette(overlay, this::focusActiveTerminal);
+            palette = built = new CommandPalette(overlayHost);
             built.setOpener(chordOf(paletteAction.id()));
             built.setMoves(listMoves());
             built.setHelp(paletteHelpKey(), this::openCommandHelp);
@@ -3755,13 +3885,11 @@ public final class TerminalWindow {
     }
 
     private void onKeyPressed(KeyEvent e) {
-        // While the palette is open it owns the keyboard. This filter is on the scene, so without
-        // this it would still be matching chords against keystrokes meant for the query field.
-        // Not consumed: the palette's own filter is downstream and still needs them.
-        if (palette != null && palette.isShowing()) return;
-        // The Message Log's card the same: its own filter has Escape, the copy chords and the
-        // chord that opened it, and nothing else bound runs behind it.
-        if (messageLog != null && messageLog.isShowing()) return;
+        // While a card is up it owns the keyboard: the palette, a picker, the Message Log. This
+        // filter is on the scene, so without this it would still be matching chords against
+        // keystrokes meant for the card's field. Not consumed: the card's own filter is
+        // downstream and still needs them, and nothing else bound runs behind it.
+        if (overlayHost.isShowing()) return;
 
         boolean inTextField = stage.getScene() != null
                 && stage.getScene().getFocusOwner() instanceof javafx.scene.control.TextInputControl;
@@ -3972,7 +4100,6 @@ public final class TerminalWindow {
      * a submenu nobody opens, while a palette is exactly where "make this one darker" belongs.
      */
     private void showPalette() {
-        if (messageLog != null && messageLog.isShowing()) messageLog.hide();
         java.util.Map<MenuAction, String> unavailable = new java.util.IdentityHashMap<>();
         List<MenuAction> all = paletteRows(unavailable);
         // A command that cannot run is listed greyed with its reason, not dropped: a missing command

@@ -159,7 +159,7 @@ class LogWindowsFxTest {
             StackPane host = new StackPane();
             owner.setScene(new Scene(host, 900, 600));
             owner.show();
-            MessageLogCard window = new MessageLogCard(log, host, () -> {}, () -> 0);
+            MessageLogCard window = new MessageLogCard(log, new OverlayHost(host, () -> {}), () -> 0);
             window.show();
             List<String> out = new java.util.ArrayList<>();
             out.add(window.report());
@@ -232,7 +232,7 @@ class LogWindowsFxTest {
             StackPane host = new StackPane();
             owner.setScene(new Scene(host, 900, 600));
             owner.show();
-            MessageLogCard window = new MessageLogCard(log, host, () -> {}, () -> 0);
+            MessageLogCard window = new MessageLogCard(log, new OverlayHost(host, () -> {}), () -> 0);
             window.show();
             host.applyCss();
             host.layout();
@@ -289,6 +289,62 @@ class LogWindowsFxTest {
     }
 
     /**
+     * QOPEN-12 (Pauta 6.0.1): the log is a list in the overlay host like the picker, and moves and
+     * cancels on the picker's keys, the chords bound to a row and a page and Ctrl+G, beside the
+     * list's own arrows.
+     */
+    @Test
+    void theMessageLogMovesAndCancelsOnThePickersKeys() throws Exception {
+        java.util.Map<String, PaletteKeys.Action> moves =
+                PaletteKeys.moves(id -> KeyChord.of(Keymap.lists().get(id), Keybindings.MAC));
+        assertEquals(PaletteKeys.Action.DOWN, MessageLogCard.listAction("C-n", moves));
+        assertEquals(PaletteKeys.Action.PAGE_UP, MessageLogCard.listAction("M-v", moves));
+        assertEquals(PaletteKeys.Action.CANCEL, MessageLogCard.listAction("C-g", moves));
+        // The list's own keys, Enter and Escape are not taken here.
+        for (String own : List.of("down", "up", "pagedown", "home", "enter", "escape")) {
+            assertEquals(PaletteKeys.Action.NONE, MessageLogCard.listAction(own, moves), own);
+        }
+        assertEquals(PaletteKeys.Action.NONE, MessageLogCard.listAction(null, moves));
+        // Rebound, the old chord is no longer a movement key.
+        assertEquals(
+                PaletteKeys.Action.NONE,
+                MessageLogCard.listAction("C-n", java.util.Map.of("C-j", PaletteKeys.Action.DOWN)));
+
+        MessageLog log = new MessageLog();
+        List<String> seen = onFx(() -> {
+            for (String line : List.of("one", "two", "three", "four")) log.add(MessageLog.Severity.INFO, line);
+            Stage owner = new Stage();
+            StackPane host = new StackPane();
+            owner.setScene(new Scene(host, 1200, 800));
+            owner.show();
+            MessageLogCard card = new MessageLogCard(log, new OverlayHost(host, () -> {}), () -> 0);
+            card.show();
+            host.applyCss();
+            host.layout();
+            @SuppressWarnings("unchecked")
+            javafx.scene.control.ListView<MessageLog.Entry> list = (javafx.scene.control.ListView<MessageLog.Entry>)
+                    card.card().lookup(".list-view");
+            list.getSelectionModel().clearAndSelect(0);
+            List<String> out = new java.util.ArrayList<>();
+            javafx.event.Event.fireEvent(list, ctrl(KeyCode.N));
+            javafx.event.Event.fireEvent(list, ctrl(KeyCode.N));
+            out.add(String.valueOf(list.getSelectionModel().getSelectedIndex()));
+            javafx.event.Event.fireEvent(list, ctrl(KeyCode.P));
+            out.add(String.valueOf(list.getSelectionModel().getSelectedIndex()));
+            javafx.event.Event.fireEvent(list, ctrl(KeyCode.G));
+            out.add(String.valueOf(card.isShowing()));
+            owner.close();
+            return out;
+        });
+        assertEquals(List.of("2", "1", "false"), seen);
+    }
+
+    private static javafx.scene.input.KeyEvent ctrl(KeyCode code) {
+        return new javafx.scene.input.KeyEvent(
+                javafx.scene.input.KeyEvent.KEY_PRESSED, "", "", code, false, true, false, false);
+    }
+
+    /**
      * MLOG-08 (Pauta 6.0.1): the log is a card in its window's overlay host, at the bottom left
      * just above the status bar, 773 wide with a list 336 high, and it opens no window.
      */
@@ -303,7 +359,7 @@ class LogWindowsFxTest {
             owner.show();
             int windowsBefore = javafx.stage.Window.getWindows().size();
             boolean[] handedBack = {false};
-            MessageLogCard card = new MessageLogCard(log, host, () -> handedBack[0] = true, () -> 24);
+            MessageLogCard card = new MessageLogCard(log, new OverlayHost(host, () -> handedBack[0] = true), () -> 24);
             card.show();
             host.applyCss();
             host.layout();

@@ -73,14 +73,6 @@
       "link": "https://github.com/adriandeleon/Termina/issues/92"
     },
     {
-      "rule": "QOPEN-01",
-      "level": "SHOULD",
-      "url": "https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01",
-      "kind": "pending",
-      "reason": "There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.",
-      "link": "https://github.com/adriandeleon/Termina/issues/92"
-    },
-    {
       "rule": "REL-17",
       "level": "SHOULD",
       "url": "https://pauta-project.dev/6.0.1/release/#rel-17",

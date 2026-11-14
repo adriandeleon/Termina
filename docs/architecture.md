@@ -66,6 +66,13 @@ files are replaced in `themes/`, and the settings parts are merged key by key
 `settings.json`, so memory and file cannot disagree. `ui.ConfigTransfer` is the FX side: the
 worker threads, the chooser and the parts dialog.
 
+**A card over the terminal is shown by `ui.OverlayHost`**, one at a time: the Command Palette, the
+Message Log's card and `ui.QuickPick`, the one generic picker (a port of Editora's `QuickOpen`) that
+the theme, font, cursor shape and profile pickers are instances of. The host owns the backdrop and
+gives the keyboard back, when the card closes, to the node that had it before the first card
+opened, or to the terminal. All three move on `PaletteKeys`' table: the arrows, and the chords the
+bindings give the four `nav` commands.
+
 **Commands are by id, in `ui.CommandRegistry`.** Each window registers every command with its
 action, its label now and its gate now (`TerminalWindow.currentLabel`, `unavailableNow`). Menu items,
 the palette and the key bindings all run and name a command through it, and a menu refreshes its

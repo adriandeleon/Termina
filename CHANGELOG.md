@@ -13,6 +13,18 @@ done.
 
 ### Added
 
+- **Pickers: a list to type into for a choice from a list.** Four commands, in the Command
+  Palette and bindable under Settings ▸ Keyboard: **Select Color Theme**, **Select Font**,
+  **Select Cursor Shape** and **New Tab from Profile**. Each opens on the value in force. Type to
+  narrow the list, move with the arrows or Ctrl+N and Ctrl+P, Enter chooses, Escape or Ctrl+G
+  cancels. Select Color Theme shows each theme in the window as you move to it and puts back the
+  one you had if you cancel.
+- **Cancelling a list is a command, Cancel List**, on Ctrl+G by default and bindable under
+  Settings ▸ Keyboard like the four that move a line and a page. The Command Palette, the pickers
+  and the Message Log all close on its chord, and on Escape whatever is bound. Ctrl+G was fixed in
+  the palette before, and with the terminal in front it stays the shell's.
+- **The Message Log moves on Ctrl+N and Ctrl+P and closes on Ctrl+G**, the keys of the palette
+  and the pickers, or whichever chords you have given those commands.
 - **A help key in the Command Palette.** Ctrl+H opens the highlighted command's page of the user
   guide in your browser; the palette stays open. It is F1, or Shift+F1, if you have given Ctrl+H
   to a command. The palette's legend names the key.

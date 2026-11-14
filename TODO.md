@@ -25,7 +25,6 @@ A test fails when this list and that file disagree.
 - [ ] **[DOCS-18](https://pauta-project.dev/6.0.1/documentation/#docs-18)** The website's screenshots are retaken at double size but not published yet.
 - [ ] **[KBD-04](https://pauta-project.dev/6.0.1/keyboard/#kbd-04)** On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.
 - [ ] **[PAL-08](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08)** The Command Palette's help key opens a command's page of the user guide, which the website does not serve yet.
-- [ ] **[QOPEN-01](https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01)** There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.
 - [ ] **[REL-17](https://pauta-project.dev/6.0.1/release/#rel-17)** The Windows installer is not signed.
 
 One optional rule is not met and has no entry there: window modes that hide chrome

@@ -245,7 +245,8 @@ the menu it lives in. It is Editora's palette in shape and behaviour: the query 
 naming the chord that opened it, the characters that matched are emboldened so the ranking explains
 itself, a line under the list says what the highlighted command does, and a legend names the keys.
 Those keys are Emacs's as well as the arrows: Ctrl+N and Ctrl+P move, Ctrl+V and Alt+V page,
-Alt+< and Alt+> jump to the ends, Ctrl+G cancels, and the query field takes Ctrl+A, Ctrl+E,
+Alt+< and Alt+> jump to the ends, Ctrl+G cancels (the chord of the Cancel List command, bindable
+like the four that move), and the query field takes Ctrl+A, Ctrl+E,
 Ctrl+K and the rest of the Emacs editing chords. A command that cannot run right now — Reopen
 Closed Tab with nothing to reopen — is listed greyed with the reason as its tooltip rather than
 dropped, and the cursor steps over it. The commands are the menu bar's own actions rather than a
@@ -255,6 +256,16 @@ since a menu listing every theme is a submenu nobody opens. The chord is Termina
 Settings: click the field and press another one. A bare key is refused — the shell owns it — and
 so is a chord another command already has, since the first binding on a chord is the only one
 that runs.
+
+A **picker** is the palette's card for a choice from a list: a title naming the command, a field
+to type in, the list with the value in force selected, and the palette's own keys. Four commands
+open one, each in the palette and bindable: **Select Color Theme**, which shows each theme in the
+window as the selection reaches it and puts back the one there was on Escape; **Select Font**, the
+monospace families installed; **Select Cursor Shape**; and **New Tab from Profile**, every profile
+by name with the command it runs. With nothing typed the list is in its own order; typing ranks it
+by the palette's fuzzy score, rows that score the same staying in that order. All four are one
+class, `ui.QuickPick`, shown through the window's `OverlayHost`, which holds one card at a time: the
+palette, the Message Log or a picker.
 
 A **debug log** (Advanced → Diagnostics) keeps this session's warnings, errors and uncaught
 exceptions, and mirrors them to `termina-session.log` beside the settings. A packaged application

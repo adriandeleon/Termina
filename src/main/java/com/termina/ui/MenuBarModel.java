@@ -127,7 +127,8 @@ final class MenuBarModel {
                         "nav.lineDown",
                         "nav.lineUp",
                         "nav.pageDown",
-                        "nav.pageUp"));
+                        "nav.pageUp",
+                        "nav.cancel"));
 
         List<String> windowUnlisted = new ArrayList<>();
         for (String direction : List.of("Left", "Right", "Up", "Down")) windowUnlisted.add("pane.focus" + direction);
@@ -180,6 +181,10 @@ final class MenuBarModel {
                         "debugLog.clear",
                         "messageLog.copy",
                         "messageLog.clear",
+                        "view.selectTheme",
+                        "view.selectFont",
+                        "view.selectCursorShape",
+                        "file.newTabFromProfile",
                         "report.copy",
                         "report.open",
                         "help.copyDetails",

@@ -98,11 +98,21 @@ class PaletteKeysTest {
     @Test
     void theFourCommandsAndTheirDefaultsAreTheListKeyMaps() {
         assertEquals(
-                java.util.List.of("nav.lineDown", "nav.lineUp", "nav.pageDown", "nav.pageUp"),
+                java.util.List.of("nav.lineDown", "nav.lineUp", "nav.pageDown", "nav.pageUp", "nav.cancel"),
                 java.util.List.copyOf(PaletteKeys.MOVES.keySet()));
         assertEquals(PaletteKeys.MOVES.keySet(), Keymap.lists().keySet());
         assertEquals(
-                java.util.Map.of("C-n", Action.DOWN, "C-p", Action.UP, "C-v", Action.PAGE_DOWN, "M-v", Action.PAGE_UP),
+                java.util.Map.of(
+                        "C-n",
+                        Action.DOWN,
+                        "C-p",
+                        Action.UP,
+                        "C-v",
+                        Action.PAGE_DOWN,
+                        "M-v",
+                        Action.PAGE_UP,
+                        "C-g",
+                        Action.CANCEL),
                 DEFAULTS);
         // They are not application chords: the window's key filter passes them over, and the
         // platform key maps, which may bind no plain Ctrl or Alt with a letter, do not hold them.
@@ -118,7 +128,7 @@ class PaletteKeysTest {
 
     @Test
     void theEmacsChordsNavigate() {
-        // By default: Emacs's own, from keymaps/lists.json; the ends and cancel from the table.
+        // By default: Emacs's own, from keymaps/lists.json, cancelling included; the ends from the table.
         assertEquals(Action.DOWN, PaletteKeys.resolve("C-n", true, DEFAULTS));
         assertEquals(Action.UP, PaletteKeys.resolve("C-p", true, DEFAULTS));
         assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("C-v", true, DEFAULTS));
@@ -155,6 +165,23 @@ class PaletteKeysTest {
         assertEquals(0, PaletteKeys.target(Action.FIRST, 15, 20, 8));
         assertEquals(19, PaletteKeys.target(Action.LAST, 0, 20, 8));
         assertEquals(1, PaletteKeys.target(Action.PAGE_DOWN, 0, 20, 0), "a page is never less than one row");
+    }
+
+    /**
+     * PAL-07, QOPEN-07, MLOG-03 (Pauta 6.0.1): a list is cancelled on the chord the bindings give
+     * the cancel command, and on Escape whatever is bound; no letter is fixed for it.
+     */
+    @Test
+    void cancellingIsOnTheChordBoundToItsCommandAndOnEscape() {
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("escape", true, DEFAULTS));
+        java.util.Map<String, Action> moved = PaletteKeys.moves(java.util.Map.of("nav.cancel", "C-q")::get);
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("C-q", true, moved));
+        assertEquals(Action.NONE, PaletteKeys.resolve("C-g", true, moved), "the chord it was on does nothing");
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("escape", true, moved));
+        assertFalse(PaletteKeys.EMACS.containsValue(Action.CANCEL));
+        // The legend names the chord in force beside Esc, and Esc alone when there is none.
+        assertTrue(PaletteKeys.legend(moved).endsWith(tr("pickerKeys.cancel", "Esc / " + KeyChord.display("C-q"))));
+        assertTrue(PaletteKeys.legend(java.util.Map.of()).endsWith(tr("pickerKeys.cancel", "Esc")));
     }
 
     @Test
