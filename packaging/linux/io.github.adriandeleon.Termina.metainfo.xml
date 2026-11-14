@@ -65,22 +65,24 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.15.0" date="2026-11-14">
+      <description>
+        <p>
+          A status bar and a Message Log, the tabs you had open back at the next launch, pinned
+          tabs, pickers for themes, fonts and profiles, and Zen, Expert and Simple window modes.
+          Settings are JSON, with export, import and a sync that carries a shortcut to every
+          system. A High Contrast theme, an interface zoom, and a terminal a screen reader can
+          read.
+        </p>
+      </description>
+      <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.15.0</url>
+    </release>
     <release version="0.14.0" date="2026-10-31">
       <description>
         <p>
           A full listing in GNOME Software and KDE Discover, with the description, licence and
           icon. An AppImage and a tarball beside the packages, every download signed, and
           Ctrl+click opens the URLs in Markdown links.
-        </p>
-      </description>
-      <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.14.0</url>
-    </release>
-    <release version="0.14.0" date="2026-10-31">
-      <description>
-        <p>
-          The macOS app is signed and notarized, every Linux download is signed, and Linux gains an
-          AppImage and a tarball. The packages list properly in GNOME Software, and Ctrl+click opens
-          the URLs in Markdown links.
         </p>
       </description>
       <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.14.0</url>

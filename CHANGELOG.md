@@ -7,9 +7,18 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
-The quick fixes from the [2026-11-06 performance review](docs/reference/review-2026-11-06.md) and its
-settings-layer items; the larger ones there (damage tracking, the theme stylesheets' size) are not
-done.
+## [0.15.0] - 2026-11-14
+
+Termina is built to [Pauta 6.0.1](https://pauta-project.dev/6.0.1/) now, at Core conformance, and
+most of this release came from getting there. A status bar and a Message Log. Settings in JSON,
+with export, import and a sync that carries a changed shortcut to every system. The tabs you had
+open back at the next launch, pinned tabs, pickers, three window modes, a High Contrast theme and
+an interface zoom. A terminal a screen reader can read. A user guide for this version is on the
+website, and Help opens it. A great deal of what a user sees changed, so the minor number moves.
+
+Also here: the quick fixes from the
+[2026-11-06 performance review](docs/reference/review-2026-11-06.md) and its settings-layer items;
+the larger ones there (damage tracking, the theme stylesheets' size) are not done.
 
 ### Added
 
@@ -1627,7 +1636,8 @@ First release.
   elsewhere.
 - **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
 
-[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/adriandeleon/Termina/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/adriandeleon/Termina/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/adriandeleon/Termina/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/adriandeleon/Termina/compare/v0.11.0...v0.12.0
