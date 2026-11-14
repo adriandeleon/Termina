@@ -80,9 +80,10 @@ final class NamedControls {
     }
 
     /**
-     * The rows of a menu that carry no glyph (MENU-14, Pauta 6.0.1): every row does but a check or
-     * radio row, whose mark has the icon column. A plain row's glyph is its graphic; a row drawn
-     * from its own nodes has one somewhere in its content, in the icon column.
+     * The rows of a menu that carry no glyph. MENU-14 (Pauta 6.1.0) makes a glyph a MAY; Termina
+     * gives one to every row but a check or radio row, whose mark has the icon column. A plain
+     * row's glyph is its graphic; a row drawn from its own nodes has one somewhere in its content,
+     * in the icon column.
      */
     static List<String> rowsWithoutGlyph(List<? extends MenuItem> items) {
         List<String> out = new ArrayList<>();

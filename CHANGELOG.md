@@ -7,6 +7,18 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+### Changed
+
+- **Built to [Pauta 6.1.0](https://pauta-project.dev/6.1.0/)**, still at Core conformance. The
+  edition makes an icon on every menu row optional rather than required; Termina keeps one on
+  every row, so its menus look as they did.
+
+### Fixed
+
+- **The find bar's arrows wear the Find Next and Find Previous icons**, the ones their rows in the
+  menus show, instead of arrows of their own. And Find Next's icon now points up: it steps to older
+  output, up the scrollback, where it used to point down.
+
 ## [0.15.0] - 2026-11-14
 
 Termina is built to [Pauta 6.0.1](https://pauta-project.dev/6.0.1/) now, at Core conformance, and

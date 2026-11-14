@@ -1,11 +1,11 @@
 {
-  "$schema": "https://pauta-project.dev/6.0.1/audit.schema.json",
+  "$schema": "https://pauta-project.dev/6.1.0/audit.schema.json",
   "app": "Termina",
   "commit": "6de43a1",
-  "edition": "6.0.1",
-  "date": "2026-11-13",
+  "edition": "6.1.0",
+  "date": "2026-11-14",
   "scope": [],
-  "rules": "https://pauta-project.dev/6.0.1/rules.json",
+  "rules": "https://pauta-project.dev/6.1.0/rules.json",
   "results": [
     {
       "id": "OS-01",
@@ -35,7 +35,7 @@
       "id": "PAUTA-01",
       "level": "MUST",
       "status": "pass",
-      "evidence": "pom.xml:28 defines `pauta.version` (6.0.1) and src/main/resources/com/termina/pauta.json exists; the app states its conformance, Core, in About (src/main/java/com/termina/ui/AboutWindow.java:167), the Pauta window and the README (README.md:14, :32) (fixed in a78d371)"
+      "evidence": "pom.xml:28 defines `pauta.version` (6.1.0) and src/main/resources/com/termina/pauta.json exists; the app states its conformance, Core, in About (src/main/java/com/termina/ui/AboutWindow.java:167), the Pauta window and the README (README.md:14, :32) (fixed in a78d371)"
     },
     {
       "id": "PAUTA-02",
@@ -71,7 +71,7 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the one pending entry, REL-17, links issue #92, read with `gh issue view` on 2026-11-14: open, and naming the rule as \"REL-17 (Pauta 6.0.1)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the one pending entry, REL-17, links issue #92, read with `gh issue view` on 2026-11-14 after it was renamed for the move: open, and naming the rule as \"REL-17 (Pauta 6.1.0)\""
     },
     {
       "id": "PAUTA-08",
@@ -107,7 +107,7 @@
       "id": "PAUTA-11",
       "level": "SHOULD",
       "status": "manual",
-      "evidence": "Read the change that raises `pauta.version` from 2.0.2 to 6.0.1 (pom.xml:28; in a78d371): it adds src/test/resources/pauta-rules.json for 6.0.1 and src/main/resources/com/termina/pauta.json from this audit, and moves the README and AGENTS.md with them; there is no checked entry to go stale, and the app keeps no skill copy (.claude/skills absent); not recorded"
+      "evidence": "Read the change that raises `pauta.version` from 6.0.1 to 6.1.0 (pom.xml:28): it replaces src/test/resources/pauta-rules.json with 6.1.0's rules.json, moves pauta.json's rule addresses, the README, AGENTS.md and TODO.md with it, and this report; there is no checked entry to go stale, and the app keeps no skill copy (.claude/skills absent); not recorded"
     },
     {
       "id": "PAUTA-13",
@@ -125,13 +125,13 @@
       "id": "PAUTA-15",
       "level": "MUST",
       "status": "pass",
-      "evidence": "README.md:14 is the badge `Pauta-6.0.1 · Core` in blue and README.md:32 the line \"Built to Pauta …, edition 6.0.1, Pauta conformance: Core\"; both link https://termina-project.dev/docs/pauta/. src/test/java/com/termina/PautaConformanceTest.java holds the edition to pauta.version, the conformance to the helper's, the opening words, the badge's colour and both links"
+      "evidence": "README.md:14 is the badge `Pauta-6.1.0 · Core` in blue and README.md:32 the line \"Built to Pauta …, edition 6.1.0, Pauta conformance: Core\"; both link https://termina-project.dev/docs/pauta/. src/test/java/com/termina/PautaConformanceTest.java holds the edition to pauta.version, the conformance to the helper's, the opening words, the badge's colour and both links"
     },
     {
       "id": "PAUTA-17",
       "level": "MUST",
       "status": "pass",
-      "evidence": "AGENTS.md:11 \"## Pauta\" names 6.0.1, the edition of pom.xml:28, and links https://pauta-project.dev/6.0.1/llms.txt and /6.0.1/llms-full.txt (AGENTS.md:13-14); no link at latest/ or another edition; src/test/java/com/termina/AppInfoTest.java:38 asserts all of it"
+      "evidence": "AGENTS.md:11 \"## Pauta\" names 6.1.0, the edition of pom.xml:28, and links https://pauta-project.dev/6.1.0/llms.txt and /6.1.0/llms-full.txt (AGENTS.md:13-14); no link at latest/ or another edition; src/test/java/com/termina/AppInfoTest.java:38 asserts all of it"
     },
     {
       "id": "PLAT-01",
@@ -923,7 +923,7 @@
       "id": "ICON-20",
       "level": "MUST",
       "status": "pass",
-      "evidence": "one lookup keyed by the command, MenuIcons.forCommand (src/main/java/com/termina/ui/MenuIcons.java:224): the menu bar's rows (src/main/java/com/termina/ui/TerminalWindow.java:3346) and Configure Profiles' row in the profile menu (:813) both ask it, so that row wears the layers and not the Settings gear; held by src/test/java/com/termina/ui/MenuIconsTest.java:54. The right-click menus name the same MenuIcons methods directly (fixed in b4edc60, on top of 6de43a1)"
+      "evidence": "one lookup keyed by the command, MenuIcons.forCommand (src/main/java/com/termina/ui/MenuIcons.java:467): the menu bar's rows, Configure Profiles' row in the profile menu, and the find bar's arrows, which are Find Next and Find Previous (src/main/java/com/termina/ui/SearchBar.java:72-73), all ask it; held by src/test/java/com/termina/ui/MenuIconsTest.java:72 and src/test/java/com/termina/ui/ChordTooltipsTest.java:122. The right-click menus name the same MenuIcons methods directly. Failed at 6.0.1's audit unnoticed: the find bar drew arrows of its own (fixed on the move to 6.1.0)"
     },
     {
       "id": "ICON-23",
@@ -1167,9 +1167,9 @@
     },
     {
       "id": "MENU-14",
-      "level": "MUST",
+      "level": "MAY",
       "status": "pass",
-      "evidence": "one table gives every command a menu lists its glyph (src/main/java/com/termina/ui/MenuIcons.java:362, forCommand :444): Material 24 dp paths, and outline glyphs in the kit's style where the set has none (:466). The bar's rows draw it in their icon column, the right-click menus as their graphic; the zoom row of the right-click menu wears the zoom family's (src/main/java/com/termina/ui/ZoomMenuRow.java:84), and Copy Link Address has its own. Only the Show Menu Bar check row goes without. src/test/java/com/termina/ui/MenuIconsTest.java:42 fails a bar row with no entry, :55 a glyph that does not draw, :72 a glyph borrowed from another action; src/test/java/com/termina/ui/NamedControlsFxTest.java:113-123 opens the bar's menus, a tab's, the terminal's, the profile drop-down, the two logs' and the profile list's and fails on a visible row with no glyph (fixed in 85a589b)"
+      "evidence": "a MAY Termina takes up on every row: each glyph comes from the one table keyed by the command (BY_COMMAND, src/main/java/com/termina/ui/MenuIcons.java:380; forCommand :467), the lookup the find bar's buttons also use, and no row wears another command's glyph (src/test/java/com/termina/ui/MenuIconsTest.java:72 fails one shared outside the same action in another window). The right-click menus name the same MenuIcons methods the table holds for their commands, and Find Next's chevron now points up the scrollback, the way it steps; only the Show Menu Bar check row goes without"
     },
     {
       "id": "MENU-15",
@@ -1943,7 +1943,7 @@
       "id": "ABOUT-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:163 adds the edition link among the links, \"Working toward Pauta 6.0.1\" at Partial and \"Built to Pauta\" otherwise, in the catalog's words (src/main/resources/com/termina/i18n/messages.properties:108-109); src/main/java/com/termina/AppInfo.java:141 writes `Pauta: <edition>` right after the Commit line (asserted by src/test/java/com/termina/AppInfoTest.java)"
+      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:163 adds the edition link among the links, \"Working toward Pauta 6.1.0\" at Partial and \"Built to Pauta\" otherwise, in the catalog's words (src/main/resources/com/termina/i18n/messages.properties:108-109); src/main/java/com/termina/AppInfo.java:141 writes `Pauta: <edition>` right after the Commit line (asserted by src/test/java/com/termina/AppInfoTest.java)"
     },
     {
       "id": "ABOUT-06",
@@ -1955,7 +1955,7 @@
       "id": "ABOUT-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About says \"Working toward Pauta 6.0.1\" (src/main/java/com/termina/ui/AboutWindow.java:163, src/main/resources/com/termina/i18n/messages.properties:109), the words the rule accepts from an app at Partial; it would read \"Built to\" only when the helper stops returning Partial (fixed in a78d371)"
+      "evidence": "About says \"Built to Pauta 6.1.0\" (src/main/java/com/termina/ui/AboutWindow.java:163, src/main/resources/com/termina/i18n/messages.properties:110) with the conformance beside it: the helper returns Core, not Partial, so \"Working toward\" (:111) is not used"
     },
     {
       "id": "ABOUT-08",
@@ -2479,6 +2479,7 @@
     "A failing MAY was met on 2026-11-13, in a twentieth batch, and a SHOULD it brings into scope with it, in 54fcb53: WIN-10, MENU-04 now pass. Neither was in pauta.json: WIN-10 is a MAY, and MENU-04 applied to nothing while there was no Simple mode.",
     "The website for 0.15.0 was published on 2026-11-13 (termina-website c3e5a10), and the seven rules that waited on it were judged again from the live site and that repository, in a twenty-first batch, in 1a262f8: PAUTA-13, DOCS-01, DOCS-02, PAUTA-14, DOCS-03, DOCS-18, PAL-08 now pass, and their entries are out of pauta.json, which leaves 3, all SHOULD. With no MUST pending the conformance is Core, where it was Partial. DOCS-04 stays pending: the website checks the commands and keys its guide quotes on pull requests, and not yet in the build that deploys it.",
     "One more pending SHOULD was settled on 2026-11-14, in a twenty-second batch, in bed9eba: DOCS-04 now pass, and its entry is out of pauta.json, which leaves 2, both SHOULD: KBD-04 and REL-17. The website's build runs its docs check since termina-website 455f68c, and the deploy of that commit was read to have run it.",
-    "KBD-04 was recorded as a deviation on 2026-11-14, at the maintainer's word, in a6c08ad: on macOS the screen's menu bar is AppKit's, and JavaFX's menu item (com.sun.glass.ui.MenuItem: title, callback, shortcut, icon, enabled, checked) carries no tooltip, so a greyed row there cannot say why. docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md has the choice and what it costs. pauta.json holds 2 entries: that deviation, and REL-17 pending. PAUTA-06's evidence was brought up to date."
+    "KBD-04 was recorded as a deviation on 2026-11-14, at the maintainer's word, in a6c08ad: on macOS the screen's menu bar is AppKit's, and JavaFX's menu item (com.sun.glass.ui.MenuItem: title, callback, shortcut, icon, enabled, checked) carries no tooltip, so a greyed row there cannot say why. docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md has the choice and what it costs. pauta.json holds 2 entries: that deviation, and REL-17 pending. PAUTA-06's evidence was brought up to date.",
+    "Moved to 6.1.0 on 2026-11-14, from 6.0.1, in a change that also fixes what the move found. The two editions' rules.json differ in three rules alone: MENU-14 goes from MUST to MAY and checks only that a row's glyph is its own command's, ICON-20's check drops a sentence about MENU-14, and PAUTA-07 takes MENU-15 for its example. Every other result is carried over unchanged, since master had only the 0.15.0 release and the snapshot bump since the last judging. MENU-14, ICON-20, PAUTA-07 and PAUTA-11 were judged again, and PAUTA-01, PAUTA-15, PAUTA-17, ABOUT-05 and ABOUT-07, whose evidence names the edition, brought up to date. ICON-20 had failed unnoticed at 6.0.1: the terminal's find bar drew Find Next and Find Previous with arrows of its own, not the commands' glyphs, and Find Next's chevron pointed down for a step up the scrollback; both are fixed here. PAUTA-07 was read from issue #92, renamed to name REL-17 at 6.1.0."
   ]
 }

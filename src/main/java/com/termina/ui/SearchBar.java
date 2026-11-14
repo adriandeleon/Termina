@@ -68,8 +68,9 @@ final class SearchBar extends HBox {
         IconNames.name(regex, regexTip);
         regex.selectedProperty().addListener((o, was, now) -> fireQuery());
 
-        Button older = button(MenuIcons.arrowUp(), olderTip, () -> listener.step(true));
-        Button newer = button(MenuIcons.arrowDown(), newerTip, () -> listener.step(false));
+        // The commands' own glyphs, the ones their menu rows wear (ICON-20, Pauta 6.1.0).
+        Button older = button(MenuIcons.command("find.next"), olderTip, () -> listener.step(true));
+        Button newer = button(MenuIcons.command("find.previous"), newerTip, () -> listener.step(false));
         Button close = button(MenuIcons.close(), tr("search.close"), this::close);
 
         getChildren().addAll(MenuIcons.search(), field, count, regex, older, newer, close);

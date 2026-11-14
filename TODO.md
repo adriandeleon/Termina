@@ -4,9 +4,9 @@ The open list: what Termina does not do yet, or has not been checked on. It is k
 request as the change, so an item goes when the change that closes it lands and a new one is added
 with the change that leaves it open. What has shipped is in [`CHANGELOG.md`](CHANGELOG.md).
 
-## Pauta 6.0.1
+## Pauta 6.1.0
 
-The rules of [Pauta](https://pauta-project.dev/6.0.1/) not met yet, as
+The rules of [Pauta](https://pauta-project.dev/6.1.0/) not met yet, as
 [`pauta.json`](src/main/resources/com/termina/pauta.json) records them and Help ▸ Pauta Conformance
 shows them; tracked in [adriandeleon/Termina#92](https://github.com/adriandeleon/Termina/issues/92).
 A test fails when this list and that file disagree.
@@ -17,10 +17,10 @@ None: every MUST of the edition is met, which makes the conformance Core.
 
 ### SHOULD
 
-- [ ] **[REL-17](https://pauta-project.dev/6.0.1/release/#rel-17)** The Windows installer is not signed.
+- [ ] **[REL-17](https://pauta-project.dev/6.1.0/release/#rel-17)** The Windows installer is not signed.
 
 One SHOULD is a recorded deviation and not open work:
-[KBD-04](https://pauta-project.dev/6.0.1/keyboard/#kbd-04), on macOS's screen menu bar, in
+[KBD-04](https://pauta-project.dev/6.1.0/keyboard/#kbd-04), on macOS's screen menu bar, in
 [decision 0014](docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md).
 
 Every optional rule (MAY) that applies is met.

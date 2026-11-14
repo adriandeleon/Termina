@@ -111,6 +111,39 @@ class ChordTooltipsTest {
                 tips.get(1));
     }
 
+    /**
+     * ICON-20 (Pauta 6.1.0): the arrows are Find Next and Find Previous, so they wear those
+     * commands' glyphs, the ones their menu rows wear, and Find Next's points up the scrollback.
+     */
+    @Test
+    void theFindBarsArrowsWearTheirCommandsGlyphs() throws Exception {
+        var glyphs = onFx(() -> {
+            SearchBar bar = new SearchBar(new SearchBar.Listener() {
+                @Override
+                public void queryChanged(String query, boolean regex) {}
+
+                @Override
+                public void step(boolean older) {}
+
+                @Override
+                public void closed() {}
+            });
+            java.util.List<String> paths = new java.util.ArrayList<>();
+            for (javafx.scene.Node child : bar.getChildrenUnmodifiable()) {
+                if (child instanceof javafx.scene.control.Button button
+                        && button.getGraphic() instanceof javafx.scene.shape.SVGPath path) {
+                    paths.add(path.getContent());
+                }
+            }
+            String next = ((javafx.scene.shape.SVGPath) MenuIcons.command("find.next")).getContent();
+            String previous = ((javafx.scene.shape.SVGPath) MenuIcons.command("find.previous")).getContent();
+            return java.util.List.of(paths.subList(0, 2), java.util.List.of(next, previous));
+        });
+        assertEquals(glyphs.get(1), glyphs.get(0), "the arrows are older, then newer");
+        // Find Next is a chevron whose point is above its arms: it steps to older output.
+        assertTrue(glyphs.get(1).get(0).contains("8 6l"), "Find Next's chevron points up");
+    }
+
     /** FIND-16 (Pauta 6.0.1): the switch is out of the Tab order, so toggling it is a call away. */
     @Test
     void theRegularExpressionSwitchTogglesWithoutThePointer() throws Exception {

@@ -156,7 +156,8 @@ class NamedControlsFxTest {
             return count;
         });
         assertEquals(List.of(), unnamed.stream().distinct().toList());
-        // MENU-14 (Pauta 6.0.1): every row of every menu the app draws carries a glyph.
+        // Every row of every menu the app draws carries a glyph. MENU-14 (Pauta 6.1.0) makes that a
+        // MAY; Termina keeps it, and this holds it so a new row cannot arrive with a blank column.
         assertEquals(List.of(), unglyphed.stream().distinct().toList());
         assertTrue(checked >= 80, "controls and cells looked at: " + checked);
     }
