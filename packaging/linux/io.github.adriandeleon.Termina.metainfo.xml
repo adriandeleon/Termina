@@ -68,8 +68,9 @@
     <release version="0.15.1" date="2026-11-14">
       <description>
         <p>
-          Built to Pauta 6.1.0. The find bar's arrows wear the icons of Find Next and Find
-          Previous, and Find Next's points up the scrollback, the way it steps.
+          Built to Pauta 6.1.0. A window opens at the opacity set in Settings, where it came up
+          opaque. The find bar's arrows wear the icons of Find Next and Find Previous, and Find
+          Next's points up the scrollback, the way it steps.
         </p>
       </description>
       <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.15.1</url>

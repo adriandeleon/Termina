@@ -9,7 +9,8 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [0.15.1] - 2026-11-14
 
-Built to Pauta 6.1.0, and the find bar's arrows match the menus.
+Built to Pauta 6.1.0, a window that opens at the opacity you set on Linux, and the find bar's
+arrows match the menus.
 
 ### Changed
 
@@ -22,6 +23,8 @@ Built to Pauta 6.1.0, and the find bar's arrows match the menus.
 - **The find bar's arrows wear the Find Next and Find Previous icons**, the ones their rows in the
   menus show, instead of arrows of their own. And Find Next's icon now points up: it steps to older
   output, up the scrollback, where it used to point down.
+- **On Linux a window opens at the opacity set in Settings ▸ Appearance.** Below 100% it came up
+  opaque, and turned see-through only after a trip through full screen or a change to a setting.
 
 ## [0.15.0] - 2026-11-14
 
