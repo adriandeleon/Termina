@@ -395,48 +395,47 @@ class MenusFxTest {
         TerminalView view = onFx(window::activeTerminal);
         assertTrue(unavailable(window, "link.copyAddress"), "no pointer over the terminal: greyed");
 
+        // The address is put together by printf, so the line as typed does not hold it: only the
+        // line printf wrote does. Typed whole, a long prompt wrapped the URL onto a row of its own,
+        // the pointer was put there on first sight, and the `clear` that followed took that row
+        // away before the command ran; on macOS's runner nothing was copied.
+        String address = "https://example.com/termina-link";
         onFx(() -> {
-            view.getSession().sendString("clear; printf 'https://example.com/termina-link\\n'\r");
+            view.getSession().sendString("clear; printf 'https://example.com/%s\\n' termina-link\r");
             return null;
         });
         // Down the first column until the pointer is on the link: the row it is printed on depends
-        // on the prompt, and the cell size on the font.
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        boolean found = false;
-        while (!found && System.nanoTime() < deadline) {
-            Await.frame();
-            found = onFx(() -> {
-                for (double y = 2; y < 200; y += 4) {
-                    // The URL's row, not the prompt's: a path there is a link candidate too.
-                    if (!view.hoverLinkForCapture(20, y).contains("termina-link")) continue;
-                    // A fired event's coordinates are the scene's; the view's start below the menus.
-                    javafx.geometry.Point2D scene = view.localToScene(20, y);
-                    javafx.event.Event.fireEvent(view, moved(scene.getX(), scene.getY()));
-                    return view.hasLinkUnderPointer();
-                }
-                return false;
-            });
-        }
-        assertTrue(found, "a link under the pointer");
-        assertTrue(!unavailable(window, "link.copyAddress"), "available over the link");
-        onFx(() -> {
-            javafx.scene.input.Clipboard.getSystemClipboard().clear();
-            for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("link.copyAddress".equals(row.id())) row.action().run();
-            }
-            return null;
-        });
+        // on the prompt, and the cell size on the font. Putting the pointer there, running the
+        // command and reading the clipboard are one step on the FX thread, repeated until the
+        // address is there, so nothing the shell prints can come between them.
         waitFor(
                 () -> {
                     try {
-                        return "https://example.com/termina-link"
-                                .equals(onFx(() -> javafx.scene.input.Clipboard.getSystemClipboard()
-                                        .getString()));
+                        return onFx(() -> {
+                            for (double y = 2; y < 200; y += 4) {
+                                // The URL's row, not the prompt's: a path there is a link candidate too.
+                                if (!view.hoverLinkForCapture(20, y).contains(address)) continue;
+                                // A fired event's coordinates are the scene's; the view's start below the menus.
+                                javafx.geometry.Point2D scene = view.localToScene(20, y);
+                                javafx.event.Event.fireEvent(view, moved(scene.getX(), scene.getY()));
+                                if (!view.hasLinkUnderPointer()) return false;
+                                javafx.scene.input.Clipboard.getSystemClipboard()
+                                        .clear();
+                                for (MenuAction row : window.runnablePaletteRowsForTest()) {
+                                    if ("link.copyAddress".equals(row.id()))
+                                        row.action().run();
+                                }
+                                return address.equals(javafx.scene.input.Clipboard.getSystemClipboard()
+                                        .getString());
+                            }
+                            return false;
+                        });
                     } catch (Exception e) {
                         return false;
                     }
                 },
-                "the link's address on the clipboard");
+                "the link's address on the clipboard, copied with the pointer on the link");
+        assertTrue(!unavailable(window, "link.copyAddress"), "available over the link");
 
         onFx(() -> {
             javafx.event.Event.fireEvent(
