@@ -83,7 +83,7 @@
              0.15: the config files are read and written through ObjectMapper as plain classes
              (PLAT-14, Pauta 6.0.1). All three Jackson jars are proper JPMS modules, so jlink links
              them without moditect. -->
-        <jackson.version>2.22.4</jackson.version>
+        <jackson.version>2.23.0</jackson.version>
 
         <junit.version>6.1.3</junit.version>
 
