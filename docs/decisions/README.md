@@ -17,3 +17,4 @@ that says which one it replaces.
 - [0011. The last session's tabs come back at launch](0011-the-last-session-comes-back.md)
 - [0012. Key bindings sync as one file, and a Mac's Command is Ctrl+Shift in it](0012-one-file-of-key-bindings.md)
 - [0013. Config files are plain classes, read and written by Jackson](0013-config-files-are-plain-classes.md)
+- [0014. A greyed row in the macOS menu bar gives no reason](0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md)
