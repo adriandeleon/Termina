@@ -235,11 +235,14 @@ public final class MenuIcons {
     /** app.quit: the power mark. */
     private static final String APP_QUIT = "M8 1.8V7M4.6 3.9a5.6 5.6 0 1 0 6.8 0";
 
-    /** findNext: a chevron down. */
-    private static final String FINDNEXT = "M3.5 5.5 8 10l4.5-4.5";
+    /**
+     * findNext: a chevron up. Find Next steps to older output, up the scrollback, and the glyph
+     * shows which way the match moves (MENU-14, Pauta 6.1.0); the find bar's button wears it too.
+     */
+    private static final String FINDNEXT = "M3.5 10.5 8 6l4.5 4.5";
 
-    /** findPrevious: a chevron up. */
-    private static final String FINDPREVIOUS = "M3.5 10.5 8 6l4.5 4.5";
+    /** findPrevious: a chevron down, towards the prompt. */
+    private static final String FINDPREVIOUS = "M3.5 5.5 8 10l4.5-4.5";
 
     /** previousPrompt: two chevrons up: a jump, not a step. */
     private static final String PREVIOUSPROMPT = "M3.5 7.5 8 3l4.5 4.5M3.5 12.5 8 8l4.5 4.5";
