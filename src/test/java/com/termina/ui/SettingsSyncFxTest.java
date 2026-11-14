@@ -63,7 +63,7 @@ class SettingsSyncFxTest {
         settings.setSyncBranch(Settings.DEFAULT_SYNC_BRANCH);
         settings.setSyncEnabled(true);
         settings.setSyncAuto(true);
-        settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+Y"));
+        settings.replaceKeyBindings(Map.of("file.newTab", "Shortcut+Shift+Y"));
 
         List<String> reports = new CopyOnWriteArrayList<>();
         Reporter report = (severity, message) -> reports.add(severity + " " + message);
@@ -79,7 +79,7 @@ class SettingsSyncFxTest {
 
         // A changed binding goes up on the next run.
         onFx(() -> {
-            settings.replaceKeyBindings(Map.of("newTab", "Shortcut+Shift+U"));
+            settings.replaceKeyBindings(Map.of("file.newTab", "Shortcut+Shift+U"));
             sync.syncNow();
             return null;
         });
@@ -102,7 +102,7 @@ class SettingsSyncFxTest {
                 ? com.termina.sync.KeybindingsFile.MAC_PATH
                 : com.termina.sync.KeybindingsFile.OTHER_PATH;
         Files.createDirectories(other.resolve(file).getParent());
-        Files.writeString(other.resolve(file), "newTab=Shortcut+Shift+K\n");
+        Files.writeString(other.resolve(file), "file.newTab=Shortcut+Shift+K\n");
         assertEquals(0, git(other, "add", file));
         assertEquals(
                 0,
@@ -112,7 +112,9 @@ class SettingsSyncFxTest {
             sync.syncNow();
             return null;
         });
-        waitFor(() -> "Shortcut+Shift+K".equals(settings.values().get("keys.newTab")), "the other computer's binding");
+        waitFor(
+                () -> "Shortcut+Shift+K".equals(settings.values().get("keys.file.newTab")),
+                "the other computer's binding");
 
         // What the Sync page asks, and the buttons it offers, with a run settled.
         onFx(() -> {

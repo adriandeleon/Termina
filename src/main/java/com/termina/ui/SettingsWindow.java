@@ -897,6 +897,7 @@ public final class SettingsWindow {
     private CheckBox showScrollBar;
     private CheckBox showStatusBar;
     private CheckBox confirmClose;
+    private CheckBox restoreSession;
     private ComboBox<String> language;
     private Slider windowOpacity;
     private Label windowOpacityValue;
@@ -1353,6 +1354,19 @@ public final class SettingsWindow {
                 confirmClose,
                 "close confirm running program prompt ask tab");
 
+        restoreSession = new CheckBox();
+        restoreSession.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setRestoreSession(value));
+        });
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.restoreSession"),
+                tr("settings.restoreSession.desc"),
+                restoreSession,
+                "reopen restore session tabs panes launch startup start last time no-session");
+
         scrollback = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
         scrollback.setEditable(true);
@@ -1679,7 +1693,7 @@ public final class SettingsWindow {
         return tr("settings.defaultProfile.desc", chord == null ? labelOf(NEW_TAB) : chord.getDisplayText());
     }
 
-    private static final String NEW_TAB = "newTab";
+    private static final String NEW_TAB = "file.newTab";
 
     private @Nullable Label defaultProfileHint;
 
@@ -1692,7 +1706,7 @@ public final class SettingsWindow {
     }
 
     /** {@code TerminalWindow.PROFILE_CHORD_ID}; the commands are that plus 1 to 9. */
-    private static final String PROFILE_CHORD = "newTabProfile";
+    private static final String PROFILE_CHORD = "file.newTabProfile";
 
     private @Nullable Label profilesHint;
 
@@ -2637,6 +2651,7 @@ public final class SettingsWindow {
             bell.setSelected(settings.bell());
             notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
+            restoreSession.setSelected(settings.restoreSession());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
             showTabBar.setSelected(settings.showTabBar());
             showMenuBar.setSelected(settings.showMenuBar());

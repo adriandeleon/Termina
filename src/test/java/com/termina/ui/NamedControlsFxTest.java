@@ -86,9 +86,8 @@ class NamedControlsFxTest {
             windows.showDoctor(window.stage());
             windows.showReportProblem(window.stage());
             windows.debugLog(window.stage()).find();
-            windows.showMessageLog(window.stage());
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("keyboardShortcuts".equals(row.id())) row.action().run();
+                if ("help.keyboardShortcuts".equals(row.id())) row.action().run();
             }
             // And the palette, over the terminal: its field and the rows it lists.
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
@@ -116,6 +115,18 @@ class NamedControlsFxTest {
                 unglyphed.addAll(NamedControls.menusWithoutGlyph(root));
                 count += NamedControls.checked(root);
             }
+
+            // The Message Log is a card in the terminal's window, one over it at a time with the
+            // palette: opened now, which closes the palette, and swept on its own.
+            windows.showMessageLog(window.stage());
+            Node logCard = window.messageLog().card();
+            logCard.applyCss();
+            if (logCard instanceof javafx.scene.Parent parent) parent.layout();
+            unnamed.addAll(NamedControls.unnamed(logCard));
+            unnamed.addAll(NamedControls.unnamedMenus(logCard));
+            unglyphed.addAll(NamedControls.menusWithoutGlyph(logCard));
+            count += NamedControls.checked(logCard);
+            window.messageLog().hide();
 
             // The menus that hang off no control: the bar's, a tab's and the terminal's.
             for (Menu menu : window.menuBarForTest().getMenus()) {

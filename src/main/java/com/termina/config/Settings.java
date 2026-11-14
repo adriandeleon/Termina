@@ -55,7 +55,7 @@ public final class Settings {
     /** Whether keystrokes are predicted while SSH is in the foreground and its echo is slow. */
     public static final String TYPE_AHEAD = "terminal.typeAhead";
     /**
-     * The user's key bindings, one key per command: {@code keys.newTab=Ctrl+Shift+Y}, in {@code
+     * The user's key bindings, one key per command: {@code keys.file.newTab=Ctrl+Shift+Y}, in {@code
      * KeyCombination} notation. See {@link #keyBindings()}.
      */
     public static final String KEYS_PREFIX = "keys.";
@@ -78,6 +78,8 @@ public final class Settings {
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
     public static final String SHOW_STATUS_BAR = "ui.showStatusBar";
+    public static final String RESTORE_SESSION = "session.restore";
+    public static final String SESSION_TABS = "session.tabs";
     public static final String UI_ZOOM = "ui.zoom";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
     public static final String WINDOW_X = "window.x";
@@ -296,7 +298,7 @@ public final class Settings {
     /** Preferences. */
     public static final String SETTINGS_FILE = "settings.json";
 
-    /** Session state: the window's place and size, and the update check's memory. */
+    /** Session state: the window's place and size, the tabs that were open, the update check's memory. */
     public static final String STATE_FILE = "workspace-state.json";
 
     /** The single file before 0.15, imported once into the two above. */
@@ -313,6 +315,7 @@ public final class Settings {
                     WINDOW_WIDTH,
                     WINDOW_HEIGHT,
                     WINDOW_MAXIMIZED,
+                    SESSION_TABS,
                     LAST_UPDATE_CHECK,
                     DISMISSED_UPDATE -> true;
             default -> false;
@@ -844,6 +847,31 @@ public final class Settings {
 
     public void setCopyOnSelect(boolean copyOnSelect) {
         put(COPY_ON_SELECT, String.valueOf(copyOnSelect));
+    }
+
+    /**
+     * Whether a launch reopens the tabs that were open when Termina last ended (WIN-08, Pauta
+     * 6.0.1). On by default; {@code --no-session} skips it for one launch.
+     */
+    public boolean restoreSession() {
+        return readBoolean(RESTORE_SESSION, true);
+    }
+
+    public void setRestoreSession(boolean restore) {
+        put(RESTORE_SESSION, String.valueOf(restore));
+    }
+
+    /**
+     * The tabs that were open when Termina last ended, as the UI's {@code SessionStore} writes
+     * them, or "" for none. Session state, so it is in {@link #STATE_FILE} with the window's place
+     * (SET-08) and never in the preferences; nothing on screen waits to hear of it.
+     */
+    public String sessionTabs() {
+        return properties.getProperty(SESSION_TABS, "");
+    }
+
+    public void setSessionTabs(String tabs) {
+        putQuietly(SESSION_TABS, tabs == null ? "" : tabs);
     }
 
     public boolean clipboardWrite() {

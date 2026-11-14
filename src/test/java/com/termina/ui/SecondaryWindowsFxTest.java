@@ -76,7 +76,7 @@ class SecondaryWindowsFxTest {
             Stage owner = new Stage();
             owner.setScene(new Scene(new StackPane(), 400, 300));
             owner.show();
-            windows.showMessageLog(owner);
+            // Not the Message Log: it is a card in a terminal's window now (LogWindowsFxTest).
             windows.showDebugLog(owner);
             windows.showReportProblem(owner);
             windows.showAbout(owner);
@@ -175,7 +175,7 @@ class SecondaryWindowsFxTest {
                                 Messages.tr("debuglog.copy"),
                                 Messages.tr("debuglog.clear"),
                                 Messages.tr("debuglog.export"),
-                                Messages.tr("command.reportProblem"))),
+                                Messages.tr("command.help.reportProblem"))),
                 logs::toString);
     }
 

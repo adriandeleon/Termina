@@ -155,6 +155,12 @@ public final class App extends Application {
         java.util.Locale.setDefault(com.termina.i18n.Messages.defaultLocale(
                 settings.uiLanguage(), language, java.util.Locale.getDefault()));
 
+        // The tabs of the last session, where this launch reopens them (WIN-08, CLI-04): read
+        // here, with the directories checked, so the first window asks the disk nothing.
+        if (com.termina.ui.SessionStore.restores(settings.restoreSession(), cli.noSession(), DevCapture.requested())) {
+            com.termina.ui.SessionStore.warm(settings.sessionTabs());
+        }
+
         // The imported themes, read now: the stored theme may be one of them.
         com.termina.ui.Themes.useDirectory(settings.directory().resolve("themes"));
         return new Config(cli, settings);
@@ -203,6 +209,10 @@ public final class App extends Application {
         WindowManager manager = new WindowManager(settings);
         windows = manager;
         windows.setLinkOpener(openLink);
+        // The session is the application's own runs': a capture or a training run keeps none.
+        if (!DevCapture.requested() && System.getProperty("termina.aotTrain") == null) {
+            manager.keepSession();
+        }
         com.termina.perf.Startup.mark("pre-window");
         TerminalWindow first = windows.openFirstWindow(
                 stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()), cli.title());
@@ -228,11 +238,14 @@ public final class App extends Application {
 
         // What nobody waits for, after the first frame (PERF-15, DIAG-05): the font picker's other
         // families and which of the installed ones are monospace, the window icons a title bar
-        // never shows, and — a few seconds later still, so it never competes with the shell's own
+        // never shows, the login shell's PATH, and — a few seconds later still, so it never competes with the shell's
+        // own
         // startup — the daily update check.
         com.termina.ui.FirstFrame.after(() -> {
             com.termina.ui.MonospaceFonts.warmInBackground();
             com.termina.ui.Icons.loadLarge();
+            // The login shell's PATH, for every program started from here on (CLI-10).
+            com.termina.ui.LoginShellPath.warmInBackground();
             javafx.animation.PauseTransition settle =
                     new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));
             settle.setOnFinished(e -> manager.maybeCheckForUpdates());
@@ -242,6 +255,15 @@ public final class App extends Application {
 
         if (DevCapture.requested()) DevCapture.schedule(windows, first, settings);
         maybeExitAfterTraining();
+    }
+
+    /** The name the user gave each open terminal, in order, "" for none: for the start's test. */
+    java.util.List<String> terminalTitlesForTest() {
+        WindowManager manager = windows;
+        if (manager == null) return java.util.List.of();
+        return manager.allTerminals().stream()
+                .map(terminal -> terminal.getDisplay().getUserTitle())
+                .toList();
     }
 
     /**

@@ -13,9 +13,9 @@ import org.jspecify.annotations.Nullable;
  */
 final class TabRanges {
 
-    static final String CLOSE_OTHERS = "closeOtherTabs";
-    static final String CLOSE_LEFT = "closeTabsToTheLeft";
-    static final String CLOSE_RIGHT = "closeTabsToTheRight";
+    static final String CLOSE_OTHERS = "file.closeOtherTabs";
+    static final String CLOSE_LEFT = "file.closeTabsToTheLeft";
+    static final String CLOSE_RIGHT = "file.closeTabsToTheRight";
 
     private TabRanges() {}
 

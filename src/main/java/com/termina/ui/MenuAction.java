@@ -29,7 +29,8 @@ import org.jspecify.annotations.Nullable;
  *     in, so "file new" reaches New Tab; matched only when the label itself does not match, and
  *     ranked below every label match. Never shown.
  * @param id what the user's key bindings call this action — the catalogue key without its {@code
- *     menu.} prefix ({@code newTab}), stored as {@code keys.newTab}. Null for an action that cannot
+ *     command.} prefix ({@code file.newTab}: an area, then the name, KBD-02), stored as {@code
+ *     keys.file.newTab}. Null for an action that cannot
  *     be rebound: the palette's per-tab and per-theme rows, which are built fresh on every open.
  *     Never translated, because a binding written in one language has to survive a switch to
  *     another.

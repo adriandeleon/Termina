@@ -485,6 +485,26 @@
     -fx-background-color: -scrim;
 }
 
+/* The Message Log's card (MLOG-08): the palette's surface, at the bottom left over the status
+   bar's echo area. What is behind it is not dimmed; a press there closes the log. */
+.message-log-backdrop {
+    -fx-background-color: transparent;
+}
+
+.message-log-card {
+    -fx-background-color: -color-bg-overlay;
+    -fx-background-radius: 12;
+    -fx-border-color: -color-border-default;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-padding: 12;
+    -fx-effect: dropshadow(gaussian, -shadow-overlay, 44, 0.16, 0, 18);
+}
+
+.message-log-title {
+    -fx-font-weight: bold;
+}
+
 .command-palette {
     -fx-background-color: -color-bg-overlay;
     -fx-background-radius: 12;

@@ -89,7 +89,7 @@ final class DebugLogWindow {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox buttons = new HBox(8, find, refresh, copy, export, clear, spacer, close);
         if (onReport != null) {
-            Button report = new Button(tr("command.reportProblem"));
+            Button report = new Button(tr("command.help.reportProblem"));
             report.setOnAction(e -> onReport.run());
             buttons.getChildren().add(buttons.getChildren().indexOf(spacer), report);
         }
@@ -117,8 +117,11 @@ final class DebugLogWindow {
                     .addAll(
                             new javafx.scene.control.SeparatorMenuItem(),
                             MenuChords.command(
-                                    row(tr("command.reportProblem"), MenuIcons.command("reportProblem"), onReport),
-                                    "reportProblem"));
+                                    row(
+                                            tr("command.help.reportProblem"),
+                                            MenuIcons.command("help.reportProblem"),
+                                            onReport),
+                                    "help.reportProblem"));
         }
         text.setContextMenu(OneMenu.installRightClick(menu));
 

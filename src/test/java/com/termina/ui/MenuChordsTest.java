@@ -17,15 +17,15 @@ class MenuChordsTest {
 
     @Test
     void aCommandRowShowsItsChordAndAnUnboundOneShowsNone() {
-        MenuItem copy = MenuChords.command(new MenuItem("Copy"), "copy");
-        MenuItem rename = MenuChords.command(new MenuItem("Rename Tab…"), "renameTab");
+        MenuItem copy = MenuChords.command(new MenuItem("Copy"), "edit.copy");
+        MenuItem rename = MenuChords.command(new MenuItem("Rename Tab…"), "tab.rename");
         MenuItem profile = new MenuItem("zsh"); // names a thing, runs no command
         Menu submenu = new Menu("New Tab With");
-        MenuItem inside = MenuChords.command(new MenuItem("New Tab"), "newTab");
+        MenuItem inside = MenuChords.command(new MenuItem("New Tab"), "file.newTab");
         submenu.getItems().add(inside);
         KeyCombination copyChord = KeyCombination.valueOf("Ctrl+Shift+C");
         KeyCombination newTabChord = KeyCombination.valueOf("Ctrl+Shift+T");
-        Map<String, KeyCombination> chords = Map.of("copy", copyChord, "newTab", newTabChord);
+        Map<String, KeyCombination> chords = Map.of("edit.copy", copyChord, "file.newTab", newTabChord);
 
         MenuChords.fill(List.of(copy, rename, profile, submenu), chords::get);
 
@@ -33,12 +33,12 @@ class MenuChordsTest {
         assertNull(rename.getAccelerator(), "an unbound command leaves the cell empty");
         assertNull(profile.getAccelerator());
         assertEquals(newTabChord, inside.getAccelerator(), "rows of a submenu too");
-        assertEquals("copy", MenuChords.commandOf(copy));
+        assertEquals("edit.copy", MenuChords.commandOf(copy));
         assertNull(MenuChords.commandOf(profile));
 
         // A keymap change rewrites every cell: moved, and taken away.
         KeyCombination moved = KeyCombination.valueOf("Alt+C");
-        MenuChords.fill(List.of(copy, rename, profile, submenu), Map.of("copy", moved)::get);
+        MenuChords.fill(List.of(copy, rename, profile, submenu), Map.of("edit.copy", moved)::get);
         assertEquals(moved, copy.getAccelerator());
         assertNull(inside.getAccelerator());
     }

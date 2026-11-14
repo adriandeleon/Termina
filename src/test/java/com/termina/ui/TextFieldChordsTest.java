@@ -11,17 +11,17 @@ class TextFieldChordsTest {
     @Test
     void theEditingCommandsStepAside() {
         // Cmd+C, Cmd+V, Cmd+A and Cmd+Z on macOS are the field's own copy, paste, select and undo.
-        assertTrue(WindowRules.yieldsToTextField("copy"));
-        assertTrue(WindowRules.yieldsToTextField("paste"));
-        assertTrue(WindowRules.yieldsToTextField("selectAll"));
-        assertTrue(WindowRules.yieldsToTextField("reopenClosedTab"));
+        assertTrue(WindowRules.yieldsToTextField("edit.copy"));
+        assertTrue(WindowRules.yieldsToTextField("edit.paste"));
+        assertTrue(WindowRules.yieldsToTextField("edit.selectAll"));
+        assertTrue(WindowRules.yieldsToTextField("file.reopenClosedTab"));
     }
 
     @Test
     void everythingElseStillWorksFromTheField() {
         // Find Next from inside the bar is the point of having a chord for it.
-        assertFalse(WindowRules.yieldsToTextField("findNext"));
-        assertFalse(WindowRules.yieldsToTextField("newTab"));
+        assertFalse(WindowRules.yieldsToTextField("find.next"));
+        assertFalse(WindowRules.yieldsToTextField("file.newTab"));
         assertFalse(WindowRules.yieldsToTextField(null));
     }
 }

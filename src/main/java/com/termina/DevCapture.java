@@ -348,7 +348,7 @@ final class DevCapture {
                 case "close" -> window.closeActivePaneForCapture();
                 case "max" -> window.toggleMaximizePaneForCapture();
                 case "move" -> window.moveActivePaneForCapture(-1);
-                case "closeTab" -> window.closeSelectedTabForCapture();
+                case "file.closeTab" -> window.closeSelectedTabForCapture();
                 case "reopen" -> window.reopenClosedTab();
                 case "styles" -> System.out.println("[capture] styles " + window.paneStyleReport());
                 default -> {
@@ -499,14 +499,15 @@ final class DevCapture {
 
     /**
      * {@code -Dtermina.captureDebugLogFind=text} opens the Debug Log and searches it for the text;
-     * {@code -Dtermina.captureMessageLogFilter=text} opens the Message Log and types the text into
-     * its filter. Either makes that window the photograph, and reports where it stands.
+     * {@code -Dtermina.captureMessageLogFilter=text} opens the Message Log's card over the terminal
+     * window and types the text into its filter. Either makes that window the photograph, and
+     * reports where it stands.
      */
     private static @Nullable Scene logWindowIfRequested(WindowManager windows, TerminalWindow window) {
         String find = System.getProperty("termina.captureDebugLogFind");
         if (find != null) return windows.debugLogFindForCapture(window.stage(), find);
         String filter = System.getProperty("termina.captureMessageLogFilter");
-        if (filter != null) return windows.messageLogFilterForCapture(window.stage(), filter);
+        if (filter != null) return windows.messageLogFilterForCapture(window, filter);
         return null;
     }
 

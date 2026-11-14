@@ -207,7 +207,7 @@ class WindowManagerFxTest {
         run(keeper, "settings.reset");
         assertEquals(Settings.DEFAULT_FONT_SIZE, onFx(settings::fontSize));
         onFx(() -> {
-            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+            settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Shortcut+Shift+Y"));
             DialogAnswers.next(true, null);
             return null;
         });
@@ -248,7 +248,7 @@ class WindowManagerFxTest {
         // The status bar off and on from the View menu's command; then a window closed by asking.
         onFx(() -> {
             for (MenuAction row : keeper.runnablePaletteRowsForTest()) {
-                if ("showStatusBar".equals(row.id())) {
+                if ("view.toggleStatusBar".equals(row.id())) {
                     row.action().run();
                     row.action().run();
                 }

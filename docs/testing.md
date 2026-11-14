@@ -96,7 +96,7 @@ to cell, anchor to drag, buffer coordinates to extracted text — and printing w
   -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
   -Dtermina.captureMenu=300,300,false  # screenX, screenY, shift — photographs the context menu
   -Dtermina.captureSettings=true       # ...the settings window instead
-  -Dtermina.captureSettingsKeys=newTab:C-S-y;closeTab:BS
+  -Dtermina.captureSettingsKeys=file.newTab:C-S-y;file.closeTab:BS
                                        # ...pressing chords into Keyboard rows, by command id and
                                        # KeyChord token (BS is a bare Backspace), printing each row
   -Dtermina.captureProfiles=true       # ...the profile dropdown, listing every entry and what it

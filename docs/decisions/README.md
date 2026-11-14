@@ -14,3 +14,4 @@ that says which one it replaces.
 - [0008. The status bar is an option, off by default](0008-optional-status-bar.md)
 - [0009. Config is JSON, with a schema version](0009-config-in-json.md)
 - [0010. The status bar and the title-bar menus are on by default](0010-status-bar-and-title-bar-menus-on-by-default.md)
+- [0011. The last session's tabs come back at launch](0011-the-last-session-comes-back.md)

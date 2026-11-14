@@ -125,6 +125,7 @@ termina [options] [-e command [args...]]
       --report                   Write a problem report to a file, open a GitHub issue for it, and exit
       --new-instance             Start a Termina of its own, not a window in the running one
       --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
+      --no-session               Start without the tabs that were open last time
   -d, --working-directory=DIR    Start the shell in DIR
   -T, --title=TITLE              Name the first tab TITLE
   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

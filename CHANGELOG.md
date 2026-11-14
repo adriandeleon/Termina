@@ -13,6 +13,13 @@ done.
 
 ### Added
 
+- **The tabs you had open come back at the next launch.** Each tab and pane reopens as a new
+  shell in the folder it was in, with the names you gave, the pinned tabs pinned and the same tab
+  in front. The programs that were running are not started again, and a tab opened with `-e` comes
+  back as a shell. It is the last window's tabs when the last window closes, and the front
+  window's on Quit. Settings ▸ Terminal ▸ Reopen tabs at launch turns it off, and
+  **`--no-session`** skips it for one launch. With a session restored, `-d`, `-T` or `-e` on the
+  command line open a tab of their own after it.
 - **Each page of Settings ends in a link to its help:** Help for Appearance, Help for Profiles and
   so on, opening that page of the documentation.
 - **`TODO.md`** is the open list: the Pauta rules not met yet, what has never been run, and the
@@ -131,6 +138,22 @@ done.
 
 ### Changed
 
+- **On macOS, Settings is in the application menu**, under About, where every Mac app has it. It
+  shows the shortcut bound to Settings and follows it when you change it. The File menu keeps
+  its row. This has not yet been run on a Mac.
+- **Every command's id has its area in front**: `file.newTab`, `edit.copy`, `tab.next`,
+  `pane.splitRight`, `view.zoomIn`, `sync.now`. Nothing on screen changes. The ids are what
+  `settings.json` keeps your key bindings under (`keys.file.newTab`) and what settings sync
+  writes; both are carried forward when read, and `settings.json` moves to schema version 3. A
+  computer still on an older Termina does not know the new ids, so update every computer that
+  shares a sync repository.
+- **The Message Log opens inside the window**, as a card over the terminal just above the status
+  bar, not as a window of its own. Escape, a click outside it or its own command closes it, and
+  the keyboard goes back to the terminal. It keeps the newest 200 messages of the session; it
+  kept 500.
+- **Programs Termina starts get your login shell's `PATH` from the start.** It is asked for once,
+  in the background, after the first window is drawn. Before, a notification or a middle-click
+  paste got it only after a sync or a clicked link had asked.
 - **Repainting a screen that has not changed allocates almost nothing.** Each frame used to copy
   every run of text on screen to a new string, and the emulator's own walk over the rows made more
   for each row: about 12,700 bytes a frame on a full coloured screen, sixty times a second while a

@@ -29,7 +29,8 @@ final class MenuBarModel {
     static final String PROFILE_SUBMENU = "+newTabProfile";
 
     /** View's zoom commands, in the order of their rows. */
-    static final List<String> ZOOM_COMMANDS = List.of("zoomIn", "zoomOut", "actualSize", "fullScreen");
+    static final List<String> ZOOM_COMMANDS =
+            List.of("view.zoomIn", "view.zoomOut", "view.actualSize", "view.fullScreen");
 
     /** The command ids a submenu row groups, in order; empty for a row that is not a submenu. */
     static List<String> submenuRows(String row) {
@@ -55,26 +56,27 @@ final class MenuBarModel {
 
     /** The bar: the same rows on every OS. */
     static List<Menu> menus() {
-        List<String> fileUnlisted = new ArrayList<>(List.of("exportConfiguration", "importConfiguration"));
+        List<String> fileUnlisted =
+                new ArrayList<>(List.of("settings.exportConfiguration", "settings.importConfiguration"));
         // The Settings window's buttons (KBD-01): palette and chord only, beside Settings itself.
         for (SettingsActions.Action action : SettingsActions.Action.values()) fileUnlisted.add(action.id());
         Menu file = new Menu(
                 "menu.file",
                 List.of(
-                        "newTab",
+                        "file.newTab",
                         PROFILE_SUBMENU,
-                        "newWindow",
+                        "file.newWindow",
                         SEPARATOR,
-                        "closeTab",
-                        "closeOtherTabs",
-                        "closeTabsToTheLeft",
-                        "closeTabsToTheRight",
-                        "closeWindow",
-                        "reopenClosedTab",
+                        "file.closeTab",
+                        "file.closeOtherTabs",
+                        "file.closeTabsToTheLeft",
+                        "file.closeTabsToTheRight",
+                        "file.closeWindow",
+                        "file.reopenClosedTab",
                         SEPARATOR,
-                        "settings",
-                        "syncNow",
-                        "configureProfiles",
+                        "settings.show",
+                        "sync.now",
+                        "settings.configureProfiles",
                         // The way out that is not closing the last window (WIN-14), last.
                         SEPARATOR,
                         "app.quit"),
@@ -83,60 +85,63 @@ final class MenuBarModel {
         Menu edit = new Menu(
                 "menu.edit",
                 List.of(
-                        "copy",
-                        "paste",
-                        "selectAll",
+                        "edit.copy",
+                        "edit.paste",
+                        "edit.selectAll",
                         SEPARATOR,
-                        "clearScrollback",
+                        "edit.clearScrollback",
                         SEPARATOR,
                         "find.show",
-                        "findNext",
-                        "findPrevious",
+                        "find.next",
+                        "find.previous",
                         SEPARATOR,
-                        "previousPrompt",
-                        "nextPrompt",
-                        "selectLastOutput"),
+                        "view.previousPrompt",
+                        "view.nextPrompt",
+                        "edit.selectLastOutput"),
                 // The link under the pointer: the right-click menu's two link rows, as commands
                 // (KBD-01); and the find bar's switch, whose row is the switch itself (FIND-16).
-                List.of("openLink", "copyLinkAddress", "findRegex"));
+                List.of("link.open", "link.copyAddress", "find.regex"));
 
         // Each zoom command a row of its own, as every row of the bar is one command with its
         // icon, title and chord (MENU-01, MENU-02). The row of four buttons the bar once carried
         // is the right-click menu's alone. Full Screen last and on its own.
         List<String> viewRows = new ArrayList<>(ZOOM_COMMANDS.subList(0, 3));
         viewRows.add(SEPARATOR);
-        viewRows.add("fullScreen");
+        viewRows.add("view.fullScreen");
         // On every OS (OS-01, Pauta 6.0.1): disabled, with its reason, where there is no bar in
         // the window to hide.
         viewRows.add(SEPARATOR);
-        viewRows.add("hideMenuBar");
-        viewRows.add("showTabBar");
-        viewRows.add("showStatusBar");
+        viewRows.add("view.toggleMenuBar");
+        viewRows.add("view.toggleTabBar");
+        viewRows.add("view.toggleStatusBar");
         // The UI zoom's three commands: palette and chord only. View's zoom rows are the
         // terminal text's, which is the zoom a terminal's user reaches for.
-        Menu view = new Menu("menu.view", viewRows, List.of("uiZoomIn", "uiZoomOut", "uiZoomReset", "focusMenuBar"));
+        Menu view = new Menu(
+                "menu.view",
+                viewRows,
+                List.of("view.uiZoomIn", "view.uiZoomOut", "view.uiZoomReset", "view.focusMenuBar"));
 
         List<String> windowUnlisted = new ArrayList<>();
-        for (String direction : List.of("Left", "Right", "Up", "Down")) windowUnlisted.add("focusPane" + direction);
+        for (String direction : List.of("Left", "Right", "Up", "Down")) windowUnlisted.add("pane.focus" + direction);
         windowUnlisted.addAll(numbered(WindowRules.TAB_CHORD_ID));
-        windowUnlisted.add("tabMenu");
+        windowUnlisted.add("tab.menu");
         Menu window = new Menu(
                 "menu.window",
                 List.of(
-                        "nextTab",
-                        "previousTab",
+                        "tab.next",
+                        "tab.previous",
                         SEPARATOR,
-                        "moveTabLeft",
-                        "moveTabRight",
+                        "tab.moveLeft",
+                        "tab.moveRight",
                         SEPARATOR,
-                        "renameTab",
-                        "duplicateTab",
-                        "pinTab",
+                        "tab.rename",
+                        "tab.duplicate",
+                        "tab.pin",
                         SEPARATOR,
-                        "splitRight",
-                        "splitDown",
-                        "maximizePane",
-                        "movePaneToNewTab"),
+                        "pane.splitRight",
+                        "pane.splitDown",
+                        "pane.maximize",
+                        "pane.moveToNewTab"),
                 windowUnlisted);
 
         // Pauta's order (DOCS-07, Pauta 6.0.1), less what Termina does not have: the Command
@@ -146,13 +151,13 @@ final class MenuBarModel {
                 List.of(
                         "palette.show",
                         "help.documentation",
-                        "whatsNew",
-                        "keyboardShortcuts",
+                        "help.whatsNew",
+                        "help.keyboardShortcuts",
                         SEPARATOR,
-                        "checkForUpdates",
+                        "help.checkForUpdates",
                         "view.messageLog",
-                        "debugLog",
-                        "reportProblem",
+                        "help.debugLog",
+                        "help.reportProblem",
                         "help.doctor",
                         "help.pauta",
                         SEPARATOR,

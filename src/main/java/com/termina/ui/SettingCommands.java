@@ -48,11 +48,11 @@ final class SettingCommands {
     /** Settings rows with no command here, and why: a command elsewhere, an action, or no value. */
     static final Map<String, String> COVERED_ELSEWHERE = Map.ofEntries(
             Map.entry("settings.theme", "the palette lists every theme (palette.theme)"),
-            Map.entry("settings.showMenuBar", "View ▸ Hide Menu Bar, toggleMenuBar"),
-            Map.entry("settings.showStatusBar", "View ▸ Show Status Bar, toggleStatusBar"),
-            Map.entry("settings.exportConfig", "the exportConfiguration command"),
-            Map.entry("settings.importConfig", "the importConfiguration command"),
-            Map.entry("settings.debugLog", "Help ▸ Debug Log, debugLog"),
+            Map.entry("settings.showMenuBar", "View ▸ Hide Menu Bar, view.toggleMenuBar"),
+            Map.entry("settings.showStatusBar", "View ▸ Show Status Bar, view.toggleStatusBar"),
+            Map.entry("settings.exportConfig", "the settings.exportConfiguration command"),
+            Map.entry("settings.importConfig", "the settings.importConfiguration command"),
+            Map.entry("settings.debugLog", "Help ▸ Debug Log, help.debugLog"),
             Map.entry("settings.importTheme", "an action, not a setting: the settings.importTheme command"),
             Map.entry("settings.keys.resetAll.title", "an action, not a setting: the settings.resetShortcuts command"),
             Map.entry("settings.settingsFile", "shows where the file is; nothing to set"),
@@ -107,6 +107,7 @@ final class SettingCommands {
         out.add(toggle("settings.bell", settings::bell, settings::setBell));
         out.add(toggle("settings.notifications", settings::notifications, settings::setNotifications));
         out.add(toggle("settings.confirmClose", settings::confirmClose, settings::setConfirmClose));
+        out.add(toggle("settings.restoreSession", settings::restoreSession, settings::setRestoreSession));
         out.add(number(
                 "settings.scrollback",
                 host,

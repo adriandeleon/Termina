@@ -179,4 +179,15 @@ class CommandLineTest {
                 .filter(line -> !line.startsWith("Usage") && !line.startsWith("itself"))
                 .forEach(line -> assertTrue(line.matches("^  (-\\w,|   ) --.*"), line));
     }
+
+    @org.junit.jupiter.api.Test
+    void noSessionStartsWithoutTheTabsOfLastTime() {
+        // CLI-04 (Pauta 6.0.1).
+        org.junit.jupiter.api.Assertions.assertTrue(
+                CommandLine.parse("--no-session").noSession());
+        org.junit.jupiter.api.Assertions.assertFalse(CommandLine.parse().noSession());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                CommandLine.parse("--no-session", "-e", "htop").hasCommand());
+        org.junit.jupiter.api.Assertions.assertTrue(CommandLine.usage("termina").contains("--no-session"));
+    }
 }

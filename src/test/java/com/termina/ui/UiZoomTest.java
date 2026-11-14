@@ -78,13 +78,13 @@ class UiZoomTest {
 
     @Test
     void aZoomCommandWithNothingToDoSaysWhy() {
-        assertNull(WindowRules.uiZoomUnavailableKey("uiZoomIn", 100));
-        assertNull(WindowRules.uiZoomUnavailableKey("uiZoomOut", 100));
-        assertEquals("palette.disabled.uiZoomDefault", WindowRules.uiZoomUnavailableKey("uiZoomReset", 100));
-        assertEquals("palette.disabled.uiZoomLargest", WindowRules.uiZoomUnavailableKey("uiZoomIn", 200));
-        assertEquals("palette.disabled.uiZoomSmallest", WindowRules.uiZoomUnavailableKey("uiZoomOut", 80));
-        assertNull(WindowRules.uiZoomUnavailableKey("uiZoomReset", 150));
-        assertNull(WindowRules.uiZoomUnavailableKey("zoomIn", 200), "the terminal's zoom is another command");
+        assertNull(WindowRules.uiZoomUnavailableKey("view.uiZoomIn", 100));
+        assertNull(WindowRules.uiZoomUnavailableKey("view.uiZoomOut", 100));
+        assertEquals("palette.disabled.uiZoomDefault", WindowRules.uiZoomUnavailableKey("view.uiZoomReset", 100));
+        assertEquals("palette.disabled.uiZoomLargest", WindowRules.uiZoomUnavailableKey("view.uiZoomIn", 200));
+        assertEquals("palette.disabled.uiZoomSmallest", WindowRules.uiZoomUnavailableKey("view.uiZoomOut", 80));
+        assertNull(WindowRules.uiZoomUnavailableKey("view.uiZoomReset", 150));
+        assertNull(WindowRules.uiZoomUnavailableKey("view.zoomIn", 200), "the terminal's zoom is another command");
     }
 
     @Test

@@ -84,8 +84,8 @@ class MenuIconsTest {
             profiles.add(WindowRules.PROFILE_CHORD_ID + number);
         }
         Set<Set<String>> kin = Set.of(
-                new TreeSet<>(List.of("copy", "debugLog.copy", "messageLog.copy")),
-                new TreeSet<>(List.of("clearScrollback", "debugLog.clear", "messageLog.clear")),
+                new TreeSet<>(List.of("edit.copy", "debugLog.copy", "messageLog.copy")),
+                new TreeSet<>(List.of("edit.clearScrollback", "debugLog.clear", "messageLog.clear")),
                 new TreeSet<>(List.of("find.show", "debugLog.find")),
                 profiles);
         for (Set<String> ids : shared) assertTrue(kin.contains(ids), "one glyph for " + ids);
@@ -94,8 +94,8 @@ class MenuIconsTest {
     @Test
     void aCommandNoMenuListsHasNoneAndAskingForOneSaysSo() {
         assertNull(MenuIcons.forCommand(null));
-        assertNull(MenuIcons.forCommand("goToTab3"));
-        assertThrows(IllegalStateException.class, () -> MenuIcons.command("goToTab3"));
+        assertNull(MenuIcons.forCommand("tab.goTo3"));
+        assertThrows(IllegalStateException.class, () -> MenuIcons.command("tab.goTo3"));
         assertNotNull(MenuIcons.zoom());
     }
 }

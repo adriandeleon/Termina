@@ -17,7 +17,7 @@ import com.fasterxml.jackson.core.JsonToken;
  *
  * <pre>
  * {
- *   "schemaVersion": 2,
+ *   "schemaVersion": 3,
  *   "settings": {
  *     "font.family": "JetBrains Mono",
  *     "font.size": 13,
@@ -40,17 +40,19 @@ public final class ConfigJson {
      * The version this build writes and reads. A file names its own; an older one is brought forward
      * by {@link #MIGRATIONS}, and a newer one is not read at all (see {@link Settings#load}).
      */
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     /**
      * Step {@code i} takes a file from version {@code i + 1} to {@code i + 2}. A change to what a key
      * means adds one here, and a purely additive change — a new key with a default — adds the
      * identity step {@code values -> values}, so the version still says which build wrote the file.
      *
-     * <p>1 to 2: four commands took the ids Pauta 6.0.1 names, and a key binding is stored under
-     * its command's id ({@link CommandIds#migrateSettings}).
+     * <p>1 to 2: five commands took the ids Pauta 6.0.1 names, and a key binding is stored under
+     * its command's id ({@link CommandIds#migrateSettings}). 2 to 3: every other id without an
+     * area in front of it took one (KBD-02; {@link CommandIds#groupByArea}).
      */
-    static final List<UnaryOperator<Map<String, String>>> MIGRATIONS = List.of(CommandIds::migrateSettings);
+    static final List<UnaryOperator<Map<String, String>>> MIGRATIONS =
+            List.of(CommandIds::migrateSettings, CommandIds::groupByArea);
 
     private static final JsonFactory FACTORY = new JsonFactory();
 

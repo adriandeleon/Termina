@@ -73,12 +73,12 @@ class MenuBarModelTest {
                 List.of(
                         "palette.show",
                         "help.documentation",
-                        "whatsNew",
-                        "keyboardShortcuts",
-                        "checkForUpdates",
+                        "help.whatsNew",
+                        "help.keyboardShortcuts",
+                        "help.checkForUpdates",
                         "view.messageLog",
-                        "debugLog",
-                        "reportProblem",
+                        "help.debugLog",
+                        "help.reportProblem",
                         "help.doctor",
                         "help.pauta",
                         "help.about"),
@@ -92,8 +92,8 @@ class MenuBarModelTest {
     @Test
     void onlyWhatDiscardsIsDrawnAsDangerous() {
         // MENU-12 (Pauta 6.0.1): the scrollback does not come back; a closed tab does.
-        assertTrue(WindowRules.isDestructive("clearScrollback"));
-        for (String id : List.of("closeTab", "closeOtherTabs", "closeWindow", "app.quit", "copy")) {
+        assertTrue(WindowRules.isDestructive("edit.clearScrollback"));
+        for (String id : List.of("file.closeTab", "file.closeOtherTabs", "file.closeWindow", "app.quit", "edit.copy")) {
             assertFalse(WindowRules.isDestructive(id), id);
         }
         assertFalse(WindowRules.isDestructive(null));
@@ -109,7 +109,7 @@ class MenuBarModelTest {
         }
         assertTrue(seen.containsAll(MenuBarModel.ZOOM_COMMANDS));
         // OS-01 (Pauta 6.0.1): on every OS, disabled where there is no bar to hide.
-        assertTrue(seen.contains("hideMenuBar"));
+        assertTrue(seen.contains("view.toggleMenuBar"));
     }
 
     @Test
@@ -130,11 +130,11 @@ class MenuBarModelTest {
         }
         assertEquals(1, submenus, "New Tab With Profile");
         assertEquals(
-                List.of("newTabProfile1", "newTabProfile9"),
+                List.of("file.newTabProfile1", "file.newTabProfile9"),
                 List.of(
                         MenuBarModel.submenuRows(MenuBarModel.PROFILE_SUBMENU).getFirst(),
                         MenuBarModel.submenuRows(MenuBarModel.PROFILE_SUBMENU).getLast()));
-        assertEquals(List.of(), MenuBarModel.submenuRows("newTab"));
+        assertEquals(List.of(), MenuBarModel.submenuRows("file.newTab"));
     }
 
     @Test
@@ -176,17 +176,18 @@ class MenuBarModelTest {
         // MENU-01, MENU-02 (Pauta 6.0.1): no row of four buttons in the bar; Full Screen on its own.
         List<String> view = MenuBarModel.menus().get(2).rows();
         assertEquals(
-                List.of("zoomIn", "zoomOut", "actualSize", MenuBarModel.SEPARATOR, "fullScreen"), view.subList(0, 5));
+                List.of("view.zoomIn", "view.zoomOut", "view.actualSize", MenuBarModel.SEPARATOR, "view.fullScreen"),
+                view.subList(0, 5));
         for (String row : view) assertFalse(row.startsWith("+"), row);
     }
 
     @Test
     void theNumberedChordsAreTheNineAndNothingElse() {
-        assertTrue(MenuBarModel.isNumbered("goToTab1"));
-        assertTrue(MenuBarModel.isNumbered("newTabProfile9"));
-        assertFalse(MenuBarModel.isNumbered("newTabProfile"));
+        assertTrue(MenuBarModel.isNumbered("tab.goTo1"));
+        assertTrue(MenuBarModel.isNumbered("file.newTabProfile9"));
+        assertFalse(MenuBarModel.isNumbered("file.newTabProfile"));
         assertFalse(MenuBarModel.isNumbered("goToTabs"));
-        assertFalse(MenuBarModel.isNumbered("newTab"));
+        assertFalse(MenuBarModel.isNumbered("file.newTab"));
         assertFalse(MenuBarModel.isNumbered("goToTab10"));
         long numbered = MenuBarModel.commandIds(MenuBarModel.menus()).stream()
                 .filter(MenuBarModel::isNumbered)

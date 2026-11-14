@@ -26,16 +26,11 @@ A test fails when this list and that file disagree.
 - [ ] **[DOCS-03](https://pauta-project.dev/6.0.1/documentation/#docs-03)** The Documentation command opens the newest user guide, not the one for the version you are running.
 - [ ] **[DOCS-04](https://pauta-project.dev/6.0.1/documentation/#docs-04)** The website's What's New page is written by hand, and nothing checks the command names and shortcuts the guide quotes.
 - [ ] **[DOCS-18](https://pauta-project.dev/6.0.1/documentation/#docs-18)** The website's screenshots are from version 0.13.0 and were taken at normal size, not at double size like the README's.
-- [ ] **[KBD-02](https://pauta-project.dev/6.0.1/keyboard/#kbd-02)** Most commands still have ids without an area in front, such as newTab.
 - [ ] **[KBD-04](https://pauta-project.dev/6.0.1/keyboard/#kbd-04)** On macOS a greyed row in the menu bar at the top of the screen does not say why it cannot run; every menu Termina draws itself does.
 - [ ] **[ACC-09](https://pauta-project.dev/6.0.1/accessibility/#acc-09)** Termina does not follow Windows' high-contrast mode.
-- [ ] **[WIN-08](https://pauta-project.dev/6.0.1/window-shell/#win-08)** The tabs you had open are not restored at the next launch.
-- [ ] **[WIN-15](https://pauta-project.dev/6.0.1/window-shell/#win-15)** On macOS, Settings is in the File menu and not in the application menu.
-- [ ] **[CLI-10](https://pauta-project.dev/6.0.1/command-line/#cli-10)** The desktop's own helper programs (the clipboard, notifications) get your login shell's search path only once a sync or a clicked link has asked for it.
 - [ ] **[PAL-06](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-06)** The Command Palette's movement keys are fixed and do not follow the key bindings.
 - [ ] **[PAL-08](https://pauta-project.dev/6.0.1/templates/command-palette/#pal-08)** The Command Palette has no key that opens the documentation for the highlighted command.
 - [ ] **[QOPEN-01](https://pauta-project.dev/6.0.1/templates/quick-open/#qopen-01)** There is no quick picker for themes, profiles or a setting's values; each is a separate row of the Command Palette.
-- [ ] **[MLOG-08](https://pauta-project.dev/6.0.1/templates/message-log/#mlog-08)** The Message Log opens as a window of its own, not as a card over the terminal, and keeps 500 messages.
 - [ ] **[REL-17](https://pauta-project.dev/6.0.1/release/#rel-17)** The Windows installer is not signed.
 
 One optional rule is not met and has no entry there: window modes that hide chrome
@@ -47,7 +42,8 @@ One optional rule is not met and has no entry there: window modes that hide chro
   (`pty.WindowsCwd`), the PowerShell toast, the shell discovery (PowerShell, Git Bash, WSL) and
   high-contrast mode. The MSI is unsigned.
 - [ ] **macOS:** the notification and Option+drag blocks, and what the Pauta 6.0.1 work added (the
-  greyed rows of the screen menu bar, the Doctor).
+  greyed rows of the screen menu bar, the Doctor, and the Settings item of the application menu,
+  which is put there through the toolkit's own classes and has never been seen).
 - [ ] **The Doctor and the menus' reasons on a real desktop.** They have been seen in headless
   captures and tests only.
 

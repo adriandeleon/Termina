@@ -56,19 +56,19 @@ class MenusFxTest {
 
     /** Items left out, by their catalogue key. */
     private static final List<String> SKIPPED_KEYS = List.of(
-            "command.checkForUpdates",
+            "command.help.checkForUpdates",
             "command.help.documentation",
-            "command.whatsNew",
-            "command.exportConfiguration",
-            "command.importConfiguration",
-            "command.renameTab",
-            "command.closeWindow",
+            "command.help.whatsNew",
+            "command.settings.exportConfiguration",
+            "command.settings.importConfiguration",
+            "command.tab.rename",
+            "command.file.closeWindow",
             "command.app.quit",
             "menu.hideStatusBar",
-            "command.showStatusBar",
+            "command.view.toggleStatusBar",
             "menu.hideTabBar", // hides the strip the tabs' own menus are opened from
-            "command.showTabBar",
-            "command.openLink",
+            "command.view.toggleTabBar",
+            "command.link.open",
             "menu.copyLink");
 
     @Test
@@ -111,7 +111,7 @@ class MenusFxTest {
             List<MenuItem> items = new ArrayList<>(onFx(() -> window.tabMenuItemsForTest(tab)));
             assertTrue(TerminalWindow.tabMenuBuilt(tab), "asking for it builds it");
             assertEquals(items, onFx(() -> window.tabMenuItemsForTest(tab)), "and builds it once");
-            items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("command.closeTab")));
+            items.removeIf(item -> text(item) != null && text(item).startsWith(Messages.tr("command.file.closeTab")));
             fired += fireAll(items, skipped, failures);
         }
         List<MenuItem> bar = new ArrayList<>();
@@ -123,7 +123,7 @@ class MenusFxTest {
             bar.addAll(flatten(menu.getItems()));
         }
         bar.sort(java.util.Comparator.comparing(item -> text(item) != null
-                && text(item).startsWith(Messages.tr("command.closeTab").substring(0, 5))));
+                && text(item).startsWith(Messages.tr("command.file.closeTab").substring(0, 5))));
         fired += fireAll(bar, skipped, failures);
 
         assertEquals(List.of(), failures);
@@ -207,32 +207,32 @@ class MenusFxTest {
         onFx(() -> windows.openWindow(window));
         waitFor(() -> started(window), "the shell");
 
-        assertTrue(onFx(() -> itemOpened(window, "reopenClosedTab").isDisable()), "nothing closed yet: greyed");
+        assertTrue(onFx(() -> itemOpened(window, "file.reopenClosedTab").isDisable()), "nothing closed yet: greyed");
         // And says why, in the palette's words (KBD-04, Pauta 6.0.1).
         assertEquals(
                 Messages.tr("palette.disabled.nothingToReopen"),
-                onFx(() -> MenuReasons.of(itemOpened(window, "reopenClosedTab"))));
+                onFx(() -> MenuReasons.of(itemOpened(window, "file.reopenClosedTab"))));
         onFx(() -> {
             window.openTab();
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("closeTab".equals(row.id())) row.action().run();
+                if ("file.closeTab".equals(row.id())) row.action().run();
             }
             return null;
         });
-        assertTrue(onFx(() -> !itemOpened(window, "reopenClosedTab").isDisable()), "a tab closed: available");
-        assertEquals(null, onFx(() -> MenuReasons.of(itemOpened(window, "reopenClosedTab"))));
+        assertTrue(onFx(() -> !itemOpened(window, "file.reopenClosedTab").isDisable()), "a tab closed: available");
+        assertEquals(null, onFx(() -> MenuReasons.of(itemOpened(window, "file.reopenClosedTab"))));
 
-        String before = onFx(() -> MenuRows.titleOf(itemOpened(window, "pinTab")));
+        String before = onFx(() -> MenuRows.titleOf(itemOpened(window, "tab.pin")));
         onFx(() -> {
-            itemOpened(window, "pinTab").fire();
+            itemOpened(window, "tab.pin").fire();
             return null;
         });
-        String after = onFx(() -> MenuRows.titleOf(itemOpened(window, "pinTab")));
+        String after = onFx(() -> MenuRows.titleOf(itemOpened(window, "tab.pin")));
         assertTrue(!before.equals(after), "Pin Tab says which way it will go: " + before + " then " + after);
         // The palette names it the same, from the same place.
         assertEquals(after, onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("pinTab".equals(row.id())) return row.label();
+                if ("tab.pin".equals(row.id())) return row.label();
             }
             return null;
         }));
@@ -244,7 +244,7 @@ class MenusFxTest {
         assertEquals(List.of(), onFx(view::searchTooltipsForTest), "no bar yet");
         onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("findRegex".equals(row.id())) row.action().run();
+                if ("find.regex".equals(row.id())) row.action().run();
             }
             return null;
         });
@@ -252,23 +252,23 @@ class MenusFxTest {
         List<String> tips = onFx(view::searchTooltipsForTest);
         assertEquals(
                 List.of(
-                        IconNames.withChord(Messages.tr("command.findNext"), Keymap.defaultFor("findNext")),
-                        IconNames.withChord(Messages.tr("command.findPrevious"), Keymap.defaultFor("findPrevious")),
-                        Messages.tr("command.findRegex")),
+                        IconNames.withChord(Messages.tr("command.find.next"), Keymap.defaultFor("find.next")),
+                        IconNames.withChord(Messages.tr("command.find.previous"), Keymap.defaultFor("find.previous")),
+                        Messages.tr("command.find.regex")),
                 tips);
         assertTrue(tips.get(0).contains("("), "Find Next has a chord to show: " + tips);
         onFx(() -> {
-            settings.replaceKeyBindings(java.util.Map.of("findRegex", "Alt+Shift+R"));
+            settings.replaceKeyBindings(java.util.Map.of("find.regex", "Alt+Shift+R"));
             return null;
         });
         String moved = onFx(() -> view.searchTooltipsForTest().get(2));
         assertEquals(
                 IconNames.withChord(
-                        Messages.tr("command.findRegex"), javafx.scene.input.KeyCombination.valueOf("Alt+Shift+R")),
+                        Messages.tr("command.find.regex"), javafx.scene.input.KeyCombination.valueOf("Alt+Shift+R")),
                 moved);
         onFx(() -> {
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("findRegex".equals(row.id())) row.action().run();
+                if ("find.regex".equals(row.id())) row.action().run();
             }
             return null;
         });
@@ -311,9 +311,9 @@ class MenusFxTest {
             return List.of(shown, tabMenu.isShowing());
         });
         assertEquals(List.of(true, false), menu, "shown, then closed by the press");
-        assertEquals(String.valueOf(Keymap.defaultFor("closeTab")), tabChords.get("closeTab"));
-        assertEquals(String.valueOf(Keymap.defaultFor("newTab")), tabChords.get("newTab"));
-        assertEquals("null", tabChords.get("renameTab"), "an unbound command's cell is empty");
+        assertEquals(String.valueOf(Keymap.defaultFor("file.closeTab")), tabChords.get("file.closeTab"));
+        assertEquals(String.valueOf(Keymap.defaultFor("file.newTab")), tabChords.get("file.newTab"));
+        assertEquals("null", tabChords.get("tab.rename"), "an unbound command's cell is empty");
         assertEquals(10, tabChords.size(), "every command row of the tab's menu: " + tabChords);
         // The terminal's menu: every row but the zoom row and the rules runs a command and says which.
         List<String> terminalRows = onFx(() -> {
@@ -326,7 +326,8 @@ class MenusFxTest {
             return ids;
         });
         assertTrue(!terminalRows.contains("null"), "a terminal menu row with no command: " + terminalRows);
-        assertTrue(terminalRows.containsAll(List.of("copy", "paste", "newTab", "palette.show", "help.about")));
+        assertTrue(terminalRows.containsAll(
+                List.of("edit.copy", "edit.paste", "file.newTab", "palette.show", "help.about")));
     }
 
     @Test
@@ -392,7 +393,7 @@ class MenusFxTest {
         onFx(() -> windows.openWindow(window));
         waitFor(() -> started(window), "the shell");
         TerminalView view = onFx(window::activeTerminal);
-        assertTrue(unavailable(window, "copyLinkAddress"), "no pointer over the terminal: greyed");
+        assertTrue(unavailable(window, "link.copyAddress"), "no pointer over the terminal: greyed");
 
         onFx(() -> {
             view.getSession().sendString("clear; printf 'https://example.com/termina-link\\n'\r");
@@ -417,11 +418,11 @@ class MenusFxTest {
             });
         }
         assertTrue(found, "a link under the pointer");
-        assertTrue(!unavailable(window, "copyLinkAddress"), "available over the link");
+        assertTrue(!unavailable(window, "link.copyAddress"), "available over the link");
         onFx(() -> {
             javafx.scene.input.Clipboard.getSystemClipboard().clear();
             for (MenuAction row : window.runnablePaletteRowsForTest()) {
-                if ("copyLinkAddress".equals(row.id())) row.action().run();
+                if ("link.copyAddress".equals(row.id())) row.action().run();
             }
             return null;
         });
@@ -461,7 +462,7 @@ class MenusFxTest {
                             null));
             return null;
         });
-        assertTrue(unavailable(window, "openLink"), "the pointer gone: greyed again");
+        assertTrue(unavailable(window, "link.open"), "the pointer gone: greyed again");
     }
 
     private static javafx.scene.input.MouseEvent moved(double x, double y) {
@@ -562,12 +563,12 @@ class MenusFxTest {
         assertEquals(List.of(), wrong);
 
         onFx(() -> {
-            settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+            settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Shortcut+Shift+Y"));
             return null;
         });
         assertEquals(
                 javafx.scene.input.KeyCombination.valueOf("Shortcut+Shift+Y").getDisplayText(),
-                onFx(() -> MenuRows.chordText(itemOpened(window, "newTab"))),
+                onFx(() -> MenuRows.chordText(itemOpened(window, "file.newTab"))),
                 "the row follows a rebind");
     }
 
@@ -611,8 +612,8 @@ class MenusFxTest {
         });
         assertTrue(bar.size() >= 5, "rows greyed in a window with one tab: " + bar);
         for (String row : bar) assertTrue(!row.endsWith("=null"), "greyed with no reason: " + row);
-        assertTrue(bar.contains("moveTabLeft=" + Messages.tr("palette.disabled.firstTab")), bar.toString());
-        assertTrue(bar.contains("closeOtherTabs=" + Messages.tr("palette.disabled.onlyTab")), bar.toString());
+        assertTrue(bar.contains("tab.moveLeft=" + Messages.tr("palette.disabled.firstTab")), bar.toString());
+        assertTrue(bar.contains("file.closeOtherTabs=" + Messages.tr("palette.disabled.onlyTab")), bar.toString());
 
         // A tab's own menu, for the tab it was opened on.
         java.util.Map<String, String> tabMenu = onFx(() -> {
@@ -624,11 +625,11 @@ class MenusFxTest {
         });
         assertEquals(
                 java.util.Map.of(
-                        "closeOtherTabs", Messages.tr("palette.disabled.onlyTab"),
-                        "closeTabsToTheLeft", Messages.tr("palette.disabled.noTabsLeft"),
-                        "closeTabsToTheRight", Messages.tr("palette.disabled.noTabsRight"),
-                        "moveTabLeft", Messages.tr("palette.disabled.firstTab"),
-                        "moveTabRight", Messages.tr("palette.disabled.lastTab")),
+                        "file.closeOtherTabs", Messages.tr("palette.disabled.onlyTab"),
+                        "file.closeTabsToTheLeft", Messages.tr("palette.disabled.noTabsLeft"),
+                        "file.closeTabsToTheRight", Messages.tr("palette.disabled.noTabsRight"),
+                        "tab.moveLeft", Messages.tr("palette.disabled.firstTab"),
+                        "tab.moveRight", Messages.tr("palette.disabled.lastTab")),
                 tabMenu);
 
         // The terminal's, raised where there is no link and nothing is selected: the link rows
@@ -656,10 +657,10 @@ class MenusFxTest {
             return rows;
         });
         String noLink = "true/true/" + Messages.tr("palette.disabled.noLinkUnderPointer");
-        assertEquals(noLink, terminal.get("openLink"));
-        assertEquals(noLink, terminal.get("copyLinkAddress"));
-        assertEquals("true/true/" + Messages.tr("palette.disabled.noSelection"), terminal.get("copy"));
-        assertEquals("true/false/null", terminal.get("selectAll"));
+        assertEquals(noLink, terminal.get("link.open"));
+        assertEquals(noLink, terminal.get("link.copyAddress"));
+        assertEquals("true/true/" + Messages.tr("palette.disabled.noSelection"), terminal.get("edit.copy"));
+        assertEquals("true/false/null", terminal.get("edit.selectAll"));
     }
 
     /** The bar's item for command {@code id}, after its menu has opened. */

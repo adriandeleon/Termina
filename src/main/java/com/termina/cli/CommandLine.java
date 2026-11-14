@@ -23,6 +23,7 @@ public record CommandLine(
         boolean report,
         boolean newInstance,
         boolean dev,
+        boolean noSession,
         String workingDirectory,
         List<String> command,
         String configDir,
@@ -45,6 +46,7 @@ public record CommandLine(
         boolean report = false;
         boolean newInstance = false;
         boolean dev = false;
+        boolean noSession = false;
         String workingDirectory = "";
         String configDir = "";
         String title = "";
@@ -82,6 +84,7 @@ public record CommandLine(
                 case "--report" -> report = true;
                 case "--new-instance" -> newInstance = true;
                 case "--dev" -> dev = true;
+                case "--no-session" -> noSession = true;
                 case "-d", "--working-directory" -> {
                     if (i + 1 >= args.length) return error(arg + " needs a directory");
                     workingDirectory = args[++i];
@@ -117,6 +120,7 @@ public record CommandLine(
                 report,
                 newInstance,
                 dev,
+                noSession,
                 workingDirectory,
                 List.copyOf(command),
                 configDir,
@@ -142,7 +146,7 @@ public record CommandLine(
     }
 
     private static CommandLine error(String message) {
-        return new CommandLine(false, false, false, false, false, "", List.of(), "", "", message);
+        return new CommandLine(false, false, false, false, false, false, "", List.of(), "", "", message);
     }
 
     /** The text {@code --help} prints. */
@@ -158,6 +162,7 @@ public record CommandLine(
                       --report                   Write a problem report to a file, open a GitHub issue for it, and exit
                       --new-instance             Start a Termina of its own, not a window in the running one
                       --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
+                      --no-session               Start without the tabs that were open last time
                   -d, --working-directory=DIR    Start the shell in DIR
                   -T, --title=TITLE              Name the first tab TITLE
                   -e, --command CMD [args...]    Run CMD instead of the shell; must come last

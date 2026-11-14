@@ -67,8 +67,8 @@ class SettingsWindowFxTest {
         settings.addOnChange(() -> changes[0]++);
         ShellProfiles profiles = new ShellProfiles(settings, "System shell");
         List<Keybindings.Command> commands = List.of(
-                new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")),
-                new Keybindings.Command("closeTab", "File", "Close Tab", Keymap.defaultFor("closeTab")),
+                new Keybindings.Command("file.newTab", "File", "New Tab", Keymap.defaultFor("file.newTab")),
+                new Keybindings.Command("file.closeTab", "File", "Close Tab", Keymap.defaultFor("file.closeTab")),
                 new Keybindings.Command("palette.show", "View", "Command Palette", Keymap.defaultFor("palette.show")));
 
         int[] worked = onFx(() -> {
@@ -82,7 +82,7 @@ class SettingsWindowFxTest {
             for (String query : List.of("font", "scroll", "sync", "keyboard", "no such setting", "")) {
                 window.searchForCapture(query);
             }
-            window.fireKeysForCapture("newTab:C-S-y;closeTab:BS");
+            window.fireKeysForCapture("file.newTab:C-S-y;file.closeTab:BS");
             window.showProfiles(owner);
             return counts;
         });
@@ -110,7 +110,7 @@ class SettingsWindowFxTest {
         settings.load();
         ShellProfiles profiles = new ShellProfiles(settings, "System shell");
         List<Keybindings.Command> commands =
-                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+                List.of(new Keybindings.Command("file.newTab", "File", "New Tab", Keymap.defaultFor("file.newTab")));
         Path shell = java.nio.file.Files.writeString(dir.resolve("a-shell"), "#!/bin/sh\n");
         assertTrue(shell.toFile().setExecutable(true));
 
@@ -338,7 +338,7 @@ class SettingsWindowFxTest {
         Settings settings = new Settings(file);
         settings.load();
         List<Keybindings.Command> commands =
-                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+                List.of(new Keybindings.Command("file.newTab", "File", "New Tab", Keymap.defaultFor("file.newTab")));
 
         List<String> before = new ArrayList<>();
         List<String> names = new ArrayList<>();
@@ -593,10 +593,10 @@ class SettingsWindowFxTest {
         java.nio.file.Files.createDirectories(home);
         Settings settings = new Settings(dir.resolve("config/settings.json"));
         settings.load();
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Shortcut+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Shortcut+Shift+Y"));
         ShellProfiles profiles = new ShellProfiles(settings, "System shell");
         List<Keybindings.Command> commands =
-                List.of(new Keybindings.Command("newTab", "File", "New Tab", Keymap.defaultFor("newTab")));
+                List.of(new Keybindings.Command("file.newTab", "File", "New Tab", Keymap.defaultFor("file.newTab")));
 
         String was = System.getProperty("user.home");
         System.setProperty("user.home", home.toString()); // Export writes there

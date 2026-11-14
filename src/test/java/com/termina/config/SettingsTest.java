@@ -230,7 +230,7 @@ class SettingsTest {
         Path file = dir.resolve("settings.properties");
         Settings seed = new Settings(file);
         seed.setThemeId("editora-dark");
-        seed.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        seed.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
 
         Settings first = new Settings(file);
         first.load();
@@ -238,14 +238,14 @@ class SettingsTest {
         second.load();
 
         first.setThemeId("editora-light");
-        first.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+U"));
+        first.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+U"));
         second.setWindowGeometry(10, 20, 800, 600, false); // closing a window
         second.setFontSize(19);
 
         Settings read = new Settings(file);
         read.load();
         assertEquals("editora-light", read.themeId(), "the other process's save must not revert it");
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+U"), read.keyBindings());
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+U"), read.keyBindings());
         assertEquals(19, read.fontSize());
         assertEquals(800, read.windowWidth());
     }
@@ -254,16 +254,16 @@ class SettingsTest {
     void aRemovalIsAChangeToo(@TempDir Path dir) {
         Path file = dir.resolve("settings.properties");
         Settings first = new Settings(file);
-        first.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"));
+        first.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", "none"));
         Settings second = new Settings(file);
         second.load();
 
-        second.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        second.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         first.setFontSize(18); // must not put closeTab back
 
         Settings read = new Settings(file);
         read.load();
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y"), read.keyBindings());
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"), read.keyBindings());
         assertEquals(18, read.fontSize());
     }
 
@@ -474,24 +474,24 @@ class SettingsTest {
         AtomicInteger changes = new AtomicInteger();
         Settings written = new Settings(file);
         written.addOnChange(changes::incrementAndGet);
-        written.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", Settings.UNBOUND));
+        written.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", Settings.UNBOUND));
         assertEquals(1, changes.get(), "a rebind that takes a chord is two lines and one broadcast");
 
         Settings read = new Settings(file);
         read.load();
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"), read.keyBindings());
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", "none"), read.keyBindings());
 
-        read.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y"), read.keyBindings(), "a dropped line is gone");
+        read.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"), read.keyBindings(), "a dropped line is gone");
     }
 
     @Test
     void anUnchangedBlockIsNotAChange(@TempDir Path dir) {
         AtomicInteger changes = new AtomicInteger();
         Settings settings = new Settings(dir.resolve("settings.properties"));
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         settings.addOnChange(changes::incrementAndGet);
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         assertEquals(0, changes.get());
     }
 
@@ -502,11 +502,11 @@ class SettingsTest {
         Files.writeString(
                 file,
                 "{\"schemaVersion\": 1, \"settings\": {\"keys.about\": \"F1\", \"keys.commandPalette\": \"Alt+X\","
-                        + " \"keys.newTab\": \"Ctrl+Shift+Y\", \"font.size\": 15}}");
+                        + " \"keys.file.newTab\": \"Ctrl+Shift+Y\", \"font.size\": 15}}");
         Settings settings = new Settings(file);
         settings.load();
         assertEquals(
-                java.util.Map.of("help.about", "F1", "palette.show", "Alt+X", "newTab", "Ctrl+Shift+Y"),
+                java.util.Map.of("help.about", "F1", "palette.show", "Alt+X", "file.newTab", "Ctrl+Shift+Y"),
                 settings.keyBindings());
         assertEquals(15.0, settings.fontSize());
         settings.setFontSize(16);
@@ -531,7 +531,7 @@ class SettingsTest {
     @Test
     void resetPutsTheKeysBack(@TempDir Path dir) {
         Settings settings = new Settings(dir.resolve("settings.properties"));
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         settings.resetToDefaults();
         assertTrue(settings.keyBindings().isEmpty());
     }
@@ -544,7 +544,7 @@ class SettingsTest {
         settings.setSyncRepository("git@github.com:me/termina-sync.git");
         settings.setSyncBranch("termina");
         settings.setSyncEnabled(true);
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
 
         settings.resetToDefaults();
 
@@ -553,7 +553,7 @@ class SettingsTest {
         assertEquals("termina", settings.syncBranch());
         assertTrue(settings.keyBindings().isEmpty());
         assertTrue(Settings.isSyncKey(Settings.SYNC_INTERVAL));
-        assertFalse(Settings.isSyncKey(Settings.KEYS_PREFIX + "newTab"));
+        assertFalse(Settings.isSyncKey(Settings.KEYS_PREFIX + "file.newTab"));
     }
 
     @Test
