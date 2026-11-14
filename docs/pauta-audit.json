@@ -808,8 +808,8 @@
     {
       "id": "WIN-10",
       "level": "MAY",
-      "status": "fail",
-      "evidence": "No Zen, Expert or Simple mode: no such command or chrome truth table found in src/main (searched zen, expertMode, simpleMode); the nearest are the separate menu-bar and status-bar toggles (src/main/java/com/termina/ui/TerminalWindow.java:129)."
+      "status": "pass",
+      "evidence": "the window has three modes, each a registered command in the View menu and the palette: view.toggleZen, view.toggleExpert and view.toggleSimpleMode (src/main/java/com/termina/ui/TerminalWindow.java:144, :145, :142). One truth table decides which chrome each shows (src/main/java/com/termina/ui/Chrome.java: menuBar :57, tabBar :66, statusBar :71): Zen shows none, Expert keeps only the status bar, and each row is the setting less what the mode hides, so no mode writes a setting. The window's three visibility passes all go through it (src/main/java/com/termina/ui/TerminalWindow.java:610, :628, :636). Simple mode shows fewer menus, four where there are five (src/main/java/com/termina/ui/MenuBarModel.java:76). src/test/java/com/termina/ui/ChromeTest.java:22 holds the table and src/test/java/com/termina/ui/WindowModesFxTest.java:49 enters and leaves each mode in a real window, with a second window and the settings unchanged. Seen in headless captures of all three. Never run on macOS, where the menus are in the screen's menu bar and stay (fixed in 54fcb53)"
     },
     {
       "id": "ICON-01",
@@ -1210,8 +1210,8 @@
     {
       "id": "MENU-04",
       "level": "SHOULD",
-      "status": "limited",
-      "evidence": "no Simple mode: nothing in src/main/java or the catalog names one (searched simpleMode, \"Simple mode\", expert); `MenuBarModel.menus` has one shape per platform (src/main/java/com/termina/ui/MenuBarModel.java:52)"
+      "status": "pass",
+      "evidence": "Simple mode shows a shorter bar, File, Edit, View and Help with the everyday rows of each (src/main/java/com/termina/ui/MenuBarModel.java:76; every row is a row of the full bar, src/test/java/com/termina/ui/ChromeTest.java:63). Both sets of menus are built once and the bar is handed the other set only when the simple flag differs from the one it holds (src/main/java/com/termina/ui/TerminalWindow.java:678, in applyMenuShape, which runs on every settings write). src/test/java/com/termina/ui/WindowModesFxTest.java:99 counts the swaps in a real window: one on entering, none while three other settings change, one on leaving, and none for a window opened with the mode already on (fixed in 54fcb53)"
     },
     {
       "id": "MENU-17",
@@ -2475,6 +2475,7 @@
     "One more pending SHOULD was settled on 2026-11-13, in a seventeenth batch, in 954f2c3: PAL-06 now passes, and its entry is out of pauta.json. The install page left the repository for the website the same day; DOCS-02 stays pending until the website carries it.",
     "Eight rules that wait on the website were built on 2026-11-13, in a branch of termina-website that describes 0.15.0 and is not merged: PAUTA-13, PAUTA-14, DOCS-01, DOCS-02, DOCS-03, DOCS-04, DOCS-18 and PAL-08, with the app's half of DOCS-02, DOCS-03 and PAL-08 in this repository. They stay pending until the site is live; their rows say what is done.",
     "One more pending SHOULD was settled on 2026-11-13, in an eighteenth batch, in 2639478: PLAT-14 now pass, and its entry is out of pauta.json.",
-    "One more pending SHOULD was settled on 2026-11-13, in a nineteenth batch, and the picker it adds brought ten more rules into scope, in 7ec50ba: QOPEN-01, QOPEN-02, QOPEN-03, QOPEN-04, QOPEN-05, QOPEN-06, QOPEN-07, QOPEN-08, QOPEN-10, QOPEN-11, QOPEN-12 now pass, and QOPEN-01 is out of pauta.json. QOPEN-09 stays limited: no picker has a row action."
+    "One more pending SHOULD was settled on 2026-11-13, in a nineteenth batch, and the picker it adds brought ten more rules into scope, in 7ec50ba: QOPEN-01, QOPEN-02, QOPEN-03, QOPEN-04, QOPEN-05, QOPEN-06, QOPEN-07, QOPEN-08, QOPEN-10, QOPEN-11, QOPEN-12 now pass, and QOPEN-01 is out of pauta.json. QOPEN-09 stays limited: no picker has a row action.",
+    "A failing MAY was met on 2026-11-13, in a twentieth batch, and a SHOULD it brings into scope with it, in 54fcb53: WIN-10, MENU-04 now pass. Neither was in pauta.json: WIN-10 is a MAY, and MENU-04 applied to nothing while there was no Simple mode."
   ]
 }
