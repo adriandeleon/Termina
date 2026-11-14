@@ -50,11 +50,18 @@ cache="$appdir/$cache_name"
 # this reason, and it never reproduced on real hardware.
 # The commas here are inside JVM option values (-Dprism.order=es2,sw), not element separators.
 # shellcheck disable=SC2054
+# Only macOS's JavaFX has com.sun.glass.ui.mac; elsewhere this repeats the export, as the pom does.
+mac_opens=--add-exports=javafx.graphics/com.sun.glass.ui=com.termina
+[ "$(uname -s)" = Darwin ] && mac_opens=--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.termina
 opts=(-XX:AOTCacheOutput="$cache"
       -Dprism.order=es2,sw
       -Dtermina.aotTrain=1
       --enable-native-access=javafx.graphics,com.sun.jna
-      -m com.termina/com.termina.App)
+      # The same module options as the image's launcher (pom.xml javaOptions): a cache trained under
+      # a different module graph is one the launch may refuse.
+      --add-exports=javafx.graphics/com.sun.glass.ui=com.termina
+      "$mac_opens"
+      -m com.termina/com.termina.Main)
 
 # A configuration of its own, made here and removed on the way out. The trainer is the real
 # application: pointed at the developer's own folder it started their shell, could start a settings

@@ -5,9 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
-import javafx.scene.control.ListView;
-import javafx.scene.input.KeyEvent;
-
 import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
@@ -16,12 +13,15 @@ import static com.termina.i18n.Messages.tr;
  * The one definition of how the command palette is driven from the keyboard, and of the legend that
  * tells the user so.
  *
- * <p>The arrows, PageUp/PageDown, Enter and Escape always work. On top of those the palette answers
- * to Emacs's own movement — {@code C-n}/{@code C-p} a row, {@code C-v}/{@code M-v} a page,
- * {@code M-<}/{@code M->} the ends, {@code C-g} to cancel — which is what the hands of anyone who
- * reaches for {@code M-x} already do. They are safe to take here: while the palette is open it owns
- * the keyboard, so nothing is stolen from the shell. The table is Editora's Emacs keymap, token for
- * token, so the two palettes move alike.
+ * <p>The arrows, PageUp/PageDown, Enter and Escape always work. A row and a page also move on the
+ * chords the bindings in force give the four commands {@code nav.lineDown}, {@code nav.lineUp},
+ * {@code nav.pageDown} and {@code nav.pageUp} (PAL-06, Pauta 6.0.1), looked up and not written
+ * here: by default Emacs's own, {@code C-n}/{@code C-p} and {@code C-v}/{@code M-v}, which is what
+ * the hands of anyone who reaches for {@code M-x} already do, and whatever Settings ▸ Keyboard has
+ * moved them to. Cancelling is a fifth, {@code nav.cancel} (PAL-07, QOPEN-07, MLOG-03): {@code C-g}
+ * by default, beside Escape, which always cancels. {@code M-<}/{@code M->} for the ends stay as
+ * they are: Termina's key table has no command for them to follow. All of it is safe to take here:
+ * while a list is open it owns the keyboard, so nothing is stolen from the shell.
  *
  * <p>The legend is built from the same table, so it can only name keys that reach the palette.
  */
@@ -41,36 +41,72 @@ final class PaletteKeys {
     }
 
     /** Rows moved by PageUp/PageDown when the list cannot say how many it shows. */
-    private static final int DEFAULT_PAGE = 8;
+    static final int DEFAULT_PAGE = 8;
 
     private static final String SEPARATOR = "  ·  ";
 
-    /** The Emacs movement chords, in {@link KeyChord} tokens, and what each means here. */
-    static final Map<String, Action> EMACS = Map.of(
-            "C-n", Action.DOWN,
-            "C-p", Action.UP,
-            "C-v", Action.PAGE_DOWN,
-            "M-v", Action.PAGE_UP,
-            "M-S-,", Action.FIRST,
-            "M-S-.", Action.LAST,
-            "C-g", Action.CANCEL);
-
-    private PaletteKeys() {}
+    /** The chords no command stands behind, in {@link KeyChord} tokens, and what each means here. */
+    static final Map<String, Action> EMACS = Map.of("M-S-,", Action.FIRST, "M-S-.", Action.LAST);
 
     /**
-     * The action for a key press. {@code queryField} says whether a text field has the focus: then
-     * plain Home/End stay with its caret.
+     * The commands whose chords act in a list, and what each does there: the four that move the
+     * selection, and the one that cancels.
      */
-    static Action action(KeyEvent e, boolean queryField) {
-        return resolve(KeyChord.of(e), queryField);
+    static final Map<String, Action> MOVES = movesById();
+
+    private static Map<String, Action> movesById() {
+        Map<String, Action> moves = new java.util.LinkedHashMap<>();
+        moves.put("nav.lineDown", Action.DOWN);
+        moves.put("nav.lineUp", Action.UP);
+        moves.put("nav.pageDown", Action.PAGE_DOWN);
+        moves.put("nav.pageUp", Action.PAGE_UP);
+        moves.put("nav.cancel", Action.CANCEL);
+        return java.util.Collections.unmodifiableMap(moves);
     }
 
     /**
-     * The pure decision behind {@link #action}: the fixed keys first, then the Emacs table. Plain
+     * The movement chords in force, token to action: for each of {@link #MOVES}, the token of the
+     * chord the bindings give it. A command on no key gives none, and its arrow or page key still
+     * moves.
+     *
+     * @param tokenOf the {@link KeyChord} token of the chord a command id is on now, or null
+     */
+    static Map<String, Action> moves(java.util.function.Function<String, @Nullable String> tokenOf) {
+        Map<String, Action> out = new java.util.LinkedHashMap<>();
+        MOVES.forEach((id, action) -> {
+            String token = tokenOf.apply(id);
+            if (token != null) out.putIfAbsent(token, action);
+        });
+        return out;
+    }
+
+    private PaletteKeys() {}
+
+    /** The keys that may open a command's page of the guide, in the order they are tried (PAL-08). */
+    static final List<String> HELP_KEYS = List.of("C-h", "f1", "S-f1");
+
+    /**
+     * The palette's help key (PAL-08, Pauta 6.0.1): the first of {@code Ctrl+H}, {@code F1} and
+     * {@code Shift+F1} that no command is bound to, or null when all three are taken. The same on
+     * macOS, where {@code Ctrl+H} is the Control key.
+     *
+     * @param bound the {@link KeyChord} tokens of every chord the bindings in force use
+     */
+    static @Nullable String helpKey(java.util.Collection<String> bound) {
+        for (String key : HELP_KEYS) {
+            if (!bound.contains(key)) return key;
+        }
+        return null;
+    }
+
+    /**
+     * The action for a key, by {@link KeyChord} token ({@link PaletteNav#action} reads it off the
+     * event): the fixed keys first, then the chords in force for a row and a page ({@code moves},
+     * from {@link #moves}), then the ends and cancel. Plain
      * Home/End move the query field's caret when there is one (as in every search box); Ctrl/Cmd+Home
      * and Ctrl/Cmd+End always jump to the first/last row.
      */
-    static Action resolve(@Nullable String token, boolean queryField) {
+    static Action resolve(@Nullable String token, boolean queryField, Map<String, Action> moves) {
         if (token == null) return Action.NONE;
         switch (token) {
             case "down":
@@ -94,7 +130,8 @@ final class PaletteKeys {
             case "end":
                 return queryField ? Action.NONE : Action.LAST;
             default:
-                return EMACS.getOrDefault(token, Action.NONE);
+                Action moved = moves.get(token);
+                return moved != null ? moved : EMACS.getOrDefault(token, Action.NONE);
         }
     }
 
@@ -117,24 +154,14 @@ final class PaletteKeys {
         };
     }
 
-    /** How many rows a page moves: one less than the list shows, so a row of context remains. */
-    static int page(ListView<?> list) {
-        double cell = list.getFixedCellSize();
-        if (cell > 0 && list.getHeight() > cell) return Math.max(1, (int) (list.getHeight() / cell) - 1);
-        return DEFAULT_PAGE;
-    }
-
     /**
-     * Applies a navigation action to {@code list}, landing only on rows {@code selectable} accepts
-     * (so the cursor steps over greyed-out rows). Up/Down wrap; a page or first/last jump lands on
-     * the nearest selectable row at or beyond its target, else the nearest before it. Returns false —
-     * leaving the event for someone else — only when {@code action} is not navigation.
+     * The row a navigation action lands on, among rows {@code selectable} accepts (so the cursor
+     * steps over greyed-out rows), or -1 when none will do. Up/Down wrap; a page or first/last jump
+     * lands on the nearest selectable row at or beyond its target, else the nearest before it.
+     * {@link PaletteNav#navigate} applies it to the list. Pure.
      */
-    static <T> boolean navigate(ListView<T> list, Action action, Predicate<? super T> selectable) {
-        if (!isNavigation(action)) return false;
-        List<T> items = list.getItems();
+    static <T> int landing(List<T> items, int current, Action action, int page, Predicate<? super T> selectable) {
         int size = items.size();
-        int current = list.getSelectionModel().getSelectedIndex();
         int idx = -1;
         if (action == Action.UP || action == Action.DOWN) {
             int dir = action == Action.DOWN ? 1 : -1;
@@ -144,16 +171,12 @@ final class PaletteKeys {
                 idx = selectable.test(items.get(i)) ? i : -1;
             }
         } else if (size > 0) {
-            int target = target(action, current, size, page(list));
+            int target = target(action, current, size, page);
             int dir = action == Action.PAGE_DOWN || action == Action.FIRST ? 1 : -1;
             idx = seek(items, target, dir, selectable);
             if (idx < 0) idx = seek(items, target, -dir, selectable);
         }
-        if (idx >= 0) {
-            list.getSelectionModel().select(idx);
-            list.scrollTo(idx);
-        }
-        return true;
+        return idx;
     }
 
     private static <T> int seek(List<T> items, int from, int dir, Predicate<? super T> selectable) {
@@ -181,16 +204,30 @@ final class PaletteKeys {
     }
 
     /**
-     * The palette legend: "move", the palette's own entries (nulls skipped), "cancel". The Emacs
-     * chords are shown beside the fixed keys in the platform's notation, which is what the menus use.
+     * The palette legend: "move", the palette's own entries (nulls skipped), "cancel". The chords
+     * in force for a row down and a row up are shown beside the arrows, and the one for cancelling
+     * beside Esc, in the platform's notation, which is what the menus use; with none on a key, the
+     * arrows and Esc alone.
+     *
+     * @param moves the movement chords in force ({@link #moves})
      */
-    static String legend(@Nullable String... entries) {
+    static String legend(Map<String, Action> moves, @Nullable String... entries) {
         List<String> parts = new ArrayList<>();
-        parts.add(hint("move", "↑↓ / " + KeyChord.display("C-n") + " " + KeyChord.display("C-p")));
+        List<String> lines = new ArrayList<>();
+        for (Action line : List.of(Action.DOWN, Action.UP)) {
+            moves.forEach((token, action) -> {
+                if (action == line) lines.add(KeyChord.display(token));
+            });
+        }
+        parts.add(hint("move", lines.isEmpty() ? "↑↓" : "↑↓ / " + String.join(" ", lines)));
         for (String entry : entries) {
             if (entry != null) parts.add(entry);
         }
-        parts.add(hint("cancel", "Esc / " + KeyChord.display("C-g")));
+        List<String> cancels = new ArrayList<>();
+        moves.forEach((token, action) -> {
+            if (action == Action.CANCEL) cancels.add(KeyChord.display(token));
+        });
+        parts.add(hint("cancel", cancels.isEmpty() ? "Esc" : "Esc / " + String.join(" ", cancels)));
         return String.join(SEPARATOR, parts);
     }
 }

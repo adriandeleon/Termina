@@ -18,8 +18,15 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Icons {
 
-    /** Smallest first, which is the order every window manager expects. */
-    private static final int[] SIZES = {16, 24, 32, 48, 64, 128, 256, 512};
+    /**
+     * Smallest first, which is the order every window manager expects. The title bar, the task
+     * switcher and the dock's small sizes come first; the large ones, which only a few window
+     * managers ask for and which cost most of the decoding, follow the first frame (PERF-15,
+     * Pauta 2.0.2).
+     */
+    private static final int[] SIZES = {16, 24, 32, 48, 64};
+
+    private static final int[] LARGE_SIZES = {128, 256, 512};
 
     private static @Nullable List<Image> appIcons;
 
@@ -27,13 +34,45 @@ public final class Icons {
 
     private static synchronized List<Image> icons() {
         if (appIcons != null) return appIcons;
+        appIcons = decode(SIZES);
+        return appIcons;
+    }
+
+    private static List<Image> decode(int[] sizes) {
         List<Image> loaded = new java.util.ArrayList<>();
-        for (int size : SIZES) {
+        for (int size : sizes) {
             Image image = load(size);
             if (image != null) loaded.add(image);
         }
-        appIcons = List.copyOf(loaded);
-        return appIcons;
+        return List.copyOf(loaded);
+    }
+
+    /**
+     * Decodes the large sizes off the FX thread, then gives them to every window that has only the
+     * small ones, and to every window opened after. Called once, after the first frame.
+     */
+    public static void loadLarge() {
+        Thread worker = new Thread(
+                () -> {
+                    List<Image> large = decode(LARGE_SIZES);
+                    if (large.isEmpty()) return;
+                    javafx.application.Platform.runLater(() -> {
+                        List<Image> small = icons();
+                        List<Image> all = new java.util.ArrayList<>(small);
+                        all.addAll(large);
+                        synchronized (Icons.class) {
+                            appIcons = List.copyOf(all);
+                        }
+                        for (javafx.stage.Window open : List.copyOf(javafx.stage.Window.getWindows())) {
+                            if (open instanceof Stage stage && stage.getIcons().equals(small)) {
+                                stage.getIcons().setAll(all);
+                            }
+                        }
+                    });
+                },
+                "termina-icons");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private static @Nullable Image load(int size) {

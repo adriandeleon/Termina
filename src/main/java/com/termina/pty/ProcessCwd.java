@@ -28,13 +28,10 @@ public final class ProcessCwd {
 
     private ProcessCwd() {}
 
-    private static final boolean LINUX =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+    private static final boolean LINUX = com.termina.Os.isLinux();
+    private static final boolean MAC = com.termina.Os.isMac();
 
-    private static final boolean WINDOWS =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+    private static final boolean WINDOWS = com.termina.Os.isWindows();
 
     /** True where {@link #of(long)} can ever return a value, so callers can skip polling entirely. */
     public static boolean isSupported() {
@@ -42,18 +39,18 @@ public final class ProcessCwd {
     }
 
     /**
-     * Whether a directory the shell reports (OSC 7, or ConEmu's OSC 9;9) is to be believed over the
-     * OS's answer. On Windows it is: the process a WSL tab runs is {@code wsl.exe}, whose Windows
-     * directory says nothing about where the Linux shell inside it is, and only the shell can say.
-     * Elsewhere the OS is the better witness — a shell inside {@code ssh} reports the other machine's
-     * directories — and a report is ignored.
+     * Whether a directory the shell reports (OSC 7, or ConEmu's OSC 9;9) is the tab's directory.
+     * The same on every OS (OS-04, Pauta 6.0.1): the OS is the better witness wherever it has an
+     * answer, since a prompt cannot get it wrong and a shell inside {@code ssh} reports the other
+     * machine's directories; a report fills in where the OS has none. That is a tab whose process
+     * is not the shell ({@link #osKnowsDirectoryOf}: WSL's launcher, whose own directory says
+     * nothing about the Linux shell inside it), and a tab the OS has not answered for.
+     *
+     * @param osKnows whether the OS's answer for the tab's process means anything
+     * @param osAnswered whether the OS has given one for this tab
      */
-    public static boolean reportedDirectoryWins() {
-        return reportedDirectoryWins(System.getProperty("os.name", ""));
-    }
-
-    static boolean reportedDirectoryWins(String os) {
-        return os.toLowerCase(Locale.ROOT).startsWith("windows");
+    public static boolean reportFillsIn(boolean osKnows, boolean osAnswered) {
+        return !osKnows || !osAnswered;
     }
 
     /**

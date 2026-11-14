@@ -1,0 +1,20 @@
+{
+  "exceptions": [
+    {
+      "rule": "KBD-04",
+      "level": "SHOULD",
+      "url": "https://pauta-project.dev/6.1.0/keyboard/#kbd-04",
+      "kind": "deviation",
+      "reason": "On macOS the menu bar at the top of the screen is drawn by the system, which gives Termina no way to say why a greyed row cannot run; the Command Palette and every menu Termina draws do.",
+      "link": "https://github.com/adriandeleon/Termina/blob/master/docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md"
+    },
+    {
+      "rule": "REL-17",
+      "level": "SHOULD",
+      "url": "https://pauta-project.dev/6.1.0/release/#rel-17",
+      "kind": "pending",
+      "reason": "The Windows installer is not signed.",
+      "link": "https://github.com/adriandeleon/Termina/issues/92"
+    }
+  ]
+}

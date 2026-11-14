@@ -29,8 +29,9 @@ import org.jspecify.annotations.Nullable;
  * follows the session, Wayland first — under GNOME on Wayland JavaFX itself runs through XWayland,
  * and the compositor bridges the two, but the Wayland side is the one other applications see.
  *
- * <p>Where none is installed, or on macOS and Windows, which have no PRIMARY, a middle-click pastes
- * the clipboard, as it always has, and selecting sets nothing.
+ * <p>On Linux with no such tool installed, a middle-click pastes the clipboard and selecting sets
+ * nothing. On macOS and Windows, which have no PRIMARY, a middle-click pastes nothing at all
+ * (OS-04, Pauta 6.0.1: the one row where the three differ, and Linux's alone).
  *
  * <p>All of it off the FX thread, on one worker, so a tool that hangs hangs there.
  */
@@ -41,8 +42,7 @@ final class PrimarySelection {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(2);
 
-    private static final boolean LINUX =
-            System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("linux");
+    private static final boolean LINUX = existsOn(com.termina.Os.name());
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "primary-selection");
@@ -93,6 +93,11 @@ final class PrimarySelection {
         return LINUX;
     }
 
+    /** The same, for an {@code os.name}: only Linux has one. */
+    static boolean existsOn(String os) {
+        return com.termina.Os.of(os) == com.termina.Os.Kind.LINUX;
+    }
+
     private static boolean present(@Nullable String value) {
         return value != null && !value.isBlank();
     }
@@ -117,7 +122,8 @@ final class PrimarySelection {
             Tools found = tools().orElse(null);
             if (found == null || latest == null) return;
             try {
-                CommandInput.write(new ProcessBuilder(found.write()), latest, TIMEOUT);
+                CommandInput.write(
+                        com.termina.process.ChildPath.apply(new ProcessBuilder(found.write())), latest, TIMEOUT);
             } catch (Exception e) {
                 // A selection that did not reach PRIMARY is not worth an error: the clipboard still
                 // has whatever it had, and the user can copy explicitly.
@@ -130,16 +136,17 @@ final class PrimarySelection {
      * PRIMARY or it cannot be read, runs {@code otherwise} there instead.
      */
     static void get(Consumer<String> paste, Runnable otherwise) {
-        if (!LINUX) {
-            otherwise.run();
-            return;
-        }
+        // No PRIMARY, no paste: neither the selection nor the clipboard in its place.
+        if (!LINUX) return;
         WORKER.execute(() -> {
             Tools found = tools().orElse(null);
             String text = null;
             if (found != null) {
                 try {
-                    text = CommandOutput.read(new ProcessBuilder(new ArrayList<>(found.read())), TIMEOUT)
+                    text = CommandOutput.read(
+                                    com.termina.process.ChildPath.apply(
+                                            new ProcessBuilder(new ArrayList<>(found.read()))),
+                                    TIMEOUT)
                             .map(bytes -> new String(bytes, StandardCharsets.UTF_8))
                             .orElse(null);
                 } catch (Exception e) {

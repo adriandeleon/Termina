@@ -65,9 +65,24 @@ public final class TerminalSession {
             int scrollbackLines,
             com.termina.pty.LaunchOptions options)
             throws IOException {
+        this(display, columns, rows, scrollbackLines, options, ShellLauncher.start(columns, rows, options));
+    }
+
+    /**
+     * A session over a shell already started — {@link ShellLauncher#start(int, int,
+     * com.termina.pty.LaunchOptions)} with the same options — so the start, which forks and may wait
+     * on a login shell, can run on a worker while this is built where the view lives.
+     */
+    public TerminalSession(
+            com.jediterm.terminal.TerminalDisplay display,
+            int columns,
+            int rows,
+            int scrollbackLines,
+            com.termina.pty.LaunchOptions options,
+            PtyProcess started) {
         // The same list the process was started from, so the connector reports the real command.
         List<String> command = options.hasCommand() ? options.command() : ShellLauncher.shellCommand(options.shell());
-        process = ShellLauncher.start(columns, rows, options);
+        process = started;
         connector = new PtyTtyConnector(process, command);
 
         StyleState styleState = new StyleState();
@@ -220,6 +235,11 @@ public final class TerminalSession {
 
     public JediTerminal getTerminal() {
         return terminal;
+    }
+
+    /** The number of this session's thread pool, as its thread names carry it. */
+    public int threadPoolId() {
+        return executors.id();
     }
 
     public boolean isRunning() {

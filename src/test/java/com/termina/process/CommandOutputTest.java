@@ -48,7 +48,10 @@ class CommandOutputTest {
     public static class Child {
         public static void main(String[] args) throws Exception {
             switch (args[0]) {
-                case "hang" -> Thread.sleep(30_000);
+                // A child that never answers: it waits on a latch nothing opens, and gives up
+                // after half a minute in case the test that started it is gone.
+                case "hang" ->
+                    new java.util.concurrent.CountDownLatch(1).await(30, java.util.concurrent.TimeUnit.SECONDS);
                 case "large" -> System.out.write(new byte[200_000]);
                 case "oversized" -> System.out.write(new byte[1_100_000]);
                 default -> {

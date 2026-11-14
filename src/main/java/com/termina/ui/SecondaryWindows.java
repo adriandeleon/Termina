@@ -8,6 +8,8 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * What the Settings, About and Debug Log windows have in common.
  *
@@ -33,7 +35,7 @@ final class SecondaryWindows {
         double height = stage.getHeight() > 0
                 ? stage.getHeight()
                 : stage.getScene() != null ? stage.getScene().getHeight() : 0;
-        double[] at = WindowPlacement.offsetWithin(from.getX(), from.getY(), OFFSET, width, height, screen);
+        double[] at = WindowPlacement.offsetWithin(from.getX(), from.getY(), OFFSET, width, height, bounds(screen));
         stage.setX(at[0]);
         stage.setY(at[1]);
     }
@@ -51,11 +53,25 @@ final class SecondaryWindows {
      * have focus — a text area, a list — cannot consume it on the way.
      */
     static void closeOnEscape(Stage stage, Scene scene) {
+        closeOnEscape(stage, scene, () -> false);
+    }
+
+    /**
+     * {@link #closeOnEscape(Stage, Scene)}, but for a window with a find bar or a filter box: while
+     * {@code claimed} says so, Escape is that field's, which closes its bar or empties itself and
+     * leaves the window open (FIND-07, Pauta 6.0.1).
+     */
+    static void closeOnEscape(Stage stage, Scene scene, java.util.function.BooleanSupplier claimed) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.ESCAPE) {
+            if (e.getCode() == KeyCode.ESCAPE && !claimed.getAsBoolean()) {
                 stage.hide();
                 e.consume();
             }
         });
+    }
+
+    /** A JavaFX rectangle as {@link WindowPlacement}'s bounds; null for null. */
+    static WindowPlacement.@Nullable Bounds bounds(javafx.geometry.@Nullable Rectangle2D r) {
+        return r == null ? null : new WindowPlacement.Bounds(r.getMinX(), r.getMinY(), r.getMaxX(), r.getMaxY());
     }
 }

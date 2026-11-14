@@ -20,7 +20,14 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * User preferences, stored as a plain properties file in {@code ~/.termina/settings.properties}.
+ * User preferences and the little session state there is, stored as JSON (see {@link ConfigJson})
+ * in two files in {@code ~/.termina}: {@code settings.json} for preferences and
+ * {@code workspace-state.json} for where the window was and what the update check last did (SET-08,
+ * Pauta 2.0.2). Before 0.15 both lived in one {@code settings.properties}, which the first load
+ * imports and keeps as {@code settings.properties.migrated}.
+ *
+ * <p>What follows about the format describes that properties file, which is still how the import
+ * reads it.
  *
  * <p>Properties rather than JSON or TOML because it needs no dependency, and because a terminal's
  * settings file is one someone will reasonably open in a text editor. Every getter falls back to a
@@ -48,7 +55,7 @@ public final class Settings {
     /** Whether keystrokes are predicted while SSH is in the foreground and its echo is slow. */
     public static final String TYPE_AHEAD = "terminal.typeAhead";
     /**
-     * The user's key bindings, one key per command: {@code keys.newTab=Ctrl+Shift+Y}, in {@code
+     * The user's key bindings, one key per command: {@code keys.file.newTab=Ctrl+Shift+Y}, in {@code
      * KeyCombination} notation. See {@link #keyBindings()}.
      */
     public static final String KEYS_PREFIX = "keys.";
@@ -66,9 +73,15 @@ public final class Settings {
     public static final String NOTIFICATIONS = "terminal.notifications";
 
     public static final String HIDE_TAB_BAR_WHEN_SINGLE = "ui.hideTabBarWhenSingle";
+    public static final String SHOW_TAB_BAR = "ui.showTabBar";
     public static final String SHOW_MENU_BAR = "ui.showMenuBar";
     public static final String MENU_BAR_IN_TITLE_BAR = "window.menuBarInTitleBar";
     public static final String SHOW_SCROLL_BAR = "ui.showScrollBar";
+    public static final String SHOW_STATUS_BAR = "ui.showStatusBar";
+    public static final String SIMPLE_MODE = "ui.simpleMode";
+    public static final String RESTORE_SESSION = "session.restore";
+    public static final String SESSION_TABS = "session.tabs";
+    public static final String UI_ZOOM = "ui.zoom";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
     public static final String WINDOW_X = "window.x";
     public static final String WINDOW_Y = "window.y";
@@ -117,6 +130,17 @@ public final class Settings {
     /** A hard ceiling: scrollback is retained in memory, so this is a footprint decision. */
     public static final int MAX_SCROLLBACK = 200_000;
 
+    /** The UI zoom's default and its range, in percent (WIN-12, Pauta 6.0.1). */
+    public static final int DEFAULT_UI_ZOOM = 100;
+
+    public static final int MIN_UI_ZOOM = 80;
+    public static final int MAX_UI_ZOOM = 200;
+
+    /** {@code percent} within the UI zoom's range. */
+    public static int clampUiZoom(int percent) {
+        return Math.min(MAX_UI_ZOOM, Math.max(MIN_UI_ZOOM, percent));
+    }
+
     public static final int DEFAULT_PADDING = 4;
     public static final int MIN_PADDING = 0;
     /** Past this the padding is a frame rather than a margin, and costs columns on a small pane. */
@@ -143,8 +167,92 @@ public final class Settings {
     /** Why the last save failed, or null when it succeeded. */
     private volatile @Nullable String lastSaveError;
 
+    /** How long a save waits for the next change before it writes, in {@link #deferred}. */
+    public static final long SAVE_DELAY_MS = 300;
+
+    /** Where a deferred save runs, or null when every change writes at once. */
+    private final @Nullable SaveScheduler scheduler;
+
+    private final long saveDelayMs;
+
+    /** The save waiting to run, if one is; guarded by {@code this}. */
+    private SaveScheduler.@Nullable Scheduled pendingSave;
+
+    /** Whether memory has changes the file has not seen; guarded by {@code this}. */
+    private boolean saveWanted;
+
+    /** Held for the whole of a write, so a flush waits for a save already under way. */
+    private final Object saveLock = new Object();
+
+    private final List<Runnable> onSaved = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Settings that write the file on every change, as they are made.
+     *
+     * <p>For tests and tools, which want the file to hold what was just set. The application uses
+     * {@link #deferred}, which coalesces a run of changes into one write.
+     */
     public Settings(Path file) {
-        this.file = file;
+        this.file = jsonFileFor(file);
+        this.scheduler = null;
+        this.saveDelayMs = 0;
+    }
+
+    /**
+     * Settings whose writes are deferred: a change updates memory and tells the listeners at once,
+     * and the file is written {@code saveDelayMs} after the last change in a run — one write for a
+     * slider dragged across forty values, not forty. {@link #flush} writes whatever is pending now.
+     *
+     * @param scheduler what runs the deferred save; a test's can be stepped by hand
+     */
+    public Settings(Path file, SaveScheduler scheduler, long saveDelayMs) {
+        this.file = jsonFileFor(file);
+        this.scheduler = scheduler;
+        this.saveDelayMs = Math.max(0, saveDelayMs);
+    }
+
+    /**
+     * The application's settings: deferred saves on one daemon thread, flushed when the JVM exits.
+     *
+     * <p>The shutdown hook is a backstop for the paths that do not go through {@code App.stop} — a
+     * {@code System.exit} — and for a {@code closeAll} that wrote the window geometry after its own
+     * flush. Shutdown is the one moment a pending write may not be left pending.
+     */
+    public static Settings deferred(Path file) {
+        java.util.concurrent.ScheduledExecutorService executor =
+                java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
+                    Thread thread = new Thread(task, "termina-settings-save");
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        Settings settings = new Settings(file, SaveScheduler.on(executor), SAVE_DELAY_MS);
+        Runtime.getRuntime().addShutdownHook(new Thread(settings::flush, "termina-settings-flush"));
+        return settings;
+    }
+
+    /**
+     * Runs a save once, after a delay, unless cancelled first. The seam between {@link Settings} and
+     * the thread its writes happen on: production hands it a {@link
+     * java.util.concurrent.ScheduledExecutorService}, a test steps its own by hand and counts.
+     */
+    @FunctionalInterface
+    public interface SaveScheduler {
+
+        /** A save that has been scheduled and may still be called off. */
+        @FunctionalInterface
+        interface Scheduled {
+            void cancel();
+        }
+
+        Scheduled schedule(Runnable task, long delayMs);
+
+        static SaveScheduler on(java.util.concurrent.ScheduledExecutorService executor) {
+            return (task, delayMs) -> {
+                java.util.concurrent.ScheduledFuture<?> future =
+                        executor.schedule(task, delayMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+                return () -> future.cancel(false);
+            };
+        }
     }
 
     /** The standard location. Honours {@code TERMINA_CONFIG_DIR} so a dev run can be isolated. */
@@ -157,18 +265,77 @@ public final class Settings {
      *     variable, which in turn takes precedence over the standard location
      */
     public static Path defaultFile(String override) {
-        if (override != null && !override.isBlank()) {
-            return Path.of(override.trim()).resolve("settings.properties");
-        }
-        return defaultFileFromEnvironment();
+        return defaultFile(override, false);
     }
 
-    private static Path defaultFileFromEnvironment() {
-        String override = System.getenv("TERMINA_CONFIG_DIR");
-        Path dir = override != null && !override.isBlank()
-                ? Path.of(override)
-                : Path.of(System.getProperty("user.home"), ".termina");
-        return dir.resolve("settings.properties");
+    /**
+     * The one resolver (SET-07, Pauta 6.0.1): {@code --config-dir}, then {@code --dev}, then
+     * {@code TERMINA_CONFIG_DIR}, then {@code ~/.termina}. What is typed on the command line is the
+     * more specific instruction, so either flag wins over the variable, and {@code --dev} keeps a
+     * build being worked on out of the settings of the Termina in daily use even in a shell that
+     * exports the variable.
+     */
+    public static Path defaultFile(String override, boolean dev) {
+        return configDir(override, dev, System.getenv("TERMINA_CONFIG_DIR"), System.getProperty("user.home"))
+                .resolve(SETTINGS_FILE);
+    }
+
+    /**
+     * The config folder, from everything that can name one. The same on every OS: nothing here
+     * asks which one this is.
+     *
+     * @param flag {@code --config-dir}'s folder, or blank
+     * @param dev whether {@code --dev} was given
+     * @param variable {@code TERMINA_CONFIG_DIR}'s value, or null
+     * @param home the user's home folder
+     */
+    static Path configDir(@Nullable String flag, boolean dev, @Nullable String variable, String home) {
+        if (flag != null && !flag.isBlank()) return Path.of(flag.trim());
+        if (dev) return Path.of(home, ".termina-dev");
+        if (variable != null && !variable.isBlank()) return Path.of(variable);
+        return Path.of(home, ".termina");
+    }
+
+    /** Preferences. */
+    public static final String SETTINGS_FILE = "settings.json";
+
+    /** Session state: the window's place and size, the tabs that were open, the update check's memory. */
+    public static final String STATE_FILE = "workspace-state.json";
+
+    /** The single file before 0.15, imported once into the two above. */
+    public static final String LEGACY_FILE = "settings.properties";
+
+    /**
+     * The keys that are session state rather than preference, and so live in {@link #STATE_FILE}.
+     * Everything else is a preference.
+     */
+    static boolean isStateKey(String key) {
+        return switch (key) {
+            case WINDOW_X,
+                    WINDOW_Y,
+                    WINDOW_WIDTH,
+                    WINDOW_HEIGHT,
+                    WINDOW_MAXIMIZED,
+                    SESSION_TABS,
+                    LAST_UPDATE_CHECK,
+                    DISMISSED_UPDATE -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * The settings file in a folder, given either it or the folder's legacy properties file: a
+     * caller holding the old path gets the file that replaced it, which the legacy one is imported
+     * into on the first load.
+     */
+    static Path jsonFileFor(Path file) {
+        String name = file.getFileName() == null ? "" : file.getFileName().toString();
+        return name.endsWith(".properties") ? file.resolveSibling(SETTINGS_FILE) : file;
+    }
+
+    /** Where this folder keeps session state. */
+    Path stateFile() {
+        return file.resolveSibling(STATE_FILE);
     }
 
     /**
@@ -187,6 +354,15 @@ public final class Settings {
         onChange.remove(listener);
     }
 
+    /**
+     * Notified after every attempt to write the file, on whatever thread wrote it — the save thread
+     * for a deferred save — so {@link #lastSaveError} can be shown when it is known rather than when
+     * the change was made.
+     */
+    public void addOnSaved(Runnable listener) {
+        onSaved.add(listener);
+    }
+
     private void fireChange() {
         for (Runnable listener : List.copyOf(onChange)) listener.run();
     }
@@ -194,44 +370,101 @@ public final class Settings {
     /**
      * Reads the file, if there is one. Never throws: whatever goes wrong, the app opens on defaults.
      *
-     * <p>Settings are a convenience, and a terminal that will not open is not one. The format itself
-     * cannot fail ({@link SettingsFormat}); what is left is a file that cannot be read at all, or a
-     * bug. Either way the file is copied aside first, as {@code settings.properties.bad-<time>}, so
-     * the next save — which writes only the keys this process changes, but still writes — cannot be
-     * the end of whatever the user had in it.
+     * <p>Settings are a convenience, and a terminal that will not open is not one. A pre-0.15
+     * {@code settings.properties} beside no JSON is imported first. A file that is not this format is
+     * copied aside as {@code <name>.corrupt.bak} and one a newer build wrote as {@code <name>.v<n>.bak}
+     * (see {@link #readDocument}), so the next save — which writes only the keys this process
+     * changes, but still writes — cannot be the end of whatever the user had in it.
      */
     public void load() {
-        if (!Files.exists(file)) return;
+        Path legacy = file.resolveSibling(LEGACY_FILE);
         try {
-            Map<String, String> read = SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(file)));
-            read.forEach(properties::setProperty);
+            if (!Files.exists(file) && !Files.exists(stateFile()) && Files.exists(legacy)) {
+                importLegacy(legacy);
+            }
         } catch (IOException | RuntimeException e) {
-            Path backup = backUpUnreadable(file, System.currentTimeMillis());
+            // The legacy file is still there, untouched; this launch reads it straight instead.
             System.getLogger(Settings.class.getName())
-                    .log(
-                            System.Logger.Level.WARNING,
-                            "could not read " + file + "; using defaults"
-                                    + (backup == null ? "" : "; the file is kept as " + backup),
-                            e);
+                    .log(System.Logger.Level.WARNING, "could not import " + legacy + "; reading it in place", e);
+            readLegacyInto(legacy);
+            baseline = snapshot();
+            return;
+        }
+        for (Path path : List.of(file, stateFile())) {
+            if (Files.exists(path)) readDocument(path, true).forEach(properties::setProperty);
         }
         baseline = snapshot();
     }
 
     /**
-     * Copies a settings file that failed to load beside itself, named for when.
-     *
-     * @return the copy, or null when even that failed (the warning still names the original)
+     * Brings a pre-0.15 {@code settings.properties} into the two JSON files, once, and keeps it as
+     * {@code settings.properties.migrated}. The properties reader cannot fail on content
+     * ({@link SettingsFormat}), so what can go wrong here is the disk.
      */
-    static @Nullable Path backUpUnreadable(Path file, long epochMs) {
-        String stamp = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
-                .withZone(java.time.ZoneId.systemDefault())
-                .format(java.time.Instant.ofEpochMilli(epochMs));
-        Path backup = file.resolveSibling(file.getFileName() + ".bad-" + stamp);
+    private void importLegacy(Path legacy) throws IOException {
+        // The properties file is schema 1 in all but its syntax, so it is brought forward like one.
+        Map<String, String> read =
+                ConfigJson.migrate(1, SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy))));
+        read.forEach(properties::setProperty);
+        baseline = Map.of();
+        writeFile();
+        if (lastSaveError != null) throw new IOException(lastSaveError);
+        Files.move(legacy, legacy.resolveSibling(LEGACY_FILE + ".migrated"), StandardCopyOption.REPLACE_EXISTING);
+        System.getLogger(Settings.class.getName())
+                .log(System.Logger.Level.INFO, "imported " + legacy + " into " + file + " and " + stateFile());
+    }
+
+    private void readLegacyInto(Path legacy) {
         try {
-            return Files.copy(file, backup, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException | RuntimeException e) {
-            return null;
+            ConfigJson.migrate(1, SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(legacy))))
+                    .forEach(properties::setProperty);
+        } catch (IOException | RuntimeException ignored) {
+            // Defaults, then: never a launch that fails over its settings.
         }
+    }
+
+    /**
+     * One file's values, at this build's schema version; never throws (SET-10, SET-11). A file a
+     * newer build wrote is kept as {@code <name>.v<n>.bak} and not read — its keys may mean things
+     * this build does not know — and one that is not this format is kept as
+     * {@code <name>.corrupt.bak}. Either way defaults stand, and the next save writes a current file
+     * beside the copy, which is never overwritten by this build.
+     *
+     * @param onLoad whether this is the load, which backs a bad file up and says so; a save's
+     *     re-read only needs the values
+     */
+    private Map<String, String> readDocument(Path path, boolean onLoad) {
+        ConfigJson.Document document;
+        try {
+            document = ConfigJson.read(SettingsFormat.decode(Files.readAllBytes(path)));
+        } catch (IOException | ConfigJson.FormatException | RuntimeException e) {
+            if (onLoad) setAside(path, path.getFileName() + ".corrupt.bak", e.getMessage());
+            return new java.util.HashMap<>();
+        }
+        if (document.schemaVersion() > ConfigJson.SCHEMA_VERSION) {
+            if (onLoad) {
+                setAside(
+                        path,
+                        path.getFileName() + ".v" + document.schemaVersion() + ".bak",
+                        "written by a newer Termina (schema " + document.schemaVersion() + ")");
+            }
+            return new java.util.HashMap<>();
+        }
+        return new java.util.HashMap<>(ConfigJson.migrate(document.schemaVersion(), document.values()));
+    }
+
+    /** Copies a file that will not be read beside itself, and says where. */
+    private static void setAside(Path path, String backupName, @Nullable String why) {
+        Path backup = path.resolveSibling(backupName);
+        String kept;
+        try {
+            Files.copy(path, backup, StandardCopyOption.REPLACE_EXISTING);
+            kept = "; the file is kept as " + backup;
+        } catch (IOException | RuntimeException e) {
+            kept = "";
+        }
+        System.getLogger(Settings.class.getName())
+                .log(System.Logger.Level.WARNING, "not reading " + path + " (" + why + "); using defaults" + kept);
     }
 
     /**
@@ -240,7 +473,7 @@ public final class Settings {
      * <p>Only the changes, because more than one Termina can be running on one config folder, and
      * each used to rewrite the whole file from its own memory on every change and on every window
      * close: change the theme in one, close a window of the other, and the theme was back. So a save
-     * takes a lock (a {@link FileLock} on {@code settings.properties.lock}, plus a monitor for two
+     * takes a lock (a {@link FileLock} on {@code settings.json.lock}, one per file, plus a monitor for two
      * {@code Settings} in one process, which a file lock does not separate), re-reads the file,
      * applies what differs between memory and what was last loaded or saved — set or removed — and
      * writes the result. Keys another process changed meanwhile stay as it left them; this process
@@ -252,30 +485,55 @@ public final class Settings {
      * two writers never share one. The rename is atomic where the filesystem offers it and a plain
      * replace where it does not, which still leaves either the whole new file or the old one.
      */
-    public synchronized void save() {
+    public void save() {
+        synchronized (saveLock) {
+            writeFile();
+        }
+        for (Runnable listener : onSaved) listener.run();
+    }
+
+    private void writeFile() {
+        Map<String, String> mine = snapshot();
+        Map<String, String> base = baseline;
+        boolean ok = writeOne(file, false, mine, base) & writeOne(stateFile(), true, mine, base);
+        if (ok) {
+            baseline = mine;
+            lastSaveError = null;
+        }
+    }
+
+    /**
+     * Writes one of the two files: the keys that belong in it, merged into what it holds on disk.
+     * Skipped when none of its keys changed and it exists, so state never rewrites preferences.
+     *
+     * @return whether it is now current
+     */
+    private boolean writeOne(Path path, boolean state, Map<String, String> mine, Map<String, String> base) {
+        Map<String, String> myPart = part(mine, state);
+        Map<String, String> basePart = part(base, state);
+        if (myPart.equals(basePart) && Files.exists(path)) return true;
         Path temp = null;
         try {
-            Path parent = file.toAbsolutePath().getParent();
-            if (parent == null) throw new IOException("no folder to write " + file + " into");
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent == null) throw new IOException("no folder to write " + path + " into");
             Files.createDirectories(parent);
-            Object monitor = MONITORS.computeIfAbsent(file.toAbsolutePath().normalize(), k -> new Object());
+            Object monitor = MONITORS.computeIfAbsent(path.toAbsolutePath().normalize(), k -> new Object());
             synchronized (monitor) {
                 try (FileChannel lockChannel = FileChannel.open(
-                                lockFileFor(file), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                                lockFileFor(path), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                         FileLock held = lockChannel.lock()) {
-                    Map<String, String> mine = snapshot();
-                    Map<String, String> merged = merge(readOnDisk(), baseline, mine);
-                    temp = Files.createTempFile(parent, file.getFileName() + ".", ".tmp");
-                    Files.writeString(temp, SettingsFormat.format(merged), StandardCharsets.UTF_8);
-                    moveIntoPlace(temp, file);
+                    Map<String, String> merged = merge(readOnDisk(path, basePart), basePart, myPart);
+                    temp = Files.createTempFile(parent, path.getFileName() + ".", ".tmp");
+                    Files.writeString(temp, ConfigJson.write(merged), StandardCharsets.UTF_8);
+                    moveIntoPlace(temp, path);
                     temp = null;
-                    baseline = mine;
                 }
             }
-            lastSaveError = null;
+            return true;
         } catch (IOException | RuntimeException e) {
             lastSaveError = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + file, e);
+            System.getLogger(Settings.class.getName()).log(System.Logger.Level.WARNING, "could not write " + path, e);
+            return false;
         } finally {
             if (temp != null) {
                 try {
@@ -287,13 +545,74 @@ public final class Settings {
         }
     }
 
-    /** What the file holds now, or what this process last knew it to hold if it cannot be read. */
-    private Map<String, String> readOnDisk() {
-        if (!Files.exists(file)) return new java.util.HashMap<>();
+    /** The keys of {@code all} that belong in the state file, or those that do not. */
+    static Map<String, String> part(Map<String, String> all, boolean state) {
+        Map<String, String> out = new java.util.HashMap<>();
+        all.forEach((key, value) -> {
+            if (isStateKey(key) == state) out.put(key, value);
+        });
+        return out;
+    }
+
+    /**
+     * Writes now, or — with a scheduler — {@code saveDelayMs} after the last request. Each request
+     * calls the pending save off and schedules a new one, so a run of changes ends in one write.
+     */
+    private void requestSave() {
+        if (scheduler == null) {
+            save();
+            return;
+        }
+        synchronized (this) {
+            saveWanted = true;
+            if (pendingSave != null) pendingSave.cancel();
+            pendingSave = scheduler.schedule(this::flush, saveDelayMs);
+        }
+    }
+
+    /**
+     * Writes whatever is pending, now, on this thread; returns with the file current. Nothing pending
+     * writes nothing, but still waits for a save already under way elsewhere. Called on shutdown, and
+     * by the scheduler when the delay runs out.
+     */
+    public void flush() {
+        boolean wanted;
+        synchronized (this) {
+            if (pendingSave != null) pendingSave.cancel();
+            pendingSave = null;
+            wanted = saveWanted;
+            saveWanted = false;
+        }
+        if (wanted) {
+            save();
+        } else {
+            synchronized (saveLock) {
+                // Only to wait: a save the scheduler started finishes before a flush returns.
+            }
+        }
+    }
+
+    /** Whether memory holds changes the file has not been given yet. */
+    public synchronized boolean hasPendingSave() {
+        return saveWanted;
+    }
+
+    /**
+     * What a file holds now, at this build's version. A file a newer build has written since this one
+     * loaded is not merged into — its keys may mean something else — and is backed up before this
+     * build writes over it; one that cannot be read leaves what this process last knew of it.
+     */
+    private Map<String, String> readOnDisk(Path path, Map<String, String> lastKnown) {
+        if (!Files.exists(path)) return new java.util.HashMap<>();
         try {
-            return SettingsFormat.parse(SettingsFormat.decode(Files.readAllBytes(file)));
-        } catch (IOException | RuntimeException e) {
-            return new java.util.HashMap<>(baseline);
+            ConfigJson.Document document = ConfigJson.read(SettingsFormat.decode(Files.readAllBytes(path)));
+            if (document.schemaVersion() > ConfigJson.SCHEMA_VERSION) {
+                readDocument(path, true); // sets it aside, as a load would
+                return new java.util.HashMap<>();
+            }
+            return new java.util.HashMap<>(ConfigJson.migrate(document.schemaVersion(), document.values()));
+        } catch (IOException | ConfigJson.FormatException | RuntimeException e) {
+            return new java.util.HashMap<>(lastKnown);
         }
     }
 
@@ -319,6 +638,11 @@ public final class Settings {
         Map<String, String> copy = new java.util.HashMap<>();
         for (String name : properties.stringPropertyNames()) copy.put(name, properties.getProperty(name));
         return copy;
+    }
+
+    /** Every stored key and value, as text: for a problem report's settings summary, which picks from it. */
+    public Map<String, String> values() {
+        return Map.copyOf(snapshot());
     }
 
     /** Where saves queue up between processes: beside the file, never replaced, never deleted. */
@@ -428,6 +752,19 @@ public final class Settings {
         put(CURSOR_SHAPE, shape.name());
     }
 
+    /**
+     * The UI zoom, in percent: how large the menus, tabs, status bar and every other window are
+     * drawn. The terminal's text has its own size and its own zoom. Clamped on read as well as
+     * write.
+     */
+    public int uiZoom() {
+        return clampUiZoom(readInt(UI_ZOOM, DEFAULT_UI_ZOOM));
+    }
+
+    public void setUiZoom(int percent) {
+        put(UI_ZOOM, String.valueOf(clampUiZoom(percent)));
+    }
+
     /** The inner padding, in pixels: clamped on read as well as write, since the file is hand-edited. */
     public int padding() {
         return (int) clamp(readInt(PADDING, DEFAULT_PADDING), MIN_PADDING, MAX_PADDING);
@@ -456,8 +793,9 @@ public final class Settings {
      * there — clamped on read, like every other setting, because the file is hand-edited.
      *
      * <p>Keyed by command rather than by chord, unlike Editora's, so a hand-edited file reads as a
-     * list of what each command is on. {@code keys.commandPalette} predates the rest and is the
-     * palette's line unchanged.
+     * list of what each command is on. The palette's line predates the rest: it was
+     * {@code keys.commandPalette} until the command took the id {@code palette.show}, and a file
+     * that still says so is brought forward ({@link CommandIds}).
      */
     public java.util.Map<String, String> keyBindings() {
         java.util.Map<String, String> bindings = new java.util.TreeMap<>();
@@ -486,7 +824,7 @@ public final class Settings {
                 .filter(name -> name.startsWith(KEYS_PREFIX))
                 .forEach(properties::remove);
         next.forEach((id, chord) -> properties.setProperty(KEYS_PREFIX + id, chord));
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -510,6 +848,31 @@ public final class Settings {
 
     public void setCopyOnSelect(boolean copyOnSelect) {
         put(COPY_ON_SELECT, String.valueOf(copyOnSelect));
+    }
+
+    /**
+     * Whether a launch reopens the tabs that were open when Termina last ended (WIN-08, Pauta
+     * 6.0.1). On by default; {@code --no-session} skips it for one launch.
+     */
+    public boolean restoreSession() {
+        return readBoolean(RESTORE_SESSION, true);
+    }
+
+    public void setRestoreSession(boolean restore) {
+        put(RESTORE_SESSION, String.valueOf(restore));
+    }
+
+    /**
+     * The tabs that were open when Termina last ended, as the UI's {@code SessionStore} writes
+     * them, or "" for none. Session state, so it is in {@link #STATE_FILE} with the window's place
+     * (SET-08) and never in the preferences; nothing on screen waits to hear of it.
+     */
+    public String sessionTabs() {
+        return properties.getProperty(SESSION_TABS, "");
+    }
+
+    public void setSessionTabs(String tabs) {
+        putQuietly(SESSION_TABS, tabs == null ? "" : tabs);
     }
 
     public boolean clipboardWrite() {
@@ -592,7 +955,7 @@ public final class Settings {
         for (java.util.Map.Entry<String, String> entry : next.entrySet()) {
             if (entry.getValue() != null) properties.setProperty(entry.getKey(), entry.getValue());
         }
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -644,6 +1007,18 @@ public final class Settings {
     }
 
     /**
+     * Show the tab strip at all (TABS-12, Pauta 6.0.1). Off, it is hidden however many tabs are
+     * open: the tabs are still there, reached by their chords, the palette and the tab menu.
+     */
+    public boolean showTabBar() {
+        return readBoolean(SHOW_TAB_BAR, true);
+    }
+
+    public void setShowTabBar(boolean show) {
+        put(SHOW_TAB_BAR, String.valueOf(show));
+    }
+
+    /**
      * Show the in-window menu bar.
      *
      * <p>No effect on macOS, where the menus belong to the screen menu bar and there is nothing in
@@ -661,18 +1036,19 @@ public final class Settings {
      * Put the menu bar in the title bar: one row holds the menus, the window title and the window
      * buttons, and the terminal gains the row the native title bar took.
      *
-     * <p>Off by default. Applies to windows opened after the change — a stage's style is fixed
-     * when it is first shown — and never on macOS, where the menus are in the screen menu bar.
+     * <p>On by default (WIN-03, Pauta 6.0.1); turning it off falls back to a decorated window
+     * with the menu bar under its title bar. Applies to windows opened after the change — a
+     * stage's style is fixed when it is first shown — and never on macOS, where the menus are in
+     * the screen menu bar.
      */
     public boolean menuBarInTitleBar() {
-        return readBoolean(MENU_BAR_IN_TITLE_BAR, false);
+        return readBoolean(MENU_BAR_IN_TITLE_BAR, true);
     }
 
     public void setMenuBarInTitleBar(boolean inTitleBar) {
         put(MENU_BAR_IN_TITLE_BAR, String.valueOf(inTitleBar));
     }
 
-    /** Show a scrollbar for the scrollback. The wheel works either way. */
     /**
      * Whether to ask before closing a tab that is running something.
      *
@@ -688,12 +1064,39 @@ public final class Settings {
         put(CONFIRM_CLOSE, String.valueOf(confirm));
     }
 
+    /** Show a scrollbar for the scrollback. The wheel works either way. */
     public boolean showScrollBar() {
         return readBoolean(SHOW_SCROLL_BAR, true);
     }
 
     public void setShowScrollBar(boolean show) {
         put(SHOW_SCROLL_BAR, String.valueOf(show));
+    }
+
+    /**
+     * Show the status bar under the terminal. On by default (WIN-01, Pauta 6.0.1): a message goes
+     * to its echo area and not to a dialog. It costs the terminal a row, which is why it can be
+     * hidden; hidden, a message is a dialog again, and the Message Log has every one either way.
+     */
+    public boolean showStatusBar() {
+        return readBoolean(SHOW_STATUS_BAR, true);
+    }
+
+    public void setShowStatusBar(boolean show) {
+        put(SHOW_STATUS_BAR, String.valueOf(show));
+    }
+
+    /**
+     * Simple mode (WIN-10, MENU-04, Pauta 6.0.1): the menu bar lists a shorter set of commands,
+     * for someone new. Off by default. A setting and not a window's own state, unlike Zen and
+     * Expert: menus that were short yesterday should be short today.
+     */
+    public boolean simpleMode() {
+        return readBoolean(SIMPLE_MODE, false);
+    }
+
+    public void setSimpleMode(boolean simple) {
+        put(SIMPLE_MODE, String.valueOf(simple));
     }
 
     /** Width a new window opens at, or 0 when none has been recorded yet. */
@@ -747,7 +1150,7 @@ public final class Settings {
         properties.setProperty(WINDOW_WIDTH, String.valueOf(Math.round(width)));
         properties.setProperty(WINDOW_HEIGHT, String.valueOf(Math.round(height)));
         properties.setProperty(WINDOW_MAXIMIZED, String.valueOf(maximized));
-        save();
+        requestSave();
     }
 
     /** Size and position in one write. A position that is not sane is left unrecorded. */
@@ -867,7 +1270,21 @@ public final class Settings {
      */
     public void resetToDefaults() {
         for (String key : keysToReset(properties.stringPropertyNames())) properties.remove(key);
-        save();
+        requestSave();
+        fireChange();
+    }
+
+    /**
+     * Makes the stored settings exactly {@code next}, as an import does ({@link ConfigArchive#merge}):
+     * a key it lacks is removed, the rest set. Saved and announced like any other change, so the
+     * file is written by the usual path and every window re-applies at once.
+     */
+    public void replaceStored(Map<String, String> next) {
+        for (String key : properties.stringPropertyNames()) {
+            if (!next.containsKey(key)) properties.remove(key);
+        }
+        next.forEach(properties::setProperty);
+        requestSave();
         fireChange();
     }
 
@@ -952,7 +1369,7 @@ public final class Settings {
         changed |= setOrRemove(prefix + "fontSize", next.fontSize() == null ? "" : String.valueOf(next.fontSize()));
         changed |= setOrRemove(prefix + "theme", next.themeId());
         if (!changed) return;
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -998,7 +1415,7 @@ public final class Settings {
             changed = true;
         }
         if (!changed) return;
-        save();
+        requestSave();
         fireChange();
     }
 
@@ -1029,7 +1446,7 @@ public final class Settings {
         String previous = properties.getProperty(key);
         if (value.equals(previous)) return false;
         properties.setProperty(key, value);
-        save();
+        requestSave();
         return true;
     }
 

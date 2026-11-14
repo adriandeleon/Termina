@@ -120,7 +120,7 @@ final class SettingsSync {
     /** The run under way, for {@link #cancel()}; null between runs. Written on the worker. */
     private volatile @Nullable SyncEngine runningEngine;
     /** Who asked for the run under way from a menu, and hears how it went; null when nobody is waiting. */
-    private @Nullable Consumer<String> waiting;
+    private @Nullable Reporter waiting;
     /** How {@link #waiting} names a command in a conflict. */
     private Function<String, String> waitingLabels = id -> id;
     /** Cancel was asked before the run's engine existed, while the sign-in account was being chosen. */
@@ -139,11 +139,24 @@ final class SettingsSync {
     private @Nullable String keybindingsSeen;
 
     /** Held for the life of the process once this one is the syncing instance. */
-    private @Nullable FileChannel lockChannel;
+    private volatile @Nullable FileChannel lockChannel;
 
-    private @Nullable FileLock lock;
-    /** Another process holds the lock. Asked once: see the class comment. */
-    private boolean secondary;
+    private volatile @Nullable FileLock lock;
+    /**
+     * Where the instance lock stands. Asked once, on the worker — a file lock is I/O and the FX thread
+     * does none (PERF-01) — and never again after a refusal: see the class comment. FX thread only.
+     */
+    private Claim claim = Claim.UNASKED;
+
+    private enum Claim {
+        UNASKED,
+        ASKING,
+        PRIMARY,
+        SECONDARY
+    }
+
+    /** What waited for the lock's answer: a Sync Now pressed in the moment it was being asked. */
+    private final List<Runnable> afterClaim = new ArrayList<>();
 
     private volatile String machine = "";
 
@@ -192,14 +205,29 @@ final class SettingsSync {
         return configured() && primary();
     }
 
-    /** Whether another Termina on this settings folder is the one syncing. */
-    boolean secondary() {
-        return secondary;
-    }
-
     /** The folder that holds the clone and the backups. */
     Path syncDir() {
         return settings.directory().resolve("sync");
+    }
+
+    /** Where a failure goes when nobody asked for the run: the Message Log, once the manager says. */
+    private Reporter unasked = (severity, message) -> {};
+
+    void setUnaskedReporter(Reporter reporter) {
+        this.unasked = reporter;
+    }
+
+    /**
+     * Whether an unasked run's result is told: a failure, and not the same failure as the run
+     * before it, so a repository that stays unreachable is one message and not one each interval.
+     * A run that only found the bindings busy, or was cancelled, is not a failure.
+     */
+    static boolean tellsOfFailure(SyncReport report, @Nullable SyncReport before) {
+        if (report.ok()) return false;
+        if (report.status() == SyncReport.Status.LOCAL_BUSY || report.status() == SyncReport.Status.CANCELLED) {
+            return false;
+        }
+        return before == null || before.status() != report.status();
     }
 
     private void setState(State next) {
@@ -208,13 +236,31 @@ final class SettingsSync {
     }
 
     /**
-     * Takes the instance lock the first time it is needed. Never retried after a refusal: the process
-     * that holds it may let go later, but this one's settings are its own in-memory copy from launch,
-     * and syncing those would undo whatever the other one changed.
+     * Whether this process holds the instance lock. The first time it is needed it is asked for on the
+     * worker, and this answers false until the answer is back; then the timers and the state are
+     * brought up to date as for a settings change. Never retried after a refusal: the process that
+     * holds it may let go later, but this one's settings are its own in-memory copy from launch, and
+     * syncing those would undo whatever the other one changed.
      */
     private boolean primary() {
-        if (lock != null) return true;
-        if (secondary) return false;
+        if (claim == Claim.UNASKED) {
+            claim = Claim.ASKING;
+            worker.execute(() -> {
+                boolean held = takeLock();
+                Platform.runLater(() -> {
+                    claim = held ? Claim.PRIMARY : Claim.SECONDARY;
+                    settingsChanged();
+                    List<Runnable> waited = List.copyOf(afterClaim);
+                    afterClaim.clear();
+                    waited.forEach(Runnable::run);
+                });
+            });
+        }
+        return claim == Claim.PRIMARY;
+    }
+
+    /** Takes the lock, on the worker. */
+    private boolean takeLock() {
         try {
             Files.createDirectories(syncDir());
             lockChannel = FileChannel.open(
@@ -223,10 +269,7 @@ final class SettingsSync {
         } catch (IOException | OverlappingFileLockException e) {
             lock = null;
         }
-        if (lock == null) {
-            secondary = true;
-            closeQuietly();
-        }
+        if (lock == null) closeQuietly();
         return lock != null;
     }
 
@@ -298,15 +341,22 @@ final class SettingsSync {
      *
      * @param label how a command id is named to the user, for a conflict
      */
-    void syncNow(Consumer<String> report, Function<String, String> label) {
+    void syncNow(Reporter report, Function<String, String> label) {
+        // Asked in the moment the lock is being taken: answered once it is, rather than "another
+        // Termina is syncing", which is not yet known.
+        if (configured() && claim == Claim.UNASKED) primary();
+        if (configured() && claim == Claim.ASKING) {
+            afterClaim.add(() -> syncNow(report, label));
+            return;
+        }
         String unavailable = unavailableText();
         if (unavailable != null) {
-            report.accept(unavailable);
+            report.report(MessageLog.Severity.WARNING, unavailable);
             return;
         }
         waiting = report;
         waitingLabels = label;
-        report.accept(tr("sync.state.syncing"));
+        report.info(tr("sync.state.syncing"));
         request(true, false);
     }
 
@@ -375,15 +425,15 @@ final class SettingsSync {
 
     /** Asks gh whether it is signed in, off the FX thread; listeners run when the answer changes. */
     void checkGitHub() {
-        worker.execute(() -> {
-            boolean available = GitHubRepo.signedIn(ghCommand());
-            Platform.runLater(() -> {
-                if (available == gitHubAvailable) return;
-                gitHubAvailable = available;
-                for (Runnable listener : List.copyOf(listeners)) listener.run();
-            });
+        // The newest answer only (PERF-03): the window asks each time it shows, and gh can be slow.
+        gitHubCheck.submit(() -> GitHubRepo.signedIn(ghCommand()), available -> {
+            if (available == gitHubAvailable) return;
+            gitHubAvailable = available;
+            for (Runnable listener : List.copyOf(listeners)) listener.run();
         });
     }
+
+    private final com.termina.work.LatestOnly gitHubCheck = new com.termina.work.LatestOnly(worker, Platform::runLater);
 
     /**
      * Makes a private repository called {@code name} with gh, off the FX thread, and hands back the URL
@@ -396,6 +446,11 @@ final class SettingsSync {
             GitHubRepo.Created created = GitHubRepo.createPrivate(ghCommand(), name, description);
             Platform.runLater(() -> done.accept(created));
         });
+    }
+
+    /** Runs {@code then} on the worker after whatever it has queued: for a test that must see it idle. */
+    void afterQueuedWorkForTest(Runnable then) {
+        worker.execute(then);
     }
 
     /** Sync was just switched on: runs the first sync now. */
@@ -541,17 +596,22 @@ final class SettingsSync {
         running = false;
         remoteFailed =
                 report.status() == SyncReport.Status.FETCH_FAILED || report.status() == SyncReport.Status.PUSH_FAILED;
-        Consumer<String> asker = waiting;
+        Reporter asker = waiting;
         waiting = null;
         if (!active()) { // disconnected while it ran
             again = false;
             setState(new State(Phase.OFF, null, null));
-            if (asker != null) asker.accept(tr("sync.state.off"));
+            if (asker != null) asker.info(tr("sync.state.off"));
             return;
         }
         account = login;
         if (asker != null) {
-            asker.accept(report.ok() ? tr("sync.done", summary(report, waitingLabels)) : problemText(report));
+            if (report.ok()) asker.info(tr("sync.done", summary(report, waitingLabels)));
+            else asker.error(problemText(report));
+        } else if (tellsOfFailure(report, state.report())) {
+            // Nobody asked for this run: it was automatic, or started on the Settings page. Its
+            // failure still goes to the Message Log, and so to the echo area (SET-21, Pauta 6.0.1).
+            unasked.error(problemText(report));
         }
         if (report.status() == SyncReport.Status.CANCELLED) {
             again = false;
@@ -572,7 +632,9 @@ final class SettingsSync {
     // ---------------------------------------------------------------- this computer's side
 
     private @Nullable String renderKeybindings() {
-        return KeybindingsFile.text(KeybindingsFile.pathFor(mac), settings.keyBindings());
+        // In the form every system shares (OS-04, Pauta 6.0.1): a Mac's Command is Ctrl+Shift there.
+        return KeybindingsFile.text(
+                KeybindingsFile.PATH, com.termina.sync.SharedChords.toFile(settings.keyBindings(), mac));
     }
 
     /**
@@ -583,7 +645,7 @@ final class SettingsSync {
      */
     private final class LiveTarget implements SyncTarget {
 
-        private final String path = KeybindingsFile.pathFor(mac);
+        private final String path = KeybindingsFile.PATH;
 
         @Override
         public Set<String> paths() {
@@ -598,15 +660,24 @@ final class SettingsSync {
 
         @Override
         public boolean apply(Map<String, String> expected, Map<String, String> changes) throws IOException {
+            // Three steps, so the backup's files are written here on the sync worker and not
+            // inside the FX thread's turn (PERF-01, Pauta 6.0.1): read what is there, copy it
+            // aside, then apply, unless the bindings moved again in between. A copy made for an
+            // apply that is then refused is one spare backup set, pruned with the rest.
+            String before = onFx(SettingsSync.this::renderKeybindings);
+            if (!Objects.equals(before, expected.get(path))) return false;
+            if (!changes.containsKey(path)) return true;
+            if (before != null) backup(Map.of(path, before));
             return Boolean.TRUE.equals(onFx(() -> {
                 String current = renderKeybindings();
-                if (!Objects.equals(current, expected.get(path))) return false;
-                if (!changes.containsKey(path)) return true;
-                if (current != null) backup(Map.of(path, current));
+                if (!Objects.equals(current, before)) return false;
                 applying = true;
                 try {
                     String text = changes.get(path);
-                    settings.replaceKeyBindings(KeybindingsFile.entries(text));
+                    // Back in this system's form, and a chord here that already says what the
+                    // file says is left as it is.
+                    settings.replaceKeyBindings(com.termina.sync.SharedChords.fromFile(
+                            KeybindingsFile.entries(text), settings.keyBindings(), mac));
                     keybindingsSeen = renderKeybindings();
                 } finally {
                     applying = false;
@@ -714,7 +785,7 @@ final class SettingsSync {
         // Without these a hand-edited URL read "Not connected." beside a Disconnect button.
         String unavailable = unavailableKey(settings.syncEnabled(), settings.syncRepository(), configured(), true);
         if (unavailable != null) return tr(unavailable);
-        if (configured() && secondary) return tr("sync.state.secondary");
+        if (configured() && claim == Claim.SECONDARY) return tr("sync.state.secondary");
         SyncReport report = state.report();
         LocalTime at = state.at();
         return switch (state.phase()) {

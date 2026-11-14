@@ -29,6 +29,9 @@ class SettingsTest {
         assertTrue(settings.altIsMeta());
         assertTrue(settings.bell());
         assertEquals("", settings.shell());
+        // WIN-01 and WIN-03 (Pauta 6.0.1): shown, and in the title bar, unless the user says otherwise.
+        assertTrue(settings.showStatusBar());
+        assertTrue(settings.menuBarInTitleBar());
     }
 
     @Test
@@ -58,11 +61,11 @@ class SettingsTest {
 
     @Test
     void everySetterPersistsImmediately(@TempDir Path dir) throws IOException {
-        // There is no Save button, so a value that is not on disk the moment it changes is a value
-        // lost to a crash or a force-quit.
+        // There is no Save button. Settings made with the plain constructor — tests, tools — write
+        // on every change; the application's are deferred and covered by SettingsSaveTest.
         Path file = dir.resolve("settings.properties");
         new Settings(file).setFontSize(21);
-        assertTrue(Files.readString(file).contains("21"));
+        assertTrue(StoredConfig.stored(dir).contains("21"));
     }
 
     @Test
@@ -150,10 +153,10 @@ class SettingsTest {
         settings.setWindowGeometry(10, 20, 800, 600, false);
 
         assertEquals(0, changes.get(), "quiet keys must not fire the change broadcast");
-        String stored = Files.readString(file);
+        String stored = StoredConfig.stored(dir);
         assertTrue(stored.contains("1700000000000"), stored);
         assertTrue(stored.contains("9.9.9"), stored);
-        assertTrue(stored.contains("window.x=10"), stored);
+        assertTrue(stored.contains(StoredConfig.entry("window.x", "10")), stored);
     }
 
     @Test
@@ -207,7 +210,7 @@ class SettingsTest {
         settings.setThemeId("editora-light");
         settings.setFontSize(19);
 
-        assertTrue(Files.readString(file).contains("editora-light"));
+        assertTrue(StoredConfig.stored(dir).contains("editora-light"));
         try (var listing = Files.list(dir)) {
             assertEquals(
                     java.util.List.of(),
@@ -227,7 +230,7 @@ class SettingsTest {
         Path file = dir.resolve("settings.properties");
         Settings seed = new Settings(file);
         seed.setThemeId("editora-dark");
-        seed.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        seed.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
 
         Settings first = new Settings(file);
         first.load();
@@ -235,14 +238,14 @@ class SettingsTest {
         second.load();
 
         first.setThemeId("editora-light");
-        first.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+U"));
+        first.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+U"));
         second.setWindowGeometry(10, 20, 800, 600, false); // closing a window
         second.setFontSize(19);
 
         Settings read = new Settings(file);
         read.load();
         assertEquals("editora-light", read.themeId(), "the other process's save must not revert it");
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+U"), read.keyBindings());
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+U"), read.keyBindings());
         assertEquals(19, read.fontSize());
         assertEquals(800, read.windowWidth());
     }
@@ -251,16 +254,16 @@ class SettingsTest {
     void aRemovalIsAChangeToo(@TempDir Path dir) {
         Path file = dir.resolve("settings.properties");
         Settings first = new Settings(file);
-        first.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"));
+        first.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", "none"));
         Settings second = new Settings(file);
         second.load();
 
-        second.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        second.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         first.setFontSize(18); // must not put closeTab back
 
         Settings read = new Settings(file);
         read.load();
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y"), read.keyBindings());
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"), read.keyBindings());
         assertEquals(18, read.fontSize());
     }
 
@@ -308,14 +311,62 @@ class SettingsTest {
     }
 
     @Test
-    void aBadFileIsCopiedAsideBeforeAnythingOverwritesIt(@TempDir Path dir) throws IOException {
-        Path file = dir.resolve("settings.properties");
-        Files.writeString(file, "theme=mine\n");
-        Path backup = Settings.backUpUnreadable(file, 0);
-        assertNotNull(backup);
-        assertTrue(backup.getFileName().toString().startsWith("settings.properties.bad-"), backup.toString());
-        assertEquals("theme=mine\n", Files.readString(backup));
-        assertNull(Settings.backUpUnreadable(dir.resolve("missing.properties"), 0));
+    void aCorruptFileIsKeptAsideAndDefaultsLoad(@TempDir Path dir) throws IOException {
+        // SET-11 (Pauta 2.0.2): never a launch that fails over its settings, never a file lost.
+        Path json = dir.resolve(Settings.SETTINGS_FILE);
+        Files.writeString(json, "{ this is not json");
+        Settings settings = new Settings(json);
+        settings.load();
+        assertEquals("editora-dark", settings.themeId());
+        assertEquals("{ this is not json", Files.readString(dir.resolve("settings.json.corrupt.bak")));
+    }
+
+    @Test
+    void aFileFromANewerBuildIsBackedUpAndNotRead(@TempDir Path dir) throws IOException {
+        // SET-10: an older build never reads keys whose meaning it does not know, nor loses the file.
+        Path json = dir.resolve(Settings.SETTINGS_FILE);
+        String newer = "{\"schemaVersion\": 99, \"settings\": {\"theme\": \"from-the-future\"}}";
+        Files.writeString(json, newer);
+        Settings settings = new Settings(json);
+        settings.load();
+        assertEquals("editora-dark", settings.themeId());
+        assertEquals(newer, Files.readString(dir.resolve("settings.json.v99.bak")));
+        settings.setFontSize(15);
+        assertTrue(Files.readString(json).contains("\"schemaVersion\" : " + ConfigJson.SCHEMA_VERSION));
+        assertEquals(newer, Files.readString(dir.resolve("settings.json.v99.bak")), "the copy is left alone");
+    }
+
+    @Test
+    void theOldPropertiesFileIsImportedOnceAndKept(@TempDir Path dir) throws IOException {
+        Path legacy = dir.resolve(Settings.LEGACY_FILE);
+        Files.writeString(legacy, "theme=editora-light\nwindow.width=1200\nfont.size=15\n");
+        Settings settings = new Settings(legacy);
+        settings.load();
+        assertEquals("editora-light", settings.themeId());
+        assertEquals(15, settings.fontSize());
+        assertTrue(Files.exists(dir.resolve("settings.properties.migrated")));
+        assertTrue(Files.notExists(legacy));
+        String preferences = Files.readString(dir.resolve(Settings.SETTINGS_FILE));
+        String state = Files.readString(dir.resolve(Settings.STATE_FILE));
+        assertTrue(preferences.contains("\"theme\" : \"editora-light\""), preferences);
+        assertTrue(preferences.contains("\"font.size\" : 15"), preferences);
+        assertTrue(!preferences.contains("window.width"), "window geometry is state, not a preference");
+        assertTrue(state.contains("\"window.width\" : 1200"), state);
+
+        Settings again = new Settings(dir.resolve(Settings.SETTINGS_FILE));
+        again.load();
+        assertEquals("editora-light", again.themeId());
+        assertEquals(1200, again.windowWidth());
+    }
+
+    @Test
+    void preferencesAndSessionStateGoToTheirOwnFiles(@TempDir Path dir) throws IOException {
+        Settings settings = new Settings(dir.resolve(Settings.SETTINGS_FILE));
+        settings.setThemeId("editora-light");
+        settings.setWindowGeometry(10, 20, 800, 600, false);
+        assertTrue(Files.readString(dir.resolve(Settings.SETTINGS_FILE)).contains("editora-light"));
+        assertTrue(!Files.readString(dir.resolve(Settings.SETTINGS_FILE)).contains("window.x"));
+        assertTrue(Files.readString(dir.resolve(Settings.STATE_FILE)).contains("\"window.x\" : 10"));
     }
 
     @Test
@@ -361,9 +412,7 @@ class SettingsTest {
         assertEquals("café {file}", settings.linkOpenCommand());
 
         settings.setThemeId("editora-light");
-        assertTrue(
-                Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).contains("/home/josé/bin/fish"),
-                "written back as UTF-8, legible");
+        assertTrue(StoredConfig.stored(dir).contains("/home/josé/bin/fish"), "written back as UTF-8, legible");
     }
 
     @Test
@@ -409,7 +458,7 @@ class SettingsTest {
         assertEquals(40, settings.windowY().orElseThrow());
 
         // A corrupt line reads as unset rather than as a window a hundred thousand pixels away.
-        Files.writeString(file, "window.x=999999999\nwindow.y=NaN\n");
+        StoredConfig.writeState(dir, "window.x", "999999999", "window.y", "NaN");
         Settings read = new Settings(file);
         read.load();
         assertTrue(read.windowX().isEmpty());
@@ -425,42 +474,64 @@ class SettingsTest {
         AtomicInteger changes = new AtomicInteger();
         Settings written = new Settings(file);
         written.addOnChange(changes::incrementAndGet);
-        written.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", Settings.UNBOUND));
+        written.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", Settings.UNBOUND));
         assertEquals(1, changes.get(), "a rebind that takes a chord is two lines and one broadcast");
 
         Settings read = new Settings(file);
         read.load();
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y", "closeTab", "none"), read.keyBindings());
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+Y", "file.closeTab", "none"), read.keyBindings());
 
-        read.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
-        assertEquals(java.util.Map.of("newTab", "Ctrl+Shift+Y"), read.keyBindings(), "a dropped line is gone");
+        read.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
+        assertEquals(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"), read.keyBindings(), "a dropped line is gone");
     }
 
     @Test
     void anUnchangedBlockIsNotAChange(@TempDir Path dir) {
         AtomicInteger changes = new AtomicInteger();
         Settings settings = new Settings(dir.resolve("settings.properties"));
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         settings.addOnChange(changes::incrementAndGet);
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         assertEquals(0, changes.get());
+    }
+
+    /** SET-09: a schema 1 file's bindings are brought to the renamed ids and written back at 2. */
+    @Test
+    void aSchemaOneFileKeepsItsBindingsUnderTheRenamedIds(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("settings.json");
+        Files.writeString(
+                file,
+                "{\"schemaVersion\": 1, \"settings\": {\"keys.about\": \"F1\", \"keys.commandPalette\": \"Alt+X\","
+                        + " \"keys.file.newTab\": \"Ctrl+Shift+Y\", \"font.size\": 15}}");
+        Settings settings = new Settings(file);
+        settings.load();
+        assertEquals(
+                java.util.Map.of("help.about", "F1", "palette.show", "Alt+X", "file.newTab", "Ctrl+Shift+Y"),
+                settings.keyBindings());
+        assertEquals(15.0, settings.fontSize());
+        settings.setFontSize(16);
+        settings.flush();
+        String written = Files.readString(file);
+        assertTrue(written.contains("\"schemaVersion\" : " + ConfigJson.SCHEMA_VERSION), written);
+        assertTrue(written.contains("\"keys.palette.show\" : \"Alt+X\""), written);
+        assertFalse(written.contains("keys.commandPalette"), written);
     }
 
     @Test
     void theOldPaletteLineIsReadAsItsBinding(@TempDir Path dir) throws IOException {
-        // keys.commandPalette predates the rest; a file written before the rest existed keeps its palette chord. Its
-        // blank form meant "the default" then and still does.
+        // keys.commandPalette predates the rest; a file written before the rest existed keeps its palette
+        // chord, under the id the command has now. Its blank form meant "the default" then and still does.
         Path file = dir.resolve("settings.properties");
         Files.writeString(file, "keys.commandPalette=Ctrl+Shift+P\nkeys.newTab=\n");
         Settings settings = new Settings(file);
         settings.load();
-        assertEquals(java.util.Map.of("commandPalette", "Ctrl+Shift+P"), settings.keyBindings());
+        assertEquals(java.util.Map.of("palette.show", "Ctrl+Shift+P"), settings.keyBindings());
     }
 
     @Test
     void resetPutsTheKeysBack(@TempDir Path dir) {
         Settings settings = new Settings(dir.resolve("settings.properties"));
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
         settings.resetToDefaults();
         assertTrue(settings.keyBindings().isEmpty());
     }
@@ -473,7 +544,7 @@ class SettingsTest {
         settings.setSyncRepository("git@github.com:me/termina-sync.git");
         settings.setSyncBranch("termina");
         settings.setSyncEnabled(true);
-        settings.replaceKeyBindings(java.util.Map.of("newTab", "Ctrl+Shift+Y"));
+        settings.replaceKeyBindings(java.util.Map.of("file.newTab", "Ctrl+Shift+Y"));
 
         settings.resetToDefaults();
 
@@ -482,7 +553,7 @@ class SettingsTest {
         assertEquals("termina", settings.syncBranch());
         assertTrue(settings.keyBindings().isEmpty());
         assertTrue(Settings.isSyncKey(Settings.SYNC_INTERVAL));
-        assertFalse(Settings.isSyncKey(Settings.KEYS_PREFIX + "newTab"));
+        assertFalse(Settings.isSyncKey(Settings.KEYS_PREFIX + "file.newTab"));
     }
 
     @Test
@@ -503,5 +574,28 @@ class SettingsTest {
         assertEquals(Settings.DEFAULT_SYNC_BRANCH, read.syncBranch());
         read.setSyncIntervalMinutes(1_000_000);
         assertEquals(Settings.MAX_SYNC_INTERVAL, read.syncIntervalMinutes());
+    }
+
+    @Test
+    void configDirThenDevThenTheVariableThenTheDefault() {
+        // SET-07 (Pauta 6.0.1): a flag wins over the variable, and --config-dir over --dev.
+        Path home = Path.of("/home/someone");
+        String h = home.toString();
+        assertEquals(Path.of("/tmp/x"), Settings.configDir("/tmp/x", true, "/tmp/env", h));
+        assertEquals(Path.of("/tmp/x"), Settings.configDir(" /tmp/x ", false, "/tmp/env", h));
+        assertEquals(home.resolve(".termina-dev"), Settings.configDir("", true, "/tmp/env", h));
+        assertEquals(home.resolve(".termina-dev"), Settings.configDir(null, true, null, h));
+        assertEquals(Path.of("/tmp/env"), Settings.configDir("", false, "/tmp/env", h));
+        assertEquals(home.resolve(".termina"), Settings.configDir("", false, null, h));
+        assertEquals(home.resolve(".termina"), Settings.configDir("", false, " ", h));
+    }
+
+    @Test
+    void theSettingsFileIsInTheFolderTheFlagsName() {
+        assertEquals(Path.of("/tmp/x", Settings.SETTINGS_FILE), Settings.defaultFile("/tmp/x", true));
+        // Whatever the environment says: --dev is ahead of the variable.
+        assertEquals(
+                Path.of(System.getProperty("user.home"), ".termina-dev", Settings.SETTINGS_FILE),
+                Settings.defaultFile("", true));
     }
 }

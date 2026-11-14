@@ -17,10 +17,18 @@ on:
 permissions:
   contents: read
 
+# One release run per ref at a time, and never cancelled: a half-finished release can leave a tag
+# with some of its downloads attached, and GitHub releases are immutable.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    # The macOS legs include notarization, whose own step allows 35 minutes.
+    timeout-minutes: 90
     outputs:
       version: ${{ steps.version.outputs.version }}
     strategy:
@@ -39,10 +47,10 @@ jobs:
             target: windows-x64
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '25'
@@ -56,6 +64,8 @@ jobs:
           pom=$(./mvnw -B -q --no-transfer-progress help:evaluate -Dexpression=project.version -DforceStdout)
           public="${pom%-SNAPSHOT}"
           echo "version=$public" >> "$GITHUB_OUTPUT"
+          # A tag must have its notes written before anything is built (DOCS-05).
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then bash scripts/release-notes.sh "$public" > /dev/null; fi
 
           if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
             tag="${GITHUB_REF_NAME#v}"
@@ -153,7 +163,18 @@ jobs:
       # these runners (linux-arm64, macos-x64) run nowhere else, so this is the only place their
       # build is ever tested. `verify` is the phase CI's test job runs, after `package`.
       - name: Build, test and package
-        run: ./mvnw -B --no-transfer-progress clean -Pdist -Dskip.installers=false verify
+        run: |
+          set -euo pipefail
+          # The pom has one set of coverage floors (PLAT-12, Pauta 6.0.1); the Windows runner, which
+          # skips the tests that drive real shells, passes its own, as ci.yml's does.
+          floors=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            floors="-Dcoverage.bundle.line=0.45 -Dcoverage.bundle.method=0.47 -Dcoverage.bundle.branch=0.45"
+            # The large packages' own floors too: without the shell and window tests they have
+            # nothing to hold here.
+            floors="$floors -Dcoverage.package.ui=0 -Dcoverage.package.root=0 -Dcoverage.package.term=0"
+          fi
+          ./mvnw -B --no-transfer-progress clean -Pdist -Dskip.installers=false verify $floors
         shell: bash
         env:
           # A release without its AOT cache starts a quarter slower and says nothing; fail instead.
@@ -179,8 +200,8 @@ jobs:
       # Apple scans the signed dmg and, if it passes, issues a ticket; stapling attaches it so Gatekeeper
       # accepts the dmg offline too. A rejection prints Apple's log, which names each offending file. The
       # checks at the end are what Gatekeeper does on a user's Mac: the dmg and the app inside it must both
-      # be accepted as notarized Developer ID code. (The smoke test above already ran this same signed app
-      # under the hardened runtime: a real shell on a real pty.)
+      # be accepted as notarized Developer ID code, by our team, and the notarized app must launch and run
+      # a shell — the smoke test above ran the image before the dmg wrap and the ticket.
       - name: Notarize the dmg (macOS)
         if: steps.macsign.outputs.enabled == 'true'
         shell: bash
@@ -224,6 +245,14 @@ jobs:
             echo "::error title=dmg app not Developer ID signed::the app inside $(basename "$dmg") lost its Developer ID signature during the dmg wrap"
             exit 1
           fi
+          # Signed by our team and nobody else's (REL-15, Pauta 2.0.2): a certificate swapped in the
+          # secrets would otherwise sign, notarize and ship under someone else's name.
+          if ! codesign -dv --verbose=2 "$pre"/*.app 2>&1 | grep -q '^TeamIdentifier=8JKSF797L8$'; then
+            codesign -dv --verbose=2 "$pre"/*.app 2>&1 | grep '^TeamIdentifier' || true
+            hdiutil detach "$pre" > /dev/null || true
+            echo "::error title=Wrong signing team::the app inside $(basename "$dmg") is not signed by team 8JKSF797L8"
+            exit 1
+          fi
           if ! codesign --verify --deep --strict --verbose=4 "$pre"/*.app; then
             hdiutil detach "$pre" > /dev/null || true
             echo "::error title=dmg app signature broken::the app inside $(basename "$dmg") no longer verifies; the codesign output above names what changed"
@@ -259,7 +288,11 @@ jobs:
           app="$(ls -d "$mnt"/*.app | head -1)"
           codesign --verify --deep --strict --verbose=2 "$app"
           spctl --assess --type execute --verbose=2 "$app"
-          echo "- ✅ ${{ matrix.target }}: signed, notarized and stapled" >> "$GITHUB_STEP_SUMMARY"
+          # Then launch the notarized app itself, from the dmg a user will open, and see a shell run in
+          # it (REL-15): the image's smoke test above ran before the wrap and the ticket, and either can
+          # break a launch the earlier one cannot see.
+          bash scripts/smoke-test.sh "$app/Contents/MacOS/Termina" "$RUNNER_TEMP/smoke-notarized"
+          echo "- ✅ ${{ matrix.target }}: signed, notarized, stapled and launched" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check the Linux packages
         if: runner.os == 'Linux'
@@ -302,7 +335,7 @@ jobs:
           ls -la
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Termina-${{ matrix.target }}
           path: target/installers/*
@@ -327,8 +360,9 @@ jobs:
     name: Sign Linux packages
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Signing tools
         run: |
@@ -336,7 +370,7 @@ jobs:
           sudo apt-get install -y -qq rpm debsig-verify
 
       # One directory per artifact: linux/Termina-linux-x64, linux/Termina-linux-arm64.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: Termina-linux-*
           path: linux
@@ -373,7 +407,7 @@ jobs:
           echo "- ✅ Linux: signed with \`$fpr\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed (linux-x64)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Termina-linux-x64
           path: linux/Termina-linux-x64/*
@@ -382,7 +416,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload signed (linux-arm64)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Termina-linux-arm64
           path: linux/Termina-linux-arm64/*
@@ -391,7 +425,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload the public key
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Termina-signing-key
           path: key/termina-signing-key.asc
@@ -402,8 +436,9 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     needs: [build, sign-linux]
-    # Only a tag publishes. A manual run is a dry run: it builds everything and stops.
-    if: github.ref_type == 'tag'
+    timeout-minutes: 30
+    # A tag publishes. A manual run is a dry run (REL-21, Pauta 2.0.2): it gathers and checks every
+    # download and runs JReleaser with --dry-run, which publishes and attests nothing.
     # The only job that writes: contents for the release itself, and id-token plus attestations
     # for the build provenance below.
     permissions:
@@ -411,30 +446,53 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # JReleaser reads the git history to build the changelog, and warns that a shallow copy
           # may fail. The default checkout is depth 1.
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
           merge-multiple: true
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '25'
+          cache: maven
 
       - name: List what will be released
         run: ls -la artifacts
 
+      # Exactly the files jreleaser.yml attaches, before anything is published: a GitHub release is
+      # immutable, so a download missing from one cannot be added afterwards (REL-07). The same check
+      # makes the attestation below cover the same list JReleaser attaches (REL-18).
+      - name: Check every download is here
+        shell: bash
+        run: bash scripts/check-release-assets.sh "${{ needs.build.outputs.version }}" artifacts
+
+      # The release notes: install instructions and the version's CHANGELOG.md section, which
+      # jreleaser.yml reads. A manual dry run's version has no section yet, so [Unreleased] stands in.
+      - name: Write the release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            bash scripts/release-notes.sh "${{ needs.build.outputs.version }}" > out/release-notes.md
+          else
+            bash scripts/release-notes.sh "${{ needs.build.outputs.version }}" --unreleased-ok > out/release-notes.md
+          fi
+          cat out/release-notes.md >> "$GITHUB_STEP_SUMMARY"
+
       # A signed statement, kept by GitHub, that each installer was built by this workflow from this
       # commit. `gh attestation verify <file> --repo adriandeleon/Termina` checks a download.
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'artifacts/*'
 
@@ -449,11 +507,16 @@ jobs:
           PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
         run: |
           set -euo pipefail
+          dry=""
+          if [ "${GITHUB_REF_TYPE:-}" != "tag" ]; then
+            dry=" --dry-run"
+            echo "::notice::Manual run: JReleaser runs with --dry-run and publishes nothing."
+          fi
           if [ -n "${PACKAGES_TOKEN:-}" ]; then
-            echo "args=full-release" >> "$GITHUB_OUTPUT"
+            echo "args=full-release$dry" >> "$GITHUB_OUTPUT"
             echo "PACKAGES_TOKEN is set: the Homebrew cask and winget PR will be published."
           else
-            echo "args=full-release --exclude-packager brew --exclude-packager winget" >> "$GITHUB_OUTPUT"
+            echo "args=full-release$dry --exclude-packager brew --exclude-packager winget" >> "$GITHUB_OUTPUT"
             echo "::notice::No PACKAGES_TOKEN — publishing the GitHub release only. No Homebrew cask, no winget pull request."
           fi
 
@@ -461,7 +524,7 @@ jobs:
       # to this repository, the Homebrew tap and the winget fork. The JReleaser it downloads is
       # pinned too — the action's default is whatever was released last. Bump both deliberately.
       - name: Publish release
-        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # 2.5.0
+        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # v2.5.0
         with:
           version: 1.26.0
           arguments: ${{ steps.packagers.outputs.args }}
@@ -476,13 +539,64 @@ jobs:
           JRELEASER_BREW_GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
           JRELEASER_WINGET_GITHUB_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
+      # JReleaser writes the checksums file it attaches; it gets the same provenance as the files it
+      # vouches for (REL-18), or a tampered checksums file would verify a tampered download.
+      - name: Attest the checksums file
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'out/jreleaser/checksums/checksums_sha256.txt'
+
       - name: Upload JReleaser output
         # The trace is the only way to tell a packager that was skipped from one that failed.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: jreleaser-logs
           path: |
             out/jreleaser/trace.log
             out/jreleaser/output.properties
           retention-days: 7
+
+  # Moves master to the next development version once a release is out (REL-06, Pauta 2.0.2): the
+  # minor number up, as every release since 0.1.0 has started the next. A pull request, not a push,
+  # so master's protections apply. One opened with GITHUB_TOKEN starts no workflows of its own;
+  # closing and reopening it runs CI. Needs "Allow GitHub Actions to create and approve pull
+  # requests" in the repository's Actions settings.
+  bump:
+    name: Start the next snapshot
+    runs-on: ubuntu-latest
+    needs: [build, release]
+    if: github.ref_type == 'tag'
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+
+      - name: Open the bump pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASED: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          IFS=. read -r major minor _ <<<"$RELEASED"
+          next="$major.$((minor + 1)).0-SNAPSHOT"
+          current="$(sed -n 's|^    <version>\(.*\)</version>$|\1|p' pom.xml | head -1)"
+          if [ "$current" = "$next" ]; then
+            echo "master is already on $next."
+            exit 0
+          fi
+          branch="build/start-$next"
+          git switch -c "$branch"
+          # The project's own <version>, the first at four spaces of indent; dependencies' are deeper.
+          sed -i "0,/^    <version>.*<\/version>\$/s||    <version>$next</version>|" pom.xml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -am "build: start $next"
+          git push -u origin "$branch"
+          gh pr create --base master --head "$branch" --title "build: start $next" \
+            --body "Released $RELEASED. Opened by the release workflow; close and reopen it to run CI."

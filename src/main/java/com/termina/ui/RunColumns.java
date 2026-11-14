@@ -48,6 +48,11 @@ final class RunColumns {
         return column;
     }
 
+    /** Before a frame, or a second pass over a row already drawn: no row is under way. */
+    void reset() {
+        row = -1;
+    }
+
     /** Cells the run just placed occupies, so the renderer need not count it a second time. */
     int lastCells() {
         return lastCells;

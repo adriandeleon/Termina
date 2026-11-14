@@ -17,7 +17,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
@@ -45,7 +44,22 @@ public final class DebugLog {
     /** Enough to hold a session's worth of trouble without holding a session's worth of memory. */
     private static final int MAX_ENTRIES = 2000;
 
-    private static final String FILE_NAME = "termina-session.log";
+    /**
+     * The file's ceiling, and what it is cut back to (PERF-11, Pauta 2.0.2): a session that logs a
+     * warning per keystroke for a week otherwise fills the disk. Cut to the newest half, so a cut
+     * happens once per few megabytes rather than once per line, under a note of what went.
+     */
+    static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
+
+    static final long KEEP_FILE_BYTES = MAX_FILE_BYTES / 2;
+
+    /** How many of this session's entries the window's buffer has dropped, oldest first. */
+    private static long droppedEntries;
+
+    public static final String FILE_NAME = "termina-session.log";
+
+    /** The session before this one's log, kept when this one's starts (DIAG-02). */
+    public static final String PREVIOUS_FILE_NAME = "termina-session.prev.log";
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
@@ -60,13 +74,23 @@ public final class DebugLog {
 
     private DebugLog() {}
 
+    /** Told of each uncaught exception after it is recorded, on the thread that threw it. */
+    private static volatile java.util.function.@Nullable Consumer<Throwable> uncaughtListener;
+
+    /** Who says something went wrong where the user is looking (DIAG-04): the window manager. */
+    public static void onUncaught(java.util.function.Consumer<Throwable> listener) {
+        uncaughtListener = listener;
+    }
+
     /** Captures j.u.l output and uncaught exceptions. Call once, as early as possible. */
     public static void install() {
         Logger root = Logger.getLogger("");
         root.addHandler(new Handler() {
             @Override
             public void publish(LogRecord record) {
-                if (record.getLevel().intValue() < Level.WARNING.intValue()) return;
+                // Every record the root logger lets through, INFO and up by default (DIAG-02, Pauta
+                // 2.0.2): what led up to a failure is as useful as the failure. JediTerm's and pty4j's
+                // slf4j records arrive here too, through the java.util.logging binding.
                 append(format(record));
             }
 
@@ -79,6 +103,8 @@ public final class DebugLog {
 
         Thread.setDefaultUncaughtExceptionHandler((thread, error) -> {
             append(stamp("UNCAUGHT on " + thread.getName() + ": " + stackTrace(error)));
+            java.util.function.Consumer<Throwable> listener = uncaughtListener;
+            if (listener != null) listener.accept(error);
             // Still to stderr, for anyone who did launch from a terminal.
             error.printStackTrace();
         });
@@ -128,6 +154,20 @@ public final class DebugLog {
             opened.close();
             return false;
         }
+        // The last session's log is what a report after a crash needs, so it is kept, once the lock
+        // says no running Termina is still writing it. A per-process sibling has no history to keep.
+        // Read through the channel that holds the lock: on Windows the lock bars a second handle.
+        long previous = opened.size();
+        if (candidate.getFileName().toString().equals(FILE_NAME) && previous > 0 && previous < 64L * 1024 * 1024) {
+            ByteBuffer bytes = ByteBuffer.allocate((int) previous);
+            opened.position(0);
+            while (bytes.hasRemaining() && opened.read(bytes) > 0) {
+                // reading the whole file
+            }
+            Files.write(
+                    candidate.resolveSibling(PREVIOUS_FILE_NAME),
+                    java.util.Arrays.copyOf(bytes.array(), bytes.position()));
+        }
         opened.truncate(0);
         channel = opened;
         lock = held;
@@ -148,26 +188,111 @@ public final class DebugLog {
         file = null;
     }
 
-    static synchronized void append(String line) {
-        ENTRIES.addLast(line);
-        while (ENTRIES.size() > MAX_ENTRIES) ENTRIES.removeFirst();
+    /**
+     * Writes the file, one line at a time, in order. Records come from any thread, the JavaFX one
+     * included, and a write is disk I/O that thread must not wait on (PERF-01, Pauta 2.0.2).
+     */
+    private static final java.util.concurrent.ExecutorService WRITER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "debug-log-writer");
+                t.setDaemon(true);
+                return t;
+            });
+
+    static void append(String line) {
+        synchronized (DebugLog.class) {
+            ENTRIES.addLast(line);
+            while (ENTRIES.size() > MAX_ENTRIES) {
+                ENTRIES.removeFirst();
+                droppedEntries++;
+            }
+            if (channel == null) return;
+        }
+        // A thread already inside this class's lock writes for itself: the writer needs that lock,
+        // and waiting on it from here would wait forever.
+        if (Thread.holdsLock(DebugLog.class)) {
+            write(line);
+            return;
+        }
+        java.util.concurrent.Future<?> written = WRITER.submit(() -> write(line));
+        // Any other thread waits for its line to reach the file: a record of something going wrong
+        // is worth most just before the process ends, and the writer is a daemon that would die
+        // with the line still queued. The FX thread hands its line over and moves on.
+        if (!onFxThread()) {
+            try {
+                written.get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (java.util.concurrent.ExecutionException ignored) {
+                // write() swallows its own failures; nothing reaches here.
+            }
+        }
+    }
+
+    private static boolean onFxThread() {
+        try {
+            return javafx.application.Platform.isFxApplicationThread();
+        } catch (RuntimeException | LinkageError e) {
+            return false;
+        }
+    }
+
+    private static synchronized void write(String line) {
         if (channel == null) return;
         try {
             ByteBuffer bytes = ByteBuffer.wrap((line + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
             channel.position(channel.size());
             while (bytes.hasRemaining()) channel.write(bytes);
+            trimIfOver(channel, MAX_FILE_BYTES, KEEP_FILE_BYTES);
         } catch (IOException ignored) {
             // Same again: the in-memory copy is still there.
         }
     }
 
-    /** Everything captured this session, oldest first. */
+    /**
+     * Cuts a file over {@code max} bytes back to its newest {@code keep}, from the start of a line,
+     * under one line saying how much went. Through the channel that holds the lock, which on
+     * Windows bars any other handle. Returns the bytes cut, 0 when under the ceiling.
+     */
+    static long trimIfOver(FileChannel file, long max, long keep) throws IOException {
+        long size = file.size();
+        if (size <= max) return 0;
+        ByteBuffer tail = ByteBuffer.allocate((int) Math.min(keep, size));
+        long from = size - tail.capacity();
+        while (tail.hasRemaining()) {
+            if (file.read(tail, from + tail.position()) < 0) break;
+        }
+        tail.flip();
+        // From the first whole line, so the note is not followed by the back half of one.
+        while (tail.hasRemaining() && tail.get() != '\n') {
+            // skipping
+        }
+        long cut = from + tail.position();
+        ByteBuffer note = ByteBuffer.wrap(cutNote(cut).getBytes(StandardCharsets.UTF_8));
+        file.truncate(0);
+        file.position(0);
+        while (note.hasRemaining()) file.write(note);
+        while (tail.hasRemaining()) file.write(tail);
+        return cut;
+    }
+
+    /** The line that replaces what a cut removed. */
+    static String cutNote(long bytes) {
+        return "[" + bytes + " bytes of earlier log cut to keep the file under " + (MAX_FILE_BYTES >> 20) + " MB]"
+                + System.lineSeparator();
+    }
+
+    /** Everything captured this session, oldest first, under a note of what was dropped. */
     public static synchronized String text() {
-        return String.join(System.lineSeparator(), ENTRIES);
+        String text = String.join(System.lineSeparator(), ENTRIES);
+        if (droppedEntries == 0) return text;
+        return "[" + droppedEntries + " earlier entries dropped; the file beside the settings has more]"
+                + System.lineSeparator() + text;
     }
 
     public static synchronized void clear() {
         ENTRIES.clear();
+        droppedEntries = 0;
     }
 
     /** The file being mirrored to, or null when there is none. */

@@ -24,7 +24,7 @@ import org.jspecify.annotations.Nullable;
  * caller picks the thread.
  *
  * <p>Git only carries the data. Termina keeps a clone of its own ({@code sync/repo} beside
- * {@code settings.properties}) that nothing else reads, and never asks git to merge: the working tree is
+ * {@code settings.json}) that nothing else reads, and never asks git to merge: the working tree is
  * set to what the remote has, the merged files ({@link SyncMerge}) are written over it, and that is
  * committed and pushed. So there are no conflict markers and no half-finished rebase to recover from.
  *
@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
 public final class SyncEngine {
 
     /** The repository layout this build reads and writes ({@code formatVersion} in {@value #FORMAT_FILE}). */
-    public static final int FORMAT_VERSION = 1;
+    public static final int FORMAT_VERSION = 2;
 
     static final String FORMAT_FILE = "termina-sync.properties";
     static final String BASE_REF = "refs/termina/base";
@@ -108,7 +108,7 @@ public final class SyncEngine {
     /**
      * Whether {@code url} carries a secret: a password after the user name ({@code https://me:TOKEN@host/…})
      * or a user name that is itself an access token ({@code https://ghp_…@github.com/…}). Sync refuses such
-     * a URL: it would sit in plain text in {@code settings.properties} and in the clone's
+     * a URL: it would sit in plain text in {@code settings.json} and in the clone's
      * {@code .git/config}. An SSH user ({@code git@host:…}, {@code ssh://git@host/…}) is never a secret.
      */
     public static boolean hasCredentials(String url) {
@@ -263,7 +263,14 @@ public final class SyncEngine {
         String settled = settledBase(results, base);
 
         for (SyncMerge.FileResult r : results) writeOrDelete(clone.resolve(r.path()), r.text());
-        writeIfAbsent(FORMAT_FILE, "formatVersion=" + FORMAT_VERSION + "\n");
+        // Written again where an older build left its own: version 2 is the one file of key
+        // bindings for every system (OS-04, Pauta 6.0.1), and a computer still on version 1 then
+        // says the repository is newer than it is, where it would have gone on syncing a file
+        // nobody else reads.
+        if (formatVersion(clone.resolve(FORMAT_FILE)) < FORMAT_VERSION) {
+            Files.writeString(
+                    clone.resolve(FORMAT_FILE), "formatVersion=" + FORMAT_VERSION + "\n", StandardCharsets.UTF_8);
+        }
         writeIfAbsent(".gitattributes", "* -text\n");
         writeIfAbsent("README.md", README);
         List<String> written = new ArrayList<>(paths);
@@ -355,7 +362,6 @@ public final class SyncEngine {
         }
     }
 
-    /** Creates the clone on first use and points it at {@link #url}; a different repository forgets the base. */
     /**
      * Creates the clone and points it at {@code url}, as the start of a run does — for the caller that
      * has to look at the clone before the run, to choose the account it signs in as. False when the
@@ -372,6 +378,7 @@ public final class SyncEngine {
         }
     }
 
+    /** Creates the clone on first use and points it at {@link #url}; a different repository forgets the base. */
     private static void prepareClone(GitRunner git, String url) throws IOException, GitFailure {
         Path clone = git.dir();
         Files.createDirectories(clone);
@@ -479,10 +486,12 @@ public final class SyncEngine {
             # Termina settings sync
 
             This repository is written by the Termina terminal's settings sync. It holds the key bindings
-            the computers connected to it have changed: keybindings/macos.properties for Macs and
-            keybindings/windows-linux.properties for everything else, one command=chord line each.
+            the computers connected to it have changed, in keybindings/keybindings.properties: one
+            command=chord line each, for every system. A chord is written as Windows and Linux press
+            it; a Mac reads Ctrl+Shift as Command, and writes Command as Ctrl+Shift.
 
-            Editing a file here by hand is fine: every connected computer picks the change up on its
-            next sync.
+            Editing the file by hand is fine: every connected computer picks the change up on its
+            next sync. keybindings/macos.properties and keybindings/windows-linux.properties, where
+            they exist, are from Termina 0.14 and earlier and are no longer read.
             """;
 }

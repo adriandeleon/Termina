@@ -29,6 +29,27 @@ class SettingsSyncTest {
         assertFalse(SettingsSync.isConfigured(true, "https://me:secret@github.com/me/s.git", "main"));
     }
 
+    /** SET-04 (Pauta 6.0.1): what the fields store on Enter or focus loss, and what they refuse. */
+    @Test
+    void anEmptyRepositoryIsStoredAndAnythingElseHasToBeUsable() {
+        assertNull(SettingsWindow.syncCommitProblem("", "main"));
+        assertEquals("settings.sync.branch.invalid", SettingsWindow.syncCommitProblem("", "-main"));
+        assertNull(SettingsWindow.syncCommitProblem("git@github.com:me/s.git", "main"));
+        assertEquals("settings.sync.repository.invalid", SettingsWindow.syncCommitProblem("-nonsense", "main"));
+        assertEquals(
+                "settings.sync.repository.credentials",
+                SettingsWindow.syncCommitProblem("https://me:secret@github.com/me/s.git", "main"));
+    }
+
+    @Test
+    void aPathFieldWritesAnEmptyValueOrOneThatPassed() {
+        assertTrue(SettingsWindow.commits(com.termina.pty.ShellLauncher.PathStatus.EMPTY));
+        assertTrue(SettingsWindow.commits(com.termina.pty.ShellLauncher.PathStatus.OK));
+        assertFalse(SettingsWindow.commits(com.termina.pty.ShellLauncher.PathStatus.NOT_FOUND));
+        assertFalse(SettingsWindow.commits(com.termina.pty.ShellLauncher.PathStatus.NOT_EXECUTABLE));
+        assertFalse(SettingsWindow.commits(com.termina.pty.ShellLauncher.PathStatus.NOT_A_DIRECTORY));
+    }
+
     @Test
     void theFieldsSayWhatIsWrongWithThemBeforeConnecting() {
         assertNull(SettingsWindow.syncFieldProblem("git@github.com:me/s.git", "main"));
@@ -41,11 +62,11 @@ class SettingsSyncTest {
 
     @Test
     void aSummaryNamesConflictsByWhatTheCommandDoes() {
-        SyncReport report =
-                new SyncReport(SyncReport.Status.OK, List.of("copy"), List.of("newTab"), List.of("newTab"), "");
-        String text = SettingsSync.summary(report, id -> id.equals("newTab") ? "New Tab" : id);
+        SyncReport report = new SyncReport(
+                SyncReport.Status.OK, List.of("edit.copy"), List.of("file.newTab"), List.of("file.newTab"), "");
+        String text = SettingsSync.summary(report, id -> id.equals("file.newTab") ? "New Tab" : id);
         assertTrue(text.contains("New Tab"), text);
-        assertFalse(text.contains("newTab"), text);
+        assertFalse(text.contains("file.newTab"), text);
 
         SyncReport quiet = new SyncReport(SyncReport.Status.OK, List.of(), List.of(), List.of(), "");
         assertFalse(SettingsSync.summary(quiet, id -> id).isBlank());

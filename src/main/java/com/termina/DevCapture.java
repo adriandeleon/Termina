@@ -20,7 +20,6 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.util.Duration;
 
-import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.termina.ui.TerminalView;
 import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
@@ -81,10 +80,32 @@ final class DevCapture {
     }
 
     static void schedule(WindowManager windows, TerminalWindow window, com.termina.config.@Nullable Settings settings) {
+        schedule(windows, window, settings, () -> {
+            windows.closeAll();
+            Platform.exit();
+        });
+    }
+
+    /**
+     * As above, with {@code finish} run once the capture is written and reported instead of closing
+     * every window and exiting: the test that drives the harness keeps its toolkit for the tests after it.
+     */
+    static void schedule(
+            WindowManager windows,
+            TerminalWindow window,
+            com.termina.config.@Nullable Settings settings,
+            Runnable finish) {
         String target = System.getProperty(CAPTURE_PROPERTY);
+        drawAtScale(scaleOf(System.getProperty("termina.captureScale")));
         String command = System.getProperty("termina.captureCommand", "");
         long settleMs = Long.getLong("termina.captureSettleMs", 2500);
         long afterCommandMs = Long.getLong("termina.captureAfterCommandMs", 2000);
+        // The paste prompt is modal and would hang the run; answered up front, like the close
+        // prompt (captureCloseAnswer). paste to check the paste goes through, cancel that it does not.
+        String pasteAnswer = System.getProperty("termina.capturePasteAnswer");
+        if (pasteAnswer != null && !pasteAnswer.isBlank()) {
+            window.setPasteAnswerForCapture("paste".equalsIgnoreCase(pasteAnswer.trim()));
+        }
 
         STALL_METER.start();
         PauseTransition settle = new PauseTransition(Duration.millis(settleMs));
@@ -94,7 +115,11 @@ final class DevCapture {
             // whole afterCommand wait to land in. The interesting moment is *after* the second
             // report, not during the first.
             checkUpdatesIfRequested(windows, window);
+            // A newer version, as the check would report one: the Help row and the status bar's link.
+            String announced = System.getProperty("termina.captureUpdateAvailable");
+            if (announced != null) windows.announceUpdateForCapture(announced);
             syncNowIfRequested(windows, window);
+            if (settings != null) importConfigIfRequested(windows, settings);
             TerminalView terminal = window.activeTerminal();
             if (!command.isBlank() && terminal != null) {
                 sendUntilItTakes(terminal, command);
@@ -144,6 +169,7 @@ final class DevCapture {
                 chordsAtFocusIfRequested(window);
                 fireMenuItemIfRequested(active, settings);
                 selectTabIfRequested(window);
+                pinTabIfRequested(window);
                 closeTabsIfRequested(window);
                 renameTabIfRequested(window);
                 duplicateTabIfRequested(window);
@@ -163,7 +189,8 @@ final class DevCapture {
                 probeDebugLog();
                 closeWindowIfRequested(windows);
                 TerminalWindow shown = windowToCapture(windows, window);
-                Scene captured = sceneToCapture(windows, shown, shown.activeTerminal());
+                Scene logWindow = logWindowIfRequested(windows, shown);
+                Scene captured = logWindow != null ? logWindow : sceneToCapture(windows, shown, shown.activeTerminal());
                 // A further pause before snapshotting, because rendering is deliberately deferred
                 // to the next animation frame: capturing in this same pulse photographs the frame
                 // *before* the input, which looks exactly like input that did nothing.
@@ -184,8 +211,8 @@ final class DevCapture {
                                         .replace("\n", "\\n") + "\"");
                     }
                     report(windows);
-                    windows.closeAll();
-                    Platform.exit();
+                    drawAtScale(1); // what follows a run in the same process draws as it did before
+                    finish.run();
                 });
                 settleFrame.play();
             });
@@ -206,11 +233,6 @@ final class DevCapture {
         for (int i = 0; i < Integer.getInteger("termina.captureWindows", 0); i++) windows.openWindow();
     }
 
-    /**
-     * {@code -Dtermina.captureTheme=<id>} switches theme after the windows exist, which is how the
-     * broadcast gets checked: photograph a window that was open *before* the change and see whether
-     * it followed.
-     */
     /**
      * {@code -Dtermina.captureImportTheme=<file>} imports a colour scheme as Settings → Import would,
      * selects it, and prints what was read — so the picture and the numbers can be checked together.
@@ -234,6 +256,11 @@ final class DevCapture {
         }
     }
 
+    /**
+     * {@code -Dtermina.captureTheme=<id>} switches theme after the windows exist, which is how the
+     * broadcast gets checked: photograph a window that was open *before* the change and see whether
+     * it followed.
+     */
     private static void switchThemeIfRequested(com.termina.config.Settings settings) {
         String theme = System.getProperty("termina.captureTheme");
         if (theme == null || theme.isBlank()) return;
@@ -321,7 +348,7 @@ final class DevCapture {
                 case "close" -> window.closeActivePaneForCapture();
                 case "max" -> window.toggleMaximizePaneForCapture();
                 case "move" -> window.moveActivePaneForCapture(-1);
-                case "closeTab" -> window.closeSelectedTabForCapture();
+                case "file.closeTab" -> window.closeSelectedTabForCapture();
                 case "reopen" -> window.reopenClosedTab();
                 case "styles" -> System.out.println("[capture] styles " + window.paneStyleReport());
                 default -> {
@@ -400,6 +427,7 @@ final class DevCapture {
             System.out.println("[capture] windowTitle=\"" + w.stage().getTitle() + "\" tabs=" + w.tabTitles());
             System.out.println("[capture] " + w.focusReport());
             System.out.println("[capture] " + w.closeTooltipReport() + " tabTooltip=<" + w.tabTooltipReport() + ">");
+            System.out.println("[capture] statusBar=" + w.statusBarForCapture());
             System.out.println("[capture] " + w.tabMarkReport());
             System.out.println("[capture] " + w.tabDragReport());
             System.out.println("[capture] " + w.paneReport());
@@ -451,6 +479,36 @@ final class DevCapture {
         String tokens = System.getProperty("termina.capturePaletteKeys");
         if (tokens == null || tokens.isBlank()) return;
         System.out.println("[capture] palette keys " + window.firePaletteKeysForCapture(tokens));
+        // A command run from the palette may leave a menu up (Tab Menu): which, and where.
+        List<String> menus = new ArrayList<>();
+        for (javafx.stage.Window w : javafx.stage.Window.getWindows()) {
+            if (w instanceof javafx.scene.control.ContextMenu menu && menu.isShowing()) {
+                javafx.scene.Node owner = menu.getOwnerNode();
+                String ownerName = owner == null ? "?" : String.join(".", owner.getStyleClass());
+                menus.add(String.format(
+                        java.util.Locale.ROOT,
+                        "%d items under %s at %.0f,%.0f",
+                        menu.getItems().size(),
+                        ownerName,
+                        menu.getAnchorX() - window.stage().getX(),
+                        menu.getAnchorY() - window.stage().getY()));
+            }
+        }
+        if (!menus.isEmpty()) System.out.println("[capture] palette left menus " + menus);
+    }
+
+    /**
+     * {@code -Dtermina.captureDebugLogFind=text} opens the Debug Log and searches it for the text;
+     * {@code -Dtermina.captureMessageLogFilter=text} opens the Message Log's card over the terminal
+     * window and types the text into its filter. Either makes that window the photograph, and
+     * reports where it stands.
+     */
+    private static @Nullable Scene logWindowIfRequested(WindowManager windows, TerminalWindow window) {
+        String find = System.getProperty("termina.captureDebugLogFind");
+        if (find != null) return windows.debugLogFindForCapture(window.stage(), find);
+        String filter = System.getProperty("termina.captureMessageLogFilter");
+        if (filter != null) return windows.messageLogFilterForCapture(window, filter);
+        return null;
     }
 
     /**
@@ -497,7 +555,7 @@ final class DevCapture {
         Timeline typing = new Timeline();
         for (int i = 0; i < attempts; i++) {
             typing.getKeyFrames().add(new KeyFrame(retryEvery.multiply(i), e -> {
-                if (screenText(terminal).contains(command)) {
+                if (terminal.screenText().contains(command)) {
                     typing.stop();
                     return;
                 }
@@ -505,21 +563,6 @@ final class DevCapture {
             }));
         }
         typing.play();
-    }
-
-    /** The visible screen as text. Used to tell "the shell ran it" from "the shell ignored it". */
-    private static String screenText(TerminalView terminal) {
-        TerminalTextBuffer buffer = terminal.getSession().getTextBuffer();
-        buffer.lock();
-        try {
-            StringBuilder out = new StringBuilder();
-            for (int row = 0; row < buffer.getHeight(); row++) {
-                out.append(buffer.getLine(row).getText()).append('\n');
-            }
-            return out.toString();
-        } finally {
-            buffer.unlock();
-        }
     }
 
     /**
@@ -532,12 +575,34 @@ final class DevCapture {
     private static void printScreenTextIfRequested(@Nullable TerminalView terminal) {
         if (System.getProperty("termina.captureScreenText") == null || terminal == null) return;
         System.out.println("[capture] screen<<<");
-        System.out.println(screenText(terminal).stripTrailing());
+        System.out.println(terminal.screenText().stripTrailing());
         System.out.println("[capture] >>>");
     }
 
     private static long descendants() {
         return ProcessHandle.current().descendants().count();
+    }
+
+    /**
+     * Pins tab N (0-based); with {@code ,others}, then runs Close Other Tabs on the last tab, to
+     * check a bulk close passes over the pinned one. Reports the strip after each step.
+     *
+     * <pre>-Dtermina.capturePinTab=1[,others]</pre>
+     */
+    private static void pinTabIfRequested(TerminalWindow window) {
+        String spec = System.getProperty("termina.capturePinTab");
+        if (spec == null || spec.isBlank()) return;
+        String[] parts = spec.split(",");
+        window.togglePinForCapture(Integer.parseInt(parts[0].trim()));
+        System.out.println("[capture] pinned " + window.pinReportForCapture());
+        if (parts.length > 1 && parts[1].trim().equals("others")) {
+            String answer = System.getProperty("termina.captureCloseAnswer");
+            if (answer != null && !answer.isBlank()) {
+                window.setCloseAnswerForCapture("close".equalsIgnoreCase(answer.trim()));
+            }
+            window.closeOthersFromLastForCapture();
+            System.out.println("[capture] after close others " + window.pinReportForCapture());
+        }
     }
 
     /** {@code -Dtermina.captureCloseTabs=N} closes N tabs, to check they are actually reaped. */
@@ -580,9 +645,7 @@ final class DevCapture {
         boolean plain = parts.length > 2 && "plain".equalsIgnoreCase(parts[2].trim());
         // "alt" fires Alt+key on every platform, Option+key on a Mac.
         boolean alt = parts.length > 2 && "alt".equalsIgnoreCase(parts[2].trim());
-        boolean mac = System.getProperty("os.name", "")
-                .toLowerCase(java.util.Locale.ROOT)
-                .startsWith("mac");
+        boolean mac = com.termina.Os.isMac();
         javafx.scene.input.KeyEvent event = new javafx.scene.input.KeyEvent(
                 javafx.scene.input.KeyEvent.KEY_PRESSED,
                 "",
@@ -958,8 +1021,21 @@ final class DevCapture {
         if (shortcuts != null) {
             return window.showShortcutsForCapture("true".equals(shortcuts) ? "" : shortcuts);
         }
+        // -Dtermina.captureReport=true opens Help → Report a Problem.
+        if (System.getProperty("termina.captureReport") != null) {
+            return windows.showReportProblemForCapture(window.stage());
+        }
         if (System.getProperty("termina.captureAbout") != null) {
             return windows.showAboutForCapture(window.stage());
+        }
+        // -Dtermina.captureDoctor=true opens Help → Doctor; the checks run on a worker, so give
+        // the capture a moment (captureAfterCommandMs) to photograph the rows and not "Checking…".
+        if (System.getProperty("termina.captureDoctor") != null) {
+            return windows.showDoctorForCapture(window.stage());
+        }
+        // -Dtermina.capturePauta=true opens Help → Pauta Conformance.
+        if (System.getProperty("termina.capturePauta") != null) {
+            return windows.showPautaForCapture(window.stage());
         }
         if (System.getProperty("termina.captureProfiles") != null) {
             System.out.println("[capture] profiles " + window.profileMenuForCapture());
@@ -970,6 +1046,13 @@ final class DevCapture {
                 if (open instanceof javafx.stage.PopupWindow && open.isShowing()) popup = open;
             }
             if (popup.getScene() != null) return popup.getScene();
+        }
+        // -Dtermina.captureBarMenu=File opens that menu of the in-window bar and photographs it.
+        String barMenu = System.getProperty("termina.captureBarMenu");
+        if (barMenu != null && !barMenu.isBlank()) {
+            Scene menu = window.showBarMenuForCapture(barMenu.trim());
+            System.out.println("[capture] bar menu " + barMenu.trim() + " shown=" + (menu != null));
+            if (menu != null) return menu;
         }
         String tabMenu = System.getProperty("termina.captureTabMenu");
         if (tabMenu != null && !tabMenu.isBlank()) {
@@ -1044,7 +1127,36 @@ final class DevCapture {
         windows.syncSettingsNow(window::reportForCapture);
     }
 
-    /** Every dialog currently on screen, by its message. */
+    /**
+     * Runs Import Configuration on a zip, ticking the parts named, and prints what the settings and
+     * the theme list hold once it has applied — the chooser and the dialog are skipped, being the
+     * two things a capture cannot drive.
+     *
+     * <pre>-Dtermina.captureImportConfig=/path/export.zip;KEY_BINDINGS,THEMES</pre>
+     */
+    private static void importConfigIfRequested(WindowManager windows, com.termina.config.Settings settings) {
+        String spec = System.getProperty("termina.captureImportConfig");
+        if (spec == null || spec.isBlank()) return;
+        int semi = spec.lastIndexOf(';');
+        java.nio.file.Path zip = java.nio.file.Path.of(semi < 0 ? spec : spec.substring(0, semi));
+        java.util.Set<com.termina.config.ConfigArchive.Part> parts =
+                java.util.EnumSet.noneOf(com.termina.config.ConfigArchive.Part.class);
+        if (semi >= 0) {
+            for (String name : spec.substring(semi + 1).split(",")) {
+                if (!name.isBlank()) parts.add(com.termina.config.ConfigArchive.Part.valueOf(name.trim()));
+            }
+        }
+        windows.importConfigurationForCapture(zip, parts, (severity, message) -> {
+            System.out.println("[capture] import " + severity + ": " + message);
+            java.util.Map<String, String> stored = new java.util.TreeMap<>(settings.values());
+            System.out.println("[capture] import settings " + stored);
+            System.out.println("[capture] import themes "
+                    + com.termina.ui.Themes.all().stream()
+                            .map(com.termina.ui.ThemeEntry::id)
+                            .toList());
+        });
+    }
+
     /** What a window's text is actually drawn in — an unresolved family falls back in silence. */
     private static void probeFonts(Scene scene) {
         if (scene == null) return;
@@ -1064,6 +1176,7 @@ final class DevCapture {
         }
     }
 
+    /** Every dialog currently on screen, by its message. */
     private static void reportDialogs() {
         if (!Boolean.getBoolean("termina.captureCheckUpdates") && !Boolean.getBoolean("termina.captureSyncNow")) {
             return;
@@ -1080,14 +1193,6 @@ final class DevCapture {
         System.out.println("[capture] dialogs open=" + open.size() + " " + open);
     }
 
-    /**
-     * Gives focus to a piece of chrome and lets the guard take it back.
-     *
-     * <pre>-Dtermina.captureStealFocus=tabs|newtab|menubar</pre>
-     *
-     * <p>The focus report at the end of the run is the assertion: whatever this hands focus to, the
-     * terminal should own it again by the time the window settles.
-     */
     /**
      * Presses a chord through the operating system, not through JavaFX's event queue.
      *
@@ -1124,6 +1229,14 @@ final class DevCapture {
         System.out.println("[capture] fired native chord " + spec);
     }
 
+    /**
+     * Gives focus to a piece of chrome and lets the guard take it back.
+     *
+     * <pre>-Dtermina.captureStealFocus=tabs|newtab|menubar</pre>
+     *
+     * <p>The focus report at the end of the run is the assertion: whatever this hands focus to, the
+     * terminal should own it again by the time the window settles.
+     */
     private static void stealFocusIfRequested(TerminalWindow window) {
         String what = System.getProperty("termina.captureStealFocus");
         if (what == null || what.isBlank()) return;
@@ -1395,8 +1508,57 @@ final class DevCapture {
                 null);
     }
 
+    /**
+     * {@code -Dtermina.captureScale=2} writes the image at twice the window's size, as a display
+     * of twice the density shows it (DOCS-18, Pauta 6.0.1): what the README and the website use.
+     * One to four; anything else, or nothing, is 1.
+     */
+    static double scaleOf(@Nullable String asked) {
+        if (asked == null) return 1;
+        try {
+            double scale = Double.parseDouble(asked.trim());
+            return scale >= 1 && scale <= 4 ? scale : 1;
+        } catch (NumberFormatException e) {
+            return 1;
+        }
+    }
+
+    /**
+     * Has every terminal draw at the capture's scale: set first, so a view made later starts at it,
+     * and the ones already in a window are laid out again, which is where a view takes it up.
+     */
+    static void drawAtScale(double scale) {
+        TerminalView.setRenderScale(scale);
+        for (javafx.stage.Window window : javafx.stage.Window.getWindows()) {
+            Scene scene = window.getScene();
+            if (scene != null) layOutTerminals(scene.getRoot());
+        }
+    }
+
+    private static void layOutTerminals(javafx.scene.Node node) {
+        if (node instanceof TerminalView view) view.requestLayout();
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) layOutTerminals(child);
+        }
+    }
+
+    /**
+     * The scene as an image, {@code scale} pixels to each of its own. At 1 it is the scene's own
+     * snapshot; above that the root is drawn through a transform, which is what makes text and
+     * shapes sharp at the larger size instead of stretched.
+     */
+    static WritableImage snapshot(Scene scene, double scale) {
+        if (scale == 1) return scene.snapshot(null);
+        javafx.scene.SnapshotParameters parameters = new javafx.scene.SnapshotParameters();
+        parameters.setTransform(javafx.scene.transform.Transform.scale(scale, scale));
+        parameters.setFill(scene.getFill());
+        parameters.setViewport(new javafx.geometry.Rectangle2D(
+                0, 0, Math.ceil(scene.getWidth() * scale), Math.ceil(scene.getHeight() * scale)));
+        return scene.getRoot().snapshot(parameters, null);
+    }
+
     private static void write(Scene scene, File target) throws IOException {
-        WritableImage image = scene.snapshot(null);
+        WritableImage image = snapshot(scene, scaleOf(System.getProperty("termina.captureScale")));
         int w = (int) image.getWidth();
         int h = (int) image.getHeight();
 

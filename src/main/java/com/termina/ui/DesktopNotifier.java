@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * Puts a program's notification (OSC 9, OSC 777) on the desktop.
  *
  * <p>JavaFX has no notification API, and AWT — which has {@code SystemTray} — is forced headless
- * (see {@code App.main}). Every platform has a command that does it, so this runs that:
+ * (see {@code Main.main}). Every platform has a command that does it, so this runs that:
  * {@code notify-send} on Linux, or the session bus directly through {@code gdbus} where libnotify's
  * tool is not installed; {@code osascript} on macOS; a PowerShell toast on Windows.
  *
@@ -71,8 +70,8 @@ final class DesktopNotifier {
      * @param find a program's absolute path, or null when it is not installed
      */
     static @Nullable Command command(String os, String title, String body, Function<String, @Nullable Path> find) {
-        String name = os == null ? "" : os.toLowerCase(Locale.ROOT);
-        if (name.startsWith("mac")) {
+        com.termina.Os.Kind kind = com.termina.Os.of(os);
+        if (kind == com.termina.Os.Kind.MAC) {
             return new Command(
                     List.of(
                             "/usr/bin/osascript",
@@ -86,7 +85,7 @@ final class DesktopNotifier {
                             body),
                     Map.of());
         }
-        if (name.startsWith("windows")) {
+        if (kind == com.termina.Os.Kind.WINDOWS) {
             String encoded = Base64.getEncoder().encodeToString(WINDOWS_SCRIPT.getBytes(StandardCharsets.UTF_16LE));
             return new Command(
                     List.of("powershell.exe", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded),
@@ -144,22 +143,60 @@ final class DesktopNotifier {
         return out.append('\'').toString();
     }
 
-    /** Posts a notification, later and off the FX thread. A failure is dropped: it was a courtesy. */
+    /** How long the platform's tool gets before it is stopped. */
+    static final int TIMEOUT_SECONDS = 5;
+
+    /**
+     * Posts a notification, later and off the FX thread. A failure never reaches the caller — the
+     * tab is still marked — and is always written to the log, so the Debug Log says why the desktop
+     * showed nothing (TRAY-09, Pauta 6.0.1): no tool to run, an exception from running it, the
+     * timeout, a status that is not zero.
+     */
     static void post(String title, String body) {
         WORKER.execute(() -> {
-            Command command = command(System.getProperty("os.name"), title, body, SystemTools::find);
-            if (command == null) return;
+            String failure;
             try {
-                ProcessBuilder builder = new ProcessBuilder(command.argv())
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .redirectError(ProcessBuilder.Redirect.DISCARD);
-                builder.environment().putAll(command.environment());
-                Process process = builder.start();
-                process.getOutputStream().close();
-                if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) process.destroyForcibly();
+                failure = run(command(com.termina.Os.name(), title, body, SystemTools::find));
             } catch (Exception e) {
-                // No daemon, no tool, a sandbox that refuses the bus: the tab is still marked.
+                // No daemon, a sandbox that refuses the bus, a tool that went away.
+                LOG.log(java.util.logging.Level.WARNING, "desktop notification not shown: " + e, e);
+                return;
             }
+            if (failure != null) LOG.log(java.util.logging.Level.WARNING, "desktop notification not shown: " + failure);
         });
+    }
+
+    private static final java.util.logging.Logger LOG =
+            java.util.logging.Logger.getLogger(DesktopNotifier.class.getName());
+
+    /**
+     * Runs the command and waits for it, up to the timeout.
+     *
+     * @return what went wrong, or null when the tool ran and exited with status 0
+     */
+    static @Nullable String run(@Nullable Command command) throws java.io.IOException, InterruptedException {
+        if (command == null) return failure(false, false, 0);
+        ProcessBuilder builder = com.termina.process.ChildPath.apply(new ProcessBuilder(command.argv()))
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD);
+        builder.environment().putAll(command.environment());
+        Process process = builder.start();
+        process.getOutputStream().close();
+        boolean finished = process.waitFor(TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        if (!finished) process.destroyForcibly();
+        return failure(true, finished, finished ? process.exitValue() : 0);
+    }
+
+    /**
+     * What to log about one notification, or null for one that was posted.
+     *
+     * @param found whether the platform had a tool to run
+     * @param finished whether it exited before the timeout
+     * @param exitCode its status, when it finished
+     */
+    static @Nullable String failure(boolean found, boolean finished, int exitCode) {
+        if (!found) return "no notify-send or gdbus to post it with";
+        if (!finished) return "the tool did not answer in " + TIMEOUT_SECONDS + " s and was stopped";
+        return exitCode == 0 ? null : "the tool exited with status " + exitCode;
     }
 }

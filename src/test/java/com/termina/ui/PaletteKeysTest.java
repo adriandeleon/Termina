@@ -13,6 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The palette moves on the fixed keys and on Emacs's, and its legend names only keys that reach it. */
 class PaletteKeysTest {
 
+    /** The movement chords as the app starts with them: the defaults of {@code keymaps/lists.json}. */
+    private static final java.util.Map<String, Action> DEFAULTS =
+            PaletteKeys.moves(id -> KeyChord.of(Keymap.lists().get(id), false));
+
     @BeforeAll
     static void english() {
         com.termina.i18n.Messages.init("en");
@@ -20,45 +24,127 @@ class PaletteKeysTest {
 
     @Test
     void theFixedKeysAlwaysWork() {
-        assertEquals(Action.DOWN, PaletteKeys.resolve("down", true));
-        assertEquals(Action.UP, PaletteKeys.resolve("up", true));
-        assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("pagedown", true));
-        assertEquals(Action.PAGE_UP, PaletteKeys.resolve("pageup", true));
-        assertEquals(Action.ACCEPT, PaletteKeys.resolve("enter", true));
-        assertEquals(Action.CANCEL, PaletteKeys.resolve("escape", true));
-        assertEquals(Action.FIRST, PaletteKeys.resolve("C-home", true));
-        assertEquals(Action.LAST, PaletteKeys.resolve("C-end", true));
-        assertEquals(Action.FIRST, PaletteKeys.resolve("Cmd-up", true));
-        assertEquals(Action.LAST, PaletteKeys.resolve("Cmd-down", true));
+        assertEquals(Action.DOWN, PaletteKeys.resolve("down", true, DEFAULTS));
+        assertEquals(Action.UP, PaletteKeys.resolve("up", true, DEFAULTS));
+        assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("pagedown", true, DEFAULTS));
+        assertEquals(Action.PAGE_UP, PaletteKeys.resolve("pageup", true, DEFAULTS));
+        assertEquals(Action.ACCEPT, PaletteKeys.resolve("enter", true, DEFAULTS));
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("escape", true, DEFAULTS));
+        assertEquals(Action.FIRST, PaletteKeys.resolve("C-home", true, DEFAULTS));
+        assertEquals(Action.LAST, PaletteKeys.resolve("C-end", true, DEFAULTS));
+        assertEquals(Action.FIRST, PaletteKeys.resolve("Cmd-up", true, DEFAULTS));
+        assertEquals(Action.LAST, PaletteKeys.resolve("Cmd-down", true, DEFAULTS));
     }
 
     @Test
     void plainHomeAndEndBelongToTheQueryFieldWhenThereIsOne() {
-        assertEquals(Action.NONE, PaletteKeys.resolve("home", true));
-        assertEquals(Action.NONE, PaletteKeys.resolve("end", true));
-        assertEquals(Action.FIRST, PaletteKeys.resolve("home", false));
-        assertEquals(Action.LAST, PaletteKeys.resolve("end", false));
+        assertEquals(Action.NONE, PaletteKeys.resolve("home", true, DEFAULTS));
+        assertEquals(Action.NONE, PaletteKeys.resolve("end", true, DEFAULTS));
+        assertEquals(Action.FIRST, PaletteKeys.resolve("home", false, DEFAULTS));
+        assertEquals(Action.LAST, PaletteKeys.resolve("end", false, DEFAULTS));
+    }
+
+    /**
+     * PAL-06 (Pauta 6.0.1): a row and a page move on the chords the bindings give the four
+     * {@code nav} commands, looked up and not written into the palette.
+     */
+    @Test
+    void aRowAndAPageMoveOnTheChordsBoundToTheirCommands() {
+        java.util.Map<String, String> bound = new java.util.HashMap<>();
+        bound.put("nav.lineDown", "C-j");
+        bound.put("nav.lineUp", "C-k");
+        bound.put("nav.pageDown", "M-f");
+        // nav.pageUp is on no key.
+        java.util.Map<String, Action> moves = PaletteKeys.moves(bound::get);
+        assertEquals(Action.DOWN, PaletteKeys.resolve("C-j", true, moves));
+        assertEquals(Action.UP, PaletteKeys.resolve("C-k", true, moves));
+        assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("M-f", true, moves));
+        // The chords they were on do nothing now: none of the four is a fixed letter.
+        for (String was : new String[] {"C-n", "C-p", "C-v", "M-v"}) {
+            assertEquals(Action.NONE, PaletteKeys.resolve(was, true, moves), was);
+        }
+        // And the arrows and the page keys move whatever the bindings say, with none at all too.
+        for (java.util.Map<String, Action> any : java.util.List.of(moves, java.util.Map.<String, Action>of())) {
+            assertEquals(Action.DOWN, PaletteKeys.resolve("down", true, any));
+            assertEquals(Action.UP, PaletteKeys.resolve("up", true, any));
+            assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("pagedown", true, any));
+            assertEquals(Action.PAGE_UP, PaletteKeys.resolve("pageup", true, any));
+        }
+        // The legend names the chords in force, and only the arrows when a row is on no key.
+        assertTrue(PaletteKeys.legend(moves).contains(KeyChord.display("C-j")));
+        assertFalse(PaletteKeys.legend(moves).contains(KeyChord.display("C-n")));
+        assertTrue(PaletteKeys.legend(java.util.Map.of()).startsWith(tr("pickerKeys.move", "↑↓")));
+    }
+
+    /** PAL-08 (Pauta 6.0.1): the first of Ctrl+H, F1 and Shift+F1 that no command is on. */
+    @Test
+    void theHelpKeyIsTheFirstOfThreeThatIsFree() {
+        assertEquals("C-h", PaletteKeys.helpKey(java.util.Set.of()));
+        assertEquals("C-h", PaletteKeys.helpKey(java.util.Set.of("C-S-t", "C-n")));
+        assertEquals("f1", PaletteKeys.helpKey(java.util.Set.of("C-h")));
+        assertEquals("S-f1", PaletteKeys.helpKey(java.util.Set.of("C-h", "f1")));
+        assertEquals(null, PaletteKeys.helpKey(java.util.Set.of("C-h", "f1", "S-f1")), "all three taken: no key");
+        assertEquals("f1", KeyChord.token(javafx.scene.input.KeyCode.F1, false, false, false, false));
+        assertEquals("C-h", KeyChord.token(javafx.scene.input.KeyCode.H, true, false, false, false));
+        // None of the defaults takes any of the three, on either system.
+        for (boolean mac : new boolean[] {false, true}) {
+            java.util.Set<String> bound = new java.util.HashSet<>();
+            Keymap.load(mac).values().forEach(chord -> bound.add(String.valueOf(KeyChord.of(chord, mac))));
+            Keymap.lists().values().forEach(chord -> bound.add(String.valueOf(KeyChord.of(chord, mac))));
+            assertEquals("C-h", PaletteKeys.helpKey(bound), mac ? "macOS" : "Windows and Linux");
+        }
+    }
+
+    @Test
+    void theFourCommandsAndTheirDefaultsAreTheListKeyMaps() {
+        assertEquals(
+                java.util.List.of("nav.lineDown", "nav.lineUp", "nav.pageDown", "nav.pageUp", "nav.cancel"),
+                java.util.List.copyOf(PaletteKeys.MOVES.keySet()));
+        assertEquals(PaletteKeys.MOVES.keySet(), Keymap.lists().keySet());
+        assertEquals(
+                java.util.Map.of(
+                        "C-n",
+                        Action.DOWN,
+                        "C-p",
+                        Action.UP,
+                        "C-v",
+                        Action.PAGE_DOWN,
+                        "M-v",
+                        Action.PAGE_UP,
+                        "C-g",
+                        Action.CANCEL),
+                DEFAULTS);
+        // They are not application chords: the window's key filter passes them over, and the
+        // platform key maps, which may bind no plain Ctrl or Alt with a letter, do not hold them.
+        for (String id : PaletteKeys.MOVES.keySet()) {
+            assertTrue(WindowRules.actsOnlyInLists(id), id);
+            assertFalse(Keymap.load(false).containsKey(id), id);
+            assertFalse(Keymap.load(true).containsKey(id), id);
+            assertTrue(Keymap.defaultFor(id) != null, id);
+        }
+        assertFalse(WindowRules.actsOnlyInLists("file.newTab"));
+        assertFalse(WindowRules.actsOnlyInLists(null));
     }
 
     @Test
     void theEmacsChordsNavigate() {
-        // Editora's Emacs keymap, token for token.
-        assertEquals(Action.DOWN, PaletteKeys.resolve("C-n", true));
-        assertEquals(Action.UP, PaletteKeys.resolve("C-p", true));
-        assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("C-v", true));
-        assertEquals(Action.PAGE_UP, PaletteKeys.resolve("M-v", true));
-        assertEquals(Action.FIRST, PaletteKeys.resolve("M-S-,", true));
-        assertEquals(Action.LAST, PaletteKeys.resolve("M-S-.", true));
-        assertEquals(Action.CANCEL, PaletteKeys.resolve("C-g", true));
+        // By default: Emacs's own, from keymaps/lists.json, cancelling included; the ends from the table.
+        assertEquals(Action.DOWN, PaletteKeys.resolve("C-n", true, DEFAULTS));
+        assertEquals(Action.UP, PaletteKeys.resolve("C-p", true, DEFAULTS));
+        assertEquals(Action.PAGE_DOWN, PaletteKeys.resolve("C-v", true, DEFAULTS));
+        assertEquals(Action.PAGE_UP, PaletteKeys.resolve("M-v", true, DEFAULTS));
+        assertEquals(Action.FIRST, PaletteKeys.resolve("M-S-,", true, DEFAULTS));
+        assertEquals(Action.LAST, PaletteKeys.resolve("M-S-.", true, DEFAULTS));
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("C-g", true, DEFAULTS));
     }
 
     @Test
     void anythingElseIsTyping() {
-        assertEquals(Action.NONE, PaletteKeys.resolve("a", true));
-        assertEquals(Action.NONE, PaletteKeys.resolve("n", true), "a bare n is a letter, not next");
-        assertEquals(Action.NONE, PaletteKeys.resolve("C-a", true), "C-a is the query field's line start");
-        assertEquals(Action.NONE, PaletteKeys.resolve("C-S-n", true), "the Emacs chords are unshifted");
-        assertEquals(Action.NONE, PaletteKeys.resolve(null, true), "a modifier on its own");
+        assertEquals(Action.NONE, PaletteKeys.resolve("a", true, DEFAULTS));
+        assertEquals(Action.NONE, PaletteKeys.resolve("n", true, DEFAULTS), "a bare n is a letter, not next");
+        assertEquals(Action.NONE, PaletteKeys.resolve("C-a", true, DEFAULTS), "C-a is the query field's line start");
+        assertEquals(Action.NONE, PaletteKeys.resolve("C-S-n", true, DEFAULTS), "the Emacs chords are unshifted");
+        assertEquals(Action.NONE, PaletteKeys.resolve(null, true, DEFAULTS), "a modifier on its own");
     }
 
     @Test
@@ -81,6 +167,23 @@ class PaletteKeysTest {
         assertEquals(1, PaletteKeys.target(Action.PAGE_DOWN, 0, 20, 0), "a page is never less than one row");
     }
 
+    /**
+     * PAL-07, QOPEN-07, MLOG-03 (Pauta 6.0.1): a list is cancelled on the chord the bindings give
+     * the cancel command, and on Escape whatever is bound; no letter is fixed for it.
+     */
+    @Test
+    void cancellingIsOnTheChordBoundToItsCommandAndOnEscape() {
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("escape", true, DEFAULTS));
+        java.util.Map<String, Action> moved = PaletteKeys.moves(java.util.Map.of("nav.cancel", "C-q")::get);
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("C-q", true, moved));
+        assertEquals(Action.NONE, PaletteKeys.resolve("C-g", true, moved), "the chord it was on does nothing");
+        assertEquals(Action.CANCEL, PaletteKeys.resolve("escape", true, moved));
+        assertFalse(PaletteKeys.EMACS.containsValue(Action.CANCEL));
+        // The legend names the chord in force beside Esc, and Esc alone when there is none.
+        assertTrue(PaletteKeys.legend(moved).endsWith(tr("pickerKeys.cancel", "Esc / " + KeyChord.display("C-q"))));
+        assertTrue(PaletteKeys.legend(java.util.Map.of()).endsWith(tr("pickerKeys.cancel", "Esc")));
+    }
+
     @Test
     void nonNavigationAndEmptyListsHaveNoTarget() {
         assertEquals(-1, PaletteKeys.target(Action.ACCEPT, 0, 3, 8));
@@ -98,15 +201,18 @@ class PaletteKeysTest {
         assertEquals(
                 tr("pickerKeys.move", move) + "  ·  " + tr("pickerKeys.run", "↵") + "  ·  "
                         + tr("pickerKeys.cancel", cancel),
-                PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
-        assertTrue(PaletteKeys.legend().contains("Ctrl") || PaletteKeys.legend().contains("⌃"), "a real key name");
+                PaletteKeys.legend(DEFAULTS, PaletteKeys.hint("run", "↵")));
+        assertTrue(
+                PaletteKeys.legend(DEFAULTS).contains("Ctrl")
+                        || PaletteKeys.legend(DEFAULTS).contains("⌃"),
+                "a real key name");
     }
 
     @Test
     void anEntryWithNoKeyIsLeftOutNotShownKeyless() {
         assertNull(PaletteKeys.hint("run", ""));
         assertNull(PaletteKeys.hint("run", null));
-        String legend = PaletteKeys.legend((String) null);
+        String legend = PaletteKeys.legend(DEFAULTS, (String) null);
         assertEquals(2, legend.split("  ·  ").length, legend);
     }
 }

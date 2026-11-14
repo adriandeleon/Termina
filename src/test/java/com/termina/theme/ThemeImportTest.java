@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Every format reads the same scheme to the same colours. The fixtures are Dracula (MIT) written
@@ -129,6 +130,88 @@ class ThemeImportTest {
         assertEquals(scheme, back);
     }
 
+    /** SET-09 (Pauta 6.0.1): the stored file carries a version, and the older forms still read. */
+    @Test
+    void ourOwnFileCarriesItsSchemaVersionAndAnOlderOneStillReads() throws Exception {
+        ColorScheme scheme = only("Dracula.itermcolors");
+        String written = ThemeFile.write(scheme);
+        assertEquals(2, ThemeFile.SCHEMA_VERSION);
+        assertEquals(ThemeFile.SCHEMA_VERSION, ThemeFile.versionOf(written));
+        assertFalse(ThemeFile.isLegacy(written));
+
+        // Until 0.15 the file was a properties file: version 1, or 0 from before it had a version.
+        String one = asProperties(scheme, true);
+        String zero = asProperties(scheme, false);
+        assertTrue(ThemeFile.isLegacy(one));
+        assertEquals(1, ThemeFile.versionOf(one));
+        assertEquals(0, ThemeFile.versionOf(zero));
+        assertEquals(scheme, ThemeFile.read(one));
+        assertEquals(scheme, ThemeFile.read(zero));
+        assertEquals(scheme, ThemeFile.read("\uFEFF" + one), "an editor's byte-order mark is passed over");
+
+        assertEquals(0, ThemeFile.versionOf("schemaVersion=soon\n"));
+        assertEquals(7, ThemeFile.versionOf("schemaVersion = 7\n"));
+        assertEquals(9, ThemeFile.versionOf("{\"schemaVersion\": 9}"));
+        assertEquals(0, ThemeFile.versionOf("{\"schemaVersion\": \"soon\"}"));
+        assertEquals(0, ThemeFile.versionOf("{ not json"));
+    }
+
+    /** The file before 0.15, as that build wrote it. */
+    private static String asProperties(ColorScheme scheme, boolean versioned) {
+        StringBuilder out = new StringBuilder("# A colour scheme imported into Termina.\n");
+        if (versioned) out.append("schemaVersion=1\n");
+        out.append("name=").append(scheme.name()).append('\n');
+        out.append("background=").append(ColorScheme.hex(scheme.background())).append('\n');
+        out.append("foreground=").append(ColorScheme.hex(scheme.foreground())).append('\n');
+        if (scheme.cursor() != null)
+            out.append("cursor=").append(ColorScheme.hex(scheme.cursor())).append('\n');
+        if (scheme.selection() != null)
+            out.append("selection=").append(ColorScheme.hex(scheme.selection())).append('\n');
+        for (int i = 0; i < 16; i++)
+            out.append("ansi.")
+                    .append(i)
+                    .append('=')
+                    .append(ColorScheme.hex(scheme.ansi()[i]))
+                    .append('\n');
+        return out.toString();
+    }
+
+    /** PLAT-14 (Pauta 6.0.1): the file is JSON, read and written by Jackson as a plain class. */
+    @Test
+    void ourOwnFileIsJsonReadAndWrittenByTheObjectMapper() throws Exception {
+        ColorScheme scheme = new ColorScheme("Night \"owl\"", 0x101010, 0xf0f0f0, DRACULA, null, 0x334455);
+        String written = ThemeFile.write(scheme);
+        ThemeFile.Stored stored = com.termina.config.ConfigJson.mapper().readValue(written, ThemeFile.Stored.class);
+        assertEquals(ThemeFile.SCHEMA_VERSION, stored.schemaVersion);
+        assertEquals("Night \"owl\"", stored.name);
+        assertEquals("#101010", stored.background);
+        assertEquals("#334455", stored.selection);
+        assertEquals(16, stored.ansi.size());
+        assertFalse(written.contains("cursor"), "a colour the scheme lacks is not in the file");
+        assertTrue(written.indexOf("schemaVersion") < written.indexOf("name"), written);
+        assertTrue(written.indexOf("selection") < written.indexOf("ansi"), written);
+        assertEquals(scheme, ThemeFile.read(written));
+
+        // A field a later build added is passed over; what is not a theme is refused.
+        assertEquals(scheme, ThemeFile.read(written.replaceFirst("\\{", "{ \"later\" : [1, 2],")));
+        assertThrows(ThemeImportException.class, () -> ThemeFile.read("{\"name\": \"x\"}"));
+        assertThrows(ThemeImportException.class, () -> ThemeFile.read("{\"ansi\": \"red\"}"));
+        assertThrows(ThemeImportException.class, () -> ThemeFile.read("{ not json"));
+        assertThrows(ThemeImportException.class, () -> ThemeFile.read(written.replace("\"#101010\"", "\"red\"")));
+
+        String source =
+                java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/termina/theme/ThemeFile.java"));
+        assertTrue(source.contains("ConfigJson.mapper()"));
+        for (String byHand : java.util.List.of("JsonGenerator", "JsonParser", "JsonFactory", "StringBuilder")) {
+            assertFalse(source.contains(byHand), byHand);
+        }
+    }
+
+    @Test
+    void everyVersionBelowTheCurrentHasItsMigrationStep() {
+        assertEquals(ThemeFile.SCHEMA_VERSION, ThemeFile.MIGRATIONS.size());
+    }
+
     @Test
     void aNameThatLooksLikeAPropertiesCommentSurvivesTheRoundTrip() throws Exception {
         ColorScheme scheme = new ColorScheme("# not a comment\\", 0, 0xffffff, DRACULA, null, null);
@@ -229,9 +312,5 @@ class ThemeImportTest {
     void aCycleIsStillRefused() {
         byte[] file = bplist(List.of(array(1), array(0)));
         assertThrows(ThemeImportException.class, () -> BinaryPlist.parse(file));
-    }
-
-    private static void assertTrue(boolean condition) {
-        org.junit.jupiter.api.Assertions.assertTrue(condition);
     }
 }

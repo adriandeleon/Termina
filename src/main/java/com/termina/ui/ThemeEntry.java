@@ -28,6 +28,11 @@ public final class ThemeEntry {
         this.file = file;
     }
 
+    /** This theme under another id and name: what a picker shows for "Follow the System". */
+    ThemeEntry as(String otherId, String otherName) {
+        return new ThemeEntry(otherId, otherName, dark, chrome, palette, file);
+    }
+
     static ThemeEntry of(Theme theme) {
         return new ThemeEntry(theme.id(), theme.displayName(), theme.isDark(), theme.chrome(), theme.palette(), null);
     }
@@ -70,10 +75,13 @@ public final class ThemeEntry {
         return file;
     }
 
+    /** The control theme this entry draws windows in: an Editora sheet, through AtlantaFX. */
+    ChromeTheme chromeTheme() {
+        return new ChromeTheme(chrome, dark);
+    }
+
     /** The control stylesheet URL, for {@code Application.setUserAgentStylesheet}. */
     public String stylesheet() {
-        var url = ThemeEntry.class.getResource("/com/termina/styles/" + chrome + ".css");
-        if (url == null) throw new IllegalStateException("missing stylesheet for theme " + id);
-        return url.toExternalForm();
+        return chromeTheme().stylesheetUrl();
     }
 }

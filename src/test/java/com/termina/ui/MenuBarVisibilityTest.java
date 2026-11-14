@@ -8,12 +8,15 @@ import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Whether the menu bar takes up a row in the window. */
+@Tag("fx")
 class MenuBarVisibilityTest {
 
     /**
@@ -35,8 +38,8 @@ class MenuBarVisibilityTest {
 
     @Test
     void inWindowMenuBarFollowsTheSetting() {
-        assertTrue(TerminalWindow.menuBarOccupiesSpace(false, true));
-        assertFalse(TerminalWindow.menuBarOccupiesSpace(false, false));
+        assertTrue(WindowRules.menuBarOccupiesSpace(false, true));
+        assertFalse(WindowRules.menuBarOccupiesSpace(false, false));
     }
 
     @Test
@@ -44,8 +47,8 @@ class MenuBarVisibilityTest {
         // The node stays in the scene graph because that is what JavaFX forwards to the system
         // bar, but leaving it measurable costs a band of empty chrome above the terminal — which
         // is exactly the bug this rule was extracted from.
-        assertFalse(TerminalWindow.menuBarOccupiesSpace(true, true));
-        assertFalse(TerminalWindow.menuBarOccupiesSpace(true, false));
+        assertFalse(WindowRules.menuBarOccupiesSpace(true, true));
+        assertFalse(WindowRules.menuBarOccupiesSpace(true, false));
     }
 
     @Test
@@ -53,37 +56,37 @@ class MenuBarVisibilityTest {
         // Read by two menus — the View menu's Hide item and the right-click menu's checkbox — which
         // is the whole reason it is a named rule rather than an `if` in each of them. Offering it
         // in one place and not the other reads as a bug in whichever you looked at first.
-        assertTrue(TerminalWindow.offersMenuBarToggle(false));
-        assertFalse(TerminalWindow.offersMenuBarToggle(true));
+        assertTrue(WindowRules.offersMenuBarToggle(false));
+        assertFalse(WindowRules.offersMenuBarToggle(true));
     }
 
+    /** OS-01 (Pauta 6.0.1): where the bar cannot be hidden the command stays and says why. */
     @Test
-    void theZoomRowIsOnlyOfferedWhereJavaFxCanDrawIt() {
-        // Not a preference. The row is a CustomMenuItem, and one of those anywhere in the bar makes
-        // JavaFX decline useSystemMenuBar for all of it — which, with the in-window bar collapsed on
-        // macOS, left a Mac with no menus at all.
-        assertTrue(TerminalWindow.showsZoomRow(false));
-        assertFalse(TerminalWindow.showsZoomRow(true));
+    void underASystemMenuBarTheToggleIsUnavailableWithAReasonTheCatalogHas() {
+        assertEquals(null, WindowRules.menuBarToggleUnavailableKey(false));
+        String key = WindowRules.menuBarToggleUnavailableKey(true);
+        assertEquals("settings.showMenuBar.mac", key);
+        assertFalse(com.termina.i18n.Messages.tr(key).equals(key), "the reason is in the catalog");
     }
 
     @Test
     void theMenuBarJoinsTheTitleBarOnlyWhereAllThreeAgree() {
-        assertTrue(TerminalWindow.usesHeaderBar(false, true, true));
+        assertTrue(WindowRules.usesHeaderBar(false, true, true));
         // Off is off.
-        assertFalse(TerminalWindow.usesHeaderBar(false, false, true));
+        assertFalse(WindowRules.usesHeaderBar(false, false, true));
         // Under a screen menu bar there is nothing to merge; an extended window would be a bare
         // strip under the traffic lights.
-        assertFalse(TerminalWindow.usesHeaderBar(true, true, true));
+        assertFalse(WindowRules.usesHeaderBar(true, true, true));
         // JavaFX downgrades an unsupported EXTENDED to DECORATED without a word, which would put
         // our header bar under the native title bar as a second row.
-        assertFalse(TerminalWindow.usesHeaderBar(false, true, false));
+        assertFalse(WindowRules.usesHeaderBar(false, true, false));
     }
 
     @Test
     void theTitleBarOptionIsOfferedExactlyWhereItCouldDoSomething() {
-        assertTrue(TerminalWindow.offersHeaderBarOption(false, true));
-        assertFalse(TerminalWindow.offersHeaderBarOption(true, true));
-        assertFalse(TerminalWindow.offersHeaderBarOption(false, false));
+        assertTrue(WindowRules.offersHeaderBarOption(false, true));
+        assertFalse(WindowRules.offersHeaderBarOption(true, true));
+        assertFalse(WindowRules.offersHeaderBarOption(false, false));
     }
 
     @Test

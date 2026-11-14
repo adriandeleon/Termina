@@ -6,7 +6,7 @@
 
     <groupId>com.termina</groupId>
     <artifactId>termina</artifactId>
-    <version>0.15.0-SNAPSHOT</version>
+    <version>0.16.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Termina</name>
@@ -19,11 +19,18 @@
              filtered into a resource directly. -->
         <maven.build.timestamp.format>yyyy-MM-dd HH:mm 'UTC'</maven.build.timestamp.format>
         <build.timestamp>${maven.build.timestamp}</build.timestamp>
+        <!-- The edition of the Pauta guidelines (https://pauta-project.dev) this app implements.
+             One number, filtered into build-info.properties: About, the version option, AGENTS.md and the
+             README all name it. Moving to a newer edition is its own change: replace
+             src/test/resources/pauta-rules.json with that edition's, audit again, update pauta.json,
+             then change this, AGENTS.md and the README together. What is still unmet is in
+             src/main/resources/com/termina/pauta.json. -->
+        <pauta.version>6.1.0</pauta.version>
 
         <javafx.version>27.0.1</javafx.version>
-        <spotless.version>3.10.4</spotless.version>
+        <spotless.version>3.11.0</spotless.version>
         <palantir.version>2.102.0</palantir.version>
-        <jacoco.version>0.8.15</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <javafx.plugin.version>0.0.8</javafx.plugin.version>
 
         <!-- Prism pipeline order (-Dprism.order). Set per-OS in the os-* profiles:
@@ -31,6 +38,23 @@
              windows=d3d,es2,sw (keep Direct3D), linux=es2,sw. This default covers
              profile-less builds (e.g. plain `mvn test`, which doesn't render). -->
         <prism.pipeline>es2,sw</prism.pipeline>
+        <!-- The whole-build coverage floors (jacoco-check). No profile changes them (PLAT-12,
+             Pauta 6.0.1); the Windows CI runner passes lower ones on its command line. -->
+        <coverage.bundle.line>0.90</coverage.bundle.line>
+        <coverage.bundle.method>0.90</coverage.bundle.method>
+        <coverage.bundle.branch>0.73</coverage.bundle.branch>
+        <!-- The large packages' own line floors (QUAL-03, Pauta 6.0.1), a few points under what
+             Linux measures (ui 0.917, com.termina 0.872, term 0.930). Properties, because Windows
+             skips the tests that drive real shells and windows and measures far lower: its runner
+             passes its own with -D, as it does the build-wide ones. -->
+        <coverage.package.ui>0.87</coverage.package.ui>
+        <coverage.package.root>0.82</coverage.package.root>
+        <coverage.package.term>0.88</coverage.package.term>
+        <!-- ui.MacAppMenu reaches the macOS application menu through a package only macOS's JavaFX
+             has; opening it elsewhere warns on every launch. The os-mac profile sets the real
+             option; elsewhere this repeats an export already given, which is harmless, because an
+             empty launcher option is not. -->
+        <glass.mac.opens>--add-exports=javafx.graphics/com.sun.glass.ui=com.termina</glass.mac.opens>
         <!-- Overridden per-OS below; jpackage wants .icns on macOS, .ico on Windows, .png on Linux. -->
         <jpackage.icon>${project.basedir}/branding/termina.png</jpackage.icon>
         <skip.mac.version.fix>true</skip.mac.version.fix>
@@ -55,8 +79,10 @@
 
         <!-- The release-check response is a large JSON document with user-authored text in it, so
              it gets a real parser. Hand-rolling one to save a dependency would mean hand-rolling
-             string-escape handling, which is the entire hard part. jackson-core only — no
-             databind, and it is already a proper JPMS module, so jlink links it without moditect. -->
+             string-escape handling, which is the entire hard part. jackson-databind as well since
+             0.15: the config files are read and written through ObjectMapper as plain classes
+             (PLAT-14, Pauta 6.0.1). All three Jackson jars are proper JPMS modules, so jlink links
+             them without moditect. -->
         <jackson.version>2.22.4</jackson.version>
 
         <junit.version>6.1.3</junit.version>
@@ -65,8 +91,8 @@
              @NullMarked package of the main compile and fails the build on a null it cannot prove safe.
              JSpecify supplies the annotations. Error Prone reaches into javac, hence .mvn/jvm.config. -->
         <jspecify.version>1.0.1</jspecify.version>
-        <errorprone.version>2.50.0</errorprone.version>
-        <nullaway.version>0.14.2</nullaway.version>
+        <errorprone.version>2.52.0</errorprone.version>
+        <nullaway.version>0.14.3</nullaway.version>
 
         <!-- dist profile only -->
         <moditect.version>1.3.0.Final</moditect.version>
@@ -153,18 +179,33 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
-        <!-- Without a binding slf4j prints a "no providers" warning and drops every log line.
-             simple writes to stderr; swap for a real backend when there's somewhere to write to. -->
+        <!-- Without a binding slf4j prints a "no providers" warning and drops every log line. The
+             java.util.logging binding hands JediTerm's and pty4j's records to the same root logger
+             the Debug Log listens on (DIAG-02, Pauta 2.0.2); slf4j-simple wrote them to a stderr
+             nobody reads in a packaged app. -->
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
+            <artifactId>slf4j-jdk14</artifactId>
             <version>${slf4j.version}</version>
             <scope>runtime</scope>
         </dependency>
 
+        <!-- The control themes (PLAT-05, Pauta 2.0.2): AtlantaFX's Theme API, its Styles names, and
+             its own Primer themes, which stand in when a bundled sheet cannot be found. The Editora
+             sheets in styles/ are AtlantaFX community themes, as in Editora. -->
+        <dependency>
+            <groupId>io.github.mkpaz</groupId>
+            <artifactId>atlantafx-base</artifactId>
+            <version>3.0.0</version>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
 
@@ -207,6 +248,56 @@
             </resource>
         </resources>
         <plugins>
+            <!-- A release build precompiles the stylesheets into target/classes (PERF-17, the dist
+                 profile's compile-styles), and JavaFX, asked for app.css, loads the app.bss beside
+                 it without looking at which is newer. So every build starts by removing them: left
+                 behind, they hide each later edit to a stylesheet until the next clean. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>drop-stale-bss</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>clean</goal></goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.outputDirectory}/com/termina/styles</directory>
+                                    <includes><include>*.bss</include></includes>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- The JDK floor as a check, not only as maven.compiler.release (PLAT-01, Pauta 2.0.2):
+                 an older JDK otherwise gets as far as an obscure compiler error. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.7.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-build-environment</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>[3.9.0,4.0.0)</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>[25,)</version>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
@@ -279,6 +370,36 @@
                         <configuration>
                             <haltOnFailure>true</haltOnFailure>
                             <rules>
+                                <!--
+                                  The whole build (PLAT-12, Pauta 2.0.2): 0.90 lines and 0.90 methods, as
+                                  the rule asks, and branches as a net under what is measured. Linux
+                                  measures 90.2% lines, 91.1% methods and 74.6% branches, most of it
+                                  from headless tests that drive the real windows on real shells.
+                                  Windows skips those (its shell path has never run) and measures far
+                                  lower. No profile lowers the floors for it: the pom has one set of
+                                  numbers, and the workflow's Windows runner passes its own with -D
+                                  (ci.yml), which is that runner's choice and says so where it is made.
+                                -->
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.bundle.line}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>METHOD</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.bundle.method}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.bundle.branch}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
                                 <!-- The command line: pure parsing, fully covered (100%). -->
                                 <rule>
                                     <element>PACKAGE</element>
@@ -395,21 +516,53 @@
                                     </limits>
                                 </rule>
                                 <!--
-                                  com.termina.ui, com.termina, com.termina.term and com.termina.pty
-                                  are deliberately ungated. The last two are covered by an
-                                  integration test that starts a real shell, which only runs on
-                                  POSIX; gating them would encode "this build ran on Unix". The ui
-                                  package is 7,600 lines of which the great majority is the renderer,
-                                  the window and the settings sheet — toolkit code a headless suite
-                                  cannot reach — so a package-level number there says nothing about
-                                  whether the tested parts of it are still tested. Its pure pieces
-                                  (the matcher, the cell arithmetic, the tab layout, the palette
-                                  ranking) are covered individually. com.termina is the JavaFX entry
-                                  point and the capture harness.
-
-                                  The way to raise ui is to keep pulling decisions out into pure
-                                  classes and testing those, not to lower the bar until it passes.
+                                  The three large packages that had no floor of their own (QUAL-03,
+                                  Pauta 6.0.1). They were left out while most of ui was toolkit code
+                                  no headless test reached; the FX suite reaches it now. Their
+                                  coverage does vary by platform, since the tests that start a real
+                                  shell are POSIX-only, so the floors are properties: the Windows
+                                  runner passes its own. com.termina.pty is under 300 lines and has
+                                  none.
                                 -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.ui</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.package.ui}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.package.root}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.termina.term</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.package.term}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
                             </rules>
                         </configuration>
                     </execution>
@@ -453,11 +606,28 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.6.1</version>
                 <configuration>
                     <!-- Tests run on the classpath (unnamed module) so they can reach
                          package-private members and setAccessible freely. -->
                     <useModulePath>false</useModulePath>
+                    <!-- The FX tests share one toolkit and leave windows behind, so the order they
+                         run in is part of what they test. The default is the order the filesystem
+                         lists the classes in, which differs from one machine to the next: a test
+                         that only failed after certain others passed on a laptop and failed on
+                         every runner. One order everywhere. -->
+                    <runOrder>alphabetical</runOrder>
+                    <!-- Every FX test runs on JavaFX's Headless glass platform (PLAT-11, Pauta 2.0.2):
+                         no display, no Monocle, no xvfb, the same on a laptop and a runner. The
+                         tests also set it themselves, for a run from an IDE. -->
+                    <systemPropertyVariables>
+                        <glass.platform>Headless</glass.platform>
+                        <prism.order>sw</prism.order>
+                        <!-- Headless has no screen menu bar, so on a Mac the window's menus have nowhere
+                             to go but the window: the same bar, items and toggle the other platforms
+                             test. The screen menu bar itself is checked on a Mac, by hand. -->
+                        <termina.forceInWindowMenuBar>true</termina.forceInWindowMenuBar>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
 
@@ -466,13 +636,17 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>${javafx.plugin.version}</version>
                 <configuration>
-                    <mainClass>com.termina/com.termina.App</mainClass>
+                    <mainClass>com.termina/com.termina.Main</mainClass>
                     <options>
                         <!-- JNA loads the pty4j native library through System.load. Without this the
                              JDK warns on every launch, and it says the call will be blocked outright
                              in a future release. ALL-UNNAMED is needed because this plugin puts the
                              non-required jars on the classpath rather than the module path. -->
                         <option>--enable-native-access=javafx.graphics,ALL-UNNAMED</option>
+                        <!-- The About item in the macOS application menu, which JavaFX has no API
+                             for (ui.MacAppMenu). Without them that item is missing, nothing else. -->
+                        <option>--add-exports=javafx.graphics/com.sun.glass.ui=com.termina</option>
+                        <option>${glass.mac.opens}</option>
                         <option>-Dprism.order=${prism.pipeline}</option>
                                 <!-- $APPDIR is the app directory of the installed image, so this
                                      survives being moved. Under the default AOTMode=auto a missing
@@ -494,6 +668,7 @@
             <activation><os><family>mac</family></os></activation>
             <properties>
                 <prism.pipeline>mtl,es2,sw</prism.pipeline>
+                <glass.mac.opens>--add-opens=javafx.graphics/com.sun.glass.ui.mac=com.termina</glass.mac.opens>
                 <jpackage.icon>${project.basedir}/branding/termina.icns</jpackage.icon>
                 <skip.mac.version.fix>false</skip.mac.version.fix>
                 <jpackage.imageName>Termina.app</jpackage.imageName>
@@ -506,6 +681,35 @@
                 <prism.pipeline>d3d,es2,sw</prism.pipeline>
                 <jpackage.icon>${project.basedir}/branding/termina.ico</jpackage.icon>
             </properties>
+            <build>
+                <plugins>
+                    <!--
+                      CLI-11 (Pauta 6.0.1): Termina.exe is a GUI program with no console, so the
+                      image also carries termina-cli.exe, the same entry point as a console
+                      program. Merged into the dist profile's app-image execution, which has the
+                      goal and the rest of the configuration; without -Pdist this binds nothing.
+                      Windows only: on Linux a second launcher would become a second desktop entry.
+                    -->
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <version>${jpackage.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>app-image</id>
+                                <configuration>
+                                    <launchers>
+                                        <launcher>
+                                            <name>termina-cli</name>
+                                            <file>${project.basedir}/packaging/windows/termina-cli.properties</file>
+                                        </launcher>
+                                    </launchers>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
         <profile>
             <id>os-linux</id>
@@ -638,7 +842,7 @@
                         <!-- Held at 3.1.0: 3.2.0 warns once per Maven property that
                              exportAntProperties would carry back, which is every property in
                              this pom, and offers nothing the executions below need. -->
-                        <version>3.1.0</version>
+                        <version>3.2.0</version>
                         <executions>
                             <execution>
                                 <!--
@@ -728,7 +932,7 @@
                                     <vendor>Termina</vendor>
                                     <icon>${jpackage.icon}</icon>
                                     <destination>${project.build.directory}/dist</destination>
-                                    <module>com.termina/com.termina.App</module>
+                                    <module>com.termina/com.termina.Main</module>
                                     <modulePaths>
                                         <modulePath>${project.build.directory}/mods</modulePath>
                                     </modulePaths>
@@ -743,10 +947,13 @@
                                         module path.
                                     -->
                                     <addModules>
-                                        <addModule>org.slf4j.simple</addModule>
+                                        <addModule>org.slf4j.jul</addModule>
                                     </addModules>
                                     <javaOptions>
                                         <javaOption>--enable-native-access=javafx.graphics,com.sun.jna</javaOption>
+                                        <!-- ui.MacAppMenu: About in the macOS application menu. -->
+                                        <javaOption>--add-exports=javafx.graphics/com.sun.glass.ui=com.termina</javaOption>
+                                        <javaOption>${glass.mac.opens}</javaOption>
                                         <javaOption>-Dprism.order=${prism.pipeline}</javaOption>
                                         <!-- $APPDIR is the installed image's app directory, so this
                                              survives the bundle being moved. Under the default
@@ -809,6 +1016,22 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.4</version>
                 <executions>
+                    <execution>
+                        <!--
+                          PERF-17 (Pauta 6.0.1): each stylesheet gets a .bss beside it, which
+                          JavaFX loads without parsing. On the compiled resources, before the jar
+                          that jlink links is made, so the image carries both forms.
+                        -->
+                        <id>compile-styles</id>
+                        <phase>process-classes</phase>
+                        <goals><goal>java</goal></goals>
+                        <configuration>
+                            <mainClass>com.termina.ui.StyleCompiler</mainClass>
+                            <arguments>
+                                <argument>${project.build.outputDirectory}/com/termina/styles</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <!--
                           First after jpackage, and before training and the macOS re-sign, so the
@@ -911,6 +1134,52 @@
                 </executions>
             </plugin>
         </plugins>
+            </build>
+        </profile>
+        <!-- The commit a build came from, for About and -v (ABOUT-02, Pauta 2.0.2), asked of git in
+             the project folder and written beside build-info.properties. Not a plugin's idea of
+             it: git-commit-id walked up from a worktree nested in the main checkout and reported
+             the main checkout's commit, and buildnumber-maven-plugin reports the last commit that
+             is not a merge. Active only where there is a .git (a directory, or a worktree's file):
+             a build from a source archive names no commit rather than failing. -->
+        <profile>
+            <id>git-commit</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/.git</exists>
+                </file>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.4</version>
+                        <executions>
+                            <execution>
+                                <id>git-commit</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>git</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <!-- The abbreviated hash, -dirty when the tree has changes. The
+                                         match excludes every tag, so a tag never replaces it. -->
+                                    <arguments>
+                                        <argument>describe</argument>
+                                        <argument>--always</argument>
+                                        <argument>--dirty=-dirty</argument>
+                                        <argument>--abbrev=10</argument>
+                                        <argument>--match=no-tag-matches-this</argument>
+                                    </arguments>
+                                    <outputFile>${project.build.outputDirectory}/com/termina/commit.txt</outputFile>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
             </build>
         </profile>
     </profiles>

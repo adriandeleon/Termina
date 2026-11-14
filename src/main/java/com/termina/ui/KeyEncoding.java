@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
  * <p>That encoder speaks AWT's key codes and extended modifier masks. Those constants are
  * reproduced here as literals rather than referenced from {@code java.awt.event} on purpose:
  * touching an AWT event class can initialise the AWT toolkit, and on macOS an initialised AWT
- * contends with JavaFX for the single AppKit run loop (see {@code App.main}). The values are fixed
+ * contends with JavaFX for the single AppKit run loop (see {@code Main.main}). The values are fixed
  * by the AWT specification and cannot drift.
  */
 public final class KeyEncoding {

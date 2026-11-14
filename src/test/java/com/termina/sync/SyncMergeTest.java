@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 /** The three-way merge, one command at a time. */
 class SyncMergeTest {
 
-    private static final String PATH = KeybindingsFile.OTHER_PATH;
+    private static final String PATH = KeybindingsFile.PATH;
 
     private static String file(Map<String, String> bindings) {
         return KeybindingsFile.text(PATH, bindings);
@@ -19,50 +19,67 @@ class SyncMergeTest {
 
     @Test
     void twoComputersRebindingDifferentCommandsBothKeepTheirWork() {
-        String base = file(Map.of("newTab", "Ctrl+Shift+Y"));
-        String mine = file(Map.of("newTab", "Ctrl+Shift+Y", "copy", "Ctrl+Alt+C"));
-        String theirs = file(Map.of("newTab", "Ctrl+Shift+Y", "paste", "Ctrl+Alt+V"));
+        String base = file(Map.of("file.newTab", "Ctrl+Shift+Y"));
+        String mine = file(Map.of("file.newTab", "Ctrl+Shift+Y", "edit.copy", "Ctrl+Alt+C"));
+        String theirs = file(Map.of("file.newTab", "Ctrl+Shift+Y", "edit.paste", "Ctrl+Alt+V"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
 
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y", "copy", "Ctrl+Alt+C", "paste", "Ctrl+Alt+V"), r.merged());
-        assertEquals(List.of("paste"), r.received());
-        assertEquals(List.of("copy"), r.sent());
+        assertEquals(
+                Map.of("file.newTab", "Ctrl+Shift+Y", "edit.copy", "Ctrl+Alt+C", "edit.paste", "Ctrl+Alt+V"),
+                r.merged());
+        assertEquals(List.of("edit.paste"), r.received());
+        assertEquals(List.of("edit.copy"), r.sent());
+        assertEquals(List.of(), r.conflicts());
+    }
+
+    @Test
+    void aCommandUnderItsOldIdOnOneSideAndItsNewOneOnTheOtherIsOneCommand() {
+        // This computer has renamed Command Palette's id; the other, on an older Termina, has not.
+        String base = "commandPalette=Alt+X\n";
+        String mine = "palette.show=Alt+X\n";
+        String theirs = "commandPalette=Alt+X\ncopy=Ctrl+Alt+C\n";
+
+        SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
+
+        assertEquals(Map.of("palette.show", "Alt+X", "edit.copy", "Ctrl+Alt+C"), r.merged());
+        assertEquals(List.of("edit.copy"), r.received());
+        assertEquals(List.of(), r.sent());
         assertEquals(List.of(), r.conflicts());
     }
 
     @Test
     void aRemovalOnEitherSideIsCarriedOver() {
         // Putting a command back on its default removes its line; that is a change like any other.
-        String base = file(Map.of("newTab", "Ctrl+Shift+Y", "copy", "Ctrl+Alt+C"));
-        String mine = file(Map.of("copy", "Ctrl+Alt+C"));
-        String theirs = file(Map.of("newTab", "Ctrl+Shift+Y"));
+        String base = file(Map.of("file.newTab", "Ctrl+Shift+Y", "edit.copy", "Ctrl+Alt+C"));
+        String mine = file(Map.of("edit.copy", "Ctrl+Alt+C"));
+        String theirs = file(Map.of("file.newTab", "Ctrl+Shift+Y"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
 
         assertEquals(Map.of(), r.merged());
         assertNull(r.text());
-        assertEquals(List.of("copy"), r.received());
-        assertEquals(List.of("newTab"), r.sent());
+        assertEquals(List.of("edit.copy"), r.received());
+        assertEquals(List.of("file.newTab"), r.sent());
     }
 
     @Test
     void theSameCommandChangedOnBothSidesKeepsThisComputersChord() {
-        String base = file(Map.of("newTab", "Ctrl+Shift+Y"));
-        String mine = file(Map.of("newTab", "Ctrl+Alt+T"));
-        String theirs = file(Map.of("newTab", "Ctrl+Shift+N"));
+        String base = file(Map.of("file.newTab", "Ctrl+Shift+Y"));
+        String mine = file(Map.of("file.newTab", "Ctrl+Alt+T"));
+        String theirs = file(Map.of("file.newTab", "Ctrl+Shift+N"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
 
-        assertEquals(Map.of("newTab", "Ctrl+Alt+T"), r.merged());
-        assertEquals(List.of("newTab"), r.sent());
-        assertEquals(List.of("newTab"), r.conflicts());
+        assertEquals(Map.of("file.newTab", "Ctrl+Alt+T"), r.merged());
+        assertEquals(List.of("file.newTab"), r.sent());
+        assertEquals(List.of("file.newTab"), r.conflicts());
     }
 
     @Test
     void bothMakingTheSameChangeIsNoConflict() {
-        String base = file(Map.of("newTab", "Ctrl+Shift+Y"));
-        String both = file(Map.of("newTab", "Ctrl+Alt+T"));
+        String base = file(Map.of("file.newTab", "Ctrl+Shift+Y"));
+        String both = file(Map.of("file.newTab", "Ctrl+Alt+T"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, base, both, both);
 
@@ -74,12 +91,12 @@ class SyncMergeTest {
     @Test
     void theFirstSyncWithARepositoryRemovesNothing() {
         // No base: an entry only one side has looks added, never deleted by the other.
-        String mine = file(Map.of("copy", "Ctrl+Alt+C"));
-        String theirs = file(Map.of("paste", "Ctrl+Alt+V"));
+        String mine = file(Map.of("edit.copy", "Ctrl+Alt+C"));
+        String theirs = file(Map.of("edit.paste", "Ctrl+Alt+V"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, null, mine, theirs);
 
-        assertEquals(Map.of("copy", "Ctrl+Alt+C", "paste", "Ctrl+Alt+V"), r.merged());
+        assertEquals(Map.of("edit.copy", "Ctrl+Alt+C", "edit.paste", "Ctrl+Alt+V"), r.merged());
     }
 
     @Test
@@ -87,44 +104,66 @@ class SyncMergeTest {
         // newTab: taken from the repository. copy: rebound here, not yet sent. paste: removed there.
         // find: the same change on both sides. zoom: changed on both sides, this computer's kept.
         String base = file(Map.of(
-                "newTab", "Ctrl+Alt+0",
-                "copy", "Ctrl+Alt+C",
-                "paste", "Ctrl+Alt+V",
-                "find", "Ctrl+Alt+F",
+                "file.newTab", "Ctrl+Alt+0",
+                "edit.copy", "Ctrl+Alt+C",
+                "edit.paste", "Ctrl+Alt+V",
+                "find.show", "Ctrl+Alt+F",
                 "zoom", "Ctrl+Alt+Z"));
         String mine = file(Map.of(
-                "newTab", "Ctrl+Alt+0",
-                "copy", "Ctrl+Alt+K",
-                "paste", "Ctrl+Alt+V",
-                "find", "Ctrl+Alt+G",
+                "file.newTab", "Ctrl+Alt+0",
+                "edit.copy", "Ctrl+Alt+K",
+                "edit.paste", "Ctrl+Alt+V",
+                "find.show", "Ctrl+Alt+G",
                 "zoom", "Ctrl+Alt+1"));
-        String theirs =
-                file(Map.of("newTab", "Ctrl+Alt+N", "copy", "Ctrl+Alt+C", "find", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+2"));
+        String theirs = file(Map.of(
+                "file.newTab",
+                "Ctrl+Alt+N",
+                "edit.copy",
+                "Ctrl+Alt+C",
+                "find.show",
+                "Ctrl+Alt+G",
+                "zoom",
+                "Ctrl+Alt+2"));
 
         SyncMerge.FileResult r = SyncMerge.merge(PATH, base, mine, theirs);
 
-        assertEquals(List.of("newTab", "paste"), r.received());
-        assertEquals(List.of("copy", "zoom"), r.sent());
+        assertEquals(List.of("edit.paste", "file.newTab"), r.received());
+        assertEquals(List.of("edit.copy", "zoom"), r.sent());
         assertEquals(
-                Map.of("newTab", "Ctrl+Alt+N", "copy", "Ctrl+Alt+C", "find", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+Z"),
+                Map.of(
+                        "file.newTab",
+                        "Ctrl+Alt+N",
+                        "edit.copy",
+                        "Ctrl+Alt+C",
+                        "find.show",
+                        "Ctrl+Alt+G",
+                        "zoom",
+                        "Ctrl+Alt+Z"),
                 r.settled());
 
         // Merged again against the settled base after a lost race, only what is still this computer's
         // own goes out; a newer chord for newTab in the repository is simply taken.
         String applied = r.text();
-        String newer =
-                file(Map.of("newTab", "Ctrl+Alt+M", "copy", "Ctrl+Alt+C", "find", "Ctrl+Alt+G", "zoom", "Ctrl+Alt+2"));
+        String newer = file(Map.of(
+                "file.newTab",
+                "Ctrl+Alt+M",
+                "edit.copy",
+                "Ctrl+Alt+C",
+                "find.show",
+                "Ctrl+Alt+G",
+                "zoom",
+                "Ctrl+Alt+2"));
         SyncMerge.FileResult again = SyncMerge.merge(PATH, file(r.settled()), applied, newer);
-        assertEquals(List.of("newTab"), again.received());
-        assertEquals(List.of("copy", "zoom"), again.sent());
+        assertEquals(List.of("file.newTab"), again.received());
+        assertEquals(List.of("edit.copy", "zoom"), again.sent());
         assertEquals(List.of("zoom"), again.conflicts());
-        assertEquals("Ctrl+Alt+M", again.merged().get("newTab"));
+        assertEquals("Ctrl+Alt+M", again.merged().get("file.newTab"));
     }
 
     @Test
     void normalizingIgnoresLayoutAndComments() {
         String handEdited = "# mine\r\nnewTab = Ctrl+Shift+Y\r\n";
-        assertEquals(file(Map.of("newTab", "Ctrl+Shift+Y")), SyncMerge.normalize(PATH, handEdited));
+        assertEquals(file(Map.of("file.newTab", "Ctrl+Shift+Y")), SyncMerge.normalize(PATH, handEdited));
         assertNull(SyncMerge.normalize(PATH, null));
     }
 }

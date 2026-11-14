@@ -51,7 +51,7 @@ class SyncEngineTest {
         }
 
         String path() {
-            return KeybindingsFile.pathFor(mac);
+            return KeybindingsFile.PATH;
         }
 
         @Override
@@ -61,14 +61,16 @@ class SyncEngineTest {
 
         @Override
         public Map<String, String> read() {
-            String text = KeybindingsFile.text(path(), bindings);
+            // As the application's own target does: in the form every system shares.
+            String text = KeybindingsFile.text(path(), SharedChords.toFile(bindings, mac));
             return text == null ? Map.of() : Map.of(path(), text);
         }
 
         @Override
         public boolean apply(Map<String, String> expected, Map<String, String> changes) {
             if (refuseWrites || !Objects.equals(read().get(path()), expected.get(path()))) return false;
-            bindings = new LinkedHashMap<>(KeybindingsFile.entries(changes.get(path())));
+            bindings = new LinkedHashMap<>(
+                    SharedChords.fromFile(KeybindingsFile.entries(changes.get(path())), bindings, mac));
             writes++;
             Runnable then = duringSync;
             duringSync = null;
@@ -110,14 +112,14 @@ class SyncEngineTest {
     void aBindingChangedOnOneComputerArrivesOnTheOther() {
         Computer laptop = new Computer("laptop", false);
         Computer desktop = new Computer("desktop", false);
-        laptop.bindings.put("newTab", "Ctrl+Shift+Y");
+        laptop.bindings.put("file.newTab", "Ctrl+Shift+Y");
 
         SyncReport first = laptop.sync();
         assertEquals(SyncReport.Status.OK, first.status(), first.detail());
-        assertEquals(List.of("newTab"), first.sent());
+        assertEquals(List.of("file.newTab"), first.sent());
         assertEquals(
-                "newTab=Ctrl+Shift+Y",
-                remoteFile(KeybindingsFile.OTHER_PATH)
+                "file.newTab=Ctrl+Shift+Y",
+                remoteFile(KeybindingsFile.PATH)
                         .lines()
                         .filter(l -> !l.startsWith("#"))
                         .findFirst()
@@ -125,21 +127,21 @@ class SyncEngineTest {
 
         SyncReport second = desktop.sync();
         assertEquals(SyncReport.Status.OK, second.status(), second.detail());
-        assertEquals(List.of("newTab"), second.received());
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y"), desktop.bindings);
+        assertEquals(List.of("file.newTab"), second.received());
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), desktop.bindings);
 
-        desktop.bindings.remove("newTab"); // back to the default
-        desktop.bindings.put("copy", "Ctrl+Alt+C");
+        desktop.bindings.remove("file.newTab"); // back to the default
+        desktop.bindings.put("edit.copy", "Ctrl+Alt+C");
         assertEquals(SyncReport.Status.OK, desktop.sync().status());
         SyncReport back = laptop.sync();
         assertEquals(SyncReport.Status.OK, back.status(), back.detail());
-        assertEquals(Map.of("copy", "Ctrl+Alt+C"), laptop.bindings);
+        assertEquals(Map.of("edit.copy", "Ctrl+Alt+C"), laptop.bindings);
     }
 
     @Test
     void theRepositoryExplainsItselfAndDeclaresItsFormat() {
         Computer laptop = new Computer("laptop", false);
-        laptop.bindings.put("newTab", "Ctrl+Shift+Y");
+        laptop.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, laptop.sync().status());
 
         assertTrue(remoteFile("README.md").contains("Termina"));
@@ -152,10 +154,10 @@ class SyncEngineTest {
         Computer a = new Computer("a", false);
         Computer b = new Computer("b", false);
         Computer c = new Computer("c", false);
-        a.bindings.put("newTab", "Ctrl+Alt+0");
+        a.bindings.put("file.newTab", "Ctrl+Alt+0");
         for (Computer each : List.of(a, b, c))
             assertEquals(SyncReport.Status.OK, each.sync().status());
-        for (Computer each : List.of(a, b, c)) assertEquals(Map.of("newTab", "Ctrl+Alt+0"), each.bindings);
+        for (Computer each : List.of(a, b, c)) assertEquals(Map.of("file.newTab", "Ctrl+Alt+0"), each.bindings);
         return List.of(a, b, c);
     }
 
@@ -169,25 +171,25 @@ class SyncEngineTest {
         Computer a = all.get(0);
         Computer b = all.get(1);
         Computer c = all.get(2);
-        b.bindings.put("newTab", "Ctrl+Alt+1");
+        b.bindings.put("file.newTab", "Ctrl+Alt+1");
         assertEquals(SyncReport.Status.OK, b.sync().status());
         assertEquals(SyncReport.Status.OK, c.sync().status()); // c has v1 too
 
         // a takes v1 and has something of its own to push; c pushes v2 in between.
-        a.bindings.put("copy", "Ctrl+Alt+C");
+        a.bindings.put("edit.copy", "Ctrl+Alt+C");
         a.duringSync = () -> {
-            c.bindings.put("newTab", "Ctrl+Alt+2");
+            c.bindings.put("file.newTab", "Ctrl+Alt+2");
             assertEquals(SyncReport.Status.OK, c.sync().status());
         };
         SyncReport r = a.sync();
 
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
         assertEquals(List.of(), r.conflicts(), "the user of a never touched newTab");
-        assertEquals(List.of("newTab"), r.received(), "received once, however many rounds it took");
-        assertEquals(List.of("copy"), r.sent());
-        assertEquals(Map.of("newTab", "Ctrl+Alt+2", "copy", "Ctrl+Alt+C"), a.bindings);
-        assertEquals("Ctrl+Alt+2", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
-        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.OTHER_PATH), "copy"));
+        assertEquals(List.of("file.newTab"), r.received(), "received once, however many rounds it took");
+        assertEquals(List.of("edit.copy"), r.sent());
+        assertEquals(Map.of("file.newTab", "Ctrl+Alt+2", "edit.copy", "Ctrl+Alt+C"), a.bindings);
+        assertEquals("Ctrl+Alt+2", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
+        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.PATH), "edit.copy"));
     }
 
     @Test
@@ -195,24 +197,25 @@ class SyncEngineTest {
         List<Computer> all = threeInStep();
         Computer a = all.get(0);
         Computer c = all.get(2);
-        a.bindings.put("newTab", "Ctrl+Alt+A");
-        a.bindings.put("copy", "Ctrl+Alt+C");
-        c.bindings.put("paste", "Ctrl+Alt+V");
+        a.bindings.put("file.newTab", "Ctrl+Alt+A");
+        a.bindings.put("edit.copy", "Ctrl+Alt+C");
+        c.bindings.put("edit.paste", "Ctrl+Alt+V");
         assertEquals(SyncReport.Status.OK, c.sync().status()); // something for a to receive
 
         a.duringSync = () -> {
-            c.bindings.put("newTab", "Ctrl+Alt+2");
+            c.bindings.put("file.newTab", "Ctrl+Alt+2");
             assertEquals(SyncReport.Status.OK, c.sync().status());
         };
         SyncReport r = a.sync();
 
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
-        assertEquals(List.of("newTab"), r.conflicts(), "changed on both sides, and still not pushed");
-        assertEquals(List.of("copy", "newTab"), r.sent());
-        assertEquals(List.of("paste"), r.received());
-        assertEquals(Map.of("newTab", "Ctrl+Alt+A", "copy", "Ctrl+Alt+C", "paste", "Ctrl+Alt+V"), a.bindings);
-        assertEquals("Ctrl+Alt+A", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
-        assertEquals("Ctrl+Alt+V", binding(remoteFile(KeybindingsFile.OTHER_PATH), "paste"));
+        assertEquals(List.of("file.newTab"), r.conflicts(), "changed on both sides, and still not pushed");
+        assertEquals(List.of("edit.copy", "file.newTab"), r.sent());
+        assertEquals(List.of("edit.paste"), r.received());
+        assertEquals(
+                Map.of("file.newTab", "Ctrl+Alt+A", "edit.copy", "Ctrl+Alt+C", "edit.paste", "Ctrl+Alt+V"), a.bindings);
+        assertEquals("Ctrl+Alt+A", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
+        assertEquals("Ctrl+Alt+V", binding(remoteFile(KeybindingsFile.PATH), "edit.paste"));
     }
 
     @Test
@@ -220,13 +223,13 @@ class SyncEngineTest {
         List<Computer> all = threeInStep();
         Computer a = all.get(0);
         Computer b = all.get(1);
-        b.bindings.put("newTab", "Ctrl+Alt+1");
+        b.bindings.put("file.newTab", "Ctrl+Alt+1");
         assertEquals(SyncReport.Status.OK, b.sync().status());
 
         // a receives v1, and its own edit cannot be pushed: the repository is gone for a while.
         Path repository = dir.resolve("remote.git");
         Path away = dir.resolve("remote-away.git");
-        a.bindings.put("copy", "Ctrl+Alt+C");
+        a.bindings.put("edit.copy", "Ctrl+Alt+C");
         a.duringSync = () -> {
             try {
                 Files.move(repository, away);
@@ -237,21 +240,21 @@ class SyncEngineTest {
         SyncReport failed = a.sync();
         Files.move(away, repository);
         assertEquals(SyncReport.Status.PUSH_FAILED, failed.status(), failed.detail());
-        assertEquals(List.of("newTab"), failed.received());
-        assertEquals("Ctrl+Alt+1", a.bindings.get("newTab"));
+        assertEquals(List.of("file.newTab"), failed.received());
+        assertEquals("Ctrl+Alt+1", a.bindings.get("file.newTab"));
 
         // Later, b changes it again; a is to take that, not to push its old copy over it.
-        b.bindings.put("newTab", "Ctrl+Alt+3");
+        b.bindings.put("file.newTab", "Ctrl+Alt+3");
         assertEquals(SyncReport.Status.OK, b.sync().status());
         SyncReport r = a.sync();
 
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
         assertEquals(List.of(), r.conflicts());
-        assertEquals(List.of("newTab"), r.received());
-        assertEquals(List.of("copy"), r.sent(), "the edit that failed to go is sent now");
-        assertEquals(Map.of("newTab", "Ctrl+Alt+3", "copy", "Ctrl+Alt+C"), a.bindings);
-        assertEquals("Ctrl+Alt+3", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
-        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.OTHER_PATH), "copy"));
+        assertEquals(List.of("file.newTab"), r.received());
+        assertEquals(List.of("edit.copy"), r.sent(), "the edit that failed to go is sent now");
+        assertEquals(Map.of("file.newTab", "Ctrl+Alt+3", "edit.copy", "Ctrl+Alt+C"), a.bindings);
+        assertEquals("Ctrl+Alt+3", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
+        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.PATH), "edit.copy"));
     }
 
     @Test
@@ -269,15 +272,15 @@ class SyncEngineTest {
                 inSetup.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
 
         Computer a = new Computer("a", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         SyncReport r = a.sync();
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
-        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
         assertEquals("formatVersion=" + SyncEngine.FORMAT_VERSION + "\n", remoteFile(SyncEngine.FORMAT_FILE));
 
         Computer b = new Computer("b", false);
         assertEquals(SyncReport.Status.OK, b.sync().status());
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y"), b.bindings);
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), b.bindings);
     }
 
     @Test
@@ -285,71 +288,116 @@ class SyncEngineTest {
         Path excludes = dir.resolve("global-ignore");
         Files.writeString(excludes, "keybindings/\n");
         Computer a = new Computer("a", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         GitRunner runner =
                 new GitRunner(List.of("git"), a.clone, false, "").with(List.of("-c", "core.excludesFile=" + excludes));
         SyncReport r = new SyncEngine(runner, remote, "main", a, "a").run(false);
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
-        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.OTHER_PATH), "newTab"));
+        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
     }
 
     @Test
     void anOversizedFileInTheRepositoryIsRefusedNotRead() throws IOException {
         Computer a = new Computer("a", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, a.sync().status());
-        Files.writeString(a.clone.resolve(KeybindingsFile.OTHER_PATH), "x".repeat((int) SyncEngine.MAX_FILE_BYTES + 1));
+        Files.writeString(a.clone.resolve(KeybindingsFile.PATH), "x".repeat((int) SyncEngine.MAX_FILE_BYTES + 1));
         GitRunner inA = new GitRunner(List.of("git"), a.clone, false, "");
         assertTrue(inA.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "big")
                 .ok());
         assertTrue(inA.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
 
         Computer b = new Computer("b", false);
-        b.bindings.put("copy", "Ctrl+Alt+C");
+        b.bindings.put("edit.copy", "Ctrl+Alt+C");
         SyncReport r = b.sync();
         assertEquals(SyncReport.Status.FAILED, r.status());
-        assertTrue(r.detail().contains(KeybindingsFile.OTHER_PATH), r.detail());
+        assertTrue(r.detail().contains(KeybindingsFile.PATH), r.detail());
         assertEquals(0, b.writes);
     }
 
     @Test
-    void aMacAndALinuxMachineNeverTouchEachOthersBindings() {
+    void aChordChangedOnAMacIsChangedOnLinuxAndBack() {
+        // OS-04 (Pauta 6.0.1): one file for every system. A Mac's Command is Ctrl+Shift in it.
         Computer mac = new Computer("mac", true);
         Computer linux = new Computer("linux", false);
-        mac.bindings.put("newTab", "Shortcut+Shift+Y");
-        linux.bindings.put("newTab", "Ctrl+Alt+T");
+        mac.bindings.put("file.newTab", "Meta+Y");
 
         assertEquals(SyncReport.Status.OK, mac.sync().status());
+        assertTrue(remoteFile(KeybindingsFile.PATH).contains("file.newTab=Ctrl+Shift+Y"));
         SyncReport l = linux.sync();
         assertEquals(SyncReport.Status.OK, l.status(), l.detail());
-        assertEquals(List.of(), l.received());
-        assertEquals(Map.of("newTab", "Ctrl+Alt+T"), linux.bindings);
-        assertEquals(SyncReport.Status.OK, mac.sync().status());
-        assertEquals(Map.of("newTab", "Shortcut+Shift+Y"), mac.bindings);
+        assertEquals(List.of("file.newTab"), l.received());
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), linux.bindings);
 
-        assertTrue(remoteFile(KeybindingsFile.MAC_PATH).contains("newTab=Shortcut+Shift+Y"));
-        assertTrue(remoteFile(KeybindingsFile.OTHER_PATH).contains("newTab=Ctrl+Alt+T"));
+        // And the other way: Linux changes two, one of them a chord that is no application chord.
+        linux.bindings.put("edit.copy", "Ctrl+Shift+U");
+        linux.bindings.put("view.fullScreen", "F9");
+        assertEquals(SyncReport.Status.OK, linux.sync().status());
+        SyncReport m = mac.sync();
+        assertEquals(SyncReport.Status.OK, m.status(), m.detail());
+        assertEquals(Map.of("file.newTab", "Meta+Y", "edit.copy", "Meta+U", "view.fullScreen", "F9"), mac.bindings);
+
+        // Nothing is left to say: neither side sends or receives again.
+        SyncReport quiet = linux.sync();
+        assertEquals(List.of(), quiet.received());
+        assertEquals(List.of(), quiet.sent());
+        assertEquals(null, remoteFile(KeybindingsFile.MAC_PATH), "the file per platform is not written any more");
+    }
+
+    @Test
+    void aMacKeepsItsOwnChordWhereTheFileSaysTheSameThing() {
+        // Cmd+Shift+K and Cmd+K are both Ctrl+Shift+K in the file. A Mac that has the first is
+        // not handed the second back by its own sync, nor by another computer's.
+        Computer mac = new Computer("mac", true);
+        Computer linux = new Computer("linux", false);
+        mac.bindings.put("edit.clearScrollback", "Meta+Shift+K");
+        assertEquals(SyncReport.Status.OK, mac.sync().status());
+        linux.bindings.put("file.newTab", "Ctrl+Shift+Y");
+        assertEquals(SyncReport.Status.OK, linux.sync().status());
+        assertEquals("Ctrl+Shift+K", linux.bindings.get("edit.clearScrollback"));
+
+        assertEquals(SyncReport.Status.OK, mac.sync().status());
+        assertEquals("Meta+Shift+K", mac.bindings.get("edit.clearScrollback"));
+        assertEquals("Meta+Y", mac.bindings.get("file.newTab"));
+    }
+
+    @Test
+    void aRepositoryOfTheOlderLayoutIsMarkedAsTheNewOne() throws Exception {
+        // Version 1 had a file per platform. A computer still on it then says the repository is
+        // newer than it is, where it would have gone on syncing a file nobody else reads.
+        Computer a = new Computer("a", false);
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
+        assertEquals(SyncReport.Status.OK, a.sync().status());
+        Files.writeString(a.clone.resolve(SyncEngine.FORMAT_FILE), "formatVersion=1\n");
+        GitRunner git = new GitRunner(List.of("git"), a.clone, false, "");
+        assertTrue(git.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "as 0.14 left it")
+                .ok());
+        assertTrue(git.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
+        assertEquals("formatVersion=1\n", remoteFile(SyncEngine.FORMAT_FILE));
+        a.bindings.put("edit.copy", "Ctrl+Shift+U");
+        assertEquals(SyncReport.Status.OK, a.sync().status());
+        assertEquals("formatVersion=2\n", remoteFile(SyncEngine.FORMAT_FILE));
     }
 
     @Test
     void aConflictIsWonByTheComputerThatSyncsAndThenSettles() {
         Computer a = new Computer("a", false);
         Computer b = new Computer("b", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, a.sync().status());
         assertEquals(SyncReport.Status.OK, b.sync().status());
 
-        a.bindings.put("newTab", "Ctrl+Alt+A");
-        b.bindings.put("newTab", "Ctrl+Alt+B");
+        a.bindings.put("file.newTab", "Ctrl+Alt+A");
+        b.bindings.put("file.newTab", "Ctrl+Alt+B");
         assertEquals(SyncReport.Status.OK, a.sync().status());
         SyncReport clash = b.sync();
         assertEquals(SyncReport.Status.OK, clash.status(), clash.detail());
-        assertEquals(List.of("newTab"), clash.conflicts());
-        assertEquals("Ctrl+Alt+B", b.bindings.get("newTab"));
+        assertEquals(List.of("file.newTab"), clash.conflicts());
+        assertEquals("Ctrl+Alt+B", b.bindings.get("file.newTab"));
 
         // a did not touch it again, so the repository's version is simply taken.
         assertEquals(SyncReport.Status.OK, a.sync().status());
-        assertEquals("Ctrl+Alt+B", a.bindings.get("newTab"));
+        assertEquals("Ctrl+Alt+B", a.bindings.get("file.newTab"));
     }
 
     @Test
@@ -357,22 +405,22 @@ class SyncEngineTest {
         Computer a = new Computer("a", false);
         for (int i = 0; i < SyncEngine.GUARDED_SIZE + 2; i++) a.bindings.put("command" + i, "Ctrl+Alt+F" + (i + 1));
         assertEquals(SyncReport.Status.OK, a.sync().status());
-        String before = remoteFile(KeybindingsFile.OTHER_PATH);
+        String before = remoteFile(KeybindingsFile.PATH);
 
         a.bindings.clear();
         SyncReport stopped = a.sync();
         assertEquals(SyncReport.Status.NEEDS_CONFIRMATION, stopped.status());
-        assertEquals(before, remoteFile(KeybindingsFile.OTHER_PATH));
+        assertEquals(before, remoteFile(KeybindingsFile.PATH));
 
         SyncReport anyway = a.engine().run(true);
         assertEquals(SyncReport.Status.OK, anyway.status(), anyway.detail());
-        assertEquals(null, remoteFile(KeybindingsFile.OTHER_PATH));
+        assertEquals(null, remoteFile(KeybindingsFile.PATH));
     }
 
     @Test
     void aRepositoryFromANewerTerminaIsLeftAlone() throws IOException {
         Computer newer = new Computer("newer", false);
-        newer.bindings.put("newTab", "Ctrl+Shift+Y");
+        newer.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, newer.sync().status());
         Files.writeString(newer.clone.resolve(SyncEngine.FORMAT_FILE), "formatVersion=99\n");
         GitRunner git = new GitRunner(List.of("git"), newer.clone, false, "");
@@ -381,10 +429,10 @@ class SyncEngineTest {
         assertTrue(git.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
 
         Computer old = new Computer("old", false);
-        old.bindings.put("copy", "Ctrl+Alt+C");
+        old.bindings.put("edit.copy", "Ctrl+Alt+C");
         assertEquals(SyncReport.Status.NEWER_FORMAT, old.sync().status());
         assertEquals(0, old.writes);
-        assertFalse(remoteFile(KeybindingsFile.OTHER_PATH).contains("copy"));
+        assertFalse(remoteFile(KeybindingsFile.PATH).contains("edit.copy"));
     }
 
     @Test
@@ -406,28 +454,28 @@ class SyncEngineTest {
     @Test
     void anUnreachableRepositoryChangesNothing() {
         Computer a = new Computer("a", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         SyncReport r = a.engine(dir.resolve("not-there.git").toString()).run(false);
         assertEquals(SyncReport.Status.FETCH_FAILED, r.status());
         assertFalse(r.detail().isBlank(), "git's message is what the user can act on");
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y"), a.bindings);
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), a.bindings);
     }
 
     @Test
     void aCancelBeforeTheFetchWritesNothing() {
         Computer a = new Computer("a", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         SyncEngine engine = a.engine();
         assertTrue(engine.cancel());
         assertEquals(SyncReport.Status.CANCELLED, engine.run(false).status());
-        assertEquals(null, remoteFile(KeybindingsFile.OTHER_PATH));
+        assertEquals(null, remoteFile(KeybindingsFile.PATH));
     }
 
     @Test
     void bindingsThatChangedDuringTheSyncAreNotOverwritten() {
         Computer a = new Computer("a", false);
         Computer b = new Computer("b", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, a.sync().status());
 
         b.refuseWrites = true; // as if the user rebound something while the fetch ran
@@ -437,13 +485,13 @@ class SyncEngineTest {
 
         b.refuseWrites = false;
         assertEquals(SyncReport.Status.OK, b.sync().status());
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y"), b.bindings);
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), b.bindings);
     }
 
     @Test
     void pointingAtAnotherRepositoryStartsAfreshAndKeepsEverything() throws IOException {
         Computer a = new Computer("a", false);
-        a.bindings.put("newTab", "Ctrl+Shift+Y");
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, a.sync().status());
 
         Path other = dir.resolve("other.git");
@@ -453,9 +501,9 @@ class SyncEngineTest {
                 .ok());
         SyncReport r = a.engine(other.toString()).run(false);
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
-        assertEquals(Map.of("newTab", "Ctrl+Shift+Y"), a.bindings);
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), a.bindings);
         GitRunner git = new GitRunner(List.of("git"), other, false, "");
-        assertTrue(git.run("show", "main:" + KeybindingsFile.OTHER_PATH).out().contains("newTab=Ctrl+Shift+Y"));
+        assertTrue(git.run("show", "main:" + KeybindingsFile.PATH).out().contains("file.newTab=Ctrl+Shift+Y"));
     }
 
     @Test

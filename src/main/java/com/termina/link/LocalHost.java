@@ -59,7 +59,8 @@ public final class LocalHost {
             Path kernel = Path.of("/proc/sys/kernel/hostname");
             if (Files.isReadable(kernel))
                 return Files.readString(kernel, StandardCharsets.UTF_8).strip();
-            return CommandOutput.read(new ProcessBuilder("hostname"), Duration.ofSeconds(2))
+            return CommandOutput.read(
+                            com.termina.process.ChildPath.apply(new ProcessBuilder("hostname")), Duration.ofSeconds(2))
                     .map(bytes -> new String(bytes, StandardCharsets.UTF_8).strip())
                     .orElse("");
         } catch (Exception unreadable) {

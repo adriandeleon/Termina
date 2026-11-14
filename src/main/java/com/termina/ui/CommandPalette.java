@@ -42,9 +42,10 @@ import static com.termina.i18n.Messages.tr;
  * cursor only rests on a command that can run; one that cannot is listed greyed with the reason as
  * its tooltip, because a command that is simply missing reads as the palette not knowing it.
  *
- * <p>An in-scene overlay rather than a window of its own. A second Stage would take OS focus away
- * from the terminal, and getting it back is exactly the thing that has to work: whatever the user
- * does here, the next keystroke belongs to the shell again.
+ * <p>An in-scene overlay rather than a window of its own, shown through the window's
+ * {@link OverlayHost}. A second Stage would take OS focus away from the terminal, and getting it
+ * back is exactly the thing that has to work: whatever the user does here, the next keystroke
+ * belongs to the shell again.
  *
  * <p>The commands are the menu bar's own {@link MenuAction}s. They are not a parallel list that
  * could disagree with the menus — a command reaches the palette by being in a menu, and its
@@ -61,8 +62,7 @@ final class CommandPalette {
     /** What a match through a keyword loses against any match on the label: more than a label can score. */
     static final int KEYWORD_PENALTY = 1_000_000;
 
-    private final StackPane host;
-    private final Runnable onHidden;
+    private final OverlayHost host;
 
     private final TextField input = new TextField();
     /** The input row's chip: the chord that opens the palette, so it introduces itself by its key. */
@@ -76,9 +76,56 @@ final class CommandPalette {
     private final Label hint = new Label();
 
     private final VBox card = new VBox(6);
-    private final Region backdrop = new Region();
-
     private List<MenuAction> commands = List.of();
+
+    /**
+     * The chords that move the selection a row and a page, as the bindings in force have them
+     * (PAL-06, Pauta 6.0.1): {@link KeyChord} token to action. Until the window says, the
+     * defaults of {@code keymaps/lists.json}.
+     */
+    private java.util.Map<String, PaletteKeys.Action> moves =
+            PaletteKeys.moves(id -> KeyChord.of(Keymap.lists().get(id), Keybindings.MAC));
+
+    /** The bindings changed, or were first applied: the movement chords are looked up again. */
+    void setMoves(java.util.Map<String, PaletteKeys.Action> moves) {
+        this.moves = java.util.Map.copyOf(moves);
+        hint.setText(legend());
+    }
+
+    /** The key that opens the highlighted command's page of the guide, as a token; null for none. */
+    private @Nullable String helpKey;
+
+    /** Opens a command's page, given its id, or the list of commands for null. */
+    private java.util.function.Consumer<@Nullable String> openHelp = id -> {};
+
+    /**
+     * The help key (PAL-08, Pauta 6.0.1) and what it opens. The window works the key out from the
+     * bindings in force, the first of Ctrl+H, F1 and Shift+F1 that no command has, and says again
+     * when they change.
+     */
+    void setHelp(@Nullable String helpKey, java.util.function.Consumer<@Nullable String> openHelp) {
+        this.helpKey = helpKey;
+        this.openHelp = openHelp;
+        hint.setText(legend());
+    }
+
+    private String legend() {
+        return PaletteKeys.legend(
+                moves,
+                PaletteKeys.hint("run", "↵"),
+                helpKey == null ? null : PaletteKeys.hint("help", KeyChord.display(helpKey)));
+    }
+
+    /** The help key's token: for tests. */
+    @Nullable
+    String helpKeyForTest() {
+        return helpKey;
+    }
+
+    /** The legend's text: for tests. */
+    String legendForTest() {
+        return hint.getText();
+    }
     /** The query of the current filter pass, read by the cells to highlight the matched characters. */
     private String currentQuery = "";
     /** Which commands can run right now; the rest are listed greyed and stepped over. */
@@ -86,22 +133,16 @@ final class CommandPalette {
     /** Why a greyed command cannot run, for its tooltip; null or blank installs none. */
     private Function<MenuAction, @Nullable String> disabledReason = a -> null;
 
-    CommandPalette(StackPane host, Runnable onHidden) {
+    /** @param host the window's overlay host, which shows the card and gives the keyboard back */
+    CommandPalette(OverlayHost host) {
         this.host = host;
-        this.onHidden = onHidden;
-
-        backdrop.getStyleClass().add("palette-backdrop");
-        // Dismiss on PRESS and consume it: a click is press+release, so consuming the press means
-        // the gesture that closes the palette cannot also reach the terminal behind it.
-        backdrop.setOnMousePressed(e -> {
-            hide();
-            e.consume();
-        });
 
         prefixChip.getStyleClass().add("palette-prefix");
-        setOpener(MenuAction.DEFAULT_PALETTE_CHORD);
+        setOpener(Keymap.defaultFor("palette.show"));
         input.getStyleClass().add("palette-input");
         input.setPromptText(tr("palette.prompt"));
+        // Named for a screen reader, which reads no prompt (ACC-01, Pauta 6.0.1).
+        input.setAccessibleText(tr("palette.prompt"));
         input.textProperty().addListener((o, was, now) -> filter(now));
         HBox inputRow = new HBox(9, prefixChip, input);
         inputRow.setAlignment(Pos.CENTER_LEFT);
@@ -110,10 +151,16 @@ final class CommandPalette {
 
         list.setItems(items);
         list.getStyleClass().add("palette-list");
+        list.setAccessibleText(tr("palette.list"));
         list.setPlaceholder(new Label(tr("palette.empty")));
         // A whole number of rows: a fixed pixel height cut the last row in half.
-        list.setFixedCellSize(ROW_HEIGHT);
-        list.setPrefHeight(listHeight(0));
+        // Both follow the UI zoom (WIN-12, Pauta 6.0.1), and the list works its height out itself.
+        UiZoom.own(list);
+        UiZoom.follow(list, () -> {
+            list.setFixedCellSize(UiZoom.px(ROW_HEIGHT));
+            list.setPrefHeight(
+                    listHeight(list.getInsets().getTop() + list.getInsets().getBottom()));
+        });
         list.insetsProperty().addListener((o, was, in) -> list.setPrefHeight(listHeight(in.getTop() + in.getBottom())));
         list.setCellFactory(view -> new CommandCell());
         // The query field keeps the keyboard; the list is driven from it. A click on a row runs
@@ -130,7 +177,7 @@ final class CommandPalette {
         desc.setTextOverrun(OverrunStyle.ELLIPSIS);
         desc.setText(" ");
         hint.getStyleClass().add("palette-hint");
-        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        hint.setText(legend());
 
         card.getStyleClass().add("command-palette");
         card.getChildren().addAll(inputRow, list, desc, hint);
@@ -148,7 +195,12 @@ final class CommandPalette {
 
     /** The list height that shows exactly {@link #VISIBLE_ROWS} rows inside {@code insets} of chrome. Pure. */
     static double listHeight(double insets) {
-        return VISIBLE_ROWS * ROW_HEIGHT + insets;
+        return listHeight(insets, UiZoom.factor().get());
+    }
+
+    /** The same at a UI zoom of {@code factor}: the rows grow with it, the chrome's insets already have. Pure. */
+    static double listHeight(double insets, double factor) {
+        return VISIBLE_ROWS * ROW_HEIGHT * factor + insets;
     }
 
     /** Names the chord that opens the palette on the chip; null hides the chip rather than lying. */
@@ -158,13 +210,50 @@ final class CommandPalette {
         prefixChip.setManaged(opener != null);
     }
 
-    boolean isShowing() {
-        return host.getChildren().contains(card);
+    /**
+     * The bindings changed (PAL-09, Pauta 6.0.1): the opener's chip, the key legend and, when the
+     * palette is up, its rows are rebuilt, so an open palette never shows a chord that has moved.
+     *
+     * @param commands the rows as they are now, each with its chord in force; ignored while hidden,
+     *     since showing takes them fresh
+     */
+    void rebind(@Nullable KeyCombination opener, List<MenuAction> commands) {
+        setOpener(opener);
+        hint.setText(legend());
+        if (!isShowing()) return;
+        MenuAction selected = list.getSelectionModel().getSelectedItem();
+        String id = selected == null ? null : selected.id();
+        this.commands = List.copyOf(commands);
+        items.setAll(orderedMatches(this.commands, currentQuery, enabled));
+        // The same row stays selected, by its command: its object is a new one.
+        int at = -1;
+        for (int i = 0; i < items.size() && id != null; i++) {
+            if (id.equals(items.get(i).id())) {
+                at = i;
+                break;
+            }
+        }
+        if (at >= 0) list.getSelectionModel().select(at);
+        else selectFirstEnabled();
     }
 
-    /** Shows every command as runnable. */
-    void show(List<MenuAction> commands) {
-        show(commands, a -> true, a -> null);
+    boolean isShowing() {
+        return host.isShowing(card);
+    }
+
+    /** The chord the open palette shows for command {@code id}, or "" for none or no such row: for tests. */
+    String chordForTest(String id) {
+        for (MenuAction row : items) {
+            if (id.equals(row.id())) {
+                return row.accelerator() == null ? "" : row.accelerator().getDisplayText();
+            }
+        }
+        return "";
+    }
+
+    /** The opener chip's text: for tests. */
+    String openerForTest() {
+        return prefixChip.getText();
     }
 
     /**
@@ -186,14 +275,18 @@ final class CommandPalette {
         this.disabledReason = disabledReason == null ? a -> null : disabledReason;
         input.clear();
         filter("");
-        host.getChildren().addAll(backdrop, card);
+        // The host remembers where the keyboard was, and gives it back on closing (PAL-07).
+        host.show(card, new OverlayHost.Scrim("palette-backdrop", tr("palette.close")), () -> {});
         input.requestFocus();
     }
 
     void hide() {
-        if (!isShowing()) return;
-        host.getChildren().removeAll(backdrop, card);
-        onHidden.run();
+        host.hide(card);
+    }
+
+    /** {@link OverlayHost#returnsTo}, which is where the rule lives now. */
+    static boolean returnsTo(javafx.scene.@Nullable Node before, javafx.scene.@Nullable Scene scene) {
+        return OverlayHost.returnsTo(before, scene);
     }
 
     private boolean isEnabled(MenuAction action) {
@@ -201,13 +294,21 @@ final class CommandPalette {
     }
 
     private void onKey(KeyEvent e) {
-        PaletteKeys.Action action = PaletteKeys.action(e, true);
+        // The help key first (PAL-08): the highlighted command's page of the guide, in the
+        // browser. The palette stays up, so the next row's page is one arrow and one key away.
+        if (helpKey != null && helpKey.equals(KeyChord.of(e))) {
+            MenuAction selected = list.getSelectionModel().getSelectedItem();
+            openHelp.accept(selected == null ? null : selected.id());
+            e.consume();
+            return;
+        }
+        PaletteKeys.Action action = PaletteNav.action(e, true, moves);
         switch (action) {
             case CANCEL -> hide();
             case ACCEPT -> runSelected();
             default -> {
                 // The cursor only ever rests on an enabled command; greyed-out ones are stepped over.
-                if (!PaletteKeys.navigate(list, action, this::isEnabled)) return; // typing: reaches the field
+                if (!PaletteNav.navigate(list, action, this::isEnabled)) return; // typing: reaches the field
             }
         }
         e.consume();
@@ -224,7 +325,7 @@ final class CommandPalette {
 
     private void filter(String query) {
         currentQuery = query == null ? "" : query.trim();
-        items.setAll(orderedMatches(commands, currentQuery));
+        items.setAll(orderedMatches(commands, currentQuery, enabled));
         selectFirstEnabled();
     }
 
@@ -235,6 +336,17 @@ final class CommandPalette {
      * shuffle under the cursor.
      */
     static List<MenuAction> orderedMatches(Collection<MenuAction> commands, String query) {
+        return orderedMatches(commands, query, a -> true);
+    }
+
+    /**
+     * As above, with a row that can run ahead of an equally scored one that cannot. Every command is
+     * listed, greyed while it cannot run (PAL-02), and "Go to Tab 6" with three tabs open is shorter
+     * than "Go to Tab 1: ~" — without this the greyed rows came first. Termina's own tier: Editora's
+     * palette has no such step yet.
+     */
+    static List<MenuAction> orderedMatches(
+            Collection<MenuAction> commands, String query, Predicate<MenuAction> enabled) {
         String q = query == null ? "" : query.trim();
         if (q.isEmpty()) return new ArrayList<>(commands);
         record Scored(MenuAction command, int score) {}
@@ -246,6 +358,7 @@ final class CommandPalette {
         }
         scored.sort(Comparator.comparingInt(Scored::score)
                 .reversed()
+                .thenComparing((Scored s) -> !enabled.test(s.command()))
                 .thenComparingInt((Scored s) -> s.command().label().length())
                 .thenComparing(s -> s.command().label(), String.CASE_INSENSITIVE_ORDER));
         List<MenuAction> matches = new ArrayList<>(scored.size());
@@ -283,6 +396,11 @@ final class CommandPalette {
     }
 
     // ---------------------------------------------------------------- capture hooks
+
+    /** A row as a screen reader says it: its name, and for one that cannot run, why not. Pure. */
+    static String accessibleRow(String label, @Nullable String whyNot) {
+        return whyNot == null || whyNot.isBlank() ? label : label + ". " + whyNot;
+    }
 
     /** The visible result labels, so a capture run can assert on the ranking rather than a picture. */
     List<String> visibleCommands() {
@@ -352,14 +470,22 @@ final class CommandPalette {
             }
             title.getChildren().setAll(MatchText.runs(item.label(), currentQuery));
             chord.setText(item.accelerator() == null ? "" : item.accelerator().getDisplayText());
-            layout.getStyleClass().remove("palette-disabled");
+            // The class changes only when the row's state does (PERF-10, Pauta 6.0.1): every
+            // keystroke updates every cell, and a class taken off and put back restyles the row.
+            boolean disabled = !isEnabled(item);
+            if (layout.getStyleClass().contains("palette-disabled") != disabled) {
+                if (disabled) layout.getStyleClass().add("palette-disabled");
+                else layout.getStyleClass().remove("palette-disabled");
+            }
             setTooltip(null); // cells are recycled: never leave a previous row's explanation behind
-            if (!isEnabled(item)) {
-                layout.getStyleClass().add("palette-disabled");
+            String why = disabled ? disabledReason.apply(item) : null;
+            // What a screen reader says for the row (ACC-08): its name, and why it cannot run.
+            setAccessibleText(accessibleRow(item.label(), why));
+            if (disabled) {
                 // Say why it is greyed: a grey row with no explanation reads as a bug, not a state.
-                String why = disabledReason.apply(item);
                 if (why != null && !why.isBlank()) {
-                    Tooltip tip = new Tooltip(why);
+                    Tooltip tip = IconNames.tooltip();
+                    tip.setText(why);
                     tip.setWrapText(true);
                     tip.setMaxWidth(380);
                     tip.getStyleClass().add("palette-disabled-tooltip");

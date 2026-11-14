@@ -48,6 +48,64 @@ class MessagesTest {
     }
 
     @Test
+    void noValueIsEmpty() throws Exception {
+        // A blank value renders as nothing at all: a button with no label, a row with no title.
+        // INTL-08 (Pauta 2.0.2) counts it as missing.
+        java.util.List<String> empty = new java.util.ArrayList<>();
+        for (String lang : Messages.available().keySet()) {
+            Properties theirs = catalogue(lang);
+            for (String key : theirs.stringPropertyNames()) {
+                if (theirs.getProperty(key).isBlank()) empty.add(lang + " " + key);
+            }
+        }
+        assertEquals(java.util.List.of(), empty);
+    }
+
+    /**
+     * The {@code menu.*} keys left in the catalogue: the menus' own titles, a submenu, and what a
+     * command is called in its other state. A command's title is {@code command.<id>} (KBD-03,
+     * Pauta 6.0.1), so none of these names one.
+     */
+    private static final Set<String> MENU_KEYS = Set.of(
+            "menu.file",
+            "menu.edit",
+            "menu.view",
+            "menu.window",
+            "menu.help",
+            "menu.zoom",
+            "menu.newTabProfile",
+            "menu.updateAvailable",
+            "menu.hideStatusBar",
+            "menu.hideTabBar",
+            // The three modes' commands while their mode is on (WIN-10): the way out, by name.
+            "menu.leaveSimpleMode",
+            "menu.leaveZen",
+            "menu.leaveExpert",
+            "menu.unpinTab",
+            "menu.showMenuBar",
+            "menu.showMenuBar.desc",
+            "menu.closePane",
+            "menu.closePane.desc",
+            "menu.syncDisconnect");
+
+    @Test
+    void everyCommandTitleHasADescription() throws Exception {
+        // The palette shows the description under the highlighted row; a command without one shows
+        // a blank line where the explanation should be (DOCS-09, KBD-03).
+        Properties english = catalogue("en");
+        Set<String> undescribed = new TreeSet<>();
+        Set<String> menuKeys = new TreeSet<>();
+        for (String key : english.stringPropertyNames()) {
+            if (key.startsWith("menu.")) menuKeys.add(key);
+            if (!key.startsWith("command.") || key.endsWith(".desc")) continue;
+            if (english.getProperty(key + ".desc") == null) undescribed.add(key);
+        }
+        assertEquals(Set.of(), undescribed);
+        // A new menu.* key is a title filed where no command's title belongs any more.
+        assertEquals(new TreeSet<>(MENU_KEYS), menuKeys);
+    }
+
+    @Test
     void everyApostropheIsWrittenTheWayItsValueIsRead() {
         // A value with a placeholder is a MessageFormat pattern and wants '' for an apostrophe; one
         // without is plain text and shows '' as two. French showed "n''est" in four places because
@@ -127,8 +185,8 @@ class MessagesTest {
     @Test
     void aTranslationIsActuallyUsed() {
         Messages.init("es");
-        assertEquals("Copiar", Messages.tr("menu.copy"));
+        assertEquals("Copiar", Messages.tr("command.edit.copy"));
         Messages.init("en");
-        assertEquals("Copy", Messages.tr("menu.copy"));
+        assertEquals("Copy", Messages.tr("command.edit.copy"));
     }
 }

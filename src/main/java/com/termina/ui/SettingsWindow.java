@@ -10,14 +10,12 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -86,7 +84,7 @@ public final class SettingsWindow {
     }
 
     /** Pages, in sidebar order within their group. */
-    private enum Category {
+    enum Category {
         APPEARANCE(Group.GENERAL, "settings.cat.appearance", MenuIcons::appearance),
         TERMINAL(Group.GENERAL, "settings.cat.terminal", MenuIcons::terminal),
         PROFILES(Group.GENERAL, "settings.cat.profiles", MenuIcons::profiles),
@@ -108,13 +106,24 @@ public final class SettingsWindow {
         String title() {
             return tr(key);
         }
+
+        /**
+         * The pages by catalogue key, in the sidebar's order: the same on every OS (OS-01), which
+         * {@code SameOnEveryOsTest} asks as each of them (OS-03). Here and not on the window, so
+         * asking loads no control.
+         */
+        static List<String> keys() {
+            List<String> keys = new ArrayList<>();
+            for (Category category : values()) keys.add(category.key);
+            return keys;
+        }
     }
 
     /**
      * One searchable control row. The title is kept apart from the rest of the text because a hit
      * in it outranks a hit in the description — see {@link #matchRank}.
      */
-    private record Row(Category category, Node node, String title, String keywords, VBox section) {}
+    private record Row(Category category, Node node, String title, String description, String keywords, VBox section) {}
 
     private final Settings settings;
     private final Stage stage = new Stage();
@@ -131,6 +140,13 @@ public final class SettingsWindow {
 
     /** Set for the duration of {@link #reload}, so a change it provokes cannot start another. */
     private boolean reloading;
+
+    /**
+     * Set while a control of this window writes a setting through, so the broadcast that write causes
+     * does not reload the window that made it. The control already shows the value; whatever else on
+     * the page depends on it is refreshed by the control's own listener.
+     */
+    private boolean writing;
 
     private PalettePreview preview;
 
@@ -164,6 +180,11 @@ public final class SettingsWindow {
         // this a checkbox left showing the old value wrote that old value on its next click — a
         // click that did nothing, followed by one that did the opposite of its label.
         settings.addOnChange(this::onSettingsChanged);
+        // The file is written a moment after the change, off the FX thread; the row that reports a
+        // failed write hears about it then, not when the control was clicked.
+        settings.addOnSaved(() -> javafx.application.Platform.runLater(() -> {
+            if (stage.isShowing()) refreshSaveError();
+        }));
         if (sync != null) sync.addListener(this::refreshSync);
     }
 
@@ -227,9 +248,20 @@ public final class SettingsWindow {
         return out.append("stored=").append(settings.keyBindings()).toString();
     }
 
+    /** Every page as built, for the test that exercises their controls. */
+    java.util.Collection<Region> pagesForTest() {
+        return pages.values();
+    }
+
     /** The window's scene, for the development capture hook. */
     public Scene scene() {
         return stage.getScene();
+    }
+
+    /** Opens the window on the Profiles page: Configure Profiles, from the profile menu or a chord. */
+    public void showProfiles(Window from) {
+        show(from);
+        sidebar.getSelectionModel().select(Category.PROFILES);
     }
 
     /**
@@ -250,17 +282,23 @@ public final class SettingsWindow {
     }
 
     private void onSettingsChanged() {
-        if (shouldReload(stage.isShowing(), reloading)) reload();
+        if (WindowRules.shouldReload(stage.isShowing(), reloading, writing)) reload();
     }
 
-    /**
-     * Whether a settings change should refresh the controls: only while the window can be seen,
-     * and never from inside the refresh itself. The second half is the re-entrancy guard — a
-     * reload sets every control under {@code loading}, so none of them writes back, but a reload
-     * started by a reload would still be a loop waiting for one that does.
-     */
-    static boolean shouldReload(boolean showing, boolean reloading) {
-        return showing && !reloading;
+    /** Runs a write-through from one of this window's controls, marked as this window's own. */
+    private void write(Runnable change) {
+        boolean was = writing;
+        writing = true;
+        try {
+            change.run();
+        } finally {
+            writing = was;
+        }
+    }
+
+    /** Sets a field's text unless the user is in it, the way {@code reloadKeys} leaves a recording field alone. */
+    private static void setUnlessEditing(TextField field, String text) {
+        if (!field.isFocused()) field.setText(text);
     }
 
     // ---------------------------------------------------------------- shell
@@ -273,6 +311,8 @@ public final class SettingsWindow {
         }
 
         search.setPromptText(tr("settings.search"));
+        search.setAccessibleText(tr("settings.search"));
+        sidebar.setAccessibleText(tr("settings.sidebar"));
         // Focused on open, and the theme hides a focused field's prompt: settings.css keeps it.
         search.getStyleClass().add("settings-search");
         search.textProperty().addListener((o, old, value) -> filter(value));
@@ -295,7 +335,7 @@ public final class SettingsWindow {
             int step = e.getCode() == KeyCode.DOWN ? 1 : e.getCode() == KeyCode.UP ? -1 : 0;
             if (step == 0) return;
             List<Object> items = sidebar.getItems();
-            int target = nextSelectable(
+            int target = WindowRules.nextSelectable(
                     sidebar.getSelectionModel().getSelectedIndex(),
                     step,
                     items.size(),
@@ -308,7 +348,7 @@ public final class SettingsWindow {
         pageHost.setAlignment(Pos.TOP_LEFT);
 
         Button reset = new Button(tr("settings.reset"));
-        reset.setOnAction(e -> confirmReset());
+        reset.setOnAction(e -> act(SettingsActions.Action.RESET));
         Button close = new Button(tr("settings.close"));
         close.setOnAction(e -> stage.hide());
         close.setDefaultButton(true);
@@ -326,8 +366,6 @@ public final class SettingsWindow {
         VBox.setVgrow(body, Priority.ALWAYS);
         root.setPadding(new Insets(14));
 
-        // 20% larger than the original 760x520: the Appearance page overflowed, and a page of
-        // preferences that scrolls hides the rows below the fold.
         // Grown from the original 760x520 over several passes; a page of preferences that scrolls
         // hides the rows below the fold, which is the opposite of what a settings window is for.
         // Tall enough for the longest page, but never taller than the screen — a settings window
@@ -335,18 +373,89 @@ public final class SettingsWindow {
         // since the first version has pushed this up; the clamp is what stops that becoming a
         // problem on a laptop.
         javafx.geometry.Rectangle2D visible = javafx.stage.Screen.getPrimary().getVisualBounds();
-        Scene scene =
-                new Scene(root, Math.min(1153, visible.getWidth() * 0.95), Math.min(985, visible.getHeight() * 0.92));
-        // A scene stylesheet, not part of the theme: it must survive the runtime
-        // setUserAgentStylesheet swap that changing the theme performs.
-        var css = SettingsWindow.class.getResource("/com/termina/styles/settings.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = new Scene(
+                root,
+                Math.min(UiZoom.px(1153), visible.getWidth() * 0.95),
+                Math.min(UiZoom.px(985), visible.getHeight() * 0.92));
+        // Scene stylesheets, not part of the theme: they must survive the runtime
+        // setUserAgentStylesheet swap that changing the theme performs. app.css first, for the
+        // state colours and the keyboard focus ring every window shares; settings.css after it,
+        // so the window's own rules win where the two meet.
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
+        scene.getStylesheets().add(UiZoom.sheet("settings.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
+        // A press anywhere in the window closes the profile list's right-click menu (MENU-07).
+        OneMenu.closeOnOutsidePress(scene);
         stage.setScene(scene);
         Icons.applyTo(stage);
 
         selectFirstVisible();
+    }
+
+    /**
+     * Runs one of the window's actions as its command does: the window comes up first, on the
+     * action's page, so its question and its result have somewhere to be seen (KBD-01, Pauta
+     * 6.0.1). The buttons run the same {@link #act}.
+     */
+    void run(Window from, SettingsActions.Action action) {
+        show(from);
+        Category page = pageOf(action);
+        if (page != null) sidebar.getSelectionModel().select(page);
+        act(action);
+    }
+
+    private static @Nullable Category pageOf(SettingsActions.Action action) {
+        return switch (action) {
+            case RESET -> null;
+            case IMPORT_THEME, REMOVE_THEME -> Category.APPEARANCE;
+            case RESET_SHORTCUTS -> Category.KEYBOARD;
+            case ADD_PROFILE, REMOVE_PROFILE -> Category.PROFILES;
+            case SYNC_CONNECT, SYNC_CREATE, SYNC_CANCEL, SYNC_ANYWAY, SYNC_REMOVE_CREDENTIALS -> Category.SYNC;
+        };
+    }
+
+    /** What each button does, and each command. */
+    private void act(SettingsActions.Action action) {
+        switch (action) {
+            case RESET -> confirmReset();
+            case IMPORT_THEME -> importThemeFile();
+            case REMOVE_THEME -> removeChosenTheme();
+            case RESET_SHORTCUTS -> confirmResetKeys();
+            case ADD_PROFILE -> addUserProfile();
+            case REMOVE_PROFILE -> removeSelectedProfile();
+            case SYNC_CONNECT -> toggleSyncConnection();
+            case SYNC_CREATE -> createSyncRepositoryOnGitHub();
+            case SYNC_CANCEL -> {
+                if (sync != null && !sync.cancel()) syncState.setText(tr("sync.state.tooLateToCancel"));
+            }
+            case SYNC_ANYWAY -> {
+                if (sync != null) sync.syncAllowingLargeRemoval();
+            }
+            case SYNC_REMOVE_CREDENTIALS -> {
+                // The token in the address may be the only copy the user has of it.
+                if (sync != null && Confirm.ask(stage, Questions.removeSyncCredentials())) {
+                    sync.removeCredentialsFromUrl();
+                }
+            }
+        }
+    }
+
+    /** The titles of a profile row's right-click menu, with whether each can run: for tests. */
+    java.util.List<String> profileMenuRowsForTest() {
+        javafx.scene.control.ContextMenu menu = profileList.getContextMenu();
+        javafx.event.Event.fireEvent(menu, new javafx.stage.WindowEvent(menu, javafx.stage.WindowEvent.WINDOW_SHOWING));
+        return menu.getItems().stream()
+                .map(item -> item.getText()
+                        + (item.isDisable() ? " (disabled)" : "")
+                        + (item.getStyleClass().contains("danger") ? " (danger)" : ""))
+                .toList();
+    }
+
+    /** Whether a profile of the user's own is selected on the Profiles page: what Remove needs. */
+    boolean hasRemovableProfileSelected() {
+        com.termina.shell.Profile selected = editing;
+        return selected != null && selected.isEditable();
     }
 
     /**
@@ -356,28 +465,12 @@ public final class SettingsWindow {
      * held the user's profiles, and "put the font back" is what most people mean by it.
      */
     private void confirmReset() {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.initOwner(stage);
-        confirm.setTitle(tr("settings.reset"));
-        confirm.setHeaderText(tr("settings.reset.confirmTitle"));
-        confirm.setContentText(tr("settings.reset.confirmDetail"));
-        ButtonType resetButton = new ButtonType(tr("settings.reset.confirm"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-        confirm.getButtonTypes().setAll(resetButton, cancel);
-        if (confirm.showAndWait().orElse(cancel) != resetButton) return;
-        settings.resetToDefaults();
-        reload();
-    }
-
-    /**
-     * The index the arrow keys should land on from {@code from}, stepping by {@code step} past
-     * anything that is not selectable, or -1 when there is nothing further that way.
-     */
-    static int nextSelectable(int from, int step, int size, java.util.function.IntPredicate selectable) {
-        for (int i = from + step; i >= 0 && i < size; i += step) {
-            if (selectable.test(i)) return i;
+        if (!Confirm.ask(stage, Questions.resetSettings())) {
+            return;
         }
-        return -1;
+        // One reload, here: the write's own broadcast is not taken as a reason for another.
+        write(settings::resetToDefaults);
+        reload();
     }
 
     private List<Object> sidebarItems() {
@@ -459,45 +552,44 @@ public final class SettingsWindow {
 
     // ---------------------------------------------------------------- search
 
-    /** Case-insensitive substring over a row's own keywords. */
-    static boolean matches(String query, String keywords) {
-        if (query == null || query.isBlank()) return true;
-        return keywords.toLowerCase(Locale.ROOT).contains(query.trim().toLowerCase(Locale.ROOT));
+    /** A section's heading text: the label every {@link #section} starts with. */
+    private static String headingOf(@Nullable VBox section) {
+        if (section == null || section.getChildren().isEmpty()) return "";
+        return section.getChildren().get(0) instanceof Label heading ? heading.getText() : "";
     }
 
     /**
-     * How well a row answers a query: 2 for a hit in its title, 1 for a hit anywhere else, 0 for
-     * none. A blank query is 1 for everything.
-     *
-     * <p>Titles outrank the rest because the rest is where the noise is. "scrollback" is in the
-     * description of "Show a scrollbar" and in the title of "Scrollback lines"; ranked by page
-     * order the search landed on the former, which is on an earlier page.
+     * What a row's controls show, for the search (SET-03, Pauta 6.0.1): a button's or a switch's
+     * label, every option of a choice, a field's prompt. Not the row's own title and description,
+     * which are searched as themselves, and not what the user has typed into a field.
      */
-    static int matchRank(String query, String title, String rest) {
-        if (query == null || query.isBlank()) return 1;
-        String needle = query.trim().toLowerCase(Locale.ROOT);
-        if (title != null && title.toLowerCase(Locale.ROOT).contains(needle)) return 2;
-        return rest != null && rest.toLowerCase(Locale.ROOT).contains(needle) ? 1 : 0;
+    static String visibleText(Node node) {
+        StringBuilder text = new StringBuilder();
+        collectVisibleText(node, text);
+        return text.toString().strip();
     }
 
-    /**
-     * A matching row's rank, raised above any title hit when the query also names its page. Typing
-     * "sync" means the Sync page; ranked by row alone it landed on the Keyboard page, whose Sync
-     * Settings Now row says the word in its title while the Sync page's own rows are "Repository" and
-     * "Branch". Only the landing changes: a row that did not match stays hidden.
-     */
-    static int landingRank(int rank, String query, String pageTitle) {
-        if (rank == 0 || query == null || query.isBlank() || pageTitle == null) return rank;
-        return pageTitle.toLowerCase(Locale.ROOT).contains(query.trim().toLowerCase(Locale.ROOT)) ? 3 : rank;
-    }
-
-    /** The index of the best rank, the first of them on a tie, or -1 when nothing matched. */
-    static int bestOf(int[] ranks) {
-        int best = -1;
-        for (int i = 0; i < ranks.length; i++) {
-            if (ranks[i] > 0 && (best < 0 || ranks[i] > ranks[best])) best = i;
+    private static void collectVisibleText(Node node, StringBuilder text) {
+        if (node.getStyleClass().contains("settings-row-title")
+                || node.getStyleClass().contains("settings-row-description")) {
+            return;
         }
-        return best;
+        if (node instanceof javafx.scene.control.Labeled labeled && labeled.getText() != null) {
+            text.append(labeled.getText()).append(' ');
+        }
+        if (node instanceof ComboBox<?> combo) {
+            for (Object option : combo.getItems()) text.append(option).append(' ');
+            return; // its field and its popup are the skin's
+        }
+        if (node instanceof TextField field) {
+            if (field.getPromptText() != null)
+                text.append(field.getPromptText()).append(' ');
+            return;
+        }
+        if (node instanceof Spinner<?> || node instanceof ListView<?>) return;
+        if (node instanceof javafx.scene.Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) collectVisibleText(child, text);
+        }
     }
 
     private void filter(String query) {
@@ -507,10 +599,12 @@ public final class SettingsWindow {
         int[] ranks = new int[rows.size()];
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
-            ranks[i] = landingRank(
-                    matchRank(query, row.title(), row.keywords()),
-                    query,
-                    row.category().title());
+            // The heading and the page name are searched as one (SET-03): both say where the row is.
+            String headings = headingOf(row.section()) + " " + row.category().title();
+            SettingsSearch.Texts texts = new SettingsSearch.Texts(
+                    row.title(), row.description(), visibleText(row.node()), headings, row.keywords());
+            ranks[i] = SettingsSearch.landing(
+                    SettingsSearch.score(query, texts), query, row.category().title());
             boolean visible = ranks[i] > 0;
             row.node().setVisible(visible);
             row.node().setManaged(visible);
@@ -533,7 +627,7 @@ public final class SettingsWindow {
 
         // A typed query lands on the page of its best match; clearing it leaves the user where
         // they were.
-        int best = query == null || query.isBlank() ? -1 : bestOf(ranks);
+        int best = query == null || query.isBlank() ? -1 : SettingsSearch.bestOf(ranks);
         if (best >= 0) {
             sidebar.getSelectionModel().select(rows.get(best).category());
             return;
@@ -560,6 +654,7 @@ public final class SettingsWindow {
             case SYNC -> buildSync(page);
             case ADVANCED -> buildAdvanced(page);
         }
+        page.getChildren().add(helpLink(category));
         // A gutter on the right, matching the one the page host leaves on the left. Without it every
         // control on the page — the combos, the checkboxes, the opacity readout, the preview's own
         // border — ends flush against the scrollbar, and the preview appears to run underneath it.
@@ -571,6 +666,29 @@ public final class SettingsWindow {
         scroll.setFitToWidth(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         return scroll;
+    }
+
+    /**
+     * The page's link to its page of the documentation, <em>Help for</em> and the page's name
+     * (DOCS-11, Pauta 6.0.1), under everything else on it. Where it leads is {@link SettingsHelp}'s
+     * to say.
+     */
+    private Node helpLink(Category category) {
+        javafx.scene.control.Hyperlink link =
+                new javafx.scene.control.Hyperlink(tr("settings.helpFor", category.title()));
+        link.getStyleClass().add("settings-help-link");
+        link.setOnAction(e -> {
+            link.setVisited(false); // a link opened once is the same link, not a paler one
+            if (linkOpener != null) linkOpener.accept(SettingsHelp.url(category));
+        });
+        return link;
+    }
+
+    private java.util.function.@Nullable Consumer<String> linkOpener;
+
+    /** How a page's help link opens its address: the application's one way of opening a link. */
+    void openLinksWith(java.util.function.Consumer<String> opener) {
+        this.linkOpener = opener;
     }
 
     private VBox section(VBox page, String title) {
@@ -585,6 +703,13 @@ public final class SettingsWindow {
     /** A titled row with an explanatory line under it, in the shape Editora's settings use. */
     private Node row(
             Category category, VBox section, String title, String description, Region control, String keywords) {
+        // An on/off row is a switch (KBD-18, Pauta 6.0.1): it takes focus, Space flips it, and it
+        // is announced as a toggle. The checkbox the setting lives on stays, out of the scene, and
+        // the switch is its view.
+        if (control instanceof CheckBox check) {
+            SettingSwitch shown = SettingSwitch.boundTo(check);
+            return row(category, section, title, description, shown, shown, keywords);
+        }
         return row(category, section, title, description, control, control, keywords);
     }
 
@@ -621,7 +746,7 @@ public final class SettingsWindow {
         line.setAlignment(Pos.CENTER_LEFT);
         line.getStyleClass().add("settings-row");
         section.getChildren().add(line);
-        rows.add(new Row(category, line, title, description + " " + keywords, section));
+        rows.add(new Row(category, line, title, description == null ? "" : description, keywords, section));
         return line;
     }
 
@@ -639,20 +764,57 @@ public final class SettingsWindow {
     private static VBox withValidation(
             TextField field, Label status, java.util.function.Function<String, ShellLauncher.PathStatus> check) {
         status.getStyleClass().add("settings-row-description");
-        status.setStyle("-fx-text-fill: -color-danger-4;");
+        status.getStyleClass().add("state-error");
         status.setWrapText(true);
         status.setVisible(false);
         status.setManaged(false);
         PauseTransition debounce = new PauseTransition(Duration.millis(300));
-        debounce.setOnFinished(e -> {
-            String key = field.isDisabled() ? null : validationKey(check.apply(field.getText()));
-            status.setText(key == null ? "" : tr(key));
-            status.setVisible(key != null);
-            status.setManaged(key != null);
-        });
+        debounce.setOnFinished(e -> checkPath(
+                field, check, verdict -> showValidation(status, field.isDisabled() ? null : validationKey(verdict))));
         field.textProperty().addListener((o, old, text) -> debounce.playFromStart());
         field.disabledProperty().addListener((o, was, disabled) -> debounce.playFromStart());
         return new VBox(2, field, status);
+    }
+
+    /**
+     * Where a path is checked: the question is the disk's (does it exist, can it run), so it is
+     * asked on a thread of its own and never on the FX thread (PERF-01, Pauta 6.0.1). A virtual
+     * thread each; a check is one or two file-system calls.
+     */
+    private static final java.util.concurrent.Executor PATH_CHECKS =
+            com.termina.term.TerminalExecutors.virtual("termina-path-check");
+
+    /**
+     * Checks what {@code field} holds now, off the FX thread, and hands the verdict back on it.
+     * A verdict for text the field no longer holds is dropped: the check for what it holds now
+     * is already on its way.
+     */
+    private static void checkPath(
+            TextField field,
+            java.util.function.Function<String, ShellLauncher.PathStatus> check,
+            java.util.function.Consumer<ShellLauncher.PathStatus> then) {
+        String text = field.getText();
+        PATH_CHECKS.execute(() -> {
+            ShellLauncher.PathStatus verdict = check.apply(text);
+            Platform.runLater(() -> {
+                if (java.util.Objects.equals(text, field.getText())) then.accept(verdict);
+            });
+        });
+    }
+
+    /** Shows what is wrong with a field's value under it, or takes the line away for null. */
+    private static void showValidation(Label status, @Nullable String key) {
+        status.setText(key == null ? "" : tr(key));
+        status.setVisible(key != null);
+        status.setManaged(key != null);
+    }
+
+    /**
+     * Whether a path field's value is written when the field commits (SET-04, Pauta 6.0.1): an
+     * empty one, which means the default, and one that passed. Anything marked is not.
+     */
+    static boolean commits(ShellLauncher.PathStatus status) {
+        return validationKey(status) == null;
     }
 
     /** The catalogue key for a verdict worth showing, or null when the path is fine or empty. */
@@ -722,17 +884,21 @@ public final class SettingsWindow {
     private ComboBox<Settings.CursorShape> cursorShape;
     private Spinner<Integer> padding;
     private CheckBox altIsMeta;
-    private CheckBox confirmPaste;
     private CheckBox copyOnSelect;
     private CheckBox notifications;
     private CheckBox clipboardWrite;
     private CheckBox typeAhead;
     private CheckBox bell;
     private CheckBox hideTabBar;
+    private CheckBox showTabBar;
     private CheckBox showMenuBar;
     private CheckBox menuBarInTitleBar;
+    private Spinner<Integer> uiZoom;
     private CheckBox showScrollBar;
+    private CheckBox showStatusBar;
+    private CheckBox simpleMode;
     private CheckBox confirmClose;
+    private CheckBox restoreSession;
     private ComboBox<String> language;
     private Slider windowOpacity;
     private Label windowOpacityValue;
@@ -767,49 +933,80 @@ public final class SettingsWindow {
     void importTheme(java.nio.file.Path file) {
         Object name = file.getFileName() == null ? file : file.getFileName();
         themeImportResult.setText(tr("settings.importTheme.working", name));
-        Thread worker = new Thread(
+        // A second import while the first is still reading replaces it on the row (PERF-03): the row
+        // describes the file last chosen, never an earlier one that happened to finish later.
+        themeImport.submit(
                 () -> {
-                    List<ThemeEntry> added;
                     try {
-                        added = Themes.importFile(file);
+                        return new ThemeImport(Themes.importFile(file), null);
                     } catch (Throwable e) {
                         String reason = e.getMessage() == null || e.getMessage().isBlank()
                                 ? e.getClass().getSimpleName()
                                 : e.getMessage();
-                        javafx.application.Platform.runLater(
-                                () -> themeImportResult.setText(tr("settings.importTheme.failed", name, reason)));
+                        return new ThemeImport(List.of(), reason);
+                    }
+                },
+                result -> {
+                    String failure = result.failure();
+                    if (failure != null) {
+                        themeImportResult.setText(tr("settings.importTheme.failed", name, failure));
                         return;
                     }
-                    javafx.application.Platform.runLater(() -> {
-                        themeImportResult.setText(tr(
-                                "settings.importTheme.done",
-                                String.join(
-                                        ", ",
-                                        added.stream()
-                                                .map(ThemeEntry::displayName)
-                                                .toList())));
-                        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-                        if (!added.isEmpty())
-                            settings.setThemeId(added.getFirst().id());
-                    });
-                },
-                "termina-theme-import");
-        worker.setDaemon(true);
-        worker.start();
+                    themeImportResult.setText(tr(
+                            "settings.importTheme.done",
+                            String.join(
+                                    ", ",
+                                    result.added().stream()
+                                            .map(ThemeEntry::displayName)
+                                            .toList())));
+                    themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+                    if (!result.added().isEmpty())
+                        settings.setThemeId(result.added().getFirst().id());
+                });
     }
+
+    /** What reading a theme file gave: the schemes added, or why none were. */
+    private record ThemeImport(
+            List<ThemeEntry> added, @Nullable String failure) {}
+
+    private final com.termina.work.LatestOnly themeImport = new com.termina.work.LatestOnly(
+            task -> {
+                Thread worker = new Thread(task, "termina-theme-import");
+                worker.setDaemon(true);
+                worker.start();
+            },
+            javafx.application.Platform::runLater);
 
     private void removeChosenTheme() {
         ThemeEntry chosen = Themes.byDisplayName().get(themeCombo.getValue());
         if (chosen == null || chosen.isBuiltIn()) return;
-        try {
-            Themes.remove(chosen.id());
-            themeImportResult.setText(tr("settings.removeTheme.done", chosen.displayName()));
-        } catch (java.io.IOException e) {
-            themeImportResult.setText(tr("settings.removeTheme.failed", chosen.displayName(), e.getMessage()));
+        // Deletes the imported file, and nothing brings it back but importing it again.
+        if (!Confirm.ask(stage, Questions.removeTheme(chosen.displayName()))) {
+            return;
         }
-        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-        // What it falls back to is Editora Dark, which the stored id now means.
-        settings.setThemeId(Theme.EDITORA_DARK.id());
+        // Off the FX thread, like the import: a file deleted and a folder re-read (PERF-01, Pauta
+        // 2.0.2). The button waits for it, so a second click cannot race the first.
+        removeTheme.setDisable(true);
+        Thread worker = new Thread(
+                () -> {
+                    String result;
+                    try {
+                        Themes.remove(chosen.id());
+                        result = tr("settings.removeTheme.done", chosen.displayName());
+                    } catch (java.io.IOException e) {
+                        result = tr("settings.removeTheme.failed", chosen.displayName(), e.getMessage());
+                    }
+                    String shown = result;
+                    javafx.application.Platform.runLater(() -> {
+                        themeImportResult.setText(shown);
+                        themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
+                        // What it falls back to is Editora Dark, which the stored id now means.
+                        settings.setThemeId(Theme.EDITORA_DARK.id());
+                    });
+                },
+                "termina-theme-remove");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void buildAppearance(VBox page) {
@@ -822,7 +1019,7 @@ public final class SettingsWindow {
             if (loading || value == null) return;
             ThemeEntry chosen = Themes.byDisplayName().get(value);
             if (chosen != null) {
-                settings.setThemeId(chosen.id());
+                write(() -> settings.setThemeId(chosen.id()));
                 refreshPreview();
             }
             removeTheme.setDisable(chosen == null || chosen.isBuiltIn());
@@ -838,9 +1035,9 @@ public final class SettingsWindow {
         // Importing: a file chooser for the formats ThemeImport reads, and a line that says what
         // happened — the new theme's name, or why the file was not one.
         Button importTheme = new Button(tr("settings.importTheme.button"));
-        importTheme.setOnAction(e -> importThemeFile());
+        importTheme.setOnAction(e -> act(SettingsActions.Action.IMPORT_THEME));
         removeTheme = new Button(tr("settings.removeTheme.button"));
-        removeTheme.setOnAction(e -> removeChosenTheme());
+        removeTheme.setOnAction(e -> act(SettingsActions.Action.REMOVE_THEME));
         themeImportResult = new Label();
         themeImportResult.getStyleClass().add("settings-note");
         themeImportResult.setWrapText(true);
@@ -861,7 +1058,7 @@ public final class SettingsWindow {
         fontCombo.getItems().setAll(MonospaceFonts.available());
         fontCombo.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setFontFamily(value);
+            write(() -> settings.setFontFamily(value));
             refreshPreview();
         });
         row(
@@ -879,7 +1076,7 @@ public final class SettingsWindow {
         makeLenient(fontSize, d -> d);
         fontSize.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setFontSize(value);
+            write(() -> settings.setFontSize(value));
             refreshPreview();
         });
         row(
@@ -895,7 +1092,7 @@ public final class SettingsWindow {
         hideTabBar = new CheckBox();
         hideTabBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setHideTabBarWhenSingle(value);
+            write(() -> settings.setHideTabBarWhenSingle(value));
         });
         row(
                 Category.APPEARANCE,
@@ -905,14 +1102,27 @@ public final class SettingsWindow {
                 hideTabBar,
                 "tab bar tabs hide single chrome strip header");
 
+        showTabBar = new CheckBox();
+        showTabBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setShowTabBar(value));
+        });
+        row(
+                Category.APPEARANCE,
+                tabsSection,
+                tr("settings.showTabBar"),
+                tr("settings.showTabBar.desc"),
+                showTabBar,
+                "tab bar tabs show hide strip header chrome");
+
         VBox windowSection = section(page, tr("settings.section.window"));
 
         showMenuBar = new CheckBox();
         showMenuBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setShowMenuBar(value);
+            write(() -> settings.setShowMenuBar(value));
         });
-        boolean mac = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+        boolean mac = com.termina.Os.isMac();
         // Disabled rather than hidden on macOS: a setting that silently does nothing is worse than
         // one that says why it cannot.
         showMenuBar.setDisable(mac);
@@ -927,13 +1137,13 @@ public final class SettingsWindow {
         menuBarInTitleBar = new CheckBox();
         menuBarInTitleBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setMenuBarInTitleBar(value);
+            write(() -> settings.setMenuBarInTitleBar(value));
         });
         boolean extendedWindows =
                 javafx.application.Platform.isSupported(javafx.application.ConditionalFeature.EXTENDED_WINDOW);
         // Same policy as the row above: disabled with the reason, never silently inert. Two
         // reasons here, and the row says whichever applies.
-        menuBarInTitleBar.setDisable(!TerminalWindow.offersHeaderBarOption(mac, extendedWindows));
+        menuBarInTitleBar.setDisable(!WindowRules.offersHeaderBarOption(mac, extendedWindows));
         String titleBarReason = mac
                 ? tr("settings.menuBarInTitleBar.mac")
                 : !extendedWindows
@@ -947,10 +1157,29 @@ public final class SettingsWindow {
                 menuBarInTitleBar,
                 "title bar titlebar header menu bar unified decorations window buttons");
 
+        // The UI zoom (WIN-12, Pauta 6.0.1): the whole chrome, at once. Written through UiZoom,
+        // which scales the stylesheets on a worker before the setting changes.
+        uiZoom = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                Settings.MIN_UI_ZOOM, Settings.MAX_UI_ZOOM, Settings.DEFAULT_UI_ZOOM, UiZoom.STEP));
+        uiZoom.setEditable(true);
+        UiZoom.bind(uiZoom.prefWidthProperty(), 110);
+        makeLenient(uiZoom, d -> (int) Math.round(d));
+        uiZoom.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            UiZoom.change(settings, value);
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.uiZoom"),
+                tr("settings.uiZoom.desc"),
+                uiZoom,
+                "interface ui zoom scale size chrome menus tabs larger smaller percent");
+
         showScrollBar = new CheckBox();
         showScrollBar.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setShowScrollBar(value);
+            write(() -> settings.setShowScrollBar(value));
         });
         row(
                 Category.APPEARANCE,
@@ -960,23 +1189,49 @@ public final class SettingsWindow {
                 showScrollBar,
                 "scroll bar scrollbar scrollback history gutter");
 
+        showStatusBar = new CheckBox();
+        showStatusBar.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setShowStatusBar(value));
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.showStatusBar"),
+                tr("settings.showStatusBar.desc"),
+                showStatusBar,
+                "status bar statusbar messages message log echo errors");
+
+        simpleMode = new CheckBox();
+        simpleMode.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setSimpleMode(value));
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.simpleMode"),
+                tr("settings.simpleMode.desc"),
+                simpleMode,
+                "simple mode menus menu bar short fewer beginner new zen expert");
+
         windowOpacity = new Slider(WindowOpacity.MIN * 100, WindowOpacity.MAX * 100, 100);
         windowOpacity.setPrefWidth(180);
         windowOpacity.setMajorTickUnit(10);
         windowOpacity.setMinorTickCount(1);
         windowOpacity.setSnapToTicks(true);
-        windowOpacityValue = new Label("100%");
+        windowOpacityValue = new Label(tr("settings.percent", 100));
         windowOpacityValue.setMinWidth(44);
         // Live while dragging, but written only when the drag ends: every write saves the file and
         // broadcasts a settings change to every terminal in every window, which is not something to
         // do per pixel of travel.
         windowOpacity.valueProperty().addListener((o, old, value) -> {
-            windowOpacityValue.setText(WindowOpacity.percent(value.doubleValue() / 100) + "%");
+            windowOpacityValue.setText(tr("settings.percent", WindowOpacity.percent(value.doubleValue() / 100)));
             if (loading || windowOpacity.isValueChanging()) return;
-            settings.setWindowOpacity(value.doubleValue() / 100);
+            write(() -> settings.setWindowOpacity(value.doubleValue() / 100));
         });
         windowOpacity.valueChangingProperty().addListener((o, was, changing) -> {
-            if (!changing && !loading) settings.setWindowOpacity(windowOpacity.getValue() / 100);
+            if (!changing && !loading) write(() -> settings.setWindowOpacity(windowOpacity.getValue() / 100));
         });
         HBox opacityControl = new HBox(8, windowOpacity, windowOpacityValue);
         opacityControl.setAlignment(Pos.CENTER_RIGHT);
@@ -986,6 +1241,7 @@ public final class SettingsWindow {
                 tr("settings.windowOpacity"),
                 tr("settings.windowOpacity.desc"),
                 opacityControl,
+                windowOpacity,
                 "opacity transparent transparency see through alpha blur");
 
         VBox languageSection = section(page, tr("settings.section.language"));
@@ -1009,7 +1265,7 @@ public final class SettingsWindow {
         });
         language.valueProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setUiLanguage(value == null ? "" : value);
+            write(() -> settings.setUiLanguage(value == null ? "" : value));
         });
         row(
                 Category.APPEARANCE,
@@ -1026,6 +1282,7 @@ public final class SettingsWindow {
                 Category.APPEARANCE,
                 preview.node(),
                 tr("settings.section.preview"),
+                "",
                 "preview sample colours font",
                 previewSection));
     }
@@ -1049,7 +1306,7 @@ public final class SettingsWindow {
         cursorShape.setPrefWidth(160);
         cursorShape.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setCursorShape(value);
+            write(() -> settings.setCursorShape(value));
         });
         row(
                 Category.TERMINAL,
@@ -1066,7 +1323,7 @@ public final class SettingsWindow {
         makeLenient(padding, d -> (int) Math.round(d));
         padding.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setPadding(value);
+            write(() -> settings.setPadding(value));
         });
         row(
                 Category.TERMINAL,
@@ -1079,14 +1336,14 @@ public final class SettingsWindow {
         bell = new CheckBox();
         bell.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setBell(value);
+            write(() -> settings.setBell(value));
         });
         row(Category.TERMINAL, display, tr("settings.bell"), tr("settings.bell.desc"), bell, "bell alert flash sound");
 
         notifications = new CheckBox();
         notifications.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setNotifications(value);
+            write(() -> settings.setNotifications(value));
         });
         row(
                 Category.TERMINAL,
@@ -1101,7 +1358,7 @@ public final class SettingsWindow {
         confirmClose = new CheckBox();
         confirmClose.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setConfirmClose(value);
+            write(() -> settings.setConfirmClose(value));
         });
         row(
                 Category.TERMINAL,
@@ -1111,6 +1368,19 @@ public final class SettingsWindow {
                 confirmClose,
                 "close confirm running program prompt ask tab");
 
+        restoreSession = new CheckBox();
+        restoreSession.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setRestoreSession(value));
+        });
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.restoreSession"),
+                tr("settings.restoreSession.desc"),
+                restoreSession,
+                "reopen restore session tabs panes launch startup start last time no-session");
+
         scrollback = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
         scrollback.setEditable(true);
@@ -1118,7 +1388,7 @@ public final class SettingsWindow {
         makeLenient(scrollback, d -> (int) Math.round(d));
         scrollback.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            settings.setScrollbackLines(value);
+            write(() -> settings.setScrollbackLines(value));
         });
         row(
                 Category.TERMINAL,
@@ -1131,16 +1401,32 @@ public final class SettingsWindow {
         shellField = new TextField();
         shellField.setPromptText(tr("settings.shell.prompt"));
         shellField.setPrefWidth(260);
-        shellField.focusedProperty().addListener((o, was, focused) -> {
-            if (!focused && !loading) settings.setShell(shellField.getText());
-        });
-        shellField.setOnAction(e -> {
-            if (!loading) settings.setShell(shellField.getText());
-        });
         // The launcher falls back to $SHELL when this is not executable, on purpose and without a
         // word; this line is the word. Typing /bin/zshh and getting bash otherwise reads as the
         // setting being broken.
-        VBox shellControl = withValidation(shellField, new Label(), ShellLauncher::validateShellPath);
+        Label shellStatus = new Label();
+        VBox shellControl = withValidation(shellField, shellStatus, ShellLauncher::validateShellPath);
+        // Committed on Enter and on losing focus, and only a path that passes: one that names
+        // nothing is marked and the setting keeps what it had (SET-04, Pauta 6.0.1).
+        Runnable commitShell = () -> {
+            if (loading) return;
+            String typed = shellField.getText();
+            // The disk is asked on a worker, which also resolves the command the menus will want
+            // for this spelling; the write follows on the FX thread, a moment after the key.
+            java.util.function.Function<String, ShellLauncher.PathStatus> check = text -> {
+                ShellLauncher.PathStatus verdict = ShellLauncher.validateShellPath(text);
+                if (commits(verdict)) com.termina.shell.ShellProfiles.warm(text, List.of());
+                return verdict;
+            };
+            checkPath(shellField, check, verdict -> {
+                showValidation(shellStatus, validationKey(verdict));
+                if (commits(verdict)) write(() -> settings.setShell(typed));
+            });
+        };
+        shellField.focusedProperty().addListener((o, was, focused) -> {
+            if (!focused) commitShell.run();
+        });
+        shellField.setOnAction(e -> commitShell.run());
         row(
                 Category.TERMINAL,
                 session,
@@ -1153,13 +1439,13 @@ public final class SettingsWindow {
         VBox links = section(page, tr("settings.section.links"));
 
         linkCommandField = new TextField();
-        linkCommandField.setPromptText("/path/to/editor {file}:{line}");
+        linkCommandField.setPromptText(tr("settings.linkOpenCommand.prompt"));
         linkCommandField.setPrefWidth(260);
         linkCommandField.focusedProperty().addListener((o, was, focused) -> {
-            if (!focused && !loading) settings.setLinkOpenCommand(linkCommandField.getText());
+            if (!focused && !loading) write(() -> settings.setLinkOpenCommand(linkCommandField.getText()));
         });
         linkCommandField.setOnAction(e -> {
-            if (!loading) settings.setLinkOpenCommand(linkCommandField.getText());
+            if (!loading) write(() -> settings.setLinkOpenCommand(linkCommandField.getText()));
         });
         row(
                 Category.TERMINAL,
@@ -1176,7 +1462,7 @@ public final class SettingsWindow {
         altIsMeta = new CheckBox();
         altIsMeta.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setAltIsMeta(value);
+            write(() -> settings.setAltIsMeta(value));
         });
         row(
                 Category.TERMINAL,
@@ -1186,23 +1472,14 @@ public final class SettingsWindow {
                 altIsMeta,
                 "alt option meta escape readline compose");
 
-        confirmPaste = new CheckBox();
-        confirmPaste.selectedProperty().addListener((o, old, value) -> {
-            if (loading) return;
-            settings.setConfirmPaste(value);
-        });
-        row(
-                Category.TERMINAL,
-                input,
-                tr("settings.confirmPaste"),
-                tr("settings.confirmPaste.desc"),
-                confirmPaste,
-                "paste clipboard multiline newline confirm ask safety");
+        // No row for the multi-line paste prompt (SET-16, Pauta 3.0.0): it is on by default, and a
+        // row could only turn it off, which is the unsafe way. It stays a settings.json key,
+        // input.confirmPaste, for anyone who means to.
 
         copyOnSelect = new CheckBox();
         copyOnSelect.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setCopyOnSelect(value);
+            write(() -> settings.setCopyOnSelect(value));
         });
         row(
                 Category.TERMINAL,
@@ -1215,7 +1492,7 @@ public final class SettingsWindow {
         clipboardWrite = new CheckBox();
         clipboardWrite.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setClipboardWrite(value);
+            write(() -> settings.setClipboardWrite(value));
         });
         row(
                 Category.TERMINAL,
@@ -1228,7 +1505,7 @@ public final class SettingsWindow {
         typeAhead = new CheckBox();
         typeAhead.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setTypeAhead(value);
+            write(() -> settings.setTypeAhead(value));
         });
         row(
                 Category.TERMINAL,
@@ -1261,7 +1538,7 @@ public final class SettingsWindow {
     private void buildKeyboard(VBox page) {
         VBox all = section(page, tr("settings.section.shortcuts"));
         Button resetAll = new Button(tr("settings.keys.resetAll"));
-        resetAll.setOnAction(e -> confirmResetKeys());
+        resetAll.setOnAction(e -> act(SettingsActions.Action.RESET_SHORTCUTS));
         row(
                 Category.KEYBOARD,
                 all,
@@ -1373,35 +1650,25 @@ public final class SettingsWindow {
         KeyCombination home = keyDefaults.get(id);
         // taken() names a holder only for a command that has a default chord to take back.
         if (holder != null && home != null) {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-            confirm.initOwner(stage);
-            confirm.setTitle(tr("settings.keys.reset"));
-            confirm.setHeaderText(tr("settings.keys.resetTaken.title", home.getDisplayText()));
-            confirm.setContentText(tr("settings.keys.resetTaken.detail", labelOf(holder), labelOf(id)));
-            ButtonType take = new ButtonType(tr("settings.keys.reset"), ButtonBar.ButtonData.OK_DONE);
-            ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-            confirm.getButtonTypes().setAll(take, cancel);
-            if (confirm.showAndWait().orElse(cancel) != take) return;
+            // It takes the chord from another command, which is left with none (CONF-01).
+            if (!Confirm.ask(stage, Questions.resetKeyTaken(home.getDisplayText(), labelOf(holder), labelOf(id)))) {
+                return;
+            }
         }
         writeKeys(KeybindingEdits.reset(keyDefaults, stored, id, Keybindings.MAC));
     }
 
     private void confirmResetKeys() {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.initOwner(stage);
-        confirm.setTitle(tr("settings.keys.resetAll"));
-        confirm.setHeaderText(tr("settings.keys.resetAll.confirmTitle"));
-        confirm.setContentText(tr("settings.keys.resetAll.confirmDetail"));
-        ButtonType reset = new ButtonType(tr("settings.keys.resetAll"), ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancel = new ButtonType(tr("dialog.cancel"), ButtonBar.ButtonData.CANCEL_CLOSE);
-        confirm.getButtonTypes().setAll(reset, cancel);
-        if (confirm.showAndWait().orElse(cancel) != reset) return;
+        if (!Confirm.ask(stage, Questions.resetAllKeys())) {
+            return;
+        }
         writeKeys(Map.of());
     }
 
-    /** One write and one broadcast; the change listener reloads the rows, every window rebinds. */
+    /** One write and one broadcast: every window rebinds, and the rows here are reloaded by hand. */
     private void writeKeys(Map<String, String> stored) {
-        settings.replaceKeyBindings(stored);
+        write(() -> settings.replaceKeyBindings(stored));
+        reloadKeys();
     }
 
     private Map<String, KeyCombination> effectiveKeys() {
@@ -1424,7 +1691,8 @@ public final class SettingsWindow {
     /** A refusal is red; a note about a chord that was taken is the warning colour. Hidden when null. */
     private static void showKeyStatus(Label status, @Nullable String message, boolean refusal) {
         status.setText(message == null ? "" : message);
-        status.setStyle(refusal ? "-fx-text-fill: -color-danger-4;" : "-fx-text-fill: -color-warning-4;");
+        status.getStyleClass().removeAll("state-error", "state-warning");
+        status.getStyleClass().add(refusal ? "state-error" : "state-warning");
         status.setVisible(message != null);
         status.setManaged(message != null);
     }
@@ -1439,7 +1707,7 @@ public final class SettingsWindow {
         return tr("settings.defaultProfile.desc", chord == null ? labelOf(NEW_TAB) : chord.getDisplayText());
     }
 
-    private static final String NEW_TAB = "newTab";
+    private static final String NEW_TAB = "file.newTab";
 
     private @Nullable Label defaultProfileHint;
 
@@ -1452,7 +1720,7 @@ public final class SettingsWindow {
     }
 
     /** {@code TerminalWindow.PROFILE_CHORD_ID}; the commands are that plus 1 to 9. */
-    private static final String PROFILE_CHORD = "newTabProfile";
+    private static final String PROFILE_CHORD = "file.newTabProfile";
 
     private @Nullable Label profilesHint;
 
@@ -1509,7 +1777,7 @@ public final class SettingsWindow {
         defaultProfile.setButtonCell(new ProfileCell(false));
         defaultProfile.valueProperty().addListener((o, old, value) -> {
             if (loading || value == null) return;
-            profiles.setDefaultProfileId(value.id());
+            write(() -> profiles.setDefaultProfileId(value.id()));
             refreshProfileList();
         });
         Node defaultRow = row(
@@ -1532,6 +1800,7 @@ public final class SettingsWindow {
         profileList.setPrefHeight(340);
         profileList.setMinHeight(140);
         profileList.setCellFactory(l -> new ProfileCell(true));
+        profileList.setAccessibleText(tr("settings.section.profiles"));
         profileList.getSelectionModel().selectedItemProperty().addListener((o, old, value) -> {
             // Committed before the form is repopulated, and against the profile the form was
             // showing rather than the one now selected. Clicking another row moves focus to the
@@ -1545,7 +1814,7 @@ public final class SettingsWindow {
         profileName = new TextField();
         profileName.setPromptText(tr("settings.profileName"));
         profileCommand = new TextField();
-        profileCommand.setPromptText("wsl.exe -d Ubuntu");
+        profileCommand.setPromptText(tr("settings.profileCommand.prompt"));
         profileDirectory = new TextField();
         profileDirectory.setPromptText(tr("settings.profileDirectory.prompt"));
         // Committed on Enter and on losing focus, which is how the shell and link fields on the
@@ -1564,7 +1833,7 @@ public final class SettingsWindow {
             if (loading) return;
             com.termina.shell.Profile selected = editing;
             if (selected == null) return;
-            profiles.setHidden(selected.id(), !value);
+            write(() -> profiles.setHidden(selected.id(), !value));
             refreshProfileList();
         });
 
@@ -1589,9 +1858,30 @@ public final class SettingsWindow {
         }
 
         Button addProfile = new Button(tr("settings.profileAdd"));
-        addProfile.setOnAction(e -> addUserProfile());
+        addProfile.setOnAction(e -> act(SettingsActions.Action.ADD_PROFILE));
         removeProfile = new Button(tr("settings.profileRemove"));
-        removeProfile.setOnAction(e -> removeSelectedProfile());
+        removeProfile.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
+
+        // A row's own menu (MENU-05, Pauta 6.0.1): the list's two actions, each a command. Remove
+        // is the row's, so it is styled as dangerous (MENU-12) and greyed for a profile that is
+        // not the user's to remove, decided as the menu shows.
+        javafx.scene.control.MenuItem addRow = new javafx.scene.control.MenuItem(
+                tr("settings.profileAdd"), MenuIcons.command(SettingsActions.Action.ADD_PROFILE.id()));
+        addRow.setOnAction(e -> act(SettingsActions.Action.ADD_PROFILE));
+        javafx.scene.control.MenuItem removeRow = new javafx.scene.control.MenuItem(
+                tr("settings.profileRemove"), MenuIcons.command(SettingsActions.Action.REMOVE_PROFILE.id()));
+        removeRow.getStyleClass().add("danger");
+        removeRow.setOnAction(e -> act(SettingsActions.Action.REMOVE_PROFILE));
+        javafx.scene.control.ContextMenu profileMenu = new javafx.scene.control.ContextMenu(addRow, removeRow);
+        MenuChords.command(addRow, SettingsActions.Action.ADD_PROFILE.id());
+        MenuChords.command(removeRow, SettingsActions.Action.REMOVE_PROFILE.id());
+        profileMenu.setOnShowing(e -> {
+            removeRow.setDisable(!hasRemovableProfileSelected());
+            // Each row's chord, from the bindings in force now (MENU-15).
+            Map<String, KeyCombination> chords = effectiveKeys();
+            MenuChords.fill(profileMenu.getItems(), chords::get);
+        });
+        profileList.setContextMenu(OneMenu.installRightClick(profileMenu));
 
         HBox buttons = new HBox(8, addProfile, removeProfile);
         buttons.setAlignment(Pos.CENTER_LEFT);
@@ -1625,6 +1915,7 @@ public final class SettingsWindow {
                 Category.PROFILES,
                 editor,
                 tr("settings.section.profiles"),
+                "",
                 "profile shell command wsl powershell cmd bash zsh fish add remove",
                 list));
 
@@ -1724,7 +2015,9 @@ public final class SettingsWindow {
         profileFontSize.setValue(size == null ? defaultLabel : formatSize(size));
         ThemeEntry theme = style.themeId().isEmpty() ? null : Themes.byId(style.themeId());
         profileTheme.setValue(
-                theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
+                Themes.followsSystem(style.themeId())
+                        ? Themes.systemDisplayName()
+                        : theme == null || !theme.id().equals(style.themeId()) ? defaultLabel : theme.displayName());
     }
 
     private static String formatSize(double size) {
@@ -1749,12 +2042,10 @@ public final class SettingsWindow {
                 fontSize = null;
             }
         }
-        settings.setProfileStyle(
-                editing.id(),
-                new com.termina.config.Settings.ProfileStyle(
-                        font == null || font.equals(defaultLabel) ? "" : font,
-                        fontSize,
-                        theme == null ? "" : theme.id()));
+        com.termina.config.Settings.ProfileStyle style = new com.termina.config.Settings.ProfileStyle(
+                font == null || font.equals(defaultLabel) ? "" : font, fontSize, theme == null ? "" : theme.id());
+        String profileId = editing.id();
+        write(() -> settings.setProfileStyle(profileId, style));
     }
 
     /**
@@ -1785,23 +2076,52 @@ public final class SettingsWindow {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
         if (profileName.getText().isBlank() || profileCommand.getText().isBlank()) return;
+        String name = profileName.getText().trim();
+        String command = profileCommand.getText();
+        String directory = profileDirectory.getText();
+        // Whether the command and the folder are there is the disk's to say, so it is asked on a
+        // worker (PERF-01, Pauta 6.0.1) and the edit is made back here with the two answers.
+        // Each check is on a thread of its own, so two commits a moment apart can answer out of
+        // order. Only the newest for its profile is applied: it was made from the form as it stood
+        // last, and an older one applied after it wrote its stale folder back.
+        String id = selected.id();
+        long edit = profileEdits.begin(id);
+        PATH_CHECKS.execute(() -> {
+            boolean commandPasses = commits(ShellLauncher.validateCommand(command));
+            boolean directoryPasses = commits(ShellLauncher.validateDirectory(directory));
+            Platform.runLater(() -> {
+                if (!profileEdits.isNewest(id, edit)) return;
+                applyProfileEdit(id, name, command, commandPasses, directory, directoryPasses);
+            });
+        });
+    }
 
+    /** Numbers the commits of a profile's form, so a late answer to an older one is dropped. */
+    private final LatestEdit profileEdits = new LatestEdit();
+
+    /** The edit itself, on the FX thread, once the worker has said which of the two paths pass. */
+    private void applyProfileEdit(
+            String id, String name, String command, boolean commandPasses, String directory, boolean directoryPasses) {
         List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
         boolean changed = false;
         for (int i = 0; i < user.size(); i++) {
-            if (!user.get(i).id().equals(selected.id())) continue;
-            com.termina.shell.Profile edited = user.get(i)
-                    .withName(profileName.getText().trim())
-                    .withCommandLine(profileCommand.getText())
-                    .withWorkingDirectory(profileDirectory.getText());
+            if (!user.get(i).id().equals(id)) continue;
+            // A command or a directory that is marked is not written (SET-04, Pauta 6.0.1): the
+            // profile keeps the one it had, and the mark under the field says why.
+            com.termina.shell.Profile edited = user.get(i).withName(name);
+            if (commandPasses) edited = edited.withCommandLine(command);
+            if (directoryPasses) edited = edited.withWorkingDirectory(directory);
             if (edited.equals(user.get(i))) return;
             user.set(i, edited);
             changed = true;
             break;
         }
         if (!changed) return;
-        profiles.setUserProfiles(user);
-        refreshProfileList(selected.id());
+        write(() -> profiles.setUserProfiles(user));
+        // The list is redrawn around the profile that was edited, unless the user has since gone
+        // to another: the answer came a moment after the key, and the selection is theirs.
+        com.termina.shell.Profile now = editing;
+        refreshProfileList(now == null ? id : now.id());
     }
 
     private void addUserProfile() {
@@ -1812,7 +2132,7 @@ public final class SettingsWindow {
                 .withCommandLine(profiles.systemProfile().commandLine());
         List<com.termina.shell.Profile> user = new ArrayList<>(profiles.userProfiles());
         user.add(created);
-        profiles.setUserProfiles(user);
+        write(() -> profiles.setUserProfiles(user));
         refreshProfileList(created.id());
         profileName.requestFocus();
         profileName.selectAll();
@@ -1821,8 +2141,11 @@ public final class SettingsWindow {
     private void removeSelectedProfile() {
         com.termina.shell.Profile selected = editing;
         if (selected == null || !selected.isEditable()) return;
+        if (!Confirm.ask(stage, Questions.removeProfile(selected.name()))) {
+            return;
+        }
         // Its style, the default and the hidden entry go with it: the next profile added may get its id.
-        profiles.removeUserProfile(selected.id());
+        write(() -> profiles.removeUserProfile(selected.id()));
         refreshProfileList();
     }
 
@@ -1879,7 +2202,7 @@ public final class SettingsWindow {
         // warning nobody reads, and the file still holds the old one until the next launch.
         saveError = new Label();
         saveError.getStyleClass().add("settings-row-description");
-        saveError.setStyle("-fx-text-fill: -color-danger-4;");
+        saveError.getStyleClass().add("state-error");
         saveError.setWrapText(true);
         VBox fileControl = new VBox(2, settingsPath, saveError);
         fileControl.setMaxWidth(420);
@@ -1892,12 +2215,45 @@ public final class SettingsWindow {
                 settingsPath,
                 "settings file path properties config location save error");
 
+        // SET-12 (Pauta 2.0.2). Each button reports on its row; the palette's commands report to the
+        // window that ran them.
+        ConfigTransfer transfer = new ConfigTransfer(settings);
+        Label transferResult = new Label();
+        transferResult.getStyleClass().add("settings-row-description");
+        transferResult.setWrapText(true);
+        transferResult.setMaxWidth(420);
+        Reporter onRow = (severity, message) -> {
+            transferResult.setText(message);
+            transferResult.getStyleClass().remove("state-error");
+            if (severity == MessageLog.Severity.ERROR)
+                transferResult.getStyleClass().add("state-error");
+        };
+        Button exportConfig = new Button(tr("settings.exportConfig.button"));
+        exportConfig.setOnAction(e -> transfer.export(onRow));
+        row(
+                Category.ADVANCED,
+                files,
+                tr("settings.exportConfig"),
+                tr("settings.exportConfig.desc"),
+                exportConfig,
+                "export backup configuration zip settings save copy move computer");
+        Button importConfig = new Button(tr("settings.importConfig.button"));
+        importConfig.setOnAction(e -> transfer.importFrom(stage, onRow));
+        row(
+                Category.ADVANCED,
+                files,
+                tr("settings.importConfig"),
+                tr("settings.importConfig.desc"),
+                new VBox(4, importConfig, transferResult),
+                importConfig,
+                "import restore configuration zip settings backup load computer");
+
         VBox updates = section(page, tr("settings.section.updates"));
 
         updateCheck = new CheckBox();
         updateCheck.selectedProperty().addListener((o, old, value) -> {
             if (loading) return;
-            settings.setUpdateCheck(value);
+            write(() -> settings.setUpdateCheck(value));
         });
         row(
                 Category.ADVANCED,
@@ -1909,10 +2265,7 @@ public final class SettingsWindow {
 
         VBox diagnostics = section(page, tr("settings.section.diagnostics"));
         Button showDebugLog = new Button(tr("settings.debugLog.button"));
-        showDebugLog.setOnAction(e -> {
-            if (debugLog == null) debugLog = new DebugLogWindow(stage);
-            debugLog.show();
-        });
+        showDebugLog.setOnAction(e -> showDebugLog());
         row(
                 Category.ADVANCED,
                 diagnostics,
@@ -1922,8 +2275,30 @@ public final class SettingsWindow {
                 "debug log diagnostics errors warnings crash trace troubleshoot");
     }
 
-    /** Built on first use: most sessions never open it. */
-    private DebugLogWindow debugLog;
+    /** Opens the application's Debug Log; null where no window manager made this window. */
+    private java.util.function.@Nullable Consumer<javafx.stage.Window> debugLogOpener;
+
+    /**
+     * How this page's button opens the Debug Log: the application's one window, the one the
+     * {@code debugLog} command opens, with Report a Problem on it (DIAG-03, Pauta 6.0.1).
+     */
+    void openDebugLogWith(java.util.function.Consumer<javafx.stage.Window> opener) {
+        this.debugLogOpener = opener;
+    }
+
+    private void showDebugLog() {
+        if (debugLogOpener != null) {
+            debugLogOpener.accept(stage);
+            return;
+        }
+        // No application around this window (a test): a log window of its own, which has nowhere
+        // to send a report from.
+        if (debugLog == null) debugLog = new DebugLogWindow(stage);
+        debugLog.show();
+    }
+
+    /** Built on first use, and only without an opener. */
+    private @Nullable DebugLogWindow debugLog;
 
     // ---------------------------------------------------------------- sync
 
@@ -1936,6 +2311,10 @@ public final class SettingsWindow {
     private boolean syncCreating;
 
     private Label syncState;
+
+    /** The sync's phase as a pill (SET-21, Pauta 6.0.1): one word, colored for how it stands. */
+    private final Label syncPill = new Label();
+
     private Label syncAccount;
     private Button syncNow;
     private Button syncCancel;
@@ -1953,9 +2332,10 @@ public final class SettingsWindow {
         syncRepository.textProperty().addListener((o, old, text) -> {
             if (!loading) showSyncFieldError(null);
         });
+        commitOnEnterOrBlur(syncRepository, this::commitSyncFields);
         syncFieldError = new Label();
         syncFieldError.getStyleClass().add("settings-row-description");
-        syncFieldError.setStyle("-fx-text-fill: -color-danger-4;");
+        syncFieldError.getStyleClass().add("state-error");
         syncFieldError.setWrapText(true);
         syncFieldError.setMaxWidth(320);
         showSyncFieldError(null);
@@ -1972,6 +2352,7 @@ public final class SettingsWindow {
         syncBranch = new TextField();
         syncBranch.setPromptText(Settings.DEFAULT_SYNC_BRANCH);
         syncBranch.setPrefWidth(160);
+        commitOnEnterOrBlur(syncBranch, this::commitSyncFields);
         row(
                 Category.SYNC,
                 repository,
@@ -1981,10 +2362,10 @@ public final class SettingsWindow {
                 "sync branch git main");
 
         syncConnect = new Button();
-        syncConnect.setOnAction(e -> toggleSyncConnection());
+        syncConnect.setOnAction(e -> act(SettingsActions.Action.SYNC_CONNECT));
         // Offered only while gh is installed and signed in, which `show` asks.
         syncCreateGitHub = new Button(tr("settings.sync.createGithub"));
-        syncCreateGitHub.setOnAction(e -> createSyncRepositoryOnGitHub());
+        syncCreateGitHub.setOnAction(e -> act(SettingsActions.Action.SYNC_CREATE));
         setShown(syncCreateGitHub, false);
         row(
                 Category.SYNC,
@@ -2005,24 +2386,22 @@ public final class SettingsWindow {
             if (sync != null) sync.syncNow();
         });
         syncCancel = new Button(tr("dialog.cancel"));
-        syncCancel.setOnAction(e -> {
-            if (sync != null && !sync.cancel()) syncState.setText(tr("sync.state.tooLateToCancel"));
-        });
+        syncCancel.setOnAction(e -> act(SettingsActions.Action.SYNC_CANCEL));
         syncAnyway = new Button(tr("settings.sync.anyway"));
-        syncAnyway.setOnAction(e -> {
-            if (sync != null) sync.syncAllowingLargeRemoval();
-        });
+        // The dangerous alternative beside the safe one, in red (CONF-11, Pauta 6.0.1): it is
+        // shown only once a sync has stopped to ask.
+        syncAnyway.getStyleClass().add("danger");
+        syncAnyway.setOnAction(e -> act(SettingsActions.Action.SYNC_ANYWAY));
         // Said, because it is otherwise invisible: which of the user's GitHub accounts this computer
         // syncs as, whichever one `gh auth switch` last made active.
         syncAccount = new Label();
         syncAccount.setWrapText(true);
         syncAccount.getStyleClass().add("settings-row-description");
         syncRemoveCredentials = new Button(tr("settings.sync.removeCredentials"));
-        syncRemoveCredentials.setOnAction(e -> {
-            if (sync != null) sync.removeCredentialsFromUrl();
-        });
+        syncRemoveCredentials.setOnAction(e -> act(SettingsActions.Action.SYNC_REMOVE_CREDENTIALS));
         HBox buttons = new HBox(6, syncNow, syncCancel, syncAnyway, syncRemoveCredentials);
-        VBox stateControl = new VBox(6, syncState, syncAccount, buttons);
+        syncPill.getStyleClass().add("sync-pill");
+        VBox stateControl = new VBox(6, new HBox(syncPill), syncState, syncAccount, buttons);
         stateControl.setMaxWidth(420);
         stateControl.setPrefWidth(420);
         row(
@@ -2036,7 +2415,7 @@ public final class SettingsWindow {
 
         syncAuto = new CheckBox();
         syncAuto.selectedProperty().addListener((o, old, value) -> {
-            if (!loading) settings.setSyncAuto(value);
+            if (!loading) write(() -> settings.setSyncAuto(value));
         });
         row(
                 Category.SYNC,
@@ -2052,7 +2431,7 @@ public final class SettingsWindow {
         syncInterval.setPrefWidth(110);
         makeLenient(syncInterval, value -> (int) Math.round(value));
         syncInterval.valueProperty().addListener((o, old, value) -> {
-            if (!loading && value != null) settings.setSyncIntervalMinutes(value);
+            if (!loading && value != null) write(() -> settings.setSyncIntervalMinutes(value));
         });
         row(
                 Category.SYNC,
@@ -2079,6 +2458,53 @@ public final class SettingsWindow {
         what.getChildren().add(notSynced);
     }
 
+    /** A text field's commit: Enter in it, and the focus leaving it (SET-04). */
+    private static void commitOnEnterOrBlur(TextField field, Runnable commit) {
+        field.setOnAction(e -> commit.run());
+        field.focusedProperty().addListener((o, was, focused) -> {
+            if (!focused) commit.run();
+        });
+    }
+
+    /**
+     * Writes the repository and branch as they are typed in, on Enter or when the focus leaves
+     * either field, so they are settings like any other and not something only Connect stores
+     * (SET-04, Pauta 6.0.1). A value that cannot work is marked and not written. The fields are
+     * disabled while connected, so this never moves a sync that is running.
+     */
+    private void commitSyncFields() {
+        if (loading || settings.syncEnabled() || syncCreating) return;
+        String url =
+                syncRepository.getText() == null ? "" : syncRepository.getText().strip();
+        String branch = syncBranch.getText() == null || syncBranch.getText().isBlank()
+                ? Settings.DEFAULT_SYNC_BRANCH
+                : syncBranch.getText().strip();
+        String problem = syncCommitProblem(url, branch);
+        if (problem != null) {
+            showSyncFieldError(
+                    "settings.sync.repository.credentials".equals(problem)
+                            ? tr(problem, com.termina.sync.SyncEngine.withoutCredentials(url))
+                            : tr(problem));
+            return;
+        }
+        showSyncFieldError(null);
+        write(() -> {
+            settings.setSyncRepository(url);
+            settings.setSyncBranch(branch);
+        });
+    }
+
+    /**
+     * What is wrong with the sync fields as a value to store, or null. An empty repository is
+     * nothing to connect to but a fine thing to store: it is how the field is cleared.
+     */
+    static @Nullable String syncCommitProblem(String url, String branch) {
+        if (url.isEmpty()) {
+            return com.termina.sync.SyncEngine.isUsableBranch(branch) ? null : "settings.sync.branch.invalid";
+        }
+        return syncFieldProblem(url, branch);
+    }
+
     private void showSyncFieldError(@Nullable String text) {
         syncFieldError.setText(text == null ? "" : text);
         syncFieldError.setVisible(text != null);
@@ -2094,7 +2520,7 @@ public final class SettingsWindow {
     private void toggleSyncConnection() {
         if (sync == null) return;
         if (settings.syncEnabled()) {
-            settings.setSyncEnabled(false);
+            write(() -> settings.setSyncEnabled(false));
             sync.disconnected();
             refreshSync();
             return;
@@ -2113,9 +2539,11 @@ public final class SettingsWindow {
             return;
         }
         showSyncFieldError(null);
-        settings.setSyncRepository(url);
-        settings.setSyncBranch(branch);
-        settings.setSyncEnabled(true);
+        write(() -> {
+            settings.setSyncRepository(url);
+            settings.setSyncBranch(branch);
+            settings.setSyncEnabled(true);
+        });
         sync.connected();
         refreshSync();
     }
@@ -2131,6 +2559,7 @@ public final class SettingsWindow {
         ask.setTitle(tr("settings.cat.sync"));
         ask.setHeaderText(tr("dialog.sync.createGithub.header"));
         ask.setContentText(tr("dialog.sync.createGithub.name"));
+        Confirm.prompt(ask, tr("dialog.create"));
         String name = ask.showAndWait().map(String::strip).orElse("");
         if (name.isEmpty()) return;
         if (!com.termina.sync.GitHubRepo.isName(name)) {
@@ -2162,6 +2591,11 @@ public final class SettingsWindow {
         return null;
     }
 
+    /** The pill's word for a phase, as a catalogue key. */
+    static String syncPillKey(SettingsSync.Phase phase) {
+        return "sync.pill." + phase.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
     /** Puts the sync's state on the page: which button says what, and what the last run did. */
     private void refreshSync() {
         if (syncState == null) return;
@@ -2170,6 +2604,9 @@ public final class SettingsWindow {
                 sync == null ? SettingsSync.Phase.OFF : sync.state().phase();
         syncConnect.setText(tr(connected ? "settings.sync.disconnect" : "settings.sync.connect"));
         syncConnect.setDisable(sync == null || syncCreating);
+        syncPill.setText(tr(syncPillKey(phase)));
+        syncPill.getStyleClass().removeAll("off", "idle", "syncing", "problem");
+        syncPill.getStyleClass().add(phase.name().toLowerCase(java.util.Locale.ROOT));
         syncRepository.setDisable(connected || syncCreating);
         syncBranch.setDisable(connected || syncCreating);
         setShown(syncCreateGitHub, sync != null && !connected && sync.gitHubAvailable());
@@ -2201,7 +2638,7 @@ public final class SettingsWindow {
     }
 
     private static String shortcutName() {
-        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac") ? "Cmd" : "Ctrl";
+        return com.termina.Os.isMac() ? "Cmd" : "Ctrl";
     }
 
     // ---------------------------------------------------------------- state
@@ -2221,15 +2658,16 @@ public final class SettingsWindow {
         try {
             ThemeEntry theme = Themes.byId(settings.themeId());
             themeCombo.getItems().setAll(Themes.byDisplayName().keySet());
-            themeCombo.setValue(theme.displayName());
+            themeCombo.setValue(
+                    Themes.followsSystem(settings.themeId()) ? Themes.systemDisplayName() : theme.displayName());
             removeTheme.setDisable(theme.isBuiltIn());
             fontCombo.setValue(MonospaceFonts.resolve(settings.fontFamily()));
             fontSize.getValueFactory().setValue(settings.fontSize());
+            uiZoom.getValueFactory().setValue(settings.uiZoom());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
             padding.getValueFactory().setValue(settings.padding());
             altIsMeta.setSelected(settings.altIsMeta());
-            confirmPaste.setSelected(settings.confirmPaste());
             copyOnSelect.setSelected(settings.copyOnSelect());
             clipboardWrite.setSelected(settings.clipboardWrite());
             typeAhead.setSelected(settings.typeAhead());
@@ -2237,17 +2675,23 @@ public final class SettingsWindow {
             bell.setSelected(settings.bell());
             notifications.setSelected(settings.notifications());
             confirmClose.setSelected(settings.confirmClose());
+            restoreSession.setSelected(settings.restoreSession());
             hideTabBar.setSelected(settings.hideTabBarWhenSingle());
+            showTabBar.setSelected(settings.showTabBar());
             showMenuBar.setSelected(settings.showMenuBar());
             menuBarInTitleBar.setSelected(settings.menuBarInTitleBar());
             showScrollBar.setSelected(settings.showScrollBar());
+            showStatusBar.setSelected(settings.showStatusBar());
+            simpleMode.setSelected(settings.simpleMode());
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             language.setValue(settings.uiLanguage());
-            shellField.setText(settings.shell());
-            linkCommandField.setText(settings.linkOpenCommand());
+            // Not under the user's fingers: a change from elsewhere — a sync run, a zoom chord in a
+            // terminal window — reloads this window, and a field being typed into keeps its text.
+            setUnlessEditing(shellField, settings.shell());
+            setUnlessEditing(linkCommandField, settings.linkOpenCommand());
             updateCheck.setSelected(settings.updateCheck());
-            syncRepository.setText(settings.syncRepository());
-            syncBranch.setText(settings.syncBranch());
+            setUnlessEditing(syncRepository, settings.syncRepository());
+            setUnlessEditing(syncBranch, settings.syncBranch());
             syncAuto.setSelected(settings.syncAuto());
             syncInterval.getValueFactory().setValue(settings.syncIntervalMinutes());
             settingsPath.setText(settings.file().toString());

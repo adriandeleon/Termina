@@ -80,8 +80,7 @@ public final class ShellDiscovery {
      * it belongs on a background thread. {@link ShellProfiles} is what arranges that.
      */
     public static List<Profile> discover() {
-        boolean windows =
-                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+        boolean windows = com.termina.Os.isWindows();
         Predicate<Path> executable = Files::isExecutable;
         if (windows) {
             return onWindows(
@@ -222,7 +221,7 @@ public final class ShellDiscovery {
      * <p>Output through a file rather than a pipe, as {@link com.termina.process.CommandOutput} does and for its reason: a
      * file cannot fill, so a chatty child cannot block before the deadline is enforced.
      */
-    private static @Nullable CommandResult run(ProcessBuilder builder) {
+    static @Nullable CommandResult run(ProcessBuilder builder) {
         Path output = null;
         Process process = null;
         try {

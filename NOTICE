@@ -1,5 +1,6 @@
 Termina
 Copyright 2026 Adrian De Leon
+Licensed under the MIT License; see LICENSE.
 
 This product includes software from the following projects.
 
@@ -55,14 +56,24 @@ writing code (https://github.com/c4f7fcce9cb06515/Schubfach), Copyright
 2018-2020 Raffaello Giulietti, MIT License. The licence texts are in the
 jackson-core jar's META-INF directory.
 
+Jackson databind and Jackson annotations — https://github.com/FasterXML/jackson-databind,
+https://github.com/FasterXML/jackson-annotations
+Copyright 2007-, Tatu Saloranta (tatu.saloranta@iki.fi).
+Licensed under Apache-2.0. Unmodified dependencies.
+
 SLF4J — https://www.slf4j.org
 Copyright (c) 2004-2023 QOS.ch.
-Licensed under the MIT License. slf4j-api and slf4j-simple, unmodified.
+Licensed under the MIT License. slf4j-api and slf4j-jdk14, unmodified.
 
 The Apache License 2.0 is at https://www.apache.org/licenses/LICENSE-2.0, the
 GNU GPL version 2 with the Classpath Exception at
 https://openjdk.org/legal/gplv2+ce.html, and the EPL-1.0 at
 https://www.eclipse.org/legal/epl-v10.html.
+
+AtlantaFX — https://github.com/mkpaz/atlantafx (io.github.mkpaz:atlantafx-base)
+JavaFX CSS theme library. Licensed under the MIT License. Unmodified
+dependency: the theme API and the Primer themes the Editora themes fall back
+to.
 
 --------------------------------------------------------------------------------
 Vendored source

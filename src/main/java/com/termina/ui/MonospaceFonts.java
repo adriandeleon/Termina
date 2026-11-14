@@ -65,6 +65,15 @@ public final class MonospaceFonts {
 
     /** Installed monospace families, preferred ones first, then the rest alphabetically. */
     public static synchronized List<String> available() {
+        // The picker lists every bundled family, including the ones deferred past the first frame.
+        // Never read on the FX thread, though (PERF-01, Pauta 6.0.1): a caller there gets the
+        // families registered so far, and the rest are registered on a worker, which forgets this
+        // list so the next caller sees them.
+        if (javafx.application.Platform.isFxApplicationThread()) {
+            if (!Fonts.restLoaded()) Fonts.loadRestInBackground(MonospaceFonts::forget);
+        } else if (Fonts.loadRest()) {
+            forget();
+        }
         if (cached != null) return cached;
 
         Set<String> families = installed();
@@ -87,8 +96,31 @@ public final class MonospaceFonts {
         return cached;
     }
 
+    /**
+     * Makes the list on a worker, after the first frame: the deferred families registered and
+     * every installed one measured, so the font picker's first opening only reads it (PERF-01).
+     * Measuring is two text layouts a family, and on a machine with a few hundred families the
+     * first Settings window spent a quarter of a second of the FX thread on it, which the stall
+     * sampler showed.
+     *
+     * @return the worker, for a test to wait on
+     */
+    public static Thread warmInBackground() {
+        Thread worker = new Thread(MonospaceFonts::available, "termina-fonts");
+        worker.setDaemon(true);
+        worker.start();
+        return worker;
+    }
+
+    /** Whether the list is made, so asking for it measures nothing. */
+    static synchronized boolean isListed() {
+        return cached != null;
+    }
+
     /** The family to actually use for a stored preference, which may be blank or uninstalled. */
     public static synchronized String resolve(String preference) {
+        // A bundled family the first frame did not need — a profile's — is registered on first use.
+        if (preference != null && Fonts.ensure(preference)) forget();
         // The same answer the full list would give — a preferred family is trusted, any other must
         // measure as monospace — without measuring every other family to get it.
         if (preference != null
@@ -111,8 +143,20 @@ public final class MonospaceFonts {
         return available().get(0);
     }
 
+    /** Drops what was read of the installed families, after more were registered. */
+    public static synchronized void forget() {
+        cached = null;
+        installed = null;
+    }
+
     private static Set<String> installed() {
-        if (installed == null) installed = Set.copyOf(Font.getFamilies());
+        if (installed == null) {
+            // Plus the bundled families loaded since JavaFX first listed its own: see
+            // Fonts.loadedFamilies.
+            Set<String> all = new java.util.HashSet<>(Font.getFamilies());
+            all.addAll(Fonts.loadedFamilies());
+            installed = Set.copyOf(all);
+        }
         return installed;
     }
 

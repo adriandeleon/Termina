@@ -25,7 +25,7 @@ class ProfileStyleTest {
         assertEquals("Fira Code", style.fontFamily());
         assertEquals(15.0, style.fontSize());
         assertEquals("", style.themeId());
-        assertTrue(!Files.readString(file).contains("wsl-ubuntu.theme"));
+        assertTrue(!StoredConfig.stored(dir).contains("wsl-ubuntu.theme"));
     }
 
     @Test

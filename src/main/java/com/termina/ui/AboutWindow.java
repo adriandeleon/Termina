@@ -18,6 +18,7 @@ import javafx.stage.Window;
 import com.termina.AppInfo;
 import com.termina.config.Settings;
 import com.termina.update.ReleaseInfo;
+import com.termina.update.UpdateService;
 import org.jspecify.annotations.Nullable;
 
 import static com.termina.i18n.Messages.tr;
@@ -27,21 +28,68 @@ public final class AboutWindow {
 
     private final Stage stage = new Stage();
     private final VBox updateRow = new VBox(4);
+    private final Button copy = new Button();
+
+    /**
+     * Puts everything {@code --version} prints on the clipboard, for a bug report; what
+     * {@code help.copyDetails} and the Copy details button do.
+     */
+    static void copyDetails() {
+        var content = new javafx.scene.input.ClipboardContent();
+        content.putString(String.join("\n", AppInfo.details()) + "\n");
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+    }
+
     private final Consumer<String> openLink;
     private final Settings settings;
 
     private @Nullable ReleaseInfo update;
+    private UpdateService.@Nullable Outcome answer;
 
     public AboutWindow(Settings settings, Consumer<String> openLink) {
+        this(settings, openLink, () -> {});
+    }
+
+    /** @param showPauta opens the Pauta window, as the {@code help.pauta} command does */
+    public AboutWindow(Settings settings, Consumer<String> openLink, Runnable showPauta) {
         this.settings = settings;
         this.openLink = openLink;
+        this.showPauta = showPauta;
         build();
     }
 
-    /** @param update the newer release, or null when there is none */
-    public void setUpdate(@Nullable ReleaseInfo update) {
+    private final Runnable showPauta;
+
+    /**
+     * @param update the newer release, or null when none is known
+     * @param answer what the last update check this session answered, or null when none has
+     */
+    public void setUpdate(@Nullable ReleaseInfo update, UpdateService.@Nullable Outcome answer) {
         this.update = update;
+        this.answer = answer;
         refreshUpdateRow();
+    }
+
+    /** What the update row may say. */
+    enum UpdateLine {
+        AVAILABLE,
+        UP_TO_DATE,
+        CHECK_FAILED,
+        NOT_CHECKED,
+        CHECKS_OFF
+    }
+
+    /**
+     * Which line the update row shows. "Up to date" is a claim, and only an answer from this
+     * session earns it: the stored check time is stamped <em>before</em> the request so that an
+     * offline launch does not retry every time, so it says nothing about whether one answered.
+     */
+    static UpdateLine updateLine(
+            @Nullable ReleaseInfo update, UpdateService.@Nullable Outcome answer, boolean checksOn) {
+        if (update != null) return UpdateLine.AVAILABLE;
+        if (answer == null) return checksOn ? UpdateLine.NOT_CHECKED : UpdateLine.CHECKS_OFF;
+        if (answer.error() != null) return UpdateLine.CHECK_FAILED;
+        return UpdateLine.UP_TO_DATE;
     }
 
     /**
@@ -54,6 +102,7 @@ public final class AboutWindow {
      */
     public void show(Window from) {
         refreshUpdateRow();
+        copy.setText(tr("about.copyDetails"));
         if (stage.isShowing()) {
             stage.toFront();
             stage.requestFocus();
@@ -88,10 +137,45 @@ public final class AboutWindow {
         if (!AppInfo.BUILD_TIME.isBlank()) {
             details.getChildren().add(new Label(tr("about.built", AppInfo.BUILD_TIME)));
         }
+        if (!AppInfo.COMMIT.isBlank()) details.getChildren().add(new Label(tr("about.commit", AppInfo.COMMIT)));
+        details.getChildren().add(new Label(tr("about.runtime", AppInfo.javaVersion(), AppInfo.javaFxVersion())));
         details.getChildren().addAll(new Label(AppInfo.COPYRIGHT), new Label(AppInfo.LICENSE));
 
         Hyperlink homepage = new Hyperlink(AppInfo.HOMEPAGE);
         homepage.setOnAction(e -> openLink.accept(AppInfo.HOMEPAGE));
+        // Always there, whatever the update check said: the repository's releases page is where
+        // its source is too (ABOUT-02, Pauta 6.0.1). The link in the update row is the new
+        // version's, and shows only when there is one.
+        Hyperlink source = new Hyperlink(tr("about.source"));
+        source.setOnAction(e -> openLink.accept(AppInfo.RELEASES_PAGE));
+        // A flow, not a row: three links are wider than the window in most languages, and a row
+        // would cut each short with an ellipsis.
+        javafx.scene.layout.FlowPane links = new javafx.scene.layout.FlowPane(4, 0, homepage, source);
+        links.setAlignment(Pos.CENTER_LEFT);
+        // The numbered edition's page, never latest/: a newer edition may hold rules this build
+        // does not meet. Absent from an unfiltered build rather than linking nowhere.
+        if (!AppInfo.PAUTA_EDITION.isBlank()) {
+            // "Working toward" at Partial: an edition whose MUSTs are not all met is not one the
+            // app is built to (ABOUT-09, Pauta 6.0.1). The conformance is the helper's, never typed.
+            com.termina.PautaConformance.Conformance conformance = com.termina.PautaConformance.conformance();
+            boolean partial = conformance == com.termina.PautaConformance.Conformance.PARTIAL;
+            Hyperlink pauta =
+                    new Hyperlink(tr(partial ? "about.pautaWorkingToward" : "about.pauta", AppInfo.PAUTA_EDITION));
+            pauta.setOnAction(e -> openLink.accept(AppInfo.pautaUrl()));
+            // Right after it: the conformance, which opens the Pauta window as help.pauta does.
+            Hyperlink conformanceLink =
+                    new Hyperlink(tr("about.pautaConformance", PautaWindow.conformanceName(conformance)));
+            conformanceLink.setOnAction(e -> showPauta.run());
+            links.getChildren().addAll(pauta, conformanceLink);
+        }
+
+        // Everything --version prints, for a bug report. In the content rather than the button
+        // bar, and the window stays open: copying is a step on the way to somewhere else.
+        copy.setText(tr("about.copyDetails"));
+        copy.setOnAction(e -> {
+            copyDetails();
+            copy.setText(tr("about.copied"));
+        });
 
         Label settingsPath = new Label(tr("about.settings", settings.file()));
         settingsPath.getStyleClass().add("about-path");
@@ -108,20 +192,19 @@ public final class AboutWindow {
         close.setDefaultButton(true);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox footer = new HBox(spacer, close);
+        HBox footer = new HBox(8, copy, spacer, close);
         footer.setAlignment(Pos.CENTER_RIGHT);
 
         VBox titles = new VBox(2, name, version);
         heading.getChildren().add(titles);
 
-        VBox root = new VBox(10, heading, details, homepage, updateRow, settingsPath, credits, footer);
+        VBox root = new VBox(10, heading, details, links, updateRow, settingsPath, credits, footer);
         root.setPadding(new Insets(20));
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = new Scene(root, 460, 400);
-        var css = AboutWindow.class.getResource("/com/termina/styles/app.css");
-        if (css != null) scene.getStylesheets().add(css.toExternalForm());
+        Scene scene = UiZoom.scene(root, 480, 440);
+        scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
         stage.setScene(scene);
@@ -134,9 +217,16 @@ public final class AboutWindow {
         updateRow.getChildren().clear();
         ReleaseInfo update = this.update;
         if (update == null) {
-            Label upToDate = new Label(tr("about.upToDate"));
-            upToDate.getStyleClass().add("about-uptodate");
-            updateRow.getChildren().add(upToDate);
+            UpdateLine line = updateLine(null, answer, settings.updateCheck());
+            Label status = new Label(
+                    switch (line) {
+                        case UP_TO_DATE, AVAILABLE -> tr("about.upToDate");
+                        case CHECK_FAILED -> tr("about.checkFailed");
+                        case NOT_CHECKED -> tr("about.notChecked");
+                        case CHECKS_OFF -> tr("about.checksOff");
+                    });
+            status.getStyleClass().add(updateLineStyle(line));
+            updateRow.getChildren().add(status);
         } else {
             Label headline = new Label(tr("about.updateHeadline", update.version()));
             headline.getStyleClass().add("about-update-headline");
@@ -147,15 +237,26 @@ public final class AboutWindow {
             });
             updateRow.getChildren().addAll(headline, download);
         }
-        // When the last check ran, so "up to date" can be read as "as of when". Absent until a
-        // check has happened at all — on a fresh install with the check turned off, there is no
-        // time to show and no claim to qualify.
-        String checked = lastChecked(settings.lastUpdateCheck());
+        // When the last check ran, so "up to date" can be read as "as of when". Only beside an
+        // answer from this session: under "not checked" a date reads as the check that was not.
+        String checked = answer == null ? null : lastChecked(settings.lastUpdateCheck());
         if (checked != null) {
             Label when = new Label(tr("about.lastChecked", checked));
-            when.getStyleClass().add("about-details");
+            when.getStyleClass().add("about-lastchecked");
             updateRow.getChildren().add(when);
         }
+    }
+
+    /**
+     * The style of the update row's line (ABOUT-10, Pauta 6.0.1): up to date in green, a failed
+     * check in red, anything else muted. An available update has its own line, bold in amber.
+     */
+    static String updateLineStyle(UpdateLine line) {
+        return switch (line) {
+            case UP_TO_DATE -> "about-uptodate";
+            case CHECK_FAILED -> "about-checkfailed";
+            case AVAILABLE, NOT_CHECKED, CHECKS_OFF -> "about-details";
+        };
     }
 
     /** The last check as a local date and time in the UI's locale, or null when there was none. */

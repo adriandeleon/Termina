@@ -28,6 +28,28 @@ final class TabMarks {
         NOTIFY
     }
 
+    /**
+     * How a mark is drawn, beside its color (ACC-05, Pauta 6.0.1): color is never the only signal,
+     * so each kind has a shape of its own that a grayscale screenshot still tells apart.
+     */
+    enum Shape {
+        /** A filled dot: something was printed. */
+        DOT,
+        /** A hollow ring: the bell rang. */
+        RING,
+        /** A filled diamond: a program asked for attention. */
+        DIAMOND
+    }
+
+    /** The shape of a mark; a tab with none draws nothing, and is asked for a dot by no one. */
+    static Shape shapeOf(Mark mark) {
+        return switch (mark) {
+            case BELL -> Shape.RING;
+            case NOTIFY -> Shape.DIAMOND;
+            case ACTIVITY, NONE -> Shape.DOT;
+        };
+    }
+
     /** A bell rang. Nothing to say about the tab being looked at; a bell outranks activity. */
     static Mark onBell(boolean selected, Mark current) {
         if (selected) return Mark.NONE;

@@ -1,6 +1,6 @@
 package com.termina.ui;
 
-import javafx.geometry.Rectangle2D;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Where to put a window that opens from another one.
@@ -26,15 +26,22 @@ final class WindowPlacement {
      *
      * @return {@code {x, y}}
      */
-    static double[] offsetWithin(double x, double y, double offset, double width, double height, Rectangle2D screen) {
+    static double[] offsetWithin(
+            double x, double y, double offset, double width, double height, @Nullable Bounds screen) {
         double nx = x + offset;
         double ny = y + offset;
         if (screen != null) {
-            nx = Math.min(nx, screen.getMaxX() - width);
-            ny = Math.min(ny, screen.getMaxY() - height);
-            nx = Math.max(nx, screen.getMinX());
-            ny = Math.max(ny, screen.getMinY());
+            nx = Math.min(nx, screen.maxX() - width);
+            ny = Math.min(ny, screen.maxY() - height);
+            nx = Math.max(nx, screen.minX());
+            ny = Math.max(ny, screen.minY());
         }
         return new double[] {nx, ny};
     }
+
+    /**
+     * A screen's usable area, as JavaFX's {@code Rectangle2D} gives it, without the JavaFX type
+     * (QUAL-05, Pauta 2.0.2); {@link SecondaryWindows#bounds} converts.
+     */
+    record Bounds(double minX, double minY, double maxX, double maxY) {}
 }

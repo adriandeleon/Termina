@@ -9,36 +9,33 @@ import org.jspecify.annotations.Nullable;
 /**
  * The user's key bindings as the sync repository holds them: one {@code command=chord} line per
  * changed command, sorted, in the same {@code KeyCombination} notation as the {@code keys.*} block of
- * {@code settings.properties}. A command that is absent keeps its default; {@code none} is a command
+ * {@code settings.json}. A command that is absent keeps its default; {@code none} is a command
  * the user took off every key.
  *
- * <p>One file per platform family, because a chord means something different on each: the defaults
- * are {@code Shortcut+…} on macOS and {@code Ctrl+Shift+…} elsewhere, and a chord recorded on Linux
- * names the Control key, which on a Mac is a different key from the one the user pressed. Each computer
- * syncs only its own family's file and leaves the other one as the repository has it, so a Mac and a
- * Linux machine share one repository without translating each other's chords. Windows and Linux share a
- * file: both use the same modifiers.
+ * <p>One file for every system (OS-04, Pauta 6.0.1), so a shortcut changed on a Mac is changed on
+ * the Windows and Linux computers that sync with it. Its chords are in the Windows and Linux form;
+ * a Mac translates as it reads and writes ({@link SharedChords}). Until 0.15 there was a file per
+ * platform family and each computer synced only its own, which kept a Mac's changes from every
+ * other system: those two files are left where a repository has them and no longer read.
  *
  * <p>The merge unit is one command. Pure.
  */
 public final class KeybindingsFile {
 
-    /** The macOS bindings' path in the repository. */
+    /** The key bindings' path in the repository, for every system. */
+    public static final String PATH = "keybindings/keybindings.properties";
+
+    /** Where Macs kept theirs until 0.15; no longer read or written. */
     public static final String MAC_PATH = "keybindings/macos.properties";
 
-    /** The Windows and Linux bindings' path in the repository. */
+    /** Where Windows and Linux kept theirs until 0.15; no longer read or written. */
     public static final String OTHER_PATH = "keybindings/windows-linux.properties";
 
     private KeybindingsFile() {}
 
-    /** The file this computer syncs. */
-    public static String pathFor(boolean mac) {
-        return mac ? MAC_PATH : OTHER_PATH;
-    }
-
-    /** Whether {@code path} is one of the key-binding files. */
+    /** Whether {@code path} is the key-bindings file, or one of the two it replaced. */
     public static boolean isKeybindings(String path) {
-        return MAC_PATH.equals(path) || OTHER_PATH.equals(path);
+        return PATH.equals(path) || MAC_PATH.equals(path) || OTHER_PATH.equals(path);
     }
 
     /**
@@ -54,11 +51,10 @@ public final class KeybindingsFile {
         }
         if (sorted.isEmpty()) return null;
         StringBuilder sb = new StringBuilder();
-        sb.append("# Termina key bindings for ")
-                .append(MAC_PATH.equals(path) ? "macOS" : "Windows and Linux")
-                .append(", written by settings sync.\n");
+        sb.append("# Termina key bindings, written by settings sync, for every system.\n");
         sb.append("# One changed command per line; a command not listed keeps its default, and \"none\"\n");
-        sb.append("# leaves it on no key.\n");
+        sb.append("# leaves it on no key. Chords are as Windows and Linux press them: a Mac reads\n");
+        sb.append("# Ctrl+Shift as Command.\n");
         sorted.forEach((id, chord) -> sb.append(id).append('=').append(chord).append('\n'));
         return sb.toString();
     }
@@ -81,7 +77,10 @@ public final class KeybindingsFile {
             String chord = line.substring(eq + 1).strip();
             if (isId(id) && isChord(chord)) out.put(id, chord);
         }
-        return out;
+        // A computer on an older Termina still writes the ids four commands used to have; read as
+        // the ids they have now, here, so the merge compares a command with itself. What this
+        // computer writes back names the new ids only.
+        return com.termina.config.CommandIds.renamed(out);
     }
 
     /** A command id as the settings file spells it after {@code keys.}. */

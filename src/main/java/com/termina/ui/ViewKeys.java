@@ -28,7 +28,9 @@ final class ViewKeys {
         TOP,
         BOTTOM,
         PASTE,
-        COPY
+        COPY,
+        /** The context menu, at the cursor (MENU-09, Pauta 2.0.2). */
+        MENU
     }
 
     static Action of(KeyEvent e, boolean alternateScreen) {
@@ -37,6 +39,12 @@ final class ViewKeys {
 
     static Action of(KeyCode code, boolean shift, boolean control, boolean alt, boolean meta, boolean alternateScreen) {
         if (alt || meta) return Action.NONE;
+        // The Menu key encodes to nothing, so it costs a program nothing. Shift+F10 does reach
+        // programs (CSI 21;2~), and is taken anyway, as GNOME Terminal takes it: it is the menu key
+        // of every keyboard that lacks one, and a menu the keyboard cannot open is a set of
+        // actions it cannot reach. Plain F10 stays the program's.
+        if (code == KeyCode.CONTEXT_MENU && !shift && !control) return Action.MENU;
+        if (code == KeyCode.F10 && shift && !control) return Action.MENU;
         if (code == KeyCode.INSERT) {
             if (shift && !control) return Action.PASTE;
             if (control && !shift) return Action.COPY;

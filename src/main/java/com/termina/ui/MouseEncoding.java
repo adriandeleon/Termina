@@ -1,15 +1,12 @@
 package com.termina.ui;
 
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.input.ScrollEvent;
-
 import com.jediterm.terminal.emulator.mouse.MouseButtonCodes;
 import com.jediterm.terminal.emulator.mouse.MouseButtonModifierFlags;
 
 /**
- * Maps JavaFX mouse events onto the button codes and modifier flags JediTerm's mouse encoder
- * expects.
+ * Maps a mouse button and modifiers onto the button codes and modifier flags JediTerm's mouse
+ * encoder expects. Imports no JavaFX type (QUAL-05, Pauta 2.0.2): the view reads the event and
+ * passes the button by its {@code MouseButton} name and the modifiers as they are.
  *
  * <p>Only this translation is ours. The escape sequences themselves are JediTerm's — there are four
  * incompatible wire formats (X10, UTF-8, URXVT, SGR) and the active one is chosen by the program
@@ -30,14 +27,16 @@ final class MouseEncoding {
     private MouseEncoding() {}
 
     /** Button code for a press, release, or drag; {@code NONE} for a button we do not report. */
-    static int buttonCode(MouseButton button) {
-        if (button == MouseButton.PRIMARY) return MouseButtonCodes.LEFT;
-        if (button == MouseButton.MIDDLE) return MouseButtonCodes.MIDDLE;
-        // JediTerm's own adapter drops this one, because its Swing UI opens a context menu on
-        // right-click. We have no context menu, and TUIs that use the right button (Midnight
-        // Commander, some file pickers) are better served by reporting it.
-        if (button == MouseButton.SECONDARY) return MouseButtonCodes.RIGHT;
-        return MouseButtonCodes.NONE;
+    static int buttonCode(String button) {
+        return switch (button) {
+            case "PRIMARY" -> MouseButtonCodes.LEFT;
+            case "MIDDLE" -> MouseButtonCodes.MIDDLE;
+            // JediTerm's own adapter drops this one, because its Swing UI opens a context menu on
+            // right-click. Ours yields to a program that asked for the mouse, and TUIs that use the
+            // right button (Midnight Commander, some file pickers) are better served by reporting it.
+            case "SECONDARY" -> MouseButtonCodes.RIGHT;
+            default -> MouseButtonCodes.NONE;
+        };
     }
 
     /**
@@ -51,15 +50,7 @@ final class MouseEncoding {
     }
 
     /** Modifier bits. Shift is included for completeness; callers treat it as a reporting bypass. */
-    static int modifierFlags(MouseEvent e) {
-        return flags(e.isControlDown(), e.isShiftDown(), e.isMetaDown());
-    }
-
-    static int modifierFlags(ScrollEvent e) {
-        return flags(e.isControlDown(), e.isShiftDown(), e.isMetaDown());
-    }
-
-    private static int flags(boolean control, boolean shift, boolean meta) {
+    static int modifierFlags(boolean control, boolean shift, boolean meta) {
         int flags = 0;
         if (control) flags |= MouseButtonModifierFlags.MOUSE_BUTTON_CTRL_FLAG;
         if (shift) flags |= MouseButtonModifierFlags.MOUSE_BUTTON_SHIFT_FLAG;

@@ -1,0 +1,52 @@
+# TODO
+
+The open list: what Termina does not do yet, or has not been checked on. It is kept in the same pull
+request as the change, so an item goes when the change that closes it lands and a new one is added
+with the change that leaves it open. What has shipped is in [`CHANGELOG.md`](CHANGELOG.md).
+
+## Pauta 6.1.0
+
+The rules of [Pauta](https://pauta-project.dev/6.1.0/) not met yet, as
+[`pauta.json`](src/main/resources/com/termina/pauta.json) records them and Help ▸ Pauta Conformance
+shows them; tracked in [adriandeleon/Termina#92](https://github.com/adriandeleon/Termina/issues/92).
+A test fails when this list and that file disagree.
+
+### MUST
+
+None: every MUST of the edition is met, which makes the conformance Core.
+
+### SHOULD
+
+- [ ] **[REL-17](https://pauta-project.dev/6.1.0/release/#rel-17)** The Windows installer is not signed.
+
+One SHOULD is a recorded deviation and not open work:
+[KBD-04](https://pauta-project.dev/6.1.0/keyboard/#kbd-04), on macOS's screen menu bar, in
+[decision 0014](docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md).
+
+Every optional rule (MAY) that applies is met.
+
+## Never run
+
+- [ ] **Windows.** Nothing has run there: the installer, the ConPTY path, the directory read
+  (`pty.WindowsCwd`), the PowerShell toast, the shell discovery (PowerShell, Git Bash, WSL) and
+  the switch to the High Contrast theme when Windows' high-contrast mode comes on. The MSI is
+  unsigned.
+- [ ] **macOS:** the notification and Option+drag blocks, and what the Pauta 6.0.1 work added (the
+  greyed rows of the screen menu bar, the Doctor, and the Settings item of the application menu,
+  which is put there through the toolkit's own classes and has never been seen).
+- [ ] **The Doctor and the menus' reasons on a real desktop.** They have been seen in headless
+  captures and tests only.
+
+## Terminal
+
+- [ ] Key bindings of more than one chord.
+- [ ] Images (sixel, the kitty and iTerm2 protocols) and font ligatures.
+- [ ] The emulator's gaps that nothing repairs yet, pinned in `EmulatorGapsTest`: REP, DECSLRM and
+  cursor blink (`?12`).
+- [ ] Restoring the tabs that were open at the last quit.
+
+## Performance
+
+- [ ] Damage tracking: a dirty frame redraws every visible row
+  ([review of 2026-11-06](docs/reference/review-2026-11-06.md), 3.1, and the items listed as not
+  done at its top).

@@ -86,17 +86,21 @@ public final class UpdateService {
         this(AppInfo.LATEST_RELEASE_API, DEADLINE);
     }
 
-    UpdateService(String endpoint, Duration deadline) {
+    /** A service asking {@code endpoint}: a test's own server, never GitHub. */
+    public UpdateService(String endpoint, Duration deadline) {
         this.endpoint = endpoint;
         this.deadline = deadline;
     }
 
-    /** Checks in the background and calls back on the FX thread. */
+    /** Only the newest check is answered (PERF-03, Pauta 2.0.2); called and answered on the FX thread. */
+    private final com.termina.work.LatestOnly latest = new com.termina.work.LatestOnly(executor, Platform::runLater);
+
+    /**
+     * Checks in the background and calls back on the FX thread. A check asked for while one is out
+     * replaces it: the earlier one's answer is dropped, so an old reply cannot land after a new one.
+     */
     public void check(String currentVersion, Consumer<Outcome> onResult) {
-        executor.execute(() -> {
-            Outcome outcome = checkNow(currentVersion);
-            Platform.runLater(() -> onResult.accept(outcome));
-        });
+        latest.submit(() -> checkNow(currentVersion), onResult);
     }
 
     private HttpClient client() {

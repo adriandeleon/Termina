@@ -3,10 +3,8 @@ package com.termina.ui;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
-import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -31,7 +29,8 @@ import org.jspecify.annotations.Nullable;
  *     in, so "file new" reaches New Tab; matched only when the label itself does not match, and
  *     ranked below every label match. Never shown.
  * @param id what the user's key bindings call this action — the catalogue key without its {@code
- *     menu.} prefix ({@code newTab}), stored as {@code keys.newTab}. Null for an action that cannot
+ *     command.} prefix ({@code file.newTab}: an area, then the name, KBD-02), stored as {@code
+ *     keys.file.newTab}. Null for an action that cannot
  *     be rebound: the palette's per-tab and per-theme rows, which are built fresh on every open.
  *     Never translated, because a binding written in one language has to survive a switch to
  *     another.
@@ -55,13 +54,13 @@ public record MenuAction(
      *
      * <p>It was Alt+X, Emacs's M-x, which is exactly the problem: that is {@code M-x} in {@code emacs
      * -nw} and zsh's {@code execute-named-cmd}, and a scene filter that answers to it takes it from
-     * every program in the terminal. A user who stored Alt+X keeps it — {@code keys.commandPalette}
-     * still wins over the default.
+     * every program in the terminal. A user who stored Alt+X keeps it — {@code keys.palette.show},
+     * which was {@code keys.commandPalette} before the command was renamed, still wins over the
+     * default.
      */
     public static final KeyCombination DEFAULT_PALETTE_CHORD = shiftChord(KeyCode.P);
 
-    private static final boolean MAC =
-            System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("mac");
+    private static final boolean MAC = com.termina.Os.isMac();
 
     /**
      * The chord for opening the profile numbered {@code digit} in a new tab.
@@ -219,18 +218,6 @@ public record MenuAction(
         } catch (IllegalArgumentException unreadable) {
             return fallback;
         }
-    }
-
-    /**
-     * Builds the menu item. The accelerator is shown for discoverability; the filter runs it, and
-     * the window keeps JavaFX from running it a second time (see {@code
-     * TerminalWindow.keepAcceleratorsDisplayOnly}).
-     */
-    public MenuItem toMenuItem() {
-        MenuItem item = new MenuItem(label);
-        if (accelerator != null) item.setAccelerator(accelerator);
-        item.setOnAction(e -> action.run());
-        return item;
     }
 
     public boolean matches(javafx.scene.input.KeyEvent event) {

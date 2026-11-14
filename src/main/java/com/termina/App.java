@@ -10,58 +10,136 @@ import com.termina.ui.TerminalWindow;
 import com.termina.ui.WindowManager;
 import org.jspecify.annotations.Nullable;
 
-/** Termina — a cross-platform terminal emulator on JavaFX. */
+/**
+ * Termina — a cross-platform terminal emulator on JavaFX. This is the application {@link Main}
+ * launches, never the main class itself: a main class that extends {@code Application} has the
+ * toolkit started for it before {@code main} runs, and the command line must be answered without
+ * one.
+ */
 public final class App extends Application {
 
     private @Nullable WindowManager windows;
 
-    /** How the launcher is invoked, for the usage text. */
-    private static final String LAUNCH_NAME = "termina";
+    /**
+     * This process's hold on its config folder (CLI-07), taken by {@link Main} before the toolkit
+     * starts and served once the first window is up; null with {@code --new-instance}, or when the
+     * folder could not be claimed and this one started anyway.
+     */
+    private static com.termina.instance.@Nullable SingleInstance instance;
 
-    public static void main(String[] args) {
-        // Parsed before anything else starts. --version is what somebody pastes into a bug report,
-        // so it must not depend on a display, a config file, or the toolkit coming up at all.
-        CommandLine cli = CommandLine.parse(args);
-        if (cli.error() != null) {
-            System.err.println(AppInfo.NAME + ": " + cli.error());
-            System.err.println("Try '" + LAUNCH_NAME + " --help' for the options.");
-            System.exit(2);
-        }
-        if (cli.help()) {
-            System.out.println(CommandLine.usage(LAUNCH_NAME));
-            // Not a bare return: launching an Application subclass in module mode starts the FX
-            // toolkit, whose non-daemon thread would keep the process alive after main returns.
-            System.exit(0);
-        }
-        if (cli.version()) {
-            System.out.println(AppInfo.NAME + " " + AppInfo.VERSION);
-            System.exit(0);
-        }
-
-        // Must be the first statement, before any AWT class can load. We require java.desktop
-        // (TtyConnector's default methods reference java.awt.Dimension) but never use AWT, and on
-        // macOS an initialised AWT/Java2D pipeline contends with JavaFX's Glass/Prism for the
-        // single AppKit run loop — an intermittent hang rather than a clean failure.
-        System.setProperty("java.awt.headless", "true");
-        com.termina.perf.Startup.mark("main");
-        // Before launch, so anything that goes wrong during startup is captured too — that is the
-        // window in which a packaged application is most likely to fail and least able to say so.
-        com.termina.ui.DebugLog.install();
-        launch(args);
+    /**
+     * Hands over the hold {@link Main} took on the config folder. Static because {@code launch}
+     * makes the application itself, with nothing passed to it.
+     */
+    static void hold(com.termina.instance.@Nullable SingleInstance claimed) {
+        instance = claimed;
     }
 
-    @Override
-    public void start(Stage stage) {
-        // Before the stylesheet below and before any window: CSS naming a font that is not yet
-        // registered does not wait for it, it silently resolves to the system face.
-        com.termina.perf.Startup.mark("fx-start");
-        com.termina.ui.Fonts.load();
-        com.termina.perf.Startup.mark("fonts");
+    /**
+     * A later launch's request: a new window, started as that launch would have started its first.
+     * Its {@code -d} is relative to where it was run, and with no {@code -d} the window opens there.
+     */
+    private void openHandedOff(com.termina.instance.SingleInstance.Request request, Settings settings) {
+        WindowManager manager = windows;
+        if (manager == null) return;
+        CommandLine handed = CommandLine.parse(request.args().toArray(String[]::new));
+        if (handed.error() != null || !handed.shouldRun()) return;
+        String directory = handed.workingDirectory().isBlank()
+                ? request.cwd()
+                : java.nio.file.Path.of(request.cwd())
+                        .resolve(handed.workingDirectory())
+                        .toString();
+        manager.openHandedOff(new LaunchOptions(settings.shell(), directory, handed.command()), handed.title());
+    }
 
-        CommandLine cli = CommandLine.parse(getParameters().getRaw().toArray(String[]::new));
-        Settings settings = new Settings(Settings.defaultFile(cli.configDir()));
+    /**
+     * What is read from disk before the first window, read here: {@code init} runs on the launcher
+     * thread, before {@code start} and off the FX thread (PERF-01, PERF-16, Pauta 2.0.2).
+     */
+    @Override
+    public void init() {
+        Config config = takeReadAhead();
+        // Read here only when main's read failed or there was none: the failure is then reported
+        // as it always was.
+        prepared = finish(config != null ? config : readConfig(getParameters().getRaw()));
+    }
+
+    /** The result of the read {@code main} started, once; null when there was none or it failed. */
+    static @Nullable Config takeReadAhead() {
+        java.util.concurrent.CompletableFuture<Config> ahead = readAhead;
+        readAhead = null;
+        if (ahead == null) return null;
+        try {
+            return ahead.join();
+        } catch (RuntimeException failed) {
+            return null;
+        }
+    }
+
+    /**
+     * The config read that {@code main} started before the toolkit (PERF-16, Pauta 6.0.1), or null
+     * when the app was started another way, by a test.
+     */
+    private static volatile java.util.concurrent.@Nullable CompletableFuture<Config> readAhead;
+
+    /**
+     * Starts reading the configuration on a thread of its own. Called from {@code main} before
+     * {@code launch}, so the read and the toolkit's start overlap and {@link #init} only takes the
+     * result.
+     */
+    static void readAhead(java.util.List<String> args) {
+        java.util.concurrent.CompletableFuture<Config> reading = new java.util.concurrent.CompletableFuture<>();
+        readAhead = reading;
+        Thread reader = new Thread(
+                () -> {
+                    try {
+                        reading.complete(readConfig(args));
+                    } catch (Throwable failed) {
+                        reading.completeExceptionally(failed);
+                    }
+                },
+                "termina-config");
+        reader.setDaemon(true);
+        reader.start();
+    }
+
+    /** What the config read gives: the command line and the settings, with everything read beside them warm. */
+    record Config(CommandLine cli, Settings settings) {}
+
+    /** What {@link #init} read, for {@link #start}; null when a test starts the app without it. */
+    private @Nullable Prepared prepared;
+
+    /** The command line, the settings and what was loaded with them, ready for the first window. */
+    record Prepared(CommandLine cli, Settings settings) {}
+
+    /**
+     * The settings, the fonts the first window draws, the log file, the catalogue and the imported
+     * themes — every file the first window needs, read before the toolkit asks for any of them.
+     */
+    static Prepared prepare(java.util.List<String> args) {
+        return finish(readConfig(args));
+    }
+
+    /**
+     * The half that needs no toolkit: the settings, the shell's answer, the Pauta list, the
+     * stylesheets at the UI zoom, the catalogue and the imported themes. What {@code main} starts
+     * ahead of the toolkit.
+     */
+    static Config readConfig(java.util.List<String> args) {
+        com.termina.perf.Startup.mark("init");
+        CommandLine cli = CommandLine.parse(args.toArray(String[]::new));
+        Settings settings = Settings.deferred(Settings.defaultFile(cli.configDir(), cli.dev()));
         settings.load();
         com.termina.perf.Startup.mark("settings");
+        // Here, off the FX thread: whether the configured shell can run is asked of the disk, and
+        // the first menu the window builds wants the answer (PERF-01, Pauta 6.0.1).
+        com.termina.shell.ShellProfiles.warm(settings.shell(), java.util.List.of());
+        // And the bundled list of Pauta exceptions, which About and the Pauta window show: read
+        // here once, so neither reads a file when it opens.
+        PautaConformance.warm();
+        // The stylesheets at the UI zoom, where it is not 100%: read and scaled here, not on the
+        // FX thread (PERF-01).
+        if (settings.uiZoom() != Settings.DEFAULT_UI_ZOOM) com.termina.ui.UiZoom.prepare(settings.uiZoom());
         com.termina.ui.DebugLog.attachFile(settings.directory());
 
         // Before the command names, menus and Settings rows are built — all of which read the
@@ -77,23 +155,118 @@ public final class App extends Application {
         java.util.Locale.setDefault(com.termina.i18n.Messages.defaultLocale(
                 settings.uiLanguage(), language, java.util.Locale.getDefault()));
 
-        // Applied before any window is built, so the first frame is already themed.
-        // The imported themes are read first: the stored theme may be one of them.
+        // The tabs of the last session, where this launch reopens them (WIN-08, CLI-04): read
+        // here, with the directories checked, so the first window asks the disk nothing.
+        if (com.termina.ui.SessionStore.restores(settings.restoreSession(), cli.noSession(), DevCapture.requested())) {
+            com.termina.ui.SessionStore.warm(settings.sessionTabs());
+        }
+
+        // The imported themes, read now: the stored theme may be one of them.
         com.termina.ui.Themes.useDirectory(settings.directory().resolve("themes"));
-        Application.setUserAgentStylesheet(
-                com.termina.ui.Themes.byId(settings.themeId()).stylesheet());
+        return new Config(cli, settings);
+    }
+
+    /**
+     * The half that asks JavaFX: the fonts the first window draws. After the toolkit has started,
+     * on the launcher thread, never the FX thread.
+     */
+    private static Prepared finish(Config config) {
+        // Before the stylesheet and before any window: CSS naming a font that is not yet registered
+        // does not wait for it, it silently resolves to the system face. Only what the first window
+        // draws — the interface font, the icons, the terminal's family; the other bundled families
+        // follow the first frame (PERF-15).
+        com.termina.ui.Fonts.load(config.settings().fontFamily());
+        com.termina.perf.Startup.mark("fonts");
+        return new Prepared(config.cli(), config.settings());
+    }
+
+    @Override
+    public void start(Stage stage) {
+        start(stage, getParameters().getRaw(), url -> getHostServices().showDocument(url));
+    }
+
+    /**
+     * The start, given what {@code launch} would: the arguments and how to open a link. Apart so a
+     * test can start the real application on a stage of its own; only {@code launch} makes the
+     * parameters and the host services, and runs {@link #init}.
+     */
+    void start(Stage stage, java.util.List<String> args, java.util.function.Consumer<String> openLink) {
+        com.termina.perf.Startup.mark("fx-start");
+        Prepared ready = prepared != null ? prepared : prepare(args);
+        CommandLine cli = ready.cli();
+        Settings settings = ready.settings();
+
+        // Applied before any window is built, so the first frame is already themed.
+        com.termina.ui.Themes.followSystem(
+                javafx.application.Platform.getPreferences().getColorScheme() == javafx.application.ColorScheme.DARK);
+        // And whether Windows' high-contrast mode is on, which decides the theme outright (ACC-09).
+        com.termina.ui.Themes.followHighContrast(
+                com.termina.ui.HighContrast.isOn(javafx.application.Platform.getPreferences()));
+        // The UI zoom before any window is built too (WIN-12, Pauta 6.0.1): its sheets were read
+        // and scaled in prepare, off this thread.
+        com.termina.ui.UiZoom.apply(settings.uiZoom());
+        Application.setUserAgentStylesheet(com.termina.ui.UiZoom.theme(
+                com.termina.ui.Themes.drawn(settings.themeId()).stylesheet()));
 
         com.termina.ui.StallMonitor.installIfRequested();
-        windows = new WindowManager(settings);
-        windows.setLinkOpener(url -> getHostServices().showDocument(url));
+        WindowManager manager = new WindowManager(settings);
+        windows = manager;
+        windows.setLinkOpener(openLink);
+        // The session is the application's own runs': a capture or a training run keeps none.
+        if (!DevCapture.requested() && System.getProperty("termina.aotTrain") == null) {
+            manager.keepSession();
+        }
         com.termina.perf.Startup.mark("pre-window");
         TerminalWindow first = windows.openFirstWindow(
                 stage, new LaunchOptions(settings.shell(), cli.workingDirectory(), cli.command()), cli.title());
         com.termina.perf.Startup.mark("window-shown");
-        windows.maybeCheckForUpdates();
+        com.termina.instance.SingleInstance held = instance;
+        if (held != null) {
+            // Off the FX thread (PERF-01, Pauta 6.0.1): listening deletes a stale socket file and
+            // binds a new one, which is the disk's time, and no frame should wait on it.
+            Thread listen = new Thread(
+                    () -> {
+                        try {
+                            held.serve(request ->
+                                    javafx.application.Platform.runLater(() -> openHandedOff(request, settings)));
+                        } catch (java.io.IOException e) {
+                            java.util.logging.Logger.getLogger(App.class.getName())
+                                    .log(java.util.logging.Level.WARNING, "cannot listen for other launches", e);
+                        }
+                    },
+                    "termina-instance-bind");
+            listen.setDaemon(true);
+            listen.start();
+        }
+
+        // What nobody waits for, after the first frame (PERF-15, DIAG-05): the font picker's other
+        // families and which of the installed ones are monospace, the window icons a title bar
+        // never shows, the login shell's PATH, and — a few seconds later still, so it never competes with the shell's
+        // own
+        // startup — the daily update check.
+        com.termina.ui.FirstFrame.after(() -> {
+            com.termina.ui.MonospaceFonts.warmInBackground();
+            com.termina.ui.Icons.loadLarge();
+            // The login shell's PATH, for every program started from here on (CLI-10).
+            com.termina.ui.LoginShellPath.warmInBackground();
+            javafx.animation.PauseTransition settle =
+                    new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));
+            settle.setOnFinished(e -> manager.maybeCheckForUpdates());
+            settle.play();
+        });
+        com.termina.ui.FirstFrame.start();
 
         if (DevCapture.requested()) DevCapture.schedule(windows, first, settings);
         maybeExitAfterTraining();
+    }
+
+    /** The name the user gave each open terminal, in order, "" for none: for the start's test. */
+    java.util.List<String> terminalTitlesForTest() {
+        WindowManager manager = windows;
+        if (manager == null) return java.util.List.of();
+        return manager.allTerminals().stream()
+                .map(terminal -> terminal.getDisplay().getUserTitle())
+                .toList();
     }
 
     /**
@@ -114,5 +287,7 @@ public final class App extends Application {
     @Override
     public void stop() {
         if (windows != null) windows.closeAll();
+        com.termina.instance.SingleInstance held = instance;
+        if (held != null) held.close();
     }
 }

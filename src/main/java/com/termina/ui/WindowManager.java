@@ -23,11 +23,17 @@ import static com.termina.i18n.Messages.tr;
 public final class WindowManager {
 
     private final Settings settings;
+    private final ConfigTransfer configTransfer;
     private final List<TerminalWindow> windows = new ArrayList<>();
     private @Nullable SettingsWindow settingsWindow;
     private @Nullable AboutWindow aboutWindow;
 
-    private final com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
+    private com.termina.update.UpdateService updates = new com.termina.update.UpdateService();
+
+    /** Asks {@code service} for updates instead of GitHub: for a test with its own server. */
+    void useUpdateServiceForTest(com.termina.update.UpdateService service) {
+        updates = service;
+    }
 
     /**
      * The newer release the menus advertise, or null. Held app-wide so every window's Help menu
@@ -41,6 +47,8 @@ public final class WindowManager {
      * clicking through to the release page would be a lie.
      */
     private com.termina.update.@Nullable ReleaseInfo knownUpdate;
+    /** The last update check that answered this session, failures included; null until one has. */
+    private com.termina.update.UpdateService.@Nullable Outcome lastAnswer;
 
     private final List<Runnable> updateListeners = new ArrayList<>();
     private java.util.function.Consumer<String> openLink = url -> {};
@@ -57,22 +65,65 @@ public final class WindowManager {
     /** Keeps the key bindings the same on every computer connected to the user's repository. */
     private final SettingsSync sync;
 
+    /** This session's messages, for every window's status bar and the Message Log. */
+    private final MessageLog messages = new MessageLog();
+
+    private @Nullable DebugLogWindow debugLogWindow;
+
     public WindowManager(Settings settings) {
         this.settings = settings;
+        this.configTransfer = new ConfigTransfer(settings);
         this.profiles = new com.termina.shell.ShellProfiles(settings, tr("profile.systemShell"));
+        this.profiles.neverAskTheDiskOn(Platform::isFxApplicationThread);
         // Nothing to do when it finishes: every menu that lists profiles is built when it is shown,
         // so the next one to open picks up whatever discovery found. The callback exists because a
         // menu already on screen when the answer lands would otherwise keep the shorter list.
         profiles.discoverInBackground(found -> {});
         settings.addOnChange(this::applySettingsEverywhere);
+        // An uncaught exception is recorded in the Debug Log first; this says so where the user is
+        // looking, never as a dialog with a stack trace in it (DIAG-04).
+        // In batches a frame apart, not a runLater for each (PERF-07): a thread that throws in a
+        // loop throws at its own pace.
+        FxBatch<Throwable> uncaught = new FxBatch<>(errors -> {
+            for (Throwable error : errors) {
+                messages.add(
+                        MessageLog.Severity.ERROR,
+                        tr("status.uncaughtError", error.getClass().getSimpleName()));
+            }
+        });
+        DebugLog.onUncaught(uncaught::add);
+        // The desktop's light or dark, for the theme that follows it. Re-applied whatever the
+        // stored theme, because a profile can follow the system while the default does not; the
+        // desktop changes its scheme a few times a day at most.
+        javafx.application.Platform.getPreferences().colorSchemeProperty().addListener((o, was, now) -> {
+            Themes.followSystem(now == javafx.application.ColorScheme.DARK);
+            applySettingsEverywhere();
+        });
+        // And Windows' high-contrast mode (ACC-09, Pauta 6.0.1): on, everything is drawn with the
+        // high-contrast theme; off, with the one that was chosen.
+        javafx.application.Platform.getPreferences()
+                .addListener((javafx.collections.MapChangeListener<String, Object>) change -> {
+                    if (!HighContrast.KEY.equals(change.getKey())) return;
+                    Themes.followHighContrast(HighContrast.isOn(change.getMap()));
+                    applySettingsEverywhere();
+                });
         this.sync = new SettingsSync(settings, this::anyWindowFocused);
+        this.sync.setUnaskedReporter(messages::add);
         // A window joins this list as it is shown, before its first frame: the one place that
         // catches every window — settings, About, a confirmation dialog — however it was made.
+        // The sizes the code fixes, in every window, follow the UI zoom (WIN-12, Pauta 6.0.1).
+        UiZoom.adoptWindows();
         Window.getWindows().addListener((javafx.collections.ListChangeListener<Window>) change -> {
-            javafx.application.ColorScheme scheme =
-                    Themes.byId(settings.themeId()).colorScheme();
+            // Looked up only once a window was actually added: the list also fires for removals,
+            // and every tooltip and menu is a window.
+            javafx.application.@Nullable ColorScheme scheme = null;
             while (change.next()) {
-                for (Window added : change.getAddedSubList()) applyColorScheme(added, scheme);
+                for (Window added : change.getAddedSubList()) {
+                    if (scheme == null)
+                        scheme = Themes.drawn(settings.themeId()).colorScheme();
+                    applyColorScheme(added, scheme);
+                    installUiFont(added);
+                }
             }
         });
     }
@@ -93,6 +144,23 @@ public final class WindowManager {
         }
         scene.getPreferences().setColorScheme(scheme);
     }
+
+    /**
+     * The interface font on a window's scene, whoever built the window (ICON-01, Pauta 6.0.1): an
+     * alert or a prompt is a scene of its own and would otherwise draw in the platform's face. A
+     * popup takes its owner's scene stylesheets when JavaFX shows it, and needs none.
+     */
+    private static void installUiFont(Window window) {
+        if (window instanceof javafx.stage.PopupWindow) return;
+        if (window.getScene() != null) Fonts.installUiFont(window.getScene());
+        // Once per window: it joins the list each time it is shown.
+        if (window.getProperties().putIfAbsent(UI_FONT_HOOKED, Boolean.TRUE) != null) return;
+        window.sceneProperty().addListener((o, was, scene) -> {
+            if (scene != null) Fonts.installUiFont(scene);
+        });
+    }
+
+    private static final Object UI_FONT_HOOKED = new Object();
 
     private boolean anyWindowFocused() {
         for (TerminalWindow window : windows) {
@@ -118,10 +186,65 @@ public final class WindowManager {
         return openFirstWindow(primary, cli, "");
     }
 
-    /** @param title names the first tab, as Rename Tab would ({@code -T}); "" leaves it automatic */
+    /**
+     * The first window: the tabs of the last session where one was read for this launch (WIN-08,
+     * Pauta 6.0.1), and after them the tab the command line asked for, if it asked for one. With
+     * no session it is the one tab every launch has had.
+     *
+     * @param title names the first tab, as Rename Tab would ({@code -T}); "" leaves it automatic
+     */
     public TerminalWindow openFirstWindow(Stage primary, com.termina.pty.@Nullable LaunchOptions cli, String title) {
         firstTabTitle = title;
-        return open(primary, cli);
+        ClosedTabs.Window session = SessionStore.take();
+        if (session.tabs().isEmpty()) return open(primary, cli);
+        boolean asked = asksForATab(cli, title);
+        return open(primary, cli, null, window -> {
+            window.reopenTabs(session);
+            if (asked) openTabFor(window, cli, false);
+        });
+    }
+
+    /**
+     * Whether a command line asks for a tab of its own beside a restored session: it names a
+     * program, a directory or a title. A bare launch asks for nothing the session does not give.
+     */
+    static boolean asksForATab(com.termina.pty.@Nullable LaunchOptions cli, String title) {
+        return !title.isBlank()
+                || (cli != null && (cli.hasCommand() || !cli.workingDirectory().isBlank()));
+    }
+
+    /** Whether the session is written as the application goes; a test or a capture run keeps none. */
+    private boolean keepsSession;
+
+    /** True once the quit has written the session, so the windows it closes do not write theirs. */
+    private boolean sessionWritten;
+
+    /** Keeps the session from here on, in the settings' state: the application's own runs call this. */
+    public void keepSession() {
+        keepsSession = true;
+    }
+
+    /**
+     * A window is about to close. When it is the last one its tabs are the session: the
+     * application ends with it, and by the time it has, the tabs are gone.
+     */
+    void windowClosing(TerminalWindow window) {
+        if (sessionWritten || windows.size() != 1 || !windows.contains(window)) return;
+        writeSession(window.sessionSnapshot());
+    }
+
+    private void writeSession(ClosedTabs.Window session) {
+        if (!keepsSession) return;
+        // Turned off, a session kept earlier goes too: it must not come back if it is turned on.
+        settings.setSessionTabs(settings.restoreSession() ? SessionStore.write(session) : "");
+    }
+
+    /** The window a quit keeps the tabs of: the one in front, or the newest. */
+    private @Nullable TerminalWindow sessionWindow() {
+        for (TerminalWindow window : windows) {
+            if (window.stage().isFocused()) return window;
+        }
+        return windows.isEmpty() ? null : windows.getLast();
     }
 
     /** The command line's {@code -T}, spent on the first tab that opens. */
@@ -137,6 +260,18 @@ public final class WindowManager {
     /** A new window, cascaded from the most recently opened one. */
     public void openWindow() {
         openWindow(windows.isEmpty() ? null : windows.get(windows.size() - 1));
+    }
+
+    /**
+     * A window for another launch's command line (CLI-07): its options apply to this window's
+     * first tab, as they would have to a process of its own, and it comes to the front.
+     */
+    public TerminalWindow openHandedOff(com.termina.pty.LaunchOptions cli, String title) {
+        firstTabTitle = title;
+        TerminalWindow window = open(new Stage(), cli, windows.isEmpty() ? null : windows.getLast(), null);
+        window.stage().toFront();
+        window.stage().requestFocus();
+        return window;
     }
 
     /**
@@ -171,7 +306,7 @@ public final class WindowManager {
             windows.remove(window);
             // The last window closing ends the app. Without this the JVM lingers: the settings
             // window is a Stage of its own and would keep the toolkit alive on its own.
-            if (windows.isEmpty()) Platform.exit();
+            if (windows.isEmpty()) endApp.run();
         });
 
         // Offset each additional window so it does not land exactly on the one it came from, and
@@ -181,34 +316,60 @@ public final class WindowManager {
             double width = stage.getScene() != null ? stage.getScene().getWidth() : origin.getWidth();
             double height = stage.getScene() != null ? stage.getScene().getHeight() : origin.getHeight();
             double[] at = WindowPlacement.offsetWithin(
-                    origin.getX(), origin.getY(), CASCADE_OFFSET, width, height, SecondaryWindows.screenOf(origin));
+                    origin.getX(),
+                    origin.getY(),
+                    CASCADE_OFFSET,
+                    width,
+                    height,
+                    SecondaryWindows.bounds(SecondaryWindows.screenOf(origin)));
             stage.setX(at[0]);
             stage.setY(at[1]);
         }
 
         window.show();
+        // After the show, and a pulse later, by when Glass has built the application menu; until it
+        // takes, every window that opens tries again (ABOUT-01).
+        Platform.runLater(() -> {
+            MacAppMenu.addAbout(
+                    com.termina.i18n.Messages.tr("command.help.about", com.termina.AppInfo.NAME),
+                    () -> showAbout(frontWindow()));
+            // Settings under it (WIN-15), running what the Settings command runs, with the chord
+            // bound to that command in its title and no key equivalent.
+            MacAppMenu.addSettings(
+                    MacAppMenu.settingsTitle(
+                            com.termina.i18n.Messages.tr("command.settings.show"), chordOf("settings.show")),
+                    () -> showSettings(frontWindow()));
+        });
         // A command line with something to run wins outright; otherwise the default profile decides
         // what a window opens as, which is the whole point of having chosen one.
-        if (fill != null) {
-            fill.accept(window);
-        } else if (cli != null && cli.hasCommand()) {
-            window.openTab(cli.withShell(settings.shell()), takeFirstTabTitle());
-        } else {
-            profiles.whenDefaultReady(profile -> {
-                // A window closed while discovery was running must not spawn a session afterward.
-                if (!windows.contains(window)
-                        || !stage.isShowing()
-                        || !window.terminals().isEmpty()) return;
-                com.termina.pty.LaunchOptions options = profile == null
-                        ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
-                        : profile.toLaunchOptions("");
-                if (cli != null && !cli.workingDirectory().isBlank()) {
-                    options = options.withWorkingDirectory(cli.workingDirectory());
-                }
-                window.openTab(options, takeFirstTabTitle());
-            });
-        }
+        if (fill != null) fill.accept(window);
+        else openTabFor(window, cli, true);
         return window;
+    }
+
+    /**
+     * The tab a launch's options ask for, in {@code window}.
+     *
+     * @param onlyIfEmpty true for a window's first tab, which is not opened if something else put
+     *     one there while the profiles were being found; false for a tab beside a restored session
+     */
+    private void openTabFor(TerminalWindow window, com.termina.pty.@Nullable LaunchOptions cli, boolean onlyIfEmpty) {
+        if (cli != null && cli.hasCommand()) {
+            window.openTab(cli.withShell(settings.shell()), takeFirstTabTitle());
+            return;
+        }
+        profiles.whenDefaultReady(profile -> {
+            // A window closed while discovery was running must not spawn a session afterward.
+            if (!windows.contains(window) || !window.stage().isShowing()) return;
+            if (onlyIfEmpty && !window.terminals().isEmpty()) return;
+            com.termina.pty.LaunchOptions options = profile == null
+                    ? com.termina.pty.LaunchOptions.ofShell(settings.shell())
+                    : profile.toLaunchOptions("");
+            if (cli != null && !cli.workingDirectory().isBlank()) {
+                options = options.withWorkingDirectory(cli.workingDirectory());
+            }
+            window.openTab(options, takeFirstTabTitle());
+        });
     }
 
     private static final double CASCADE_OFFSET = 28;
@@ -221,10 +382,13 @@ public final class WindowManager {
      * settings window says so on those rows.
      */
     private void applySettingsEverywhere() {
-        ThemeEntry theme = Themes.byId(settings.themeId());
+        ThemeEntry theme = Themes.drawn(settings.themeId());
         // The user-agent stylesheet is application-wide, so this restyles every window at once —
         // including the settings window that is probably the one being used to change it.
-        Application.setUserAgentStylesheet(theme.stylesheet());
+        // The UI zoom first (WIN-12, Pauta 6.0.1): every open window's own sheets, then the theme
+        // at that zoom.
+        UiZoom.apply(settings.uiZoom());
+        Application.setUserAgentStylesheet(UiZoom.theme(theme.stylesheet()));
         for (Window open : List.copyOf(Window.getWindows())) applyColorScheme(open, theme.colorScheme());
         for (TerminalWindow window : List.copyOf(windows)) window.applySettings();
     }
@@ -239,10 +403,93 @@ public final class WindowManager {
         openLink.accept(url);
     }
 
+    // ---------------------------------------------------------------- quit
+
+    private final List<TerminalWindow> closeRequests = new ArrayList<>();
+    private boolean quitting;
+
+    /** What the last window going does: ends the app. A test's manager counts it, and stays up. */
+    private Runnable endApp = Platform::exit;
+
+    void endAppWithForTest(Runnable end) {
+        endApp = end;
+    }
+
+    /**
+     * A window was asked to close: by its close button, or by the system quitting the app, which
+     * asks every window in the same turn. Gathered until the turn is over and then told apart
+     * ({@link WindowRules#closeRequestsAreAQuit}), so the system's Quit runs the one quit method
+     * and asks once, not once for each window (WIN-13, Pauta 6.0.1).
+     */
+    void closeRequested(TerminalWindow window) {
+        closeRequests.add(window);
+        if (closeRequests.size() > 1) return;
+        Platform.runLater(() -> {
+            List<TerminalWindow> asked = List.copyOf(closeRequests);
+            closeRequests.clear();
+            if (WindowRules.closeRequestsAreAQuit(asked.size(), windows.size())) {
+                quit(asked.get(0));
+            } else {
+                for (TerminalWindow one : asked) one.close();
+            }
+        });
+    }
+
+    /**
+     * Quits: the one method every way of quitting runs, the Quit row, the {@code app.quit} command
+     * and the system's own Quit (WIN-13). It asks once if any shell in any window still has a
+     * program running, in the window it was asked from, and on a yes closes the dialogs and
+     * secondary windows, then every terminal window the way shutdown does, which saves what
+     * closing a window saves; the last one going ends the app.
+     *
+     * @param from the window to ask in, or null for the one in front
+     */
+    void quit(@Nullable TerminalWindow from) {
+        if (quitting) return;
+        TerminalWindow asker = from;
+        if (asker == null || !windows.contains(asker)) {
+            asker = windows.isEmpty() ? null : windows.get(windows.size() - 1);
+            for (TerminalWindow window : windows) {
+                if (window.stage().isFocused()) asker = window;
+            }
+        }
+        if (asker == null) {
+            quitNow();
+            return;
+        }
+        asker.confirmQuitThen(allTerminals(), this::quitNow);
+    }
+
+    private void quitNow() {
+        if (quitting) return;
+        quitting = true;
+        // Dialogs and the windows beside the terminals first: nothing of theirs is left open over
+        // an app that is going.
+        // Never a terminal's window, not even one this manager did not open: hidden from here it
+        // would go without its question, and as its own manager's last window it would end the
+        // app from under this one. (Tests run several managers in one JVM; that is how it showed.)
+        for (Window open : List.copyOf(Window.getWindows())) {
+            if (TerminalWindow.isTerminalWindow(open)) continue;
+            if (open instanceof Stage stage && stage.isShowing()) stage.hide();
+        }
+        // The last of these to go ends the app (open's setOnHidden), and App.stop writes the settings.
+        for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();
+        // A manager with no window left to close it, a test's: nothing more is coming.
+        quitting = !windows.isEmpty();
+    }
+
+    /** The terminal window the user is in, or the last one opened when none has focus. */
+    private Window frontWindow() {
+        for (TerminalWindow window : windows) {
+            if (window.stage().isFocused()) return window.stage();
+        }
+        return windows.isEmpty() ? new Stage() : windows.get(windows.size() - 1).stage();
+    }
+
     /** One About window for the application, shown beside whichever window asked. */
     public void showAbout(Window from) {
         AboutWindow about = aboutWindow();
-        about.setUpdate(knownUpdate);
+        about.setUpdate(knownUpdate, lastAnswer);
         about.show(from);
     }
 
@@ -255,8 +502,55 @@ public final class WindowManager {
     /** The About window, made on first use. */
     private AboutWindow aboutWindow() {
         AboutWindow about = aboutWindow;
-        if (about == null) aboutWindow = about = new AboutWindow(settings, openLink);
+        if (about == null) {
+            aboutWindow = about = new AboutWindow(settings, openLink, () -> showPauta(frontWindow()));
+        }
         return about;
+    }
+
+    private @Nullable PautaWindow pautaWindow;
+
+    /** The Pauta window (PWIN-01): what {@code help.pauta} and About's conformance link open. */
+    void showPauta(Window from) {
+        PautaWindow window = pautaWindow;
+        if (window == null) pautaWindow = window = new PautaWindow(openLink);
+        window.show(from);
+    }
+
+    private @Nullable DoctorWindow doctorWindow;
+
+    /** The Doctor (DIAG-07): what {@code help.doctor} opens, checking again each time. */
+    void showDoctor(Window from) {
+        DoctorWindow window = doctorWindow;
+        if (window == null) doctorWindow = window = new DoctorWindow(openLink, settings);
+        window.show(from);
+    }
+
+    /** Why the Doctor's report cannot be copied now, as a catalogue key, or null when it can. */
+    @Nullable
+    String copyDoctorUnavailableKey() {
+        DoctorWindow window = doctorWindow;
+        return WindowRules.copyDoctorUnavailableKey(window != null && window.hasRows());
+    }
+
+    /** What {@code help.copyDoctor} does: the rows the Doctor last showed, as text. */
+    void copyDoctor() {
+        DoctorWindow window = doctorWindow;
+        if (window != null) window.copyAsText();
+    }
+
+    /** For the development capture hook. */
+    public javafx.scene.Scene showDoctorForCapture(Window owner) {
+        showDoctor(owner);
+        DoctorWindow window = doctorWindow;
+        return window == null ? owner.getScene() : window.scene();
+    }
+
+    /** For the development capture hook. */
+    public javafx.scene.Scene showPautaForCapture(Window owner) {
+        showPauta(owner);
+        PautaWindow window = pautaWindow;
+        return window == null ? owner.getScene() : window.scene();
     }
 
     // ---------------------------------------------------------------- updates
@@ -279,19 +573,19 @@ public final class WindowManager {
     }
 
     /** The user asked. Ignores both the interval and the enable setting, and always reports. */
-    public void checkForUpdatesNow(java.util.function.Consumer<String> report) {
-        report.accept(tr("status.checkingForUpdates"));
+    public void checkForUpdatesNow(Reporter report) {
+        report.info(tr("status.checkingForUpdates"));
         settings.setLastUpdateCheck(System.currentTimeMillis());
         updates.check(com.termina.AppInfo.VERSION, outcome -> {
             onUpdateOutcome(outcome, true);
             var error = outcome.error();
             var latest = outcome.latest();
             if (error != null) {
-                report.accept(describeFailure(error, outcome.detail()));
+                report.error(describeFailure(error, outcome.detail()));
             } else if (outcome.available() && latest != null) {
-                report.accept(tr("status.updateAvailable", latest.version()));
+                report.info(tr("status.updateAvailable", latest.version()));
             } else {
-                report.accept(tr("status.upToDate", com.termina.AppInfo.NAME));
+                report.info(tr("status.upToDate", com.termina.AppInfo.NAME));
             }
         });
     }
@@ -309,17 +603,185 @@ public final class WindowManager {
         };
     }
 
-    private void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
+    void onUpdateOutcome(com.termina.update.UpdateService.Outcome outcome, boolean manual) {
+        lastAnswer = outcome;
+        if (aboutWindow != null) aboutWindow.setUpdate(knownUpdate, outcome);
         com.termina.update.ReleaseInfo latest = outcome.latest();
         // Available always comes with the release; the pair is checked so the type says so too.
         if (!outcome.available() || latest == null) return;
         knownUpdate = latest;
-        if (aboutWindow != null) aboutWindow.setUpdate(latest);
+        if (aboutWindow != null) aboutWindow.setUpdate(latest, outcome);
         // A version the user has already been shown stays out of the menu, but a manual check
         // surfaces it again — they just asked.
         if (!manual && latest.version().equals(settings.dismissedUpdate())) return;
         availableUpdate = latest;
         notifyUpdateListeners();
+        // The status-bar notice (DIAG-05), beside the Help menu's: the log is where the bar's
+        // echo area reads from.
+        if (!manual) messages.add(MessageLog.Severity.INFO, tr("status.updateAvailable", latest.version()));
+    }
+
+    /**
+     * A newer version, as the update check would report it at startup, for the capture hook
+     * ({@code -Dtermina.captureUpdateAvailable=99.0.0}): the Help menu's row and the status bar's
+     * link to the release (DIAG-09) are otherwise only seen on the day a release comes out.
+     */
+    public void announceUpdateForCapture(String version) {
+        onUpdateOutcome(
+                new com.termina.update.UpdateService.Outcome(
+                        true,
+                        new com.termina.update.ReleaseInfo(
+                                version,
+                                com.termina.AppInfo.RELEASES_PAGE + "/tag/v" + version,
+                                com.termina.AppInfo.NAME + " " + version),
+                        null,
+                        null),
+                false);
+    }
+
+    MessageLog messages() {
+        return messages;
+    }
+
+    /**
+     * The Message Log, over the terminal window that asked: a card in that window (MLOG-08,
+     * Pauta 6.0.1), so a window that is not a terminal's gets it over the first terminal window,
+     * and with none open there is nowhere for it to be.
+     */
+    void showMessageLog(Window from) {
+        TerminalWindow over = null;
+        for (TerminalWindow window : windows) {
+            if (window.stage() == from) over = window;
+        }
+        if (over == null && !windows.isEmpty()) over = windows.get(0);
+        if (over != null && !over.messageLog().isShowing()) over.showMessageLog();
+    }
+
+    /**
+     * The chord command {@code id} is on now, for the windows beside the terminals: the bindings
+     * are the application's, so any terminal window's table answers.
+     */
+    javafx.scene.input.@Nullable KeyCombination chordOf(String id) {
+        return windows.isEmpty() ? null : windows.get(0).chordOf(id);
+    }
+
+    /** The Debug Log: a command now, not only a button on the Advanced page (DIAG-03). */
+    void showDebugLog(Window from) {
+        debugLog(from).show();
+    }
+
+    /**
+     * The Debug Log with a query in its find bar, for the capture hook
+     * ({@code -Dtermina.captureDebugLogFind=text}); says where the search stands and returns the
+     * window's scene to photograph.
+     */
+    public javafx.scene.Scene debugLogFindForCapture(Window from, String query) {
+        DebugLogWindow window = debugLog(from);
+        window.show();
+        window.searchFor(query);
+        System.out.println("[capture] debugLogFind " + window.findReport() + " menu=" + window.menuRowsForTest());
+        return window.scene();
+    }
+
+    /**
+     * The Message Log with its filter typed into, for the capture hook
+     * ({@code -Dtermina.captureMessageLogFilter=text}).
+     */
+    public javafx.scene.Scene messageLogFilterForCapture(TerminalWindow from, String typed) {
+        MessageLogCard card = from.messageLog();
+        if (!card.isShowing()) from.showMessageLog();
+        card.filterBy(typed);
+        // Laid out before it is measured: the card went in during this pulse.
+        from.stage().getScene().getRoot().applyCss();
+        from.stage().getScene().getRoot().layout();
+        double[] size = card.sizeForTest();
+        System.out.println("[capture] messageLogFilter " + card.report() + " menu=" + card.menuRowsForTest() + " card="
+                + Math.round(size[0]) + "x list " + Math.round(size[1]));
+        return from.stage().getScene();
+    }
+
+    /** The one Debug Log window, built on first use: what its commands act on. */
+    DebugLogWindow debugLog(Window from) {
+        DebugLogWindow window = debugLogWindow;
+        if (window == null) {
+            debugLogWindow = window = new DebugLogWindow(from, () -> showReportProblem(from));
+            window.setChords(this::chordOf);
+        }
+        return window;
+    }
+
+    private @Nullable ReportProblemWindow reportWindow;
+
+    /**
+     * Help → Report a Problem (DIAG-06): this session's report, redacted, in a window to read and
+     * edit before the user sends it themselves.
+     */
+    void showReportProblem(Window from) {
+        ReportProblemWindow window = reportWindow;
+        if (window == null) reportWindow = window = new ReportProblemWindow(openLink);
+        window.show(from, currentReport());
+    }
+
+    /**
+     * Report a Problem's two buttons as commands ({@code report.copy}, {@code report.open}): on the
+     * window as it stands when it is open, with whatever the user has edited, and on a fresh
+     * report shown first when it is not.
+     */
+    void reportProblemAction(Window from, boolean open) {
+        ReportProblemWindow window = reportWindow;
+        if (window == null || !window.isShowing()) {
+            showReportProblem(from);
+            window = reportWindow;
+        }
+        if (window == null) return;
+        if (open) window.openIssue();
+        else window.copy();
+    }
+
+    /** One of the Settings window's actions, as its command runs it (KBD-01). */
+    void runSettingsAction(Window from, SettingsActions.Action action) {
+        settingsWindow().run(from, action);
+    }
+
+    /**
+     * Why a Settings action cannot run now, or null when it can. Answered from the settings and the
+     * sync's state, without building the Settings window: the palette asks on every listing.
+     */
+    @Nullable
+    String settingsActionUnavailable(SettingsActions.Action action) {
+        String key = SettingsActions.unavailableKey(action, settingsActionState());
+        return key == null ? null : tr(key);
+    }
+
+    private SettingsActions.State settingsActionState() {
+        SettingsWindow window = settingsWindow;
+        SettingsSync.State state = sync.state();
+        com.termina.sync.SyncReport report = state.report();
+        return new SettingsActions.State(
+                Themes.byId(settings.themeId()).isBuiltIn(),
+                window != null && window.hasRemovableProfileSelected(),
+                settings.syncEnabled(),
+                state.phase() == SettingsSync.Phase.SYNCING,
+                report != null && report.status() == com.termina.sync.SyncReport.Status.NEEDS_CONFIRMATION,
+                com.termina.sync.SyncEngine.hasCredentials(settings.syncRepository()),
+                sync.gitHubAvailable());
+    }
+
+    /** Opens Report a Problem and returns its scene, for the development capture hook. */
+    public javafx.scene.Scene showReportProblemForCapture(Window from) {
+        showReportProblem(from);
+        ReportProblemWindow window = reportWindow;
+        if (window == null) throw new IllegalStateException("not shown");
+        return window.scene();
+    }
+
+    /** What a report would hold now. */
+    com.termina.report.ProblemReport currentReport() {
+        return com.termina.report.ProblemReport.build(
+                com.termina.AppInfo.details(),
+                settings.values(),
+                DebugLog.text(),
+                com.termina.report.Redactor.forThisMachine());
     }
 
     private void notifyUpdateListeners() {
@@ -424,6 +886,48 @@ public final class WindowManager {
         settingsWindow().show(from);
     }
 
+    /** Export Configuration (SET-12): a zip of the config folder in the home folder. */
+    void exportConfiguration(Reporter report) {
+        configTransfer.export(report);
+    }
+
+    /** Import Configuration (SET-12): asks for a zip and replaces the parts the user ticks. */
+    void importConfiguration(Window from, Reporter report) {
+        configTransfer.importFrom(from, report);
+    }
+
+    /**
+     * Import Configuration without the file chooser or the dialog, ticking {@code parts}: for the
+     * development capture, which can drive neither.
+     */
+    public void importConfigurationForCapture(
+            java.nio.file.Path zip, java.util.Set<com.termina.config.ConfigArchive.Part> parts, Reporter report) {
+        configTransfer.importZip(zip, report, scan -> {
+            System.out.println("[capture] import offers " + scan.parts());
+            return parts;
+        });
+    }
+
+    /** The settings window, on its Profiles page. */
+    public void showProfileSettings(Window from) {
+        settingsWindow().showProfiles(from);
+    }
+
+    /** Whether the settings window has been made yet: for the first-frame test (PERF-14). */
+    boolean settingsWindowBuilt() {
+        return settingsWindow != null;
+    }
+
+    /** The application's settings sync, for the palette's sync commands. */
+    SettingsSync settingsSync() {
+        return sync;
+    }
+
+    /** The settings window, made if need be: for the test that presses its buttons. */
+    SettingsWindow settingsWindowForTest() {
+        return settingsWindow();
+    }
+
     /** The settings window, made on first use. */
     private SettingsWindow settingsWindow() {
         SettingsWindow window = settingsWindow;
@@ -434,6 +938,8 @@ public final class WindowManager {
                     profiles,
                     windows.isEmpty() ? List.of() : windows.get(0).keyboardCommands(),
                     sync);
+            window.openDebugLogWith(this::showDebugLog);
+            window.openLinksWith(this::openLink);
         }
         return window;
     }
@@ -442,7 +948,7 @@ public final class WindowManager {
      * Sync Now from a menu or the palette. {@code report} hears that it started and how it went, as
      * the update check's does, because the Sync page that would otherwise say so is not on screen.
      */
-    public void syncSettingsNow(java.util.function.Consumer<String> report) {
+    public void syncSettingsNow(Reporter report) {
         sync.syncNow(report, this::commandLabel);
     }
 
@@ -481,7 +987,14 @@ public final class WindowManager {
 
     public void closeAll() {
         // Shutdown, not a user action: App.stop() reaches here after the quit is already decided.
+        // The session first (WIN-08): the tabs of the window in front, while they are still there.
+        TerminalWindow kept = sessionWindow();
+        if (!sessionWritten && kept != null) writeSession(kept.sessionSnapshot());
+        sessionWritten = true;
         for (TerminalWindow window : List.copyOf(windows)) window.closeForShutdown();
         updates.shutdown();
+        // After the windows, whose closing wrote their geometry: saves are deferred, and this is the
+        // last moment on the FX thread where a pending one can still be written.
+        settings.flush();
     }
 }

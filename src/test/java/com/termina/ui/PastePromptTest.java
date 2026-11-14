@@ -9,12 +9,12 @@ class PastePromptTest {
 
     @Test
     void countsLinesTheWayAShellWillRunThem() {
-        assertEquals(0, TerminalWindow.lineCount(""));
-        assertEquals(1, TerminalWindow.lineCount("ls"));
-        assertEquals(2, TerminalWindow.lineCount("ls\npwd"));
+        assertEquals(0, WindowRules.lineCount(""));
+        assertEquals(1, WindowRules.lineCount("ls"));
+        assertEquals(2, WindowRules.lineCount("ls\npwd"));
         // A trailing break still ends a line: the shell runs it.
-        assertEquals(2, TerminalWindow.lineCount("ls\n"));
+        assertEquals(2, WindowRules.lineCount("ls\n"));
         // Every convention counts once.
-        assertEquals(3, TerminalWindow.lineCount("a\r\nb\rc"));
+        assertEquals(3, WindowRules.lineCount("a\r\nb\rc"));
     }
 }

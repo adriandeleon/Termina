@@ -371,8 +371,8 @@ final class ProfileIcons {
     private static Node of(String svg) {
         SVGPath node = new SVGPath();
         node.setContent(svg);
-        node.setScaleX(SCALE);
-        node.setScaleY(SCALE);
+        node.scaleXProperty().bind(UiZoom.times(SCALE));
+        node.scaleYProperty().bind(UiZoom.times(SCALE));
         // The same class the context-menu glyphs use, so it takes its colour from the theme.
         node.getStyleClass().add("menu-icon");
         return node;

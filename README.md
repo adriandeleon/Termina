@@ -11,10 +11,14 @@
   <img alt="Java" src="https://img.shields.io/badge/Java-25-orange">
   <img alt="JavaFX" src="https://img.shields.io/badge/JavaFX-27-blue">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-lightgrey">
+  <a href="https://termina-project.dev/docs/pauta/"><img alt="Pauta 6.1.0, conformance Core" src="https://img.shields.io/badge/Pauta-6.1.0%20%C2%B7%20Core-5b8def"></a>
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Termina running a shell: two tabs, a git-aware prompt, and a directory listing with file-type icons and colour" width="820">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
+    <img src="docs/screenshot.png" alt="Termina running a shell: two tabs, and a directory listing with file-type icons and colour" width="900">
+  </picture>
 </p>
 
 A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real pseudo-terminal and
@@ -25,858 +29,54 @@ renders the emulated screen to a canvas.
 [news](https://termina-project.dev/news/) and the [blog](https://termina-project.dev/blog/).
 The site's source is [adriandeleon/termina-website](https://github.com/adriandeleon/termina-website).
 
-Status: **early**. A working terminal — tabs, split panes, multiple windows, a menu bar, colour and
-styling, scrollback with search, selection and copy, clickable URLs and file paths, shell
-integration, mouse-aware full-screen programs (vim, less, htop), themes and font settings — with a
-short list of known gaps at the bottom of this file.
-
-## Running
-
-```bash
-./mvnw javafx:run
-```
-
-Requires JDK 25. Everything else — including Maven itself, via the wrapper — is fetched on demand.
-
-```bash
-./mvnw test
-```
-
-### Building a native app image
-
-```bash
-./mvnw clean -Pdist -DskipTests package     # => target/dist/Termina{.app}
-```
-
-Self-contained: bundled runtime, no JDK needed to run it. `clean` is not optional — jlink's input is
-built from `target/classes`, and an incremental compile can leave that inconsistent in ways javac
-will not correct on its own.
-
-The build trains an AOT cache by starting the packaged app (`scripts/aot-train.sh`), so a window
-appears for a few seconds. It runs against a configuration folder of its own, created and removed
-by the script, so it never runs settings sync or writes to your own settings.
-
-Four dependencies (`jediterm-core`, `pty4j`, `jna`, `jna-platform`) are **automatic modules**, and
-jlink refuses to link those. moditect injects real descriptors; an antrun step then overlays the
-patched jars over the plain ones so exactly one copy of each is on the module path.
-
-Two things about this build are worth knowing because neither announces itself:
-
-- **The slf4j binding has to be named explicitly.** It is reached only through `ServiceLoader`, so
-  nothing `requires` it and jlink leaves it out. The image builds, launches, and silently drops
-  every log line from pty4j and JediTerm — in the one build where a native library failing to load
-  is hardest to diagnose.
-- **pty4j's native libraries survive by luck, not design.** JPMS encapsulates resources whose
-  directory maps to a valid package name. `resources/com/pty4j/native/…` does not, because `native`
-  is a reserved word, so it stays readable. The same accident covers JNA (`darwin-aarch64` contains
-  a hyphen). Neither would work if those directories were named differently.
-
-## How it fits together
-
-Three pieces, each doing one thing:
-
-| Layer | What it is | Where |
-|---|---|---|
-| PTY | Starts the shell on a pseudo-terminal and moves bytes | `com.termina.pty` |
-| Emulation | Parses escape sequences into a screen buffer | JediTerm (external) |
-| Rendering & input | Paints the buffer, encodes keystrokes | `com.termina.ui` |
-
-`TerminalSession` (`com.termina.term`) wires them together and owns the read loop.
-
-**The emulator is not ours.** VT/xterm compatibility is a very long tail — cursor modes, character
-sets, scroll regions, mouse protocols, a hundred CSI sequences — and getting it wrong shows up as
-programs subtly misbehaving rather than as anything that looks like a bug in a terminal. JetBrains'
-[JediTerm](https://github.com/JetBrains/jediterm) core does that part. It is UI-agnostic: it owns a
-`TerminalTextBuffer` and knows nothing about how it gets drawn.
-
-**The PTY is not ours either.** Java has no PTY API, and the platforms disagree fundamentally —
-Unix has `forkpty`, Windows has ConPTY (and winpty before it).
-[pty4j](https://github.com/JetBrains/pty4j) covers all of them, and ships every platform's native
-library in a single jar, so there is no per-OS native build step.
-
-What *is* ours is the JavaFX half: the canvas renderer, the key encoder, the colour resolution, and
-the session lifecycle.
-
-### Rendering
-
-`TerminalView` paints `TerminalTextBuffer` onto a `Canvas`.
-
-Repaints are **decoupled from output**. The emulator signals a change per write — thousands a
-second when a command floods output — so a change only sets a dirty flag, and one `AnimationTimer`
-repaints at most once a frame. Painting per signal would starve the UI thread during any large
-output.
-
-Drawing is per **style run**, not per character: `processScreenLines` hands back each run of
-identically-styled text and each becomes one `fillText`. Runs containing non-ASCII fall back to
-per-glyph drawing, because a double-width character (CJK, emoji) occupies two cells and its
-natural advance would otherwise push the rest of the line off the grid.
-
-### Input
-
-Special keys are encoded by **JediTerm** via `TerminalStarter.getCode` — but not all of them: its
-encoder has no entry for **Tab or Escape**. Both are control characters, so the `KEY_TYPED` path
-discards them too, and without a fallback they reach the shell by no route at all. Worse, returning
-null leaves the event unconsumed, and JavaFX then treats Tab as focus traversal — focus leaves the
-terminal and everything typed afterwards goes somewhere else, which presents as the terminal
-freezing. `KeyEncoding.literalFallback` covers them, with `ESC [ Z` for Shift+Tab.
-
-The invariant is that **a key we claim to handle must never return null**, since null means
-unconsumed and unconsumed means JavaFX may act on it. That is asserted rather than assumed.
-
-Otherwise, special keys are encoded by JediTerm via `TerminalStarter.getCode`. The right bytes
-depend on emulator state: in application-cursor-key mode Up is `ESC O A`, otherwise `ESC [ A`.
-Hard-coding either breaks half the programs a terminal exists to run. Printable characters go
-through `KEY_TYPED` instead, which is the only event that reports the *composed* character — what
-makes dead keys, AltGr layouts, and IME input work.
-
-### Selection
-
-Drag to select, double-click for a word, triple-click for a line. Copy is `Cmd+C` / `Ctrl+Shift+C`
-(plain `Ctrl+C` is SIGINT and belongs to the shell).
-
-Selection coordinates are the same axis as the scroll origin: row 0 is the top of the live screen
-and negative rows reach into history. Extracting the text is JediTerm's `SelectionUtil`, which knows
-a wrapped line is one logical line and must not gain a newline in the middle.
-
-Two things follow from output arriving while a selection exists. As lines age off the screen into
-history, both the selection and a scrolled-back viewport are shifted to stay on their text —
-otherwise a selection made a moment ago comes to refer to different characters, and copying it
-produces the wrong thing silently. And `getNextSeparator` returns the last character *of* a word
-while a selection's end is exclusive, so word selection adds one; without it double-clicking
-`india` copies `indi`.
-
-The highlight is a translucent wash painted *over* the text. Painting it behind would mean threading
-selection state through every style run and splitting runs at its edges; the wash keeps the run loop
-untouched and stays legible over any of 16 million possible foreground colours.
-
-**Past the edge.** Dragging above or below the pane scrolls the scrollback and keeps extending the
-selection, faster the further out the pointer is, and keeps going with the pointer held still — no
-event arrives then, so it runs on the painter's frames rather than on mouse events. The drag's
-anchor moves with its text as output scrolls, as the selection does; otherwise a drag held while a
-build runs extends from whatever has since scrolled under where it began.
-
-**Blocks.** `Option`+drag on macOS, `Alt`+drag elsewhere — `Ctrl+Alt`+drag where the window manager
-takes Alt+drag to move windows, as GNOME and KDE do — selects a rectangle: the same columns on every
-row, copied one row per line whether or not a row wrapped. A block is measured in columns, not slots,
-so it stays straight over Nerd Font icons and wide glyphs.
-
-**It survives typing.** A keystroke no longer clears the selection. What does is the text under it
-changing — a line editor redrawing the prompt — checked on the next frame against the text it was
-made with, since copying a highlight over redrawn text would produce something nobody selected.
-
-**Copy on select** is a setting on Terminal → Input, off by default. On Linux every selection is
-also the **PRIMARY** selection, and a middle-click pastes PRIMARY, as on any X11 terminal. JavaFX
-cannot reach PRIMARY at all, so both go through `wl-paste`/`wl-copy` under Wayland or `xclip`/`xsel`
-under X11; without one of them, and on macOS and Windows, middle-click pastes the clipboard.
-
-### Mouse reporting
-
-Clicks, drags and the wheel are offered to the program running in the terminal before any local
-gesture runs, so vim positions its cursor and htop responds to clicks. Only the *mapping* from
-JavaFX events to button codes is ours — JediTerm encodes the escape sequences, because there are
-four incompatible wire formats (X10, UTF-8, URXVT, SGR) and the active one is chosen by the running
-program.
-
-The mapping mirrors JediTerm's own AWT adapter, which is the implementation its encoder was written
-against. Two parts look like bugs and are not: the **motion flag is never set here** (the encoder
-derives it from the event type, and setting it twice reports a drag as a different button), and the
-**scroll codes read backwards** — `SCROLLDOWN` is sent when the wheel turns up, because the names
-describe which way the content moves.
-
-The menu closes on Escape, on a click anywhere in the terminal, or on a click outside the window.
-Escape needs handling explicitly: the terminal's key filter runs before the menu would see the key,
-and Escape now encodes to a real byte, so without it the menu would stay open and the shell would
-receive an ESC nobody asked for.
-
-**Shift bypasses reporting.** That is the xterm convention, and it is the only way to select text
-out of a program that has grabbed the mouse — without it htop's output cannot be copied.
-
-On the alternate screen a wheel scroll falls back to arrow keys, so `less` and `man` scroll with the
-wheel even though neither ever enables mouse reporting. Scroll magnitude is capped, or one inertial
-trackpad fling sends hundreds of keypresses to the shell.
-
-### Tabs, windows and the menu bar
-
-`TerminalWindow` is one window: a menu bar over a tab strip, each tab a `PaneGroup` of one or more
-`TerminalView`s, each with its own shell (see [Split panes](#split-panes)). `WindowManager` owns the set of windows and what they share —
-the settings, the single preferences window, and the theme. Sessions are never shared.
-
-**Tab disposal is driven off the tab list, not the close button.** A tab owns a PTY process, two
-pump threads and an emulator thread; a removal path that skips disposal leaks all of it and nothing
-on screen looks wrong. Listening to the list covers every path at once — the close button, Close
-Tab, the shell exiting, and the window closing — and every pane of a removed tab goes with it.
-Verified by counting child processes rather than by reading the code: three tabs, close two, one
-shell left; three panes, close two, likewise.
-
-**The tab strip hides itself while only one tab is open** (on by default, matching iTerm2, GNOME
-Terminal and Windows Terminal; Settings → Appearance → Tabs). JavaFX has no property for this, and
-`visibility: hidden` alone leaves the row's height behind as a blank band — min, pref *and* max
-height have to be pinned to zero and the padding cleared with them, or the skin's own padding
-survives as a few stubborn pixels. Collapsing reclaims the row for the terminal, so the shell gains
-a line and gets resized accordingly.
-
-**Menu items and key bindings come from one value.** `MenuAction` holds the label, the accelerator
-and the action together, so the menu cannot advertise a shortcut that nothing implements. The
-binding is a **scene-level event filter**, not the menu's accelerator: JavaFX fires accelerators
-only after an event has bubbled unconsumed, and `TerminalView` consumes `Ctrl+<letter>` first to
-encode it as a control byte. Filters run in the capturing phase, ahead of that.
-
-Off macOS an application chord is `Ctrl+Shift+key`, never `Ctrl+key` — the plain form belongs to the
-shell (Ctrl+T is readline's transpose, Ctrl+W deletes a word, Ctrl+C is SIGINT). That rule has its
-own tests. Whether the shortcut modifier *is* Ctrl or Cmd is JavaFX's decision, not ours, and the
-tests deliberately do not assert it.
-
-### Hiding the menu bar
-
-Settings → Appearance → Window, or `Cmd/Ctrl+Shift+M`. **No effect on macOS**, where the menus
-belong to the screen menu bar and there is nothing in the window to hide — the settings row is
-disabled there and says so, rather than being a switch that silently does nothing.
-
-Hiding it strands no commands: the key bindings are a scene-level filter independent of the menu,
-and Settings is on the right-click menu, which is how it comes back.
-
-Hiding it is done in **code**, not CSS, and the two platforms need different mechanisms. Under a
-system menu bar the node must stay live — that is what JavaFX forwards from — so it is only
-collapsed to zero height, and nothing paints in the window because the menus are elsewhere.
-Everywhere else the bar really is in the window, so hiding it sets `visible` and `managed` to false.
-
-CSS was tried first and was wrong: `visibility: hidden` never applied (the node still reported
-`isVisible() == true`), and a zero-height Region does not clip its children, so the menu buttons
-carried on painting over the terminal's first rows while occupying no space of their own.
-
-`-Dtermina.forceInWindowMenuBar=true` makes a Mac lay out like the other platforms. Without it the
-in-window menu bar — the only place this setting does anything — cannot be seen on the machine this
-is developed on.
-
-### The menu bar in the title bar
-
-An option (Appearance → Window, off by default) merges the two rows: the window draws its own
-title bar, with the menus at the left, the title in the middle and the window buttons at the right,
-and the terminal gains the row the native title bar took. It is JavaFX 27's extended stage style —
-`StageStyle.EXTENDED`, with a `HeaderBar` at the top of the scene in place of the system's title
-bar. The platform keeps its window buttons (JavaFX draws GNOME- or KDE-styled ones on Linux, and
-Windows' own on Windows) and reserves their space; the bar pads for them itself. The empty header
-is the drag handle, and so is the title, which is marked draggable on purpose — a title bar you
-cannot drag by its title is a trap. The menus stay clickable because content is not draggable by
-default.
-
-It applies to windows opened after the change. A stage's style is fixed before it is first shown,
-so an existing window keeps the title bar it came up with, and the row says so rather than
-appearing to do nothing. Hiding the menu bar still works inside the header: the title and the
-buttons stay, since a window with no title bar at all could not be moved.
-
-Not offered on macOS, where the menus are in the screen menu bar and there is nothing in the window
-to merge, nor where `Platform.isSupported(EXTENDED_WINDOW)` says no — JavaFX would downgrade the
-style to `DECORATED` silently and leave the header as a second row under the native one. In both
-cases the checkbox is disabled with the reason on its row. The decision is
-`TerminalWindow.usesHeaderBar`, tested in `MenuBarVisibilityTest`.
-
-One thing a capture cannot show: the window buttons are an overlay JavaFX draws outside the scene
-graph, so a scene snapshot has the menus and the title but a blank where the buttons are. The
-layout report prints the system insets JavaFX reserved for them instead.
-
-### The tab strip
-
-Tabs tile the full width and shrink as more are added, the way macOS Terminal and GNOME Terminal
-lay them out — down to a floor of 60px, past which the strip overflows rather than rendering
-slivers with no readable title. Whatever the count, they meet the new-tab button.
-
-An optional **scrollbar** (Appearance → Window, on by default) shows the scrollback and drags it.
-It takes a real column of width rather than floating over the text, so the shell is resized when it
-appears — a bar drawn over the last column would cover a character of every line. It hides itself on
-the alternate screen, where a full-screen program owns the viewport and there is no scrollback to
-reach, and it is coloured from the terminal palette rather than the window theme, since the two can
-differ.
-
-A **command palette** on Ctrl+Shift+P (Cmd+Shift+P on macOS), as in Windows Terminal and VS Code,
-lists every command in the window, found by typing part of its name: "nw" reaches New Window, "ct" Close Tab,
-"tab close" finds Close Tab with the words in either order, and "file new" reaches New Tab through
-the menu it lives in. It is Editora's palette in shape and behaviour: the query row is led by a chip
-naming the chord that opened it, the characters that matched are emboldened so the ranking explains
-itself, a line under the list says what the highlighted command does, and a legend names the keys.
-Those keys are Emacs's as well as the arrows: Ctrl+N and Ctrl+P move, Ctrl+V and Alt+V page,
-Alt+< and Alt+> jump to the ends, Ctrl+G cancels, and the query field takes Ctrl+A, Ctrl+E,
-Ctrl+K and the rest of the Emacs editing chords. A command that cannot run right now — Reopen
-Closed Tab with nothing to reopen — is listed greyed with the reason as its tooltip rather than
-dropped, and the cursor steps over it. The commands are the menu bar's own actions rather than a
-parallel list that could disagree with it, so an entry is in the palette because it is in a menu,
-and its shortcut is shown because the action already carries one. The colour themes are appended,
-since a menu listing every theme is a submenu nobody opens. The chord is Terminal → Keyboard in
-Settings: click the field and press another one. A bare key is refused — the shell owns it — and
-so is a chord another command already has, since the first binding on a chord is the only one
-that runs.
-
-A **debug log** (Advanced → Diagnostics) keeps this session's warnings, errors and uncaught
-exceptions, and mirrors them to `termina-session.log` beside the settings. A packaged application
-has no console, so without it the one sentence explaining why something failed goes nowhere.
-
-**Six interface languages** — English, Italian, Spanish, French, Portuguese, German — chosen in
-Appearance → Language, or followed from the system when left on Automatic. English is both the base
-catalogue and the fallback, so a key missing from a translation shows English rather than a gap, and
-a test holds the six catalogues to identical key sets: drift here is silent, since nobody testing in
-English ever sees it.
-
-**Fonts are bundled**, not borrowed from the machine: five monospace families (JetBrains Mono,
-Cascadia Code, Fira Code, IBM Plex Mono, Source Code Pro) and Inter for the interface. A picker over
-whatever happens to be installed gives Menlo on macOS, Consolas on Windows and DejaVu on Linux —
-three sets of metrics, and no way to describe a setup to anyone else. The bundled families lead the
-picker, since they are the only ones guaranteed to be there; every installed monospace face is still
-listed after them. They are the same families Editora ships, which is where the themes come from.
-
-**Window size is remembered** across launches, clamped to the screen that is actually present — a
-size saved on a 4K display and restored on a laptop would otherwise put the title bar off-screen,
-where no mouse can reach it. Only the un-maximized size is stored, so un-maximizing does not restore
-to full screen.
-
-The tab-strip glyphs — each tab's close button and the new-tab button — are shaped Regions on one
-grid at one size, rather than a shape beside a font character, which never match in weight or
-centring. The new-tab button takes the strip's height so its glyph lands on the same line as the
-close buttons.
-
-Right-clicking a tab gives New Tab, Close Tab, Close Other Tabs, Close Tabs to the Right, and Move
-Tab Left/Right, with the inapplicable ones disabled. It is attached with `Tab.setContextMenu`, so it
-acts on the tab that was clicked rather than whichever is selected.
-
-The **window title follows the selected tab**, bound to that terminal's own title property so it
-tracks the shell live rather than only at the moment of selection.
-
-The **+** button floats over the right end of the strip rather than being a tab of its own. A
-sentinel "+" tab would pollute every count and index in the window — tab disposal, reordering, the
-hide-when-single rule, next/previous — each of which would then need to know it is not a real tab.
-
-`TabLayout.tabWidth` is pure and tested. The per-tab chrome constant was **measured**, not guessed:
-JavaFX renders a tab at the width set plus about 17px of its own padding, and an earlier value of 38
-left a visible gap at seven tabs — arithmetic that tiled correctly against the wrong constant.
-
-### Reordering tabs
-
-Drag a tab, or `Cmd/Ctrl+Shift+Left/Right` from the keyboard. JavaFX has no tab reordering, so the
-gesture is built on a `Label` graphic — a `Tab` is not a `Node` and has nowhere to attach drag
-handlers.
-
-**A reorder is a remove followed by an add**, which the tab-disposal listener would otherwise read
-as "close that session" — dragging a tab would kill the shell being dragged and leave an empty tab
-behind, for a gesture meant to change nothing but order. A `reordering` guard suppresses disposal,
-and suppresses the close-the-window-when-empty rule with it, since a single-tab window is briefly
-empty mid-move.
-
-Where a dragged tab lands is `TabReorder.insertIndex`, kept pure and tested: the drop position is
-expressed against the list as it looks *during* the drag, but the insert happens against the list
-with the dragged tab already removed. Off by one there moves the tab one place from where it was
-dropped, which reads as sloppiness rather than a bug.
-
-### Context menu
-
-Right-click gives Copy, Paste, Select All, Clear Scrollback and Settings. Copy and Paste are
-disabled rather than present-and-inert when there is nothing to act on.
-
-Right-click is **contested**, and the rule matters: a terminal wants it for Copy and Paste, while a
-mouse-aware TUI (Midnight Commander, some file pickers) wants it as button 2 — and Termina reports
-it as such. So while a program has grabbed the mouse it wins, and **Shift forces the menu**, the
-same escape hatch that governs selection. Without it there is no way to copy anything, or reach
-Settings, from inside htop. The keyboard menu key is never contested. `shouldShowMenu` is a static
-predicate with its own tests, because getting it backwards is invisible in a plain shell and breaks
-exactly one of the two cases.
-
-### Split panes
-
-**Window → Split Right** and **Split Down** (`Cmd+D` and `Cmd+Shift+D` on macOS, iTerm2's;
-`Ctrl+Shift+E` and `Ctrl+Shift+O` elsewhere, Terminator's) open another shell beside or below the
-one you are in, like Duplicate Tab: the same shell or profile, in the directory you are in now. The
-keyboard moves between panes with `Cmd+Option+arrows` (`Ctrl+Alt+Shift+arrows` off macOS — Ctrl+Alt
-alone switches GNOME workspaces) or a click, and the pane being typed in is outlined in the theme's
-blue while there is more than one.
-
-A tab is a `PaneGroup`: a tree of `SplitPane`s with a `TerminalView` at each leaf. Splitting the way
-a pane's parent already runs adds a sibling rather than nesting, so three panes side by side share
-the width evenly; closing one that leaves a split with a single child collapses it. The tab is
-titled after the **active** pane, and Copy, Find, the prompt jumps and a new tab's directory all act
-on it.
-
-Close Tab's chord closes the active pane of a split tab — the File menu and the palette say "Close
-Pane" while that is what it will do — and the tab with its last pane. The tab's own close button
-and menu still close every pane, asking once if anything is running in any of them. A shell that
-exits closes its own pane.
-
-**Window → Maximize Pane** (`Cmd+Shift+Enter`, `Ctrl+Shift+Enter` elsewhere) shows the active pane
-on its own, with "Pane 2 of 3" in its corner; the others keep running, and splitting, moving between
-or closing panes puts them back first. **Move Pane to New Tab** gives a pane a tab of its own, and
-the palette lists **Move Pane to Tab** for each other tab by name. A pane can also be dragged:
-`Cmd+Option+Shift`+drag (`Ctrl+Alt+Shift`+drag elsewhere) picks it up, a drop on a tab joins that tab
-and a drop on the strip's empty part makes it a tab. Its shell keeps running throughout; only its
-place changes. **Reopen Closed Tab** brings a split tab back as it was — every pane, in its last
-directory, arranged the same, with the same one active. It undoes the most recent close wherever it
-was: a pane closed with the Close chord comes back as a tab of its own beside the one it left, and a
-window closed with its tabs comes back as a window, each tab in its place.
-
-Two things about the layout cost time and do not announce themselves. A new `SplitPane` has no skin
-until the next CSS pass, and without one its items are not in the scene — a pane started there
-began at a guessed 80×24 and dropped the focus request, so the split is styled and laid out before
-the shell starts. And a hidden tab defers painting, so selecting a split tab has to wake every pane,
-not only the active one.
-
-### Search
-
-**Edit → Find…** (`Cmd+F` / `Ctrl+Shift+F`) opens a bar at the top right of the pane: it searches
-the whole scrollback and the screen as you type, highlights every match and outlines the current
-one. **Enter steps up**, to older output, and Shift+Enter down — a terminal is searched for
-something recent, so the search starts at the newest match and works backwards, as iTerm2's does.
-`Cmd+G`/`Cmd+Shift+G` (`Ctrl+Shift+G`/`Ctrl+Shift+H`, GNOME Terminal's) do the same from anywhere,
-and a short selection becomes the query.
-
-Case is smart: all lower case matches either case, a capital makes it exact. `.*` switches to a
-regular expression; one that does not compile yet says so instead of reporting no matches. A word
-that wrapped at the right edge is found as one word, double-width characters match without their
-placeholder cells, and the count stops at 1000.
-
-The rows are copied out under the buffer lock and matched outside it, so a regex over ten thousand
-lines holds the emulator up for a copy, not for the search. Matches are recorded against a running
-count of the rows the text has moved (`linesScrolled`), so they stay on their text as output
-arrives without being shifted one by one; a reflow invalidates them and they are found again, at
-most four times a second while output streams.
-
-### Shell integration
-
-A shell can describe its commands with **OSC 133** marks — where each prompt starts, where its
-output starts, and how it ended. With them, **Edit → Previous Prompt** and **Next Prompt**
-(`Cmd+Up`/`Cmd+Down`, Terminal.app's; `Ctrl+Shift+Up`/`Down` elsewhere) scroll to the prompts,
-**Select Last Output** selects what the last command printed, ready to copy, and a command that
-failed gets a short red bar in the margin of its prompt. Without marks the three commands are
-greyed, and the palette says why.
-
-Some shells and prompt frameworks send the marks by themselves. For bash and zsh, add this to
-`~/.bashrc`:
-
-```bash
-PS0='\e]133;C\a'
-PROMPT_COMMAND='printf "\e]133;D;%s\a\e]133;A\a" "$?"'"${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
-```
-
-or to `~/.zshrc`:
-
-```zsh
-_termina_precmd() { local s=$?; print -n "\e]133;D;$s\a\e]133;A\a" }
-_termina_preexec() { print -n "\e]133;C\a" }
-precmd_functions=(_termina_precmd $precmd_functions)
-preexec_functions+=(_termina_preexec)
-```
-
-**The marks are taken where the emulator reads, not where the PTY delivers.** `OscInterceptor`
-wraps the stream JediTerm pulls characters from, and the emulator acts on each character before
-pulling the next — so when a mark arrives, everything before it is on the screen and the cursor is
-on the prompt's row. Watching the PTY's reads instead would see a chunk at once and record every
-mark in it a chunk early. The interceptor takes only the codes Termina handles and pushes everything
-else back untouched, titles and OSC 8 included.
-
-A resize to a different width rebuilds every row, and a row number recorded before it means
-nothing after. So just before the view resizes the shell it describes each mark as a logical line
-and an offset into it (`LogicalLines`), and places it again against the new width — what JediTerm
-does for the cursor and the selection, with no hook to have it do the same for anything else.
-
-### Programs' requests
-
-- **Declared links (OSC 8).** `ls --hyperlink`, compilers and `gh` can mark text as a link to
-  somewhere else. Hovering one with the link modifier underlines every cell it covers and shows its
-  real target in a line at the bottom of the pane — the text can say anything, so where it goes is
-  shown before the click. The same scheme allowlist as links found in the text applies, so a
-  `javascript:` target behind innocent text is not a link at all. A `file://` URI naming this
-  machine by its host name — which is how `ls` writes them — opens the file.
-- **The clipboard (OSC 52).** A program can put text on the clipboard; it is how vim and tmux copy
-  across SSH. Programs can never *read* it — that would hand the clipboard to anything on the far
-  side of an `ssh` that asked — and Terminal → Input turns writing off too.
-- **The directory (OSC 7, and ConEmu's OSC 9;9).** Believed only on Windows, and only for a
-  directory on this machine that exists. Elsewhere the OS is asked instead, so a shell inside `ssh`
-  cannot claim the tab for another machine's path. Windows is asked too — the directory is read out
-  of the shell process's own parameters — but a WSL tab's process is `wsl.exe`, whose directory is
-  not the Linux shell's, so there a shell's report wins and WSL's launchers are never asked.
-- **Notifications (OSC 9, OSC 777).** `printf '\e]777;notify;Build;done\a'` (urxvt's form, which
-  foot, kitty and WezTerm read too) or `printf '\e]9;done\a'` (iTerm2's). The tab is marked with a
-  magenta dot that outranks the bell's, and the message goes to the desktop unless you are looking
-  at that pane — through `notify-send`, or `gdbus` straight to the session bus, on Linux;
-  `osascript` on macOS; a PowerShell toast on Windows. One per pane every two seconds reaches the
-  desktop. The text is treated as hostile: control characters are stripped, it is capped, and it
-  reaches each command as an argument or an environment variable, never inside a script. ConEmu's
-  numbered OSC 9 subcommands (`9;4` is a progress bar) are not notifications. Terminal → Display
-  turns the desktop half off.
-
-### Type-ahead over SSH
-
-While `ssh` is the shell's foreground program and the far end is slow to echo, what you type
-appears at once, dimmed and underlined until the echo confirms it, and the cursor moves ahead with
-it. JediTerm's core has the predictor — it measures latency, learns what echoes, notices a password
-prompt and backs off when it is wrong — and shows nothing until the median echo is over 100 ms, so
-on a fast link it stays out of the way. A local shell is never predicted: it echoes within a frame,
-and a prediction there could only ever be wrong. Terminal → Input turns it off.
-
-The predictor's other half, the line it edits and the code that draws it, lives in JediTerm's Swing
-UI and writes into a package-private field of `TerminalLine`, which is out of reach across a module
-boundary. `TypeAheadModel` keeps the predicted line itself and the view draws it over the real one.
-
-### The kitty keyboard protocol
-
-A program can ask for the [kitty keyboard
-protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/), and Termina implements all of it:
-Escape stops being the start of every sequence, Ctrl+I stops being Tab and Shift+Enter is its own
-key; with the further flags, repeats and releases, the shifted key, every key including the
-modifiers, and the text each key types. Neovim, Vim, Helix, fish and nushell turn it on by
-themselves. Nothing changes until a program asks — every key keeps its legacy bytes — and plain
-typing, Enter, Tab and Backspace keep them under the first flag too, so `reset` can still be typed
-after a program that crashed with the mode on. `reset` clears it.
-
-**The mode requests are taken out before JediTerm sees them.** Each is a `CSI … u` with a marker
-(`>` push, `<` pop, `=` set, `?` query), and JediTerm reads any `CSI u` as SCORC, restore the saved
-cursor, ignoring the marker — so a program turning the protocol on would have had its cursor thrown
-somewhere instead. `KeyboardModeInterceptor` wraps the same stream as the OSC interceptor, and
-`KeyboardFlags` keeps a stack per screen, as the specification requires, so an editor on the
-alternate screen can change the mode there without disturbing the shell's.
-
-JavaFX reports a keystroke as three events and says neither when a press is a repeat nor which
-releases a program is owed; `KittyKeyInput` works both out — a press of a key already down is a
-repeat, and a release is sent only for a key whose press went out as an escape. `KittyKeys` is the
-encoder, pure and tested against the specification's own examples. Three things are approximated:
-JavaFX cannot tell a left modifier from a right one, so all are reported as the left; it has no
-"base layout key", so that optional field is never sent; and AltGr is told from Ctrl+Alt the way the
-legacy encoder already does, by whether the press composed something.
-
-### Settings
-
-`Cmd/Ctrl+,` or the context menu opens preferences: theme, font family and size, cursor shape, visual bell, scrollback
-depth, shell, and Alt-as-Meta. Stored as a plain properties file at
-`~/.termina/settings.properties` — no dependency, and a file someone will reasonably open in an
-editor. Every getter falls back to a default, so one bad hand-edited line costs that key and not the
-rest, and values are clamped **on read as well as on write** (a hand-edited two-million-line
-scrollback would otherwise exhaust memory at the next launch).
-
-The file is UTF-8, and **a backslash is a backslash**: `terminal.shell=C:\Windows\System32\wsl.exe`
-means what it says, unlike Java's own properties syntax, which ate every backslash it did not know.
-`\\` is one backslash, `\uXXXX` a character, and `\=` `\:` `\#` `\!` `\ ` the character after them —
-which is everything the previous writer produced, so older files read unchanged. A file that cannot be
-read at all opens on defaults and is copied aside as `settings.properties.bad-<time>` first. More
-than one Termina may run on one config folder: each save writes only the keys that process changed,
-under a lock, on top of whatever the file holds by then.
-
-The window follows Editora's: a grouped sidebar, a search box that narrows both rows and
-categories, and **no OK or Cancel**. Every control writes its setting immediately and the terminal
-re-applies. That is the point rather than a shortcut — choosing a font or a theme is a judgement
-about how something looks, and a dialog that defers the result until it is dismissed makes you
-guess. The Appearance page shows a live sample rendered with the real palette and the real font for
-the same reason.
-
-Two settings deliberately do **not** apply live, and say so on their own row: scrollback sizes a
-buffer that already exists, and the shell is a process already running. Both take effect in the next
-session.
-
-The **Keyboard** page lists every command under the menu it lives in, each with its shortcut in a
-field: click it and press the new chord. A chord another command already has is not taken on the
-first press — the row says whose it is, and pressing it again moves it, leaving the other command
-with none. Backspace removes a shortcut, Reset puts one back (asking first if that takes it from
-someone else), and Reset All Shortcuts puts them all back. A bare key is refused, because the shell
-would lose it; Ctrl+letter off macOS is allowed with a note that the shell no longer receives it,
-which is why none of the defaults use it. Commands with no shortcut of their own — Rename Tab,
-Duplicate Tab — can be given one. In the file each binding is one line, keyed by command:
-`keys.newTab=Ctrl+Shift+Y`, or `keys.closeTab=none` for no shortcut at all. A line that does not
-parse, or that takes a chord an earlier line already took, is dropped on read and the command keeps
-its default.
-
-### Shell profiles
-
-A terminal on Windows is not one program. Command Prompt, Windows PowerShell, PowerShell 7 and every
-installed WSL distribution are separate shells with separate command lines, and a single "path to
-your shell" setting can only ever name one of them. So a **profile** — a name, a command, optionally
-a directory — is the unit a tab is opened as. The chevron beside the `+` drops the list, **File ▸ New
-Tab With** carries the same entries, the command palette lists them by name, and `Ctrl+Shift+1`
-through `9` (`Cmd+Option+1` through `9` on macOS, where Cmd+Shift+3, 4 and 5 are the screenshot keys)
-open the first nine.
-
-What is on the list is **found, not configured**: someone who has just installed PowerShell 7 or a
-second WSL distribution should find it in the menu rather than have to describe it in a settings file
-first. On Windows that means both PowerShells (7 first — it is the one somebody installed on
-purpose), Command Prompt, Git Bash, and each distribution `wsl.exe --list` reports; on macOS and
-Linux, the shells named in `/etc/shells` and on the path. Nothing found is written down, so
-uninstalling a shell removes it rather than leaving an entry that fails to start.
-
-Four decisions in there are less obvious than they look:
-
-- **`wsl.exe --list` writes UTF-16, not UTF-8**, even when its output is redirected. Read as UTF-8
-  every distribution name comes back with a NUL between each of its letters, which survives far
-  enough to become a menu entry that starts nothing. The encoding is sniffed rather than assumed,
-  since newer builds have been reported writing UTF-8 instead.
-- **Docker Desktop and Rancher register pseudo-distributions** that `wsl --list` reports and nobody
-  wants a terminal in. They are filtered by name, which is what Windows Terminal does too.
-- **The login flag is per shell.** Every shell in the POSIX family plus fish and tcsh takes `-l`; the
-  newer ones vary, and passing one an option it does not understand turns a menu entry into a tab
-  that prints usage and exits — which reads as the shell being broken rather than as us guessing.
-- **One entry per shell, not per binary.** A machine with Homebrew has two zsh executables, and a
-  menu offering "Zsh" twice with no way to tell them apart is worse than one that picks the first.
-  Discovery also drops whichever shell is already your own, so the list does not carry "Default
-  Shell" and "Zsh" running the identical command.
-
-Your own shell is always first and is the one profile that cannot be hidden — a settings file that
-hid it would leave a window with no way to open a tab at all. Everything is keyed by a stable id
-rather than by position, so installing a shell does not silently change which profile the `+` opens,
-and a default naming something since uninstalled falls back rather than refusing to start.
-
-A profile can have **its own font, size and theme** — Settings → Profiles, Default following the
-global setting. They are stored by the profile's id rather than in the profile, so the system shell
-and the discovered profiles can have one too, and the id travels with each pane, so a split, a
-duplicate, a reopened tab or a moved pane keeps its profile's look. A profile's size goes through the
-global zoom. With several themes in one window, the window's own colours — behind the panes, the
-window buttons, the tab marks — follow the pane being typed in.
-
-Font choices are restricted to **monospace faces**, filtered by measuring whether `i` and `M` have
-the same advance. That is not tidiness — the renderer places every glyph on a fixed cell grid, so a
-proportional face misaligns every column on screen.
-
-### Themes
-
-Four built in, and any number imported. **Editora Dark** and **Editora Light** are carried over from Editora — Caret teal on Ink
-navy. Their control stylesheets are AtlantaFX-derived and self-contained, so they are applied with
-`Application.setUserAgentStylesheet` directly and AtlantaFX is not a dependency.
-
-**Clear Dark** and **Clear Light** are ported from macOS Terminal, with the colours decoded out of
-Apple's own `.terminal` profiles rather than matched by eye. Two caveats, both stated because a port
-should be honest about what it is: Apple ships them translucent (95% and 93% over a blurred
-desktop) and Termina has no window transparency, so they render opaque; and Clear Light is
-genuinely low-contrast in four places — white, bright yellow, bright cyan and bright white against
-its white background. That is Apple's choice and it is kept, pinned in `ThemeTest` so nobody
-"fixes" it by accident. A ported theme that improves its source is no longer that theme.
-
-Ported palettes bring no opinion about how a settings window should look, so they borrow whichever
-Caret & Ink control stylesheet matches their brightness.
-
-The ANSI colours are derived from the matching Editora *editor* theme's syntax palette: keyword
-becomes red, string blue, escape green, type yellow, function magenta, and the Caret accent becomes
-cyan — so a shell's `ls` colours stay in the same family as the editor's code colours.
-
-On the light theme ANSI "white" is rendered **dark**. It has to be: a program that sets colour 7 on
-a white background would otherwise write invisible text. `ThemeTest` enforces this as a contrast
-ratio rather than leaving it to judgement, for every colour in both themes.
-
-**Importing.** Settings → Appearance → **Import…** reads a scheme another terminal wrote: an iTerm2
-`.itermcolors`, a Terminal `.terminal` profile, a Windows Terminal scheme or a whole `settings.json`
-(every scheme in it), or a Ghostty, kitty or Alacritty theme — the formats iTerm2-Color-Schemes
-publishes every scheme in. It is stored as `<config>/themes/<name>.properties`, plain and editable,
-and listed after the built-in four; importing it again replaces it, and **Remove** deletes it. Its
-colours are taken exactly as the file has them, cursor and selection included where it names them,
-and the chrome follows its background. A `.terminal` profile is the awkward one: each colour is an
-`NSColor` archived with `NSKeyedArchiver` into a *binary* property list inside the XML one, so it has
-a small `bplist00` reader of its own. The XML is parsed with every external DTD and entity refused,
-since the file is whatever was downloaded. Themes are not synced at all — sync carries only the key
-bindings — and a settings file naming a theme this machine does not have falls back to Editora Dark.
-
-## Notable details
-
-- **Login shells.** A GUI process inherits a stripped `PATH` with no Homebrew and no version-manager
-  directories. The shell is started with `-l` so the user's profile puts them back.
-- **AWT is forced headless** in `App.main`. We require `java.desktop` (JediTerm's `TtyConnector`
-  declares `java.awt.Dimension` overloads) but never use AWT — and on macOS an initialised AWT
-  contends with JavaFX for the AppKit run loop, which hangs rather than fails.
-- **Explicit `requires` for `kotlin.stdlib` and `org.slf4j`.** JediTerm and pty4j are automatic
-  modules; an automatic module reads everything in the graph but does not pull explicit modules
-  *into* it. Without those two lines the build is clean and the first emulator call dies with
-  `NoClassDefFoundError`.
-- **Paste** is `Cmd+V` on macOS and `Ctrl+Shift+V` elsewhere — plain `Ctrl+V` is readline's
-  literal-next and belongs to the shell.
-
-## Diagnosing a freeze
-
-"It froze" has two causes that look identical from the outside — the UI thread blocked, or the
-shell had nothing to say yet — and only the first is Termina's. `-Dtermina.stallLog=<ms>` reports
-gaps between animation frames, which the FX thread drives, so a long gap means it was genuinely
-blocked:
-
-```bash
-scripts/dev-run.sh -Dtermina.stallLog=400
-JAVA_TOOL_OPTIONS=-Dtermina.stallLog=400 ./target/dist/Termina.app/Contents/MacOS/Termina
-```
-
-It is opt-in because an always-running `AnimationTimer` forces a 60fps pulse even when the terminal
-is idle.
-
-## Development capture
-
-Terminal bugs are visual and none of them throw. `DevCapture` renders the real window, types into
-the real shell, and writes a PNG:
-
-```bash
-java --module-path <deps> --add-modules com.termina \
-  -Dtermina.capture=/tmp/shot.png \
-  -Dtermina.captureCommand='ls --color=always' \
-  -m com.termina/com.termina.App
-```
-
-`-Dtermina.captureNativeChord=A;CONTROL+F` presses those keys through the **operating system**, via
-a JavaFX `Robot`, rather than firing a KeyEvent we built. That distinction is the point: macOS binds
-Ctrl+A, Ctrl+F and their neighbours to its own text commands before an application sees them, so a
-synthetic event can only confirm what we already believe the OS sends. Pair it with
-`-Dtermina.keyTrace=true`, which logs every key event and the bytes it put on the pseudo-terminal,
-flagging any that are not valid UTF-8 — a shell renders an invalid byte and an unknown glyph
-identically, and only one of those is a bug on this side.
-
-`-Dtermina.captureLinkAt=x,y[;x,y…]` hovers those points with the link modifier held and prints what
-each one resolves to. What a link means depends on the shell's output, the tab's directory and the
-filesystem, none of which a unit test has, so this is the only honest check of it.
-
-It can also drive the mouse, firing real events at the view so the whole path is exercised — pixel
-to cell, anchor to drag, buffer coordinates to extracted text — and printing what copying yields:
-
-```bash
-  -Dtermina.captureDrag=0,35,240,75    # drag-select a region
-  -Dtermina.captureDragShift=true      # ...holding shift, to bypass mouse reporting
-  -Dtermina.captureClick=60,55,2       # x, y, click count (2 = word, 3 = line)
-  -Dtermina.captureScroll=400,200,-320 # x, y, deltaY (negative scrolls down)
-  -Dtermina.captureMenu=300,300,false  # screenX, screenY, shift — photographs the context menu
-  -Dtermina.captureSettings=true       # ...the settings window instead
-  -Dtermina.captureSettingsKeys=newTab:C-S-y;closeTab:BS
-                                       # ...pressing chords into Keyboard rows, by command id and
-                                       # KeyChord token (BS is a bare Backspace), printing each row
-  -Dtermina.captureProfiles=true       # ...the profile dropdown, listing every entry and what it
-                                       # runs — the only way to see what a machine actually found
-  -Dtermina.captureTabs=2              # open N extra tabs first
-  -Dtermina.captureWindows=1           # ...and N extra windows
-  -Dtermina.captureWindowIndex=1       # photograph a window other than the first
-  -Dtermina.captureCloseTabs=2         # close N tabs, reporting the child-process count
-  -Dtermina.captureCloseAnswer=cancel  # ...answering the running-program prompt (cancel|close)
-  -Dtermina.captureTheme=editora-light # switch theme after the windows exist
-  -Dtermina.captureChord=T             # fire an application chord at the scene
-                                       # ...,plain for a bare key (F11) with no shortcut modifier
-                                       # ...,alt for Alt+key (X,false,alt fires Alt+X)
-  -Dtermina.capturePalette=reo         # open the command palette with that query, listing the rows
-  -Dtermina.capturePaletteKeys=C-n,C-p # fire chords at the open palette by Emacs token, reporting
-                                       # the highlighted row after each — the only check of the
-                                       # navigation that goes through the real filters
-  -Dtermina.captureMenuItem='Zoom In'  # click a context-menu item, reporting the setting it moved
-  -Dtermina.captureTypeAtFocus=hello   # type at whatever owns the keyboard, and report whether the
-                                       # shell received it — the only input option that goes through
-                                       # focus rather than around it
-  -Dtermina.captureChordAtFocus=C-S-a  # fire whole chords at whatever owns the keyboard, through
-                                       # the scene — with captureSearch, whether a chord the find
-                                       # bar has no use for leaks past it (captureSelectionAtEnd)
-  -Dtermina.captureCheckUpdates=true   # run the update check, then list every dialog left open
-  -Dtermina.captureSyncNow=true        # run Sync Settings Now, then list every dialog left open
-  -Dtermina.captureStealFocus=tabs     # hand focus to chrome (tabs|newtab|menubar) and check
-                                       # the guard takes it back
-  -Dtermina.captureSearch=error        # open the find bar and type the query, reporting the count,
-                                       # the current match and where the view scrolled to
-  -Dtermina.captureSearchRegex=true    # ...as a regular expression
-  -Dtermina.captureSearchSteps=2       # ...pressing Enter that many times
-  -Dtermina.captureMarks=true          # print the OSC 133 commands the shell has marked
-  -Dtermina.captureJumpPrompt=prev,next # jump between them, printing where each landed
-  -Dtermina.captureSelectLastOutput=true # select the last command's output and print it — read
-                                       # from the buffer, never the clipboard, which is the user's
-  -Dtermina.capturePredict='git status' # draw a type-ahead prediction at the cursor
-  -Dtermina.captureKeystrokes=C-a,S-enter,escape,key:SHIFT
-                                       # fire whole keystrokes (press, typed, release) at the
-                                       # terminal; pair with a program that prints what it reads
-  -Dtermina.capturePanes=right,down,left,close
-                                       # split, move between and close panes, printing the tree
-                                       # after each step: H[0, V[1*, 2]], * on the active pane;
-                                       # also max, move (to a new tab), move:N, closeTab, reopen,
-                                       # profile:N (open profile N) and styles (each pane's
-                                       # profile, theme and font)
-  -Dtermina.captureDragPath='10,300;10,-60' # press, drag through the points, hold the last for
-  -Dtermina.captureDragHoldMs=1000     # ...this long (a pointer past the edge autoscrolls), release
-  -Dtermina.captureDragAlt=true        # ...holding Alt, for a block
-  -Dtermina.captureSelectionAtEnd=true # print the selection again just before the photograph
-  -Dtermina.captureMiddleClick=200,100 # paste with the middle button (PRIMARY on Linux)
-  -Dtermina.captureImportTheme=Dracula.terminal # import a scheme, select it, print its colours
-  -Dtermina.captureCloseWindow=1       # close window N, counting the shells before and after
-  -Dtermina.captureReopenWindow=1      # close window N as the user would, then Reopen Closed Tab
-                                       # in the first, counting windows and tabs
-  -Dtermina.captureMoveTab=0,3         # move a tab as a drop would; the drag report then says
-                                       # whether every header still carries its gestures
-  -Dtermina.captureTabMenuEscape=true  # with captureTabMenu, report the menu and the keyboard's
-                                       # owner a moment later, then press Escape at it
-  -Dtermina.captureFailShellStarts=2   # make the next N shell starts fail, as an unstartable
-                                       # shell's would (with captureWindows=1: the window stays)
-```
-
-Each run prints a `windows=… terminals=… descendants=…` line. The descendant count is the useful
-one — each tab owns a shell, so a tab that closes without reaping it leaks a process and nothing on
-screen looks wrong. Read it only once things have settled: a login shell forks several children
-while it runs the user's profile, so a count taken too early reads high.
-
-`scripts/dev-run.sh` wraps all of this: it builds the module path itself, so any `-D` can be passed
-through (`mvn javafx:run` cannot take ad-hoc options — the plugin's are fixed in the pom).
-
-## Branding
-
-`branding/termina-icon.svg` is the source. The window icons
-(`src/main/resources/com/termina/icons/icon-*.png`) and the installer icons (`termina.icns`,
-`termina.ico`, `termina.png`) are generated from it — regenerate all of them after editing the SVG:
-
-```bash
-for s in 16 24 32 48 64 128 256 512 1024; do
-  rsvg-convert -w $s -h $s branding/termina-icon.svg -o src/main/resources/com/termina/icons/icon-$s.png
-done
-```
-
-It keeps Editora's family — the same Ink navy tile, corner radius and teal gradient, and the same
-split of a muted periwinkle framing glyph against a teal focal element — with a shell prompt in
-place of a letterform. Two shapes only: an earlier draft added the input line beneath the cursor,
-and below 32px it stopped reading as a line and became noise next to the block, which is the size
-an app icon has to work hardest at.
-
-## Not done yet
-
-- **Panes.** No dragging a pane to another *window*, and no dropping one where the tab strip is
-  hidden (a single tab) — Move Pane to New Tab covers that case.
-- **Escape sequences.** No inline images or ligatures. JavaFX 27 looks not to shape plain Latin
-  text through `fillText` at all, so ligatures may be blocked by the toolkit before they are a
-  renderer question; that wants the spike in the capabilities doc first. Which of these JediTerm
-  already handles, and what each would cost, is in
-  [docs/jediterm-capabilities.md](docs/jediterm-capabilities.md); how other terminals compare is in
-  [docs/competitive-landscape.md](docs/competitive-landscape.md).
-- **Unrun on Windows and macOS:** the Windows directory read (the PEB walk is tested against a
-  made-up address space; the system calls have not run), the PowerShell toast, the `osascript`
-  notification and Option+drag blocks. PRIMARY and `notify-send` have not been tried on a machine
-  that has `wl-clipboard`, `xclip` or `libnotify-bin`; the `gdbus` route has.
-- **Signing on Windows.** The macOS dmgs are signed and notarized and the Linux downloads are
-  OpenPGP-signed (see [Installing](#installing)); the MSI is not signed — see
-  [Known issues](#known-issues).
-- **Windows has not been run by a human.** CI builds and packages it on every commit, and pty4j
-  carries the ConPTY natives, but nobody has opened a window there. macOS and Linux are run; the
-  installers on all three have not been installed by anyone yet.
-
-## Command line
-
-```
-termina [options] [-e command [args...]]
-
-  -h, --help                     Show this help and exit
-  -v, --version                  Show the version and exit
-  -d, --working-directory=DIR    Start the shell in DIR
-  -T, --title=TITLE              Name the first tab TITLE
-  -e, --command CMD [args...]    Run CMD instead of the shell; must come last
-      --config-dir=DIR           Read and write settings in DIR
-```
-
-`--help` and `--version` are answered before the toolkit starts, so they work without a display —
-`--version` is what ends up in a bug report. An unknown option is refused rather than ignored, since
-an option that is silently dropped looks exactly like one that exists and does nothing.
-
-`-e` takes the rest of the line, which is xterm's convention and why it has to come last: `-e ls -l`
-passes `-l` to `ls` rather than rejecting it here. The command replaces the shell rather than running
-inside one, so the terminal closes when it exits.
-
-The command line applies to the first tab of the first window only. A second tab re-running `-e vim`,
-or reopening in a directory you have since navigated away from, is not what anybody means by it.
-
-## Known issues
-
-**The Windows build is unsigned**, so SmartScreen will warn on first run. "More info" → "Run anyway".
-
-**Intel Macs get no Homebrew cask.** A cask accepts exactly one artifact, so the tap serves Apple
-Silicon; Intel users can take the `macos-x64` DMG from the release page.
-
-**The installers have not been installed by anybody yet.** They are built and their contents
-verified — the DMG was mounted and the app inside checked for the right version, a valid signature
-and its AOT cache — but no one has yet double-clicked an MSI or run `dpkg -i` on a real machine.
-
-## Installing
-
-Releases carry native installers, built on the platform they target — jpackage and jlink are
-host-specific and there is no cross-building.
+Built to [Pauta (the adl desktop apps guidelines)](https://pauta-project.dev/), edition [6.1.0](https://pauta-project.dev/6.1.0/), [Pauta conformance: Core](https://termina-project.dev/docs/pauta/).
+
+Status: **early**. It is used on macOS and Linux. Windows is built, packaged and tested in CI on
+every commit, but nobody has opened a window there yet.
+
+## Highlights
+
+Each link opens the feature's page on the website; the [user docs](https://termina-project.dev/docs/)
+have the full reference.
+
+- **A real shell.** Your own shell on a real pseudo-terminal — `forkpty` on macOS and Linux, ConPTY
+  on Windows — started as a login shell, so `PATH` is what your profile makes it.
+  ([real shell](https://termina-project.dev/features/real-shell/))
+- **xterm compatibility from JetBrains' JediTerm**, so vim, htop and less behave: every mouse wire
+  format, application cursor keys, the kitty keyboard protocol.
+  ([compatibility](https://termina-project.dev/features/compatibility/))
+- **Tabs, split panes and windows.** Tabs that can be dragged, renamed, pinned and reopened; panes
+  side by side or stacked, moved between tabs by dragging.
+  ([tabs](https://termina-project.dev/features/tabs/),
+  [split panes](https://termina-project.dev/features/split-panes/))
+- **A command palette and keys you can move.** Every command, open tab, shell profile, theme and
+  setting by typing part of its name; every shortcut rebindable, and none that takes a key the shell
+  needs. ([palette](https://termina-project.dev/features/command-palette/),
+  [shortcuts](https://termina-project.dev/features/keyboard-shortcuts/))
+- **Shell integration.** Prompts marked with OSC 133 become jumps and selectable output; a program
+  can post a desktop notification when it finishes.
+  ([shell integration](https://termina-project.dev/features/shell-integration/),
+  [notifications](https://termina-project.dev/features/notifications/))
+- **Links and paths you can click**, opened in the browser or in your editor at the line a compiler
+  named. ([links](https://termina-project.dev/features/links/))
+- **Every shell the machine has**, found rather than configured: zsh, bash and fish; PowerShell,
+  Command Prompt, Git Bash and every WSL distribution on Windows.
+  ([shell profiles](https://termina-project.dev/features/shell-profiles/))
+- **Themes and fonts.** Editora's and macOS Terminal's themes, any scheme imported from iTerm2,
+  Terminal.app, Windows Terminal, Ghostty, kitty or Alacritty, and five bundled monospace families.
+  ([themes](https://termina-project.dev/features/themes/),
+  [fonts](https://termina-project.dev/features/fonts/))
+- **Settings that apply live**, searchable, exportable, and your shortcuts synced between computers
+  through a Git repository you own.
+  ([settings](https://termina-project.dev/features/settings/),
+  [sync](https://termina-project.dev/features/settings-sync/))
+- **Private by default.** No account and no telemetry; the one request Termina makes by itself is a
+  daily update check, which one switch turns off.
+  ([private](https://termina-project.dev/features/private/))
+
+## Install
+
+Releases carry native installers, built on the platform they target.
 
 | Platform | Download | Install |
 | --- | --- | --- |
@@ -888,199 +88,71 @@ host-specific and there is no cross-building.
 | Any Linux | `linux-x64.AppImage`, `linux-arm64.AppImage` | `chmod +x`, run it (needs FUSE) |
 | Any Linux, no root | `linux-x64.tar.gz`, `linux-arm64.tar.gz` | unpack, run `termina-<version>/bin/Termina` |
 
-Every Linux download has an OpenPGP signature beside it, `<file>.asc`, by the key attached to the
-release as `termina-signing-key.asc` and committed as `packaging/linux/signing-key.asc`:
+The macOS dmgs are signed and notarized. Every Linux download has an OpenPGP signature beside it,
+`<file>.asc`, by the key attached to the release as `termina-signing-key.asc`:
 
 ```bash
 gpg --import termina-signing-key.asc
 gpg --verify Termina-<version>-linux-x64.deb.asc Termina-<version>-linux-x64.deb
 ```
 
-The rpm and deb are also signed inside: `sudo rpm --import termina-signing-key.asc` and `rpm -K`
-(and `dnf`) check the rpm; `debsig-verify` checks the deb's origin signature, given a policy for the
-key. apt and dpkg check nothing about a downloaded `.deb`, so for one the `.asc` is the check.
+The Windows MSI is not signed yet, so SmartScreen warns on first run ("More info" → "Run anyway").
+Intel Macs get no Homebrew cask, which takes one artifact; use the `macos-x64` dmg. What each
+installer puts where, and how to check a download, is in the user guide:
+[Installing](https://termina-project.dev/docs/installing/).
 
-The Linux packages install a launcher entry carrying `StartupWMClass` and the `TerminalEmulator`
-category, so Termina appears in the application menu and desktops offer it where a terminal is
-wanted. That works because Termina accepts `-e command`, which is the interface everything expects
-of a system terminal. They also put `termina` on `PATH` (`/usr/bin/termina`), install AppStream
-metainfo for GNOME Software and KDE Discover — with the description, licence, release notes and an
-icon in the theme, so Software lists Termina rather than a bare `termina` package — and declare `X-TerminalArgExec=-e` for
-`xdg-terminal-exec`; the deb registers an `x-terminal-emulator` alternative, at a priority below
-GNOME Terminal's and Konsole's, so `update-alternatives --config x-terminal-emulator` offers it
-without it taking over. Details in `packaging/linux/NOTES.md`.
+## Build from source
 
-The deb installs on Debian 12 and Ubuntu 22.04 as well as their successors: it declares the
-libraries JavaFX loads (GTK 3, GL, fontconfig and the rest), which the bundler cannot see, and no
-longer depends on ALSA, which Termina never used. The 0.12.0 debs required `libasound2t64` and
-installed only on Debian 13 and Ubuntu 24.04 onwards.
-
-Every installed copy carries `LICENSE` and `NOTICE` beside the application's jars, and the jar has
-them under `META-INF/`.
-
-The entry sets `StartupWMClass=com.termina.App`, which is the class JavaFX derives from the module's
-main class rather than from the application name. Without it a running window cannot be matched to
-its launcher, so the dock shows a second generic icon beside the entry instead of highlighting it.
-**This one wants checking on a real desktop** — `xprop WM_CLASS`, then click the window.
-
-## Building and releasing
-
-`./mvnw verify` runs the tests, checks formatting and enforces the coverage floors. **Run
-`./mvnw spotless:apply` before committing** — `verify` fails on unformatted code, and so does CI.
-The compile loop and `mvn javafx:run` are deliberately left alone.
-
-Formatting is [Palantir Java Format](https://github.com/palantir/palantir-java-format) via Spotless:
-a 120-column, lambda-friendly fork of google-java-format. Imports are grouped JDK, then javafx, then
-everything else, then static. Hand-aligned code can be wrapped in `// spotless:off` … `// spotless:on`.
-
-Only packages whose coverage does not vary by platform are gated. `com.termina.term` and
-`com.termina.pty` are not: almost all of their coverage comes from an integration test that starts a
-real shell, which is POSIX-only, so on Windows they measure 0% and 26% against 64% and 69% on macOS.
-Measure from a clean target — `jacoco.exec` accumulates across runs, so a second measurement without
-`clean` silently reports the union of both.
-
-Coverage floors are a regression net rather than a target — each sits well below what is actually
-measured, so they catch tests being deleted, not a few lines of drift. `com.termina.sync`'s floor is
-set from what it measures without the five tests disabled on Windows (83%, against 92% on Unix).
-`com.termina.ui` is deliberately ungated: most of its 7,600 lines are the renderer, the window and
-the settings sheet, which a headless suite cannot reach, so a package number there says nothing about
-whether the tested parts are still tested. The way to raise it is to keep pulling decisions out into pure classes, not
-to lower the bar until it passes. `./mvnw clean -Pdist -DskipTests package` produces a native app image
-under `target/dist` — jlink and jpackage are host-specific, so each platform's image can only be
-built on that platform, which is what the CI matrix is for.
-
-### Package managers
-
-JReleaser publishes the GitHub release and updates two package managers. It builds nothing — the app
-images come from `-Pdist` on each platform, since jlink and jpackage are host-specific.
-
-**Without a `PACKAGES_TOKEN` secret the release still works** — the workflow detects its absence and
-excludes both packagers, so a tag produces the GitHub release, the four archives, checksums and the
-notes, and says in the log that it skipped the cask and the pull request. Adding the token later
-turns them on with no change to anything else.
-
-To publish to Homebrew and winget:
-
-1. ~~Create `adriandeleon/homebrew-tap`~~ — done.
-2. ~~Fork `microsoft/winget-pkgs` to `adriandeleon/winget-pkgs`~~ — done.
-3. Add a `PACKAGES_TOKEN` secret: a **classic** personal access token with `repo` scope
-   (<https://github.com/settings/tokens/new>). The default `GITHUB_TOKEN` is scoped to this
-   repository alone and cannot write to the tap or the fork. A fine-grained token will not do:
-   opening a pull request against `microsoft/winget-pkgs` is not something it can express.
-
-Neither is turnkey after that. **winget submissions are reviewed by Microsoft**, and the first one
-for a new publisher is a human process rather than an automatic merge. **The official homebrew-cask
-repository has notability requirements** a new project does not meet, which is why this uses a
-personal tap.
-
-The generated manifests can be inspected without releasing anything:
-
-```
-jreleaser package --basedir .
-```
-
-which writes them under `out/jreleaser/package`. Worth doing after any change to `jreleaser.yml`:
-the stock templates assume a command-line tool unpacked into a folder, and both needed overriding —
-they live in `src/jreleaser/distributions/`.
-
-To cut a release: set `<version>` in `pom.xml` to the release version (drop `-SNAPSHOT`), commit,
-then push a `vX.Y.Z` tag. The workflow refuses to build if the tag and the pom disagree, or if the
-pom still carries `-SNAPSHOT` — artifacts labelled with a version they were not built from are worse
-than no artifacts. A tag with a suffix (`v1.0.0-rc1`) publishes as a pre-release.
-
-The version reaches the bundle through two derived values, because jpackage will not accept one it
-cannot parse and macOS additionally refuses any whose first number is zero. `jpackage.numericVersion`
-is the pom version without any suffix — `-SNAPSHOT` or `-rc1` alike, since jpackage rejects both;
-the application and the installers' file names keep the full version. `jpackage.appVersion` is that
-with a leading `0.` bumped to `1.` on macOS only, purely to get past the check.
-`scripts/fix-mac-bundle-version.sh` then puts the true version back into `Info.plist` and re-signs
-the bundle — always, not only when the version changed: jpackage ad-hoc-signs the app image, and the
-plist, the notices and the AOT cache added after it are all inside what that seals, so any of them
-left unsigned makes macOS refuse to launch the app as damaged.
-
-### macOS signing
-
-Both macOS legs sign the app and dmg with the **Developer ID Application** certificate of team
-`8JKSF797L8` (Adrian De Leon Saldivar), have Apple notarize the dmg and staple the ticket to it, so
-Gatekeeper opens a downloaded Termina with no warning. The same certificate and API key sign Editora
-and Torrenta.
-
-- **Import signing certificate (macOS)** puts the `.p12` into a throw-away keychain and exports
-  `TERMINA_MAC_SIGN_IDENTITY` / `TERMINA_MAC_KEYCHAIN`. On a tag, missing secrets fail the leg; a
-  dry run without them builds ad-hoc signed and warns.
-- `scripts/sign-mac-app.sh`, run by the `dist` profile after `fix-mac-bundle-version.sh` and before
-  `build-installers.sh`, first sets `<signed>true</signed>` in `Contents/app/.jpackage.xml`
-  (jpackage's dmg wrap otherwise re-signs its copy ad hoc, discarding ours), then signs every
-  Mach-O file, the runtime bundle, and the app with the hardened runtime and
-  `packaging/macos/Termina.entitlements` (JIT, plus library validation off for the natives JNA and
-  pty4j unpack). `build-installers.sh` then signs the dmg. Without the identity (any local or CI
-  build) nothing changes.
-- The **smoke test** runs that signed app, so a real shell on a real pty is proven to work under the
-  hardened runtime before anything is uploaded.
-- **Notarize the dmg (macOS)** checks the app inside the dmg still verifies, runs
-  `notarytool submit --wait` with the App Store Connect API key, prints Apple's log, staples, and
-  checks the dmg and its app with `spctl` the way Gatekeeper will.
-
-Repository secrets, the same values as Editora's and Torrenta's: `MACOS_CERT_P12` (base64 of a
-`.p12` with the certificate, its key and Apple's Developer ID G2 intermediate, exported with
-`openssl pkcs12 -export -legacy`), `MACOS_CERT_PASSWORD`, `APPLE_API_KEY_P8` (base64 of the team
-API key, Developer role), `APPLE_API_KEY_ID` (10 characters) and `APPLE_API_ISSUER` (a UUID). The
-certificate expires **2027-11-30** and the Apple Developer Program membership **2027-10-31**: renew
-the membership, make a new certificate, and replace the first two secrets in all three repositories.
-
-### Linux signing
-
-The `sign-linux` job in `release.yml` signs both architectures' Linux downloads once the builds are
-done, in a job of its own so the key is never on a runner that builds (those run whatever Maven
-resolves). `scripts/sign-linux-packages.sh` signs the rpm with `rpmsign` and the deb with an origin
-signature in debsigs' format (an `_gpgorigin` member; debsigs itself skips `.xz` members), then
-writes an armoured `<file>.asc` beside all four formats — the only signature the AppImage and the
-tarball carry, since appimagetool can embed one only while it builds.
-`scripts/check-linux-signatures.sh` then checks every signature against the public key alone, with
-`gpgv`, `rpmkeys` and `debsig-verify`. The job replaces the build artifacts with the signed files,
-so the publish job attests and attaches only those, with `termina-signing-key.asc` beside them.
-
-CI runs both scripts on every push with a key made for the job. On a tag the real key is required
-and must be the committed `packaging/linux/signing-key.asc`; a manual dry run without it signs with
-a throw-away key and warns.
-
-One key signs the Linux releases of every project — Termina, Editora and Torrenta — as one
-Developer ID certificate signs their macOS builds: users trust one key for all of them, and there is
-one key to back up and renew. The cost is that a leaked key taints all three at once, and all three
-move to a new one together. Its user id names the person, not a project, for that reason.
-
-Repository secrets, the same values in each repository: `LINUX_GPG_KEY`, the armoured secret key,
-and `LINUX_GPG_PASSPHRASE`, its passphrase (leave unset for a key without one). Each repository also
-commits the public half as `packaging/linux/signing-key.asc`, which its release checks the secret
-against. RSA rather than Ed25519, which older rpm and debsig-verify cannot check. Made once, in the
-everyday keyring so it is there to sign with and to renew:
+JDK 25 or newer; `./mvnw` brings Maven.
 
 ```bash
-gpg --quick-gen-key 'Adrian De Leon (release signing) <adrian.deleon@gmail.com>' rsa4096 sign 5y
-fpr=$(gpg --with-colons --list-secret-keys 'release signing' | awk -F: '$1 == "fpr" { print $10; exit }')
-gpg --armor --export "$fpr" > packaging/linux/signing-key.asc
-for repo in Termina Editora torrenta; do
-  gpg --armor --export-secret-keys "$fpr" | gh secret set LINUX_GPG_KEY --repo "adriandeleon/$repo"
-  gh secret set LINUX_GPG_PASSPHRASE --repo "adriandeleon/$repo"
-done
+./mvnw javafx:run                              # run from source
+./mvnw verify                                  # tests, formatting, null checks, coverage
+./mvnw clean -Pdist -DskipTests package        # a native app image in target/dist
 ```
 
-Keep an offline copy of the secret key (`gpg --armor --export-secret-keys "$fpr"`) and of the
-revocation certificate gpg wrote to `~/.gnupg/openpgp-revocs.d/`: GitHub will not give a secret
-back, and a lost key means every user re-importing a new one. Copy the same `signing-key.asc` into
-the other repositories. Renew before the expiry with `gpg --quick-set-expire "$fpr" 5y`, then
-re-export both halves to every repository.
+`clean` is not optional for the app image: jlink's input is built from `target/classes`, and an
+incremental compile can leave that inconsistent. How to build, test, package and release is in
+[`docs/`](docs/README.md).
 
-After tagging, set `master` to the next `-SNAPSHOT` (`0.13.0-SNAPSHOT` after 0.12.0), so a build from
-source says it is one: the update check treats a snapshot as the release it leads up to, and never
-offers it the release it is already ahead of.
+## Command line
 
-The release builds run the tests (`verify`, not CI's `-DskipTests package`) — a tag is not gated on
-CI, and the `linux-arm64` and `macos-x64` runners build nowhere else — and then the same checks CI
-makes of its own artefacts: the smoke test (`scripts/smoke-test.sh`), the macOS signature, an AOT
-cache (`TERMINA_REQUIRE_AOT=1`), the Linux package contents (`scripts/check-linux-packages.sh`) and a
-smoke test of the AppImage.
-Any of them failing fails that target, and publishing needs every target. The publish job is the
-only one holding a write token; it attests build provenance for each installer
-(`gh attestation verify <file> --repo adriandeleon/Termina`), and the JReleaser action and the
-JReleaser it runs are pinned.
+```
+termina [options] [-e command [args...]]
+
+  -h, --help                     Show this help and exit
+  -v, --version                  Show the version and exit
+      --report                   Write a problem report to a file, open a GitHub issue for it, and exit
+      --new-instance             Start a Termina of its own, not a window in the running one
+      --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
+      --no-session               Start without the tabs that were open last time
+  -d, --working-directory=DIR    Start the shell in DIR
+  -T, --title=TITLE              Name the first tab TITLE
+  -e, --command CMD [args...]    Run CMD instead of the shell; must come last
+      --config-dir=DIR           Read and write settings in DIR
+```
+
+`-e` takes the rest of the line, xterm's convention, which is what lets desktops use Termina as the
+system terminal. One Termina runs per config folder: launching it again opens a window in the
+running one. More on the [website](https://termina-project.dev/docs/command-line/).
+
+## Configuration
+
+Settings live in `~/.termina` (`~/.termina-dev` with `--dev`; `--config-dir`, or
+`TERMINA_CONFIG_DIR` where neither is given, to choose another): `settings.json` for preferences and key bindings,
+`workspace-state.json` for window places, and `themes/` for imported colour schemes. The files are
+meant to be readable and hand-edited — one flat key per line, values clamped as they are read — and
+Settings ▸ Advanced exports and imports the whole folder as a `.zip`.
+[Settings](https://termina-project.dev/docs/settings/) on the website lists every key.
+
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is the short version; [`docs/`](docs/README.md) has the
+architecture, conventions, testing and the traps worth knowing about, and
+[`docs/reference/`](docs/reference/README.md) the long catalogues: every feature as built, and the
+reviews and audits behind them. Coding agents start at [`AGENTS.md`](AGENTS.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE). Bundled third-party components and their licences are listed in
+[NOTICE](NOTICE).

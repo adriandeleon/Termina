@@ -77,4 +77,16 @@ class ViewKeysTest {
         assertEquals(0, ViewKeys.scrolledOrigin(ViewKeys.Action.PAGE_UP, 0, 24, 0));
         assertEquals(0, ViewKeys.scrolledOrigin(ViewKeys.Action.TOP, 0, 24, 0));
     }
+
+    @Test
+    void theMenuKeyAndShiftF10OpenTheMenuEverywhereAndPlainF10StaysTheProgramsKey() {
+        // MENU-09 (Pauta 2.0.2).
+        for (boolean alternate : new boolean[] {false, true}) {
+            assertEquals(ViewKeys.Action.MENU, of(KeyCode.CONTEXT_MENU, false, false, alternate));
+            assertEquals(ViewKeys.Action.MENU, of(KeyCode.F10, true, false, alternate));
+            assertEquals(ViewKeys.Action.NONE, of(KeyCode.F10, false, false, alternate));
+            assertEquals(ViewKeys.Action.NONE, of(KeyCode.F10, true, true, alternate));
+        }
+        assertEquals(ViewKeys.Action.NONE, ViewKeys.of(KeyCode.F10, true, false, true, false, false), "Alt+Shift+F10");
+    }
 }

@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in Termina went wrong. Help → Report a Problem (or `termina --report`) fills in both fields below.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what Termina did instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can make it happen again, how? Which shell, and which program was running?
+      placeholder: |
+        1. Open …
+        2. Run …
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: What `termina --version` prints. About → Copy details copies the same.
+      render: text
+  - type: textarea
+    id: report
+    attributes:
+      label: Problem report
+      description: Filled in by Help → Report a Problem — the settings worth knowing and the end of the Debug Log, with private details taken out. Read it before you submit; anything left in it becomes public.
+      render: text

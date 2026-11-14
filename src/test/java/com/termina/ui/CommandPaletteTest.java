@@ -96,10 +96,10 @@ class CommandPaletteTest {
         assertEquals(
                 new KeyCodeCombination(KeyCode.X, KeyCombination.ALT_DOWN),
                 Keybindings.resolve(
-                                java.util.Map.of("commandPalette", MenuAction.DEFAULT_PALETTE_CHORD),
-                                java.util.Map.of("commandPalette", "Alt+X"),
+                                java.util.Map.of("palette.show", MenuAction.DEFAULT_PALETTE_CHORD),
+                                java.util.Map.of("palette.show", "Alt+X"),
                                 false)
-                        .get("commandPalette"));
+                        .get("palette.show"));
     }
 
     @Test
@@ -134,5 +134,20 @@ class CommandPaletteTest {
     void eightRowsOfThirtySixPlusTheChrome() {
         assertEquals(8 * 36.0, CommandPalette.listHeight(0));
         assertEquals(8 * 36.0 + 2, CommandPalette.listHeight(2));
+    }
+
+    @Test
+    void atAnEqualScoreARowThatCanRunComesFirst() {
+        // PAL-02 lists every command, greyed when it cannot run; those should not crowd out the
+        // ones that can. Shorter would otherwise win, and the greyed row is the shorter here.
+        MenuAction dead = command("Go to Tab 6");
+        MenuAction live = command("Go to Tab 1: ~");
+        assertEquals(
+                List.of("Go to Tab 1: ~", "Go to Tab 6"),
+                labels(CommandPalette.orderedMatches(List.of(dead, live), "go to tab", a -> a != dead)));
+        assertEquals(
+                List.of("Go to Tab 6", "Go to Tab 1: ~"),
+                labels(CommandPalette.orderedMatches(List.of(dead, live), "go to tab")),
+                "with everything enabled, the order is as it was");
     }
 }

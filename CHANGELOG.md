@@ -1,12 +1,539 @@
 # Changelog
 
-Notable changes, newest first. Versions follow [semantic versioning](https://semver.org); until
-1.0.0 the minor number moves for anything user-visible.
+Notable changes, newest first. The format is based on
+[Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html); until 1.0.0 the minor number
+moves for anything user-visible. Each entry opens with a bold one-line summary.
 
-## Unreleased
+## [Unreleased]
+
+### Changed
+
+- **Built to [Pauta 6.1.0](https://pauta-project.dev/6.1.0/)**, still at Core conformance. The
+  edition makes an icon on every menu row optional rather than required; Termina keeps one on
+  every row, so its menus look as they did.
 
 ### Fixed
 
+- **The find bar's arrows wear the Find Next and Find Previous icons**, the ones their rows in the
+  menus show, instead of arrows of their own. And Find Next's icon now points up: it steps to older
+  output, up the scrollback, where it used to point down.
+
+## [0.15.0] - 2026-11-14
+
+Termina is built to [Pauta 6.0.1](https://pauta-project.dev/6.0.1/) now, at Core conformance, and
+most of this release came from getting there. A status bar and a Message Log. Settings in JSON,
+with export, import and a sync that carries a changed shortcut to every system. The tabs you had
+open back at the next launch, pinned tabs, pickers, three window modes, a High Contrast theme and
+an interface zoom. A terminal a screen reader can read. A user guide for this version is on the
+website, and Help opens it. A great deal of what a user sees changed, so the minor number moves.
+
+Also here: the quick fixes from the
+[2026-11-06 performance review](docs/reference/review-2026-11-06.md) and its settings-layer items;
+the larger ones there (damage tracking, the theme stylesheets' size) are not done.
+
+### Added
+
+- **Three window modes**, in the View menu, the Command Palette and bindable under Settings ▸
+  Keyboard:
+  - **Zen Mode** hides the window's menu bar, tab strip and status bar and leaves the terminal
+    alone.
+  - **Expert Mode** hides the menu bar and the tab strip and keeps the status bar.
+  - **Simple Mode** keeps everything and shortens the menu bar to four menus of everyday
+    commands, for someone new to Termina. It is also Settings ▸ Appearance ▸ Simple mode.
+
+  Zen and Expert belong to one window, last until it closes and change no setting, so leaving
+  the mode brings back exactly what was there. With the menu bar hidden the way out is the
+  Command Palette, which lists Leave Zen Mode or Leave Expert Mode, and the Message Log says so
+  when the mode starts. Simple Mode is a setting and applies to every window. In every mode each
+  command keeps its chord and its row in the palette. On macOS the menus are in the screen's menu
+  bar, which Zen and Expert do not hide.
+- **Pickers: a list to type into for a choice from a list.** Four commands, in the Command
+  Palette and bindable under Settings ▸ Keyboard: **Select Color Theme**, **Select Font**,
+  **Select Cursor Shape** and **New Tab from Profile**. Each opens on the value in force. Type to
+  narrow the list, move with the arrows or Ctrl+N and Ctrl+P, Enter chooses, Escape or Ctrl+G
+  cancels. Select Color Theme shows each theme in the window as you move to it and puts back the
+  one you had if you cancel.
+- **Cancelling a list is a command, Cancel List**, on Ctrl+G by default and bindable under
+  Settings ▸ Keyboard like the four that move a line and a page. The Command Palette, the pickers
+  and the Message Log all close on its chord, and on Escape whatever is bound. Ctrl+G was fixed in
+  the palette before, and with the terminal in front it stays the shell's.
+- **The Message Log moves on Ctrl+N and Ctrl+P and closes on Ctrl+G**, the keys of the palette
+  and the pickers, or whichever chords you have given those commands.
+- **A help key in the Command Palette.** Ctrl+H opens the highlighted command's page of the user
+  guide in your browser; the palette stays open. It is F1, or Shift+F1, if you have given Ctrl+H
+  to a command. The palette's legend names the key.
+- **A High Contrast theme**: white on black, a single cyan accent, and every colour of the
+  terminal and of the windows at 7:1 or better on the black. Choose it like any theme. On Windows,
+  Termina switches to it while the system's high-contrast mode is on and back to your own theme
+  when it ends; that switch has not yet been run on Windows.
+- **The tabs you had open come back at the next launch.** Each tab and pane reopens as a new
+  shell in the folder it was in, with the names you gave, the pinned tabs pinned and the same tab
+  in front. The programs that were running are not started again, and a tab opened with `-e` comes
+  back as a shell. It is the last window's tabs when the last window closes, and the front
+  window's on Quit. Settings ▸ Terminal ▸ Reopen tabs at launch turns it off, and
+  **`--no-session`** skips it for one launch. With a session restored, `-d`, `-T` or `-e` on the
+  command line open a tab of their own after it.
+- **Each page of Settings ends in a link to its help:** Help for Appearance, Help for Profiles and
+  so on, opening that page of the documentation.
+- **`TODO.md`** is the open list: the Pauta rules not met yet, what has never been run, and the
+  terminal features not done. It changes in the same pull request as the work.
+- **Help ▸ Doctor** checks what Termina relies on: the shell it starts, its settings folder, Git
+  and the GitHub CLI for settings sync, and on Linux the tools for the selection clipboard,
+  notifications and opening links. Each row says OK, Missing, Optional or Problem in words, with
+  what was found, and a row that is not OK says what to install and links to it. Check Again
+  re-runs it; Copy as text gives the rows for a bug report.
+- **`--dev`** keeps a separate set of settings in `~/.termina-dev`, so a build being tried out never
+  touches the ones in daily use. `--config-dir` still takes precedence, and `--dev` wins over
+  `TERMINA_CONFIG_DIR`: what is typed on the command line is the more specific instruction.
+- **The Debug Log can be exported** to a file, and the previous session's log is kept beside this
+  one's as `termina-session.prev.log`.
+- **Help ▸ Documentation and Help ▸ What's New** open the user documentation and this version's
+  release notes.
+- **Export and Import Configuration.** Settings ▸ Advanced and the palette save a timestamped
+  `.zip` of your settings, key bindings, shell profiles and imported themes to your home folder, and
+  restore from one. The import lists the parts the zip holds and replaces only the ones you leave
+  ticked; window positions and the settings-sync connection stay as they are. Your current
+  configuration is copied to `backups/` in the config folder first. A zip that is not an export, or
+  that a newer Termina wrote, is refused before anything changes.
+- **Find in the Debug Log.** A find bar across the top of the window, opened by the Find… button,
+  Ctrl+F (Cmd+F on macOS) or the new Find in Debug Log command: it searches as you type, counts the
+  matches, steps with Enter and Shift+Enter, and closes on Escape. All lower case matches either
+  case; a capital makes it exact.
+- **A filter in the Message Log.** A field over the list narrows it to the messages that have every
+  word typed. Escape empties it, and from an empty filter goes back to the list. Ctrl+F (Cmd+F)
+  puts the keyboard in it.
+- **The two log windows have right-click menus, and their buttons are commands**: Refresh, Copy,
+  Export and Clear for the Debug Log, Copy and Clear for the Message Log, in the palette and
+  bindable on the Keyboard page. The Debug Log's Copy takes the selected text when there is some.
+- **Hide Tab Bar.** View ▸ Hide Tab Bar, the same command in the palette, and a row on Settings ▸
+  Appearance ▸ Tabs hide the row of tabs however many are open; the older setting only hid it for a
+  single tab. The tabs are still reached by their shortcuts, the tab menu and the palette.
+- **Focus Menu Bar** (Ctrl+Shift+F10) puts the keyboard in the menu bar and opens its first menu,
+  so the arrow keys walk it. A plain F10 and a lone Alt, which do this in most apps, belong to the
+  program running in the terminal.
+- **`-Dtermina.stallLog` says where, not only for how long.** While the UI thread is stuck, a
+  watcher prints its stack, once for each stall, before the line that reports the gap.
+- **Interface zoom.** Settings ▸ Appearance ▸ Window ▸ Interface zoom, from 80% to 200%, makes the
+  menus, the tab strip, the status bar, the palette and every other window larger or smaller, at
+  once. Zoom Interface In, Zoom Interface Out and Reset Interface Zoom are in the palette and can be
+  given shortcuts on the Keyboard page. The terminal's text is not touched: Zoom In, Zoom Out and
+  Actual Size, and their shortcuts, are still its own.
+- **`termina-cli.exe`, on Windows.** `Termina.exe` is a window program and has no console, so
+  `--help`, `--version` and `--report` printed nothing in the terminal they were typed in. The
+  installer now carries a second launcher that prints there; with no such option it opens a window
+  as `Termina.exe` does.
+- **Help ▸ Pauta Conformance.** A window that says which edition of
+  [Pauta](https://pauta-project.dev/) Termina follows and how far it has got: Complete, Core or
+  Partial, and under that every rule it does not meet yet, each with a one-line reason, a link to
+  the rule and a link to the issue that tracks it. Copy as text puts the list on the clipboard as
+  Markdown. About says the same in one line, which opens the window, and the block that Copy
+  Details and Report a Problem include now carries it. Also in the palette: Pauta Conformance,
+  Pauta Conformance in the Docs and Copy Pauta Conformance.
+- **Quit.** File ▸ Quit Termina, and the Quit Termina command in the palette, close every window
+  and end the app. If a program is still running in any tab of any window it asks first, once,
+  with Cancel as the default. The macOS application menu's Quit and the Dock's now ask that one
+  question too, where each window used to ask for itself.
+- **Right-click menus show shortcuts**, as the menu bar does: a tab's menu, the terminal's, the two
+  log windows' and the profile list's show the shortcut each command is on now, and follow one
+  moved on the Keyboard page.
+- **The buttons of Settings, Report a Problem and About are commands**, in the palette and bindable
+  on the Keyboard page: Reset All Settings, Import Theme, Remove Theme, Reset All Shortcuts, Add
+  Profile, Remove Profile, Connect Settings Sync (which reads Disconnect once connected), Create
+  Sync Repository on GitHub, Cancel Sync, Sync Anyway, Remove Credentials From Sync Address, Copy
+  Problem Report, Open Issue for Problem Report, Copy Version Details, Open Termina's Website,
+  Source Code and Releases, and Pauta Guidelines. Each Settings command opens Settings on its page
+  and does what the button does, questions included; one that cannot run is greyed in the palette
+  with the reason.
+- **A right-click menu on the profile list** in Settings, with Add and Remove.
+- **A right-click row that discards something is drawn in the danger colour**: Clear Scrollback,
+  Clear in the two log windows, and Remove in the profile list.
+- **Toggle Regular Expression is a command**: in the palette, and bindable on the Keyboard page.
+  It flips the find bar's `.*` switch, opening the bar first if it is closed. The switch could only
+  be clicked.
+- **Open Link and Copy Link Address are commands**, for the link under the pointer: in the palette,
+  and bindable on the Keyboard page, as well as on the right-click menu.
+- **One Termina per config folder.** Launching it again opens a new window in the running Termina,
+  with that launch's `-d`, `-e` and `-T`, in the directory it was launched from; the second process
+  exits as soon as the first has the request. `--new-instance` starts a separate one.
+- **Report a Problem.** Help ▸ Report a Problem, and a button in the Debug Log, build a report of
+  the session — version, Java, OS, the settings worth knowing, the end of the Debug Log — with your
+  home folder, user name, addresses, credentials and tokens taken out. It is shown for you to read
+  and edit, copied to the clipboard, and opened as a GitHub issue with the bug form filled in;
+  nothing is sent until you submit it. A report too long for the link leaves a note in the issue's
+  report field saying to paste it. `termina --report` does the same without the window, from the
+  last session's log: it writes the report to a file in the current folder (the temp folder where
+  that one cannot be written), prints the file's path and opens the issue.
+- **An optional status bar, and a Message Log.** Settings ▸ Appearance or View ▸ Show Status Bar
+  turns on a row under the terminal that says what the last command reported: red for an error,
+  amber for a warning, with a count of errors not yet seen. It is off by default. Help ▸ Message Log
+  lists everything Termina reported this session, with times, whether the bar is on or not. Help ▸
+  Debug Log opens the Debug Log, which was only on the Advanced page. A crash says so in the log
+  too, pointing at the Debug Log. Once the update check has found a newer version the bar names it
+  in a link that opens its release, until the link is followed.
+- **Pinned tabs.** Pin Tab, in the Window menu, a tab's own menu and the palette, moves a tab to the
+  pinned group at the left and marks it with a pin and a bold title. Close Other Tabs and the other
+  bulk closes pass over it, and Reopen Closed Tab brings it back pinned. Closing it by itself still
+  works.
+- **A theme that follows the system.** "Follow the System" in Settings, a profile's theme picker and
+  the palette uses Editora Light while the desktop is light and Editora Dark while it is dark, and
+  switches when the desktop does.
+- **Close Other Tabs, Close Tabs to the Left and Close Tabs to the Right are commands**: in the File
+  menu and the palette, bindable on the Keyboard page, and greyed with the reason while they would
+  close nothing. Close Tabs to the Left is new, on a tab's menu too. Configure Profiles is a command
+  as well, and opens Settings on the Profiles page.
+- **About names the Pauta edition Termina follows, and what it runs on.** A "Working toward Pauta
+  6.0.1" link to that edition's guidelines ("Built to" once every MUST is met), the Java and JavaFX versions, and a Copy details button
+  that copies everything `termina --version` now prints (version, build, Pauta edition, Java,
+  JavaFX, OS) for a bug report. A "Source code and releases" link is always there, not only when
+  an update is.
+- **About and `--version` name the commit a build came from**, with `-dirty` for a build from
+  uncommitted changes. A build from a source archive, with no repository, names none.
+
+### Changed
+
+- **Termina is built to Pauta 6.0.1 at Core conformance**: every MUST of the edition is met. One
+  SHOULD is pending, the Windows installer's signature, and one is a recorded deviation: on macOS a
+  greyed row in the screen's menu bar does not say why it cannot run, because the system draws
+  that bar; the Command Palette does. About and Help ▸ Pauta Conformance say "Built to Pauta
+  6.0.1" where they said "Working toward". The last three MUSTs were the user guide on the
+  website: its pictures of the real window, its Installing page and its conformance page.
+- **An imported colour scheme is stored as JSON.** A theme is `themes/<name>.json` in the settings
+  folder, where it was `<name>.properties`. Each theme you have is rewritten the first time
+  Termina starts, under the same name, and the file it was is kept beside it as
+  `<name>.properties.migrated`. Nothing that uses a theme changes. A configuration zip exported
+  by an older Termina still imports. The settings, the window state and the session's tabs are
+  read and written by Jackson as plain classes now and look the same on disk.
+- **Help opens the guide for the version you are running.** Documentation, the Help link on each
+  page of Settings and the Pauta window's link open `termina-project.dev/docs/v-<version>/`, where
+  they opened the newest guide whatever the version.
+- **The palette's movement keys can be changed.** Moving a line and a page in the Command
+  Palette are four commands now, Line Down, Line Up, Page Down and Page Up, under Settings ▸
+  Keyboard: Ctrl+N, Ctrl+P, Ctrl+V and Alt+V as before, until you move them. The arrows and Page
+  Up and Page Down always work. Their keys act only in a list, so in the terminal Ctrl+N and
+  Ctrl+P still reach the shell. Run from the palette, the four scroll the terminal's history.
+- **How to install a download and check its signature is on the website**, in the user guide's
+  Installing page, and no longer in the repository's `docs/`.
+- **Settings sync carries a changed shortcut to every system.** Key bindings sync as one file
+  where there was one for macOS and one for Windows and Linux, so a shortcut you change on a Mac
+  changes on your Linux and Windows computers, and the other way. Command on a Mac is Ctrl+Shift
+  elsewhere: `Cmd+K` there is `Ctrl+Shift+K` here. Update every computer that shares a sync
+  repository: one still on an older Termina will say the repository is newer than it is and stop
+  syncing until it is updated. Two computers that had each changed the same command will disagree
+  once, and the one that syncs second wins.
+- **On macOS, Settings is in the application menu**, under About, where every Mac app has it. It
+  shows the shortcut bound to Settings and follows it when you change it. The File menu keeps
+  its row. This has not yet been run on a Mac.
+- **Every command's id has its area in front**: `file.newTab`, `edit.copy`, `tab.next`,
+  `pane.splitRight`, `view.zoomIn`, `sync.now`. Nothing on screen changes. The ids are what
+  `settings.json` keeps your key bindings under (`keys.file.newTab`) and what settings sync
+  writes; both are carried forward when read, and `settings.json` moves to schema version 3. A
+  computer still on an older Termina does not know the new ids, so update every computer that
+  shares a sync repository.
+- **The Message Log opens inside the window**, as a card over the terminal just above the status
+  bar, not as a window of its own. Escape, a click outside it or its own command closes it, and
+  the keyboard goes back to the terminal. It keeps the newest 200 messages of the session; it
+  kept 500.
+- **Programs Termina starts get your login shell's `PATH` from the start.** It is asked for once,
+  in the background, after the first window is drawn. Before, a notification or a middle-click
+  paste got it only after a sync or a clicked link had asked.
+- **Repainting a screen that has not changed allocates almost nothing.** Each frame used to copy
+  every run of text on screen to a new string, and the emulator's own walk over the rows made more
+  for each row: about 12,700 bytes a frame on a full coloured screen, sixty times a second while a
+  cursor blinks or a selection is dragged. The text a frame draws is now kept from the frame
+  before, and the rows are read directly: about 900 bytes, measured by a test.
+- **The README's picture is the current window, dark and light, at 2×,** shown by the page's
+  colour scheme. `scripts/screenshots.sh` retakes both from the real window with no window opened
+  on the desktop, and `-Dtermina.captureScale=2` does the same for any capture.
+- **The tests wait for what they need instead of sleeping.** Fifty-five fixed and polling sleeps
+  are gone: a test waits on the next frame, on a signal the code under test fires, or on a
+  worker's own queue. Two of them had been hiding a test that typed its commands onto a
+  half-finished line, so the mouse modes it meant to exercise were never set; its keys and
+  mouse reports now go to a loop that reads them, not to the shell's prompt.
+- **A greyed menu row says why.** Rest the pointer on a command a menu has greyed and a tooltip
+  gives the reason the command palette gives: no tab has been closed, this is the only tab, there
+  is no link under the pointer. In the menu bar's menus, a tab's menu and the terminal's
+  right-click menu; not in the macOS screen menu bar, whose rows are the system's.
+- **Open Link and Copy Link Address are always in the right-click menu,** greyed where there is no
+  link, in a group of their own after Select All. They used to appear at the top only over a link.
+- **Move Tab Left and Move Tab Right are greyed at the ends of the strip,** in the Window menu and
+  the palette as well as in a tab's own menu, and a tab's Close Other Tabs is greyed when every
+  other tab is pinned, as the palette's already was.
+- **A quicker start.** The settings are read on a thread of their own while JavaFX starts, not
+  after it, and release builds carry their stylesheets precompiled, so they are loaded without
+  being parsed.
+- **The font picker's list is made in the background** after the first frame. Working out which
+  installed fonts are monospace used to happen when Settings first opened, and held the window for
+  a quarter of a second on a machine with many fonts.
+- **The status bar is shown, and on Windows and Linux the menu bar is in the title bar, unless you
+  turn them off.** Both were options that started off. If you never changed either you will see
+  both after this update: a row under the terminal that says what the last command reported, where
+  a dialog used to appear, and one row at the top holding the menus, the title and the window
+  buttons. View ▸ Hide Status Bar and Settings ▸ Appearance ▸ Window put either back. A setting you
+  had already chosen is left as it is.
+- **The on and off rows of Settings are switches.** Tab reaches each one, Space or Enter flips it,
+  and a screen reader announces it as a toggle with its state; they were check boxes.
+- **A screen reader can read the terminal.** The terminal is announced as a text area named
+  Terminal whose text is what is on screen. The status bar's message is announced as a button that
+  opens the Message Log, and the Command Palette says which row is highlighted and why a greyed
+  one cannot run.
+- **A settings sync that fails on its own says so.** A failed automatic sync, or one started on
+  the Settings page, now goes to the Message Log and the status bar, once per kind of failure; it
+  used to show only on the Sync page. That page has a status pill: Off, Synced, Syncing or Problem.
+- **An open Command Palette follows a change of key bindings**, its rows and its own shortcut
+  included.
+- **A tab's marks differ by shape as well as color**: a dot for new output, a ring for the bell, a
+  diamond for a program asking for attention. In gray they were three identical dots.
+- **Counts read right for one.** "1 unread error", "1 file", in every language; they were worded
+  for several whatever the count.
+- **Closing the Command Palette gives the keyboard back to where it was.** Opened from the find
+  bar's field, it returns there; it used to return to the terminal every time.
+- **The menu bar and the tab strip are one band**, on one background with no line between them, and
+  a menu is a card with rounder corners and a deeper shadow.
+- **Command Palette is the first row of the Help menu**, where the guidelines put it; it was in View.
+- **The Message Log follows the key bindings.** The shortcut bound to Copy copies its selected
+  lines, as Ctrl+C (Cmd+C) still does. Ctrl+G no longer closes it: Escape does, and so does going
+  back to the window behind.
+- **The visual bell does not flash while the system asks for reduced motion.** The tab is still
+  marked.
+- **About shows an available update in bold amber and a failed check in red**; the links keep the
+  accent color.
+- **Removing a profile says that it cannot be undone**, and Sync Anyway is drawn as the dangerous
+  button it is. Clear Scrollback is red in the Edit menu, as it was in the right-click menu.
+- **Shortcut names are not translated.** Ctrl and Shift read the same in every language; a few
+  German, Spanish, French and Italian strings said Strg, Umschalt, Mayús, Maj or Maiusc.
+- **A middle-click pastes nothing on macOS and Windows.** It pasted the clipboard there. On Linux
+  it pastes the primary selection, as before; the three systems differ in this and it is Linux's
+  alone.
+- **A tab's folder is read the same way on every system.** The operating system is asked where the
+  shell is, and what the shell reports about itself (OSC 7, OSC 9;9) fills in only where the system
+  has no answer, which is a WSL tab. On Windows a report used to win over the system's answer for
+  every tab.
+- **Every menu row has an icon.** About half of the menu bar's rows had an empty icon column, and
+  Copy Link Address borrowed Copy's. Each command a menu lists now has a picture of its own, in the
+  bar, the right-click menus, a tab's menu, the two logs' and the profile list's.
+- **Zoom In, Zoom Out and Actual Size are rows of the View menu**, each with its icon and its
+  shortcut, on every system as they already were on macOS. The row of four buttons is the
+  right-click menu's alone.
+- **File ▸ New Tab With lists the first nine profiles**, the ones with a shortcut. A tenth onwards
+  is in the tab strip's drop-down and the palette, as all of them are.
+- **The coverage floors are one set of numbers in the build.** No Windows profile lowers them; the
+  Windows CI runner passes its own on its command line.
+- **Termina follows Pauta 6.0.1** (it named 2.0.2), and says "working toward" it: the rules it does
+  not meet yet are listed in Help ▸ Pauta Conformance, and the README's badge carries the same
+  word. The list is `pauta.json`, and a test holds it, the README and About to one answer.
+- **Enter no longer confirms a removal.** On every question with a red button — removing a theme or
+  a profile, resetting the settings or the key bindings, Import Configuration — Cancel is the
+  default button, and the red action runs only from itself: a click, or Tab to it and Space.
+- **Five commands have new ids**, the ones Pauta names: `help.about` (was `about`), `palette.show`
+  (`commandPalette`), `help.documentation` (`documentation`), `view.messageLog` (`messageLog`) and
+  `find.show` (`find`).
+  A key binding is stored under its command's id, so `settings.json` moves to `schemaVersion` 2 and
+  a `keys.commandPalette` line becomes `keys.palette.show` when the file is read; a
+  `settings.properties` from before 0.15 is brought forward the same way. Settings sync reads the
+  old ids as the new ones, so a repository shared with a computer on an older Termina keeps
+  working; that older Termina does not know the new ids, and puts those five commands back on
+  their default chords once a newer one has synced.
+- **Find, run while the find bar is open, steps to the next match** and puts the keyboard back in
+  the field. It used to only do the second.
+- **A click on the status bar opens the Message Log through its command**, like the menu row.
+- **A dialog's buttons are in the same order on every OS**: Cancel to the left of the action.
+  JavaFX orders them by OS, which on Windows put the action first.
+- **Hide Menu Bar is in the menus on macOS too, greyed.** The View menu's row and the terminal's
+  right-click checkbox were left out there, and the command was missing from the palette; they are
+  there now, disabled, and the palette says why: the menus are in the screen menu bar.
+- **The sync repository and branch are saved as they are typed in**, on Enter or when the focus
+  leaves the field, not only by Connect; an address or branch that cannot work is marked and not
+  saved. **A shell path that names nothing, or a file that cannot run, is marked and no longer
+  saved**: the setting keeps the last path that passed. A profile's command and starting directory
+  follow the same rule.
+- **An imported theme's file names its `schemaVersion`**, like the settings file. One a newer
+  Termina wrote is kept as `<name>.properties.v<n>.bak` and not read; a file from before the
+  version reads as it did.
+- **Settings ▸ Advanced opens the same Debug Log as Help ▸ Debug Log**, with Report a Problem on it.
+  It used to open a second window that lacked the button.
+- **Every prompt's buttons are in Termina's language**: Rename Tab's Cancel, and both buttons where
+  a command asks for a setting's value or Settings asks for a repository's name, were JavaFX's own,
+  worded in the system's language.
+- **Configure Profiles has one icon.** Its row under the new-tab chevron wore the Settings gear.
+- **`--add-exports`, `--add-opens` and `-p` on the command line are skipped with their values**, not
+  refused as unknown options: a launcher can leave them among the program's arguments.
+- **The last disk work is off the window's thread.** Listening for other launches (a stale socket
+  file removed, a new one bound) and the fonts registered after the first frame each have a thread
+  of their own; the profile list no longer asks the disk whether each shell can run every time a
+  menu is built, but keeps the answers, worked out on a worker; Settings checks a shell path, a
+  profile's command and its folder on a worker, so the mark and the save come a moment after the
+  key; and settings sync writes its backup on its own thread.
+- **A program that floods desktop notifications or clipboard writes no longer queues one piece of
+  work each for the window.** They, and uncaught errors, reach it in batches a frame apart.
+- **One place says which operating system this is** (`com.termina.Os`); twenty classes worked it
+  out for themselves, in three spellings. No behaviour changes.
+- **Nothing that touches the disk or the process table runs on the window's thread any more**, so a
+  slow disk or a hung network mount cannot freeze the window. A new tab appears at once and its
+  shell a moment later; the close prompt, the scrollback search and the check behind a hovered
+  file path wait off to the side; and the settings and fonts are read before the window is built.
+- **The menu bar's shortcuts line up in a column**, with each command's icon beside it where the
+  right-click menus have one. On macOS the shortcut follows the title in the screen menu bar. The
+  menus no longer use accelerators, so a shortcut is only ever run by Termina's own key handling.
+- **The multi-line paste and close-a-running-program questions look like the rest**: the app's own
+  fonts and colours, as the Settings window's questions already had. Resetting a key binding that
+  takes its chord from another command says so with a danger-styled Reset.
+- **Every setting is in the palette.** Type part of a setting's name: a switch says which way it
+  will go ("Show a scrollbar: turn off"), a choice lists its options ("Cursor shape: Bar"), and a
+  value ("Scrollback lines…") asks for a new one. Each is named and described as its Settings row is.
+- **The palette lists every command.** Go to Tab and New Tab With Profile are listed for every
+  number with a shortcut, greyed with the reason when there is no such tab or profile, and the
+  palette lists itself. At an equal match a command that can run comes before one that cannot.
+- **One right-click menu at a time.** Opening a tab's menu, a pane's or the profile list closes any
+  other that is open, however it was opened.
+- **The command palette is built the first time it opens**, not with every window.
+- **A release checks the macOS app is signed by Termina's team and launches the notarized app**
+  from its dmg, as well as the image before it was wrapped.
+- **A slow answer can no longer overwrite a newer one**: importing a theme or a configuration
+  twice, the GitHub check behind Settings ▸ Sync and the update check each apply only the latest
+  request's result.
+- **The Menu key and Shift+F10 open the terminal's menu**, under the cursor, as GNOME Terminal's
+  do; plain F10 still reaches the program. **Tab Menu**, in the palette and bindable, opens the
+  current tab's own menu.
+- **About Termina is in the macOS application menu** as well as in Help.
+- **Tooltips name the command and the shortcut in force**: the zoom row's buttons say "Zoom In
+  (Ctrl+=)", the find bar's arrows "Find Next" and "Find Previous" and its `.*` switch "Toggle
+  Regular Expression", each with its chord, and they follow a chord moved on the Keyboard page.
+- **Shortcuts are drawn in one colour everywhere**: the menu bar's and the right-click menus'
+  shortcut column, the palette's shortcuts and its chip. It is Editora's periwinkle, lighter on a
+  dark theme and a deep ink on a light one; the palette's chip was the accent colour and the menu
+  bar's shortcuts the muted text colour.
+- **Settings search finds a row by what its controls show**: a button's label, a choice's options,
+  a field's prompt. Typing a theme's name finds the Theme row, and "import" the rows with an
+  Import button, in whatever language the interface is in.
+- **Settings search ranks what it finds**: a title above a description above a section heading
+  above a keyword, and a whole word above part of one. Section headings and page names are
+  searched, and every word typed has to be found.
+- **A very large paste asks first and shows only its start.** Past a million characters it asks
+  whether or not it has line breaks; past sixteen million, or more than memory can hold on the way
+  out, it is refused with a message. The prompt's preview stops at 64K characters.
+- **The session log stays under 8 MB**, cut back to its newest half with a line saying what went,
+  and the Debug Log and Message Log say how many older entries they have dropped.
+- **The Debug Log keeps everything logged, not just warnings and errors**, including what JediTerm
+  and pty4j log, which used to go to a stderr nobody saw in an installed app. A desktop
+  notification that could not be shown now says why in it.
+- **Closing a tab with a program still running shows its Close button in the danger style.**
+- **A release's notes are its section of this changelog**, under the install instructions, rather
+  than a list of commit subjects. A tag whose version has no section here fails before building.
+- **The multi-line paste prompt can no longer be switched off from Settings.** A setting that only
+  makes Termina less safe is a `settings.json` key instead: `"input.confirmPaste": false`.
+- **The Help menu is in Pauta's order:** Keyboard Shortcuts, Check for Updates, Message Log, Debug
+  Log, then About.
+- **The window themes come through AtlantaFX**, the theme library the Editora themes were drawn
+  from, now a dependency rather than only their source. If a build ever lacks its Editora sheet,
+  AtlantaFX's own Primer theme of the same lightness draws the windows instead of nothing.
+- **Settings are JSON, with a schema version.** `~/.termina/settings.json` holds preferences and
+  `workspace-state.json` the window's place and size and the update check's memory. Each names its
+  `schemaVersion`. The keys are the same dotted names, one per line. A `settings.properties` from
+  an earlier version is imported on the first launch and kept as `settings.properties.migrated`. A
+  file a newer Termina wrote is kept as `settings.json.v<n>.bak` rather than read, and one that is
+  not valid JSON as `settings.json.corrupt.bak`; either way Termina opens on defaults. Hand-editing
+  a Windows path now means JSON's doubled backslashes.
+- **The default shortcuts are data.** `keymaps/keymap.json` (Windows and Linux) and
+  `keymap.mac.json` hold every command's default chord, which used to be written into the code. No
+  shortcut changes.
+- **The first window waits on less.** Only the fonts and window icons it draws are loaded before it
+  shows; the other bundled font families and the large icons follow the first frame, and the daily
+  update check waits three seconds after it. Measured headless, four runs each: about 20 ms off a
+  start of roughly 470 ms.
+- **The Debug Log's file and a theme's removal no longer write to disk on the interface thread.**
+- **New Tab wears the same + in the menus as on the tab strip.**
+- **A keyboard focus ring in Settings and the dialogs.** A control reached with Tab draws a 2px
+  accent ring; a click draws none. Check boxes and links showed no focus at all before.
+- **Warnings and errors in Settings use the theme's readable text colours**, named once as state
+  colours. The amber "chord already taken" read at under 3:1 on the light theme.
+- **Removing a theme, a profile or a token in the sync address asks first.** Each deleted what the
+  user had made at a click, with no way back but making it again.
+- **Reopen Closed Tab reaches back twenty tabs instead of ten.**
+- **The light Editora theme matches Editora's again.** Its accent, warning and success text had
+  kept the colours Editora later darkened, which read below 4.5:1 on their tinted backgrounds. The
+  About credits, the settings path and the Settings sidebar headings move from the faintest text
+  colour to the muted one for the same reason.
+- **Every control has a name a screen reader can read.** The menu bar's rows were announced as
+  nothing, being drawn from an icon, a title and a shortcut rather than as text; so were the find
+  bars' and the palette's fields, the search fields of Settings and Keyboard Shortcuts, the lists
+  in Settings, the Message Log and the palette, the text of the Debug Log and of Report a Problem,
+  the window opacity slider, the field of the Rename Tab and other prompts, and the preview in the
+  paste question. A test now opens every window, menu and dialog and fails on a control without
+  one.
+- **Icon-only buttons have names a screen reader can read.** The new-tab and profile buttons, the
+  tabs' close buttons, the find bar's buttons and the zoom row's buttons carried a tooltip and
+  nothing else.
+
+- **The settings file is written once per run of changes, not once per change.** Every setter
+  wrote the whole file, under a file lock, on the thread that called it, so a spinner held down, the
+  zoom chord under key auto-repeat and the opacity slider's arrow keys wrote it per tick. A change
+  still applies live — memory and every window see it at once — and the file is written 300 ms
+  after the last change in a run, off the FX thread; whatever is pending is written when the app
+  quits. The Settings window also stops rebuilding all of its controls for a change one of them has
+  just made: a tick re-set thirty controls, resolved every key binding four times and rebuilt the
+  profile list and the preview, for a value the control was already showing. A change from
+  elsewhere still reloads it.
+
+- **Less work per frame and per write.** The scrollbar is updated after the buffer lock is released
+  rather than inside it; whether type-ahead is wanted is decided when the foreground program
+  changes, not on every buffer write (3% of the emulator thread in a profile); the prompt-mark list
+  is copied when it changes, not on every frame; the search overlay's colours are derived once per
+  theme.
+- **A settings write no longer restyles and repaints every pane whose colours did not change.**
+  `setPalette` and the cursor-shape setter short-circuit on an unchanged value, the menu bar's and
+  tab strip's style classes are touched only when they change, and the theme lookup no longer
+  builds four entries and a list per call.
+- **Removed members nothing called:** `TerminalView.getFontSize`, `isSearchShowing`, the
+  `setSessionOptions(int, String)` overload, `FxTerminalDisplay.getMouseFormat`,
+  `AppInfo.isSnapshot`, `LaunchOptions.withProfileId`, `SettingsWindow.matches`,
+  `Theme.byDisplayName`, four unused `MenuIcons` glyphs, `SettingsSync.secondary`,
+  `CommandPalette.show(List)`; and ten Javadoc blocks that documented nothing.
+
+- **Builds and releases check more before they finish.** The build refuses a JDK older than 25
+  and a Maven outside 3.9; the JavaFX tests run on the headless platform everywhere and are tagged,
+  so `./mvnw test -DexcludedGroups=fx` runs the rest alone; CI has a separate Format check; a
+  release stops before publishing if any download is missing or unexpected, attests the checksums
+  file as well as the downloads, runs as a full dry run when started by hand, and opens the pull
+  request that starts the next snapshot.
+
+### Fixed
+
+- **A profile's folder could be undone by the edit before it.** In Settings ▸ Profiles, changing
+  the command and then the folder a moment later could leave the folder as it was: each edit
+  checks its paths on its own thread, and the first edit's answer sometimes arrived last and was
+  written over the second. Only the newest edit of a profile is applied now.
+- **Settings sync's `gh` is given the login shell's `PATH`,** as `git` already was: started from a
+  desktop launcher, a `gh` installed by Homebrew could be found and then fail to find `git`. The
+  link opener and the desktop's own tools (`xclip`, `notify-send`) get it too once it is known.
+- **A desktop notification that could not be shown says why in the Debug Log**: no `notify-send` or
+  `gdbus` to post it with, a tool that did not answer in five seconds, or one that exited with an
+  error. Only an exception was logged.
+- **The rename prompt, the shell-failure message and two more dialogs draw in the interface font.**
+  They were in the platform's.
+- **"Go to Tab" and "Go to Last Tab" are spelled right in French and Italian.** The apostrophe was
+  missing from "l'onglet" and "all'ultima".
+- **`--help` lines up.** The `--new-instance` and `--dev` rows sat ten columns left of the rest.
+- **A click on the tab strip closes a tab's right-click menu.** The menu stayed up through a press
+  on the strip it was opened on, and now closes on a press anywhere in the window.
+- **A click that closes the terminal's right-click menu now also acts.** It was swallowed, so
+  closing the menu cost a click; a right-click elsewhere now reopens the menu there.
+- **About no longer says "You are up to date" when nothing has checked.** It said so whenever no
+  newer release was known — before the day's check had run, after it had failed, and with checks
+  turned off. It now says which of those it is, and claims up to date only on an answer from this
+  session.
+- **The Keyboard page's "Press a shortcut…" prompt shows while recording.** Its rule was in the
+  stylesheet the terminal windows load, not the one the settings window does, so a focused
+  recording field was a blank box. The Debug Log window's path label had the opposite problem and
+  is styled now.
+- **A settings change from elsewhere no longer overwrites what is being typed into the settings
+  window.** A sync run finishing, or a zoom chord in a terminal window, reloads the window; the
+  shell, link-command and sync fields keep their text while they have the focus.
+- **About has a palette description**, like every other command. Its text was translated and
+  never read.
+- **A capture run can answer the paste prompt** (`-Dtermina.capturePasteAnswer=paste|cancel`); the
+  hook existed and nothing called it, so a run that reached the prompt hung. The README now lists
+  every capture option, not two thirds of them.
 - **GNOME Software's Project Website button works before installing.** The window opened by
   double-clicking a downloaded `.deb` reads only the package's own fields, and the packages
   declared no homepage. They now name termina-project.dev (the deb's `Homepage`, the rpm's `URL`,
@@ -19,8 +546,14 @@ Notable changes, newest first. Versions follow [semantic versioning](https://sem
   terminal window, Settings, About, Keyboard Shortcuts, confirmation dialogs — reported the
   desktop's setting, which is what JavaFX picks a native frame's dark variant from on Windows and
   macOS. On Linux the native frame follows the desktop whatever the app says.
+- **`termina --version`, `--help` and `--report` answer without a display.** The window toolkit was
+  started before the command line was read, so where there is no display — over SSH, in a
+  container, or when the display is the very problem `--report` is for — each ended in "Unable to
+  open DISPLAY" and a stack trace, and a mistyped option did too, in place of its message. They
+  now answer before the toolkit starts, and sooner everywhere. A launch that only hands its
+  arguments to the Termina already running no longer starts the toolkit either.
 
-## 0.14.0 — 2026-10-31
+## [0.14.0] - 2026-10-31
 
 Signed and notarized macOS dmgs, signed Linux downloads, an AppImage and a tarball, a proper GNOME
 Software listing, and Ctrl+click on the URLs in Markdown links. New downloads and new behaviour, so
@@ -53,9 +586,9 @@ the minor number moves.
   at the start of a word, so `[docs](https://…)` read as a file path that did not exist and the
   click did nothing. A badge's `[![CI](…/badge.svg)](…/ci.yml)` is now two links.
 
-## 0.13.0 — 2026-10-27
+## [0.13.0] - 2026-10-27
 
-Everything from the [2026-10-27 review](docs/review-2026-10-27.md): padding, a hollow cursor in
+Everything from the [2026-10-27 review](docs/reference/review-2026-10-27.md): padding, a hollow cursor in
 unfocused panes, `-T` for the first tab's title, Reopen for panes and windows, and Linux packages
 that install on Debian 12 and Ubuntu 22.04 again. New user-visible behaviour, so the minor number
 moves.
@@ -88,16 +621,6 @@ moves.
 - **Theme import runs in the background**, and names that would share a file get files of their own.
 - **Search keeps the newest 1,000 matches** rather than the oldest, reads the scrollback in chunks
   from the bottom up, and waits for typing to pause.
-
-### Security
-
-- **A `file:` link to another machine, or any UNC path, is never opened or looked up.** One was
-  handed to the system's URL opener (on Windows, an SMB fetch that sends the user's credentials
-  hash), and hovering over one made a network connection.
-- **A crafted `.terminal` theme can no longer hang or crash the app** — shared references in its
-  binary property list were expanded once per path, and a deep chain overflowed the stack.
-- **Release workflows run with read-only tokens except where they publish**, the JReleaser action
-  is pinned to a commit, and release artefacts carry build-provenance attestations.
 
 ### Fixed
 
@@ -186,7 +709,17 @@ Translations:
 - **Importing a theme file with a byte-order mark failed.**
 - **The Settings search box looked empty**: its prompt disappeared while focused.
 
-## 0.12.0 — 2026-10-25
+### Security
+
+- **A `file:` link to another machine, or any UNC path, is never opened or looked up.** One was
+  handed to the system's URL opener (on Windows, an SMB fetch that sends the user's credentials
+  hash), and hovering over one made a network connection.
+- **A crafted `.terminal` theme can no longer hang or crash the app** — shared references in its
+  binary property list were expanded once per path, and a deep chain overflowed the stack.
+- **Release workflows run with read-only tokens except where they publish**, the JReleaser action
+  is pinned to a commit, and release artefacts carry build-provenance attestations.
+
+## [0.12.0] - 2026-10-25
 
 The sync repository can be created on GitHub from Settings, and the shortcut reference names what a
 middle-click pastes on Linux. New user-visible behaviour, so the minor number moves.
@@ -203,7 +736,7 @@ middle-click pastes on Linux. New user-visible behaviour, so the minor number mo
 - **The shortcut reference said a middle-click pastes the clipboard** on Linux, where it pastes the
   PRIMARY selection. It says "Paste the selection" there now.
 
-## 0.11.0 — 2026-10-25
+## [0.11.0] - 2026-10-25
 
 Split panes, scrollback search, shell integration and shortcuts that can all be changed. Four
 requests programs make of a terminal — a declared link, the clipboard, the directory, a
@@ -330,7 +863,7 @@ can be imported from six other terminals' formats; and a profile can have its ow
 - **Drag-selecting while output arrived could read a line mid-write.** The mouse handlers read the
   screen without the lock the emulator writes under. They now take it.
 
-## 0.10.0 — 2026-10-23
+## [0.10.0] - 2026-10-23
 
 An icon beside each page in the settings sidebar. New user-visible behaviour, so the minor number
 moves.
@@ -342,7 +875,7 @@ moves.
   They are muted at rest and take the accent colour when their page is selected, and each sits in
   a box of fixed width so the labels beside them line up.
 
-## 0.9.0 — 2026-10-21
+## [0.9.0] - 2026-10-21
 
 The command palette is now Editora's: the same card, the same matcher and ranking, and Emacs keys
 to drive it. It opens on Alt+X instead of Shift+Ctrl/Cmd+P, and the chord is a setting. The
@@ -372,10 +905,10 @@ default chord changed, so the minor number moves.
 
 ### Fixed
 
-- The chord that opens the palette no longer leaks its typed character: on macOS Option+X also
+- **The chord that opens the palette no longer leaks its typed character:** on macOS Option+X also
   composes "≈", which landed in the query field the chord had just focused.
 
-## 0.8.0 — 2026-10-21
+## [0.8.0] - 2026-10-21
 
 The fixes from the 2026-10-20 review, and the features that fell out of it: tabs can be renamed,
 reopened and duplicated and say when something happened in them, there is a searchable list of
@@ -426,6 +959,30 @@ with the title bar. Moved to JavaFX 27. New user-visible behaviour, so the minor
   once and left alone; a new tab's own first prompt does not count.
 - **The window's last position is remembered** along with its size, and pulled back onto a screen
   that still exists.
+
+### Changed
+
+- **The palette lists the tabs that exist, by title**, with the chord that reaches each, instead of
+  nine numbered "Go to Tab" rows of which most were dead. Its menu-bar row says "Show" or "Hide"
+  according to the current state.
+
+- **`sh` and `dash` are no longer offered as shell profiles**, and shells that are symlinks to
+  the same binary are listed once. Nobody opens a tab as `dash`.
+- **The cursor's DECSCUSR 0 ("default") still arrives from JediTerm as a blinking block,
+  indistinguishable from an explicit 1, so a program that resets to "default" rather than to "no
+  shape" still leaves a block.** Said here because the fix above covers the other case.
+
+- **Moved to JavaFX 27.** Its extended stage style (`StageStyle.EXTENDED` and `HeaderBar`), a preview
+  feature in 25 and 26, is final there and is what the title-bar option is built on.
+- **`scripts/dev-run.sh` now clears `target/deps` before refilling it, so a dependency bump cannot
+  leave the old jar beside the new one with the old one winning.**
+- **Dependencies brought up to date:** JediTerm 3.76 (mouse-scroll direction fix, faster double-width
+  checks), pty4j 0.14.0 (`Cleaner` instead of `finalize`, a fix for `breakRead` waking the wrong
+  PTY after a close, retries when opening the PTY master, ConPTY 1.24), Kotlin stdlib 2.4.21, slf4j
+  2.0.20, Jackson 2.22.4 and JUnit 6.1. Build plugins likewise: Spotless 3.10.4 with
+  palantir-java-format 2.102.0 (one reflow), JaCoCo 0.8.15, ModiTect 1.3.0, jpackage-maven-plugin
+  1.8.0, the compiler, surefire, dependency and exec plugins, and Maven 3.9.16 in the wrapper.
+  antrun stays at 3.1.0, because 3.2.0 warns about every exported property.
 
 ### Fixed
 
@@ -500,42 +1057,27 @@ with the title bar. Moved to JavaFX 27. New user-visible behaviour, so the minor
 - **New windows cascade from the window the action came from** and stay on its screen.
 - **On Windows, Ctrl+click opens files through the shell handler** rather than `cmd /c start`, so
   `&`, `^` and `%` in a name are not interpreted. (Still unrun on Windows.)
-- Settings search prefers a match in a row's title and opens that row's page; the profiles note
+- **Settings search prefers a match in a row's title and opens that row's page; the profiles note
   names the platform's own chord; the shell field's prompt is translated; row titles and
   checkboxes are labelled for screen readers; arrow keys in the settings sidebar skip the group
-  headers; Escape closes Settings, About and the Debug Log. `NaN` in a hand-edited settings file
+  headers; Escape closes Settings, About and the Debug Log.** `NaN` in a hand-edited settings file
   is treated as absent rather than handed to the font.
 
-### Changed
-
-- **The palette lists the tabs that exist, by title**, with the chord that reaches each, instead of
-  nine numbered "Go to Tab" rows of which most were dead. Its menu-bar row says "Show" or "Hide"
-  according to the current state.
-
-- **`sh` and `dash` are no longer offered as shell profiles**, and shells that are symlinks to
-  the same binary are listed once. Nobody opens a tab as `dash`.
-- The cursor's DECSCUSR 0 ("default") still arrives from JediTerm as a blinking block,
-  indistinguishable from an explicit 1, so a program that resets to "default" rather than to "no
-  shape" still leaves a block. Said here because the fix above covers the other case.
-
-### Maintenance
-
-- Moved to JavaFX 27. Its extended stage style (`StageStyle.EXTENDED` and `HeaderBar`), a preview
-  feature in 25 and 26, is final there and is what the title-bar option is built on.
-- `scripts/dev-run.sh` now clears `target/deps` before refilling it, so a dependency bump cannot
-  leave the old jar beside the new one with the old one winning.
-- Dependencies brought up to date: JediTerm 3.76 (mouse-scroll direction fix, faster double-width
-  checks), pty4j 0.14.0 (`Cleaner` instead of `finalize`, a fix for `breakRead` waking the wrong
-  PTY after a close, retries when opening the PTY master, ConPTY 1.24), Kotlin stdlib 2.4.21, slf4j
-  2.0.20, Jackson 2.22.4 and JUnit 6.1. Build plugins likewise: Spotless 3.10.4 with
-  palantir-java-format 2.102.0 (one reflow), JaCoCo 0.8.15, ModiTect 1.3.0, jpackage-maven-plugin
-  1.8.0, the compiler, surefire, dependency and exec plugins, and Maven 3.9.16 in the wrapper.
-  antrun stays at 3.1.0, because 3.2.0 warns about every exported property.
-
-## 0.7.1 — 2026-09-30
+## [0.7.1] - 2026-09-30
 
 Fixes for keyboard input, shell-profile startup, and commands that could hang discovery or the
 interface. No new features, so the patch number moves.
+
+### Changed
+
+- **Added regressions for AltGr input, deferred profile startup, asynchronous link-command resolution,
+  and subprocess timeouts and output limits.**
+- **Made the working-directory integration test retry its harmless `cd` command until shell startup
+  accepts input.**
+- **Corrected Linux installer validation to select a regular desktop-entry file rather than the
+  bundled JDK's `java.desktop` directory.**
+- **Updated release-page installation instructions for the native installers and published checksum
+  filename.**
 
 ### Fixed
 
@@ -549,21 +1091,44 @@ interface. No new features, so the patch number moves.
 - **Login-shell PATH and WSL discovery enforce their five-second deadlines.** A command that keeps
   stdout open can no longer bypass the timeout. Timed-out processes are terminated.
 
-### Maintenance
-
-- Added regressions for AltGr input, deferred profile startup, asynchronous link-command resolution,
-  and subprocess timeouts and output limits.
-- Made the working-directory integration test retry its harmless `cd` command until shell startup
-  accepts input.
-- Corrected Linux installer validation to select a regular desktop-entry file rather than the
-  bundled JDK's `java.desktop` directory.
-- Updated release-page installation instructions for the native installers and published checksum
-  filename.
-
-## 0.7.0 — 2026-08-12
+## [0.7.0] - 2026-08-12
 
 A tab can be opened as any shell the machine has, rather than only as the one shell a setting could
 name. New user-visible behaviour, so the minor number moves.
+
+**Known gaps.** Unchanged from 0.6.2, except that the first entry below is new and the Windows one has grown teeth.
+
+- **The Windows half of shell profiles has not run on Windows.** Every branch of discovery is driven
+  in tests with the filesystem and `wsl.exe` probes replaced, and CI builds and packages Windows on
+  every commit — but "PowerShell 7 is installed at that path" and "`wsl --list` answers in that
+  shape" are claims about a machine, not about code, and nothing in a test can check them.
+  `-Dtermina.captureProfiles=true` prints every entry a machine found and the command it runs; that
+  is the check. The macOS and Linux halves are exercised the same way and the macOS one is
+  device-tested.
+- **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
+  application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
+  visible text happens to be the target. See issue #11.
+- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
+  warn.
+- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
+  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
+  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
+  something other than the screen it was given. JavaFX reports the window as full screen and
+  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
+  unaffected.
+- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
+  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
+  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
+  a question nobody can act on.
+- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
+  inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
+  would cover Windows and any shell configured to emit it, and is not implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
+  same thing.
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
+  its source.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -607,17 +1172,12 @@ name. New user-visible behaviour, so the minor number moves.
 - **A command given with `-e` still replaces the shell, and `-d` still wins over a profile's own
   starting directory.** One is an instruction for this launch; the other is a standing preference.
 
-### Known gaps
+## [0.6.2] - 2026-08-11
 
-Unchanged from 0.6.2, except that the first entry below is new and the Windows one has grown teeth.
+Interface fixes and polish. No new behaviour, so the patch number moves.
 
-- **The Windows half of shell profiles has not run on Windows.** Every branch of discovery is driven
-  in tests with the filesystem and `wsl.exe` probes replaced, and CI builds and packages Windows on
-  every commit — but "PowerShell 7 is installed at that path" and "`wsl --list` answers in that
-  shape" are claims about a machine, not about code, and nothing in a test can check them.
-  `-Dtermina.captureProfiles=true` prints every entry a machine found and the command it runs; that
-  is the check. The macOS and Linux halves are exercised the same way and the macOS one is
-  device-tested.
+**Known gaps.** Unchanged from 0.6.1.
+
 - **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
   application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
   visible text happens to be the target. See issue #11.
@@ -636,16 +1196,12 @@ Unchanged from 0.6.2, except that the first entry below is new and the Windows o
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
   would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.6.2 — 2026-08-11
-
-Interface fixes and polish. No new behaviour, so the patch number moves.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Changed
 
@@ -667,9 +1223,12 @@ Interface fixes and polish. No new behaviour, so the patch number moves.
   nothing happened, which from the outside is a terminal that cannot reorder tabs. The gesture now covers
   the whole tab, and what follows the pointer is the tab rather than its text.
 
-### Known gaps
+## [0.6.1] - 2026-08-11
 
-Unchanged from 0.6.1.
+Two fixes to the clickable links 0.6.0 introduced, and a set of dependency bumps. No new behaviour, so
+the patch number moves rather than the minor.
+
+**Known gaps.** Unchanged from 0.6.0.
 
 - **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
   application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
@@ -689,17 +1248,22 @@ Unchanged from 0.6.1.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
   would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
-## 0.6.1 — 2026-08-11
+### Changed
 
-Two fixes to the clickable links 0.6.0 introduced, and a set of dependency bumps. No new behaviour, so
-the patch number moves rather than the minor.
+- **Routine dependency bumps:** pty4j 0.13.10 → 0.13.12, JNA 5.17.0 → 5.19.1, Jackson 2.22.1, JUnit 5.14.4.
+  All patch or minor.
+
+  Checked against a packaged build rather than the suite alone, because pty4j ships the native libraries
+  for every platform and JNA is how they are found — and those survive packaging by an accident of JPMS
+  rather than by design (see the note in the README). The built app image starts a real shell and runs a
+  command in it.
 
 ### Fixed
 
@@ -714,19 +1278,12 @@ the patch number moves rather than the minor.
   was simply not there from a click. The PATH is taken from a login shell, asked once and only when
   a bare command actually has to be resolved.
 
-### Internal
+## [0.6.0] - 2026-08-10
 
-- Routine dependency bumps: pty4j 0.13.10 → 0.13.12, JNA 5.17.0 → 5.19.1, Jackson 2.22.1, JUnit 5.14.4.
-  All patch or minor.
+The minor number moves for the clickable links; the Meta fix goes with it, and it is the one to read
+first if any keyboard chord has ever behaved oddly for you.
 
-  Checked against a packaged build rather than the suite alone, because pty4j ships the native libraries
-  for every platform and JNA is how they are found — and those survive packaging by an accident of JPMS
-  rather than by design (see the note in the README). The built app image starts a real shell and runs a
-  command in it.
-
-### Known gaps
-
-Unchanged from 0.6.0.
+**Known gaps.** Unchanged from 0.5.1, plus the first entry below.
 
 - **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
   application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
@@ -746,17 +1303,12 @@ Unchanged from 0.6.0.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
   would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.6.0 — 2026-08-10
-
-The minor number moves for the clickable links; the Meta fix goes with it, and it is the one to read
-first if any keyboard chord has ever behaved oddly for you.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -797,13 +1349,12 @@ first if any keyboard chord has ever behaved oddly for you.
   event, which by then reports whatever the OS composed. Alt with Ctrl is left alone, because that
   combination is AltGr on Windows and Linux and composing is exactly what it is for.
 
-### Known gaps
+## [0.5.1] - 2026-08-10
 
-Unchanged from 0.5.1, plus the first entry below.
+Two fixes, no new behaviour, so the patch number moves rather than the minor.
 
-- **OSC 8 hyperlinks are not honoured.** Links are found by looking at the text on screen, so one an
-  application declares explicitly — `ls --hyperlink`, some build tools — is only clickable when its
-  visible text happens to be the target. See issue #11.
+**Known gaps.** Unchanged from 0.5.0, less the macOS menus above.
+
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
 - **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
@@ -817,18 +1368,14 @@ Unchanged from 0.5.1, plus the first entry below.
   `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
   a question nobody can act on.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
-  inheriting — which also means no tab tooltip and no relative-path links there. Handling OSC 7
-  would cover Windows and any shell configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
+  implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.5.1 — 2026-08-10
-
-Two fixes, no new behaviour, so the patch number moves rather than the minor.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Fixed
 
@@ -847,9 +1394,9 @@ Two fixes, no new behaviour, so the patch number moves rather than the minor.
   pass underneath. The page now keeps the same margin from the scrollbar that it keeps from the
   sidebar, whether or not it is long enough to scroll.
 
-### Known gaps
+## [0.5.0] - 2026-08-08
 
-Unchanged from 0.5.0, less the macOS menus above.
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
@@ -866,14 +1413,12 @@ Unchanged from 0.5.0, less the macOS menus above.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
   inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
   implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.5.0 — 2026-08-08
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -887,39 +1432,26 @@ Unchanged from 0.5.0, less the macOS menus above.
   open on purpose, because zooming is two or three presses to find the right size; going full screen
   is done once, so that button now closes the menu, as the same button does in Firefox's panel.
 
-### Known gaps
+## [0.4.0] - 2026-08-08
+
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
-- **Full screen is misplaced under GNOME's fractional scaling on Wayland.** JavaFX has no Wayland
-  backend and runs through XWayland; with a fractional monitor scale, and more so with mutter's
-  experimental `xwayland-native-scaling`, the window is sized and positioned by the compositor to
-  something other than the screen it was given. JavaFX reports the window as full screen and
-  correctly sized throughout, which is why nothing inside the app can see it. Maximising is
-  unaffected.
 - **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
   quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
   `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
-  a question nobody can act on.
+  a question nobody can act on. Doing it properly means intercepting the quit before `Platform.exit`.
 - **The working directory is not shown on Windows**, and a new tab there starts at home rather than
-  inheriting. Handling OSC 7 would cover Windows and any shell configured to emit it, and is not
-  implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+  inheriting. Reading another process's cwd means `NtQueryInformationProcess`, a different order of
+  undertaking from a `readlink`. Handling OSC 7 would cover Windows and any shell configured to
+  emit it, and is not implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.4.0 — 2026-08-08
-
-### Changed
-
-- **No rule between settings rows.** A line under every row turned a page of eight settings into
-  eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
-  now, as it is in Editora's settings — which is why the row padding grew as the border went. Row
-  titles and descriptions take Editora's sizes with them, stated in px for both rather than left to
-  inherit.
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -939,26 +1471,30 @@ Unchanged from 0.5.0, less the macOS menus above.
   ends every tab's programs at once. A reorder and a shell that exited on its own do not ask, since
   neither ends anything. Settings → Terminal turns it off for anyone who would rather not be asked.
 
-### Known gaps
+### Changed
+
+- **No rule between settings rows.** A line under every row turned a page of eight settings into
+  eight boxes, and the eye ended up reading the lines rather than the text. Separation is space
+  now, as it is in Editora's settings — which is why the row padding grew as the border went. Row
+  titles and descriptions take Editora's sizes with them, stated in px for both rather than left to
+  inherit.
+
+## [0.3.0] - 2026-08-08
+
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
-- **Quitting is not guarded**, only closing is. There is no Quit item, so on Linux and Windows
-  quitting *is* closing the last window and the prompt covers it; macOS `Cmd+Q` reaches
-  `App.stop()`, which is after the decision and while the toolkit is stopping — a dialog there asks
-  a question nobody can act on. Doing it properly means intercepting the quit before `Platform.exit`.
-- **The working directory is not shown on Windows**, and a new tab there starts at home rather than
-  inheriting. Reading another process's cwd means `NtQueryInformationProcess`, a different order of
-  undertaking from a `readlink`. Handling OSC 7 would cover Windows and any shell configured to
-  emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **The working directory is not shown on Windows.** Reading another process's cwd there means
+  `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
+  the escape sequence a shell can send to report its directory — would cover Windows and any shell
+  configured to emit it, and is not implemented.
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.3.0 — 2026-08-08
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -999,7 +1535,9 @@ Unchanged from 0.5.0, less the macOS menus above.
   `Desktop … Downloads … Games` copied `…Game`. Whole-line and select-all were bounded by the
   column count too, which cut the tail off any line carrying more slots than the grid has columns.
 
-### Known gaps
+## [0.2.0] - 2026-08-08
+
+**Known gaps:**
 
 - **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
   warn.
@@ -1007,14 +1545,12 @@ Unchanged from 0.5.0, less the macOS menus above.
   `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
   the escape sequence a shell can send to report its directory — would cover Windows and any shell
   configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
+- **Windows is still unrun by a human.** CI builds and packages it on every commit, which is not the
   same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
   its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.2.0 — 2026-08-08
+- **No splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -1049,24 +1585,20 @@ Unchanged from 0.5.0, less the macOS menus above.
   check reports twice — once when it starts, once when it finishes — and each report opened its own
   alert instead of replacing the first, so the two stacked and were dismissed in reverse order.
 
-### Known gaps
-
-- **Nothing is signed or notarised.** macOS will refuse a downloaded copy until it is; Windows will
-  warn.
-- **The working directory is not shown on Windows.** Reading another process's cwd there means
-  `NtQueryInformationProcess`, a different order of undertaking from a `readlink`. Handling OSC 7 —
-  the escape sequence a shell can send to report its directory — would cover Windows and any shell
-  configured to emit it, and is not implemented.
-- Windows is still unrun by a human. CI builds and packages it on every commit, which is not the
-  same thing.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
-  its source.
-- No splits, no search in scrollback, no keybinding customisation.
-
-## 0.1.0 — 2026-08-07
+## [0.1.0] - 2026-08-07
 
 First release.
+
+**Known gaps:**
+
+- **Windows and Linux are unrun.** The code paths exist and pty4j carries every platform's natives, but
+  only macOS has actually been exercised.
+- **Installers are not built and nothing is signed — `-Pdist` produces an app image, and macOS will
+  refuse a downloaded copy until it is signed and notarised.**
+- **Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
+  cyan, bright white against its white background).** Kept rather than corrected, so the port matches
+  its source.
+- **No tab reordering, no splits, no search in scrollback, no keybinding customisation.**
 
 ### Added
 
@@ -1086,7 +1618,7 @@ First release.
 - **Per-tab right-click menu**: new, close, close others, close to the right, move left/right.
 - **Window title follows the selected tab**, as macOS Terminal does.
 - **Optional scrollbar** for the scrollback (Appearance → Window), palette-coloured.
-- Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.
+- **Tab-strip glyphs matched in size and alignment; dragging the scrollbar no longer selects text.**
 - **Window size is remembered** across launches, clamped to the current screen.
 - **Fixed**: a Nerd Font icon (or any emoji) in a directory listing shifted the rest of its line one
   column right, so columns did not line up between rows.
@@ -1096,7 +1628,7 @@ First release.
 - **Window opacity** (Appearance → Window), clamped so it cannot hide the window that undoes it.
 - **Bundled fonts**: five monospace families plus Inter for the interface, so a terminal looks the
   same on every platform. JetBrains Mono is now the default.
-- Tooltip on the new-tab button; "Hide Menu Bar" no longer appears in the menu on macOS.
+- **Tooltip on the new-tab button; "Hide Menu Bar" no longer appears in the menu on macOS.**
 - **Tab reordering** by drag, or `Cmd/Ctrl+Shift+Left/Right`.
 - **Tab bar hides itself** while only one tab is open, reclaiming the row for the terminal.
 - **About window** and an **update check** against GitHub releases, throttled to once a day and
@@ -1116,13 +1648,23 @@ First release.
   elsewhere.
 - **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
 
-### Known gaps
-
-- Windows and Linux are unrun. The code paths exist and pty4j carries every platform's natives, but
-  only macOS has actually been exercised.
-- Installers are not built and nothing is signed — `-Pdist` produces an app image, and macOS will
-  refuse a downloaded copy until it is signed and notarised.
-- Clear Light inherits four low-contrast colours from Apple's palette (white, bright yellow, bright
-  cyan, bright white against its white background). Kept rather than corrected, so the port matches
-  its source.
-- No tab reordering, no splits, no search in scrollback, no keybinding customisation.
+[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/adriandeleon/Termina/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/adriandeleon/Termina/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/adriandeleon/Termina/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/adriandeleon/Termina/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/adriandeleon/Termina/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/adriandeleon/Termina/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/adriandeleon/Termina/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/adriandeleon/Termina/compare/v0.7.1...v0.8.0
+[0.7.1]: https://github.com/adriandeleon/Termina/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/adriandeleon/Termina/compare/v0.6.2...v0.7.0
+[0.6.2]: https://github.com/adriandeleon/Termina/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/adriandeleon/Termina/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/adriandeleon/Termina/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/adriandeleon/Termina/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/adriandeleon/Termina/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/adriandeleon/Termina/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/adriandeleon/Termina/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/adriandeleon/Termina/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/adriandeleon/Termina/releases/tag/v0.1.0

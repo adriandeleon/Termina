@@ -152,7 +152,7 @@ public final class SyncAccount {
         List<String> argv = new ArrayList<>(ghCommand);
         argv.addAll(List.of("auth", "status", "--json", "hosts"));
         try {
-            return CommandOutput.read(new ProcessBuilder(argv), timeout)
+            return CommandOutput.read(com.termina.process.ChildPath.apply(new ProcessBuilder(argv)), timeout)
                     .map(out -> logins(new String(out, StandardCharsets.UTF_8), host))
                     .orElse(List.of());
         } catch (InterruptedException e) {

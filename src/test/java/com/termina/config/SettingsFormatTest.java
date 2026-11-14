@@ -79,7 +79,7 @@ class SettingsFormatTest {
         old.setProperty("sync.repository", "https://github.com/me/x.git");
         old.setProperty("profile.1.directory", "/home/josé");
         old.setProperty("profile.1.name", " leading space #! = :");
-        old.setProperty("keys.newTab", "Ctrl+Shift+T");
+        old.setProperty("keys.file.newTab", "Ctrl+Shift+T");
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         old.store(out, "Termina settings");
 

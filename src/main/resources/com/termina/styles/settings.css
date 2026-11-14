@@ -16,7 +16,7 @@
 
 /* Group headings are labels, not choices — no hover, no selection affordance. */
 .settings-group-header {
-    -fx-text-fill: -color-fg-subtle;
+    -fx-text-fill: -color-fg-muted;
     -fx-font-size: 0.75em;
     -fx-font-weight: bold;
     -fx-padding: 12 10 4 10;
@@ -65,6 +65,9 @@
     -fx-opacity: 0.4;
 }
 
+/* A page's link to its documentation, under everything else on the page. */
+.settings-help-link { -fx-padding: 10 0 12 0; }
+
 .settings-section-header {
     -fx-font-weight: bold;
     -fx-text-fill: -color-fg-default;
@@ -108,7 +111,26 @@
     -fx-font-size: 0.85em;
 }
 
+/* The chord-recording field: while it has the focus it is empty and its prompt says what to do,
+   so the prompt must stay readable rather than fade as the theme makes a focused prompt do. Here,
+   not in app.css: this window's scene loads only this sheet, and the rule did nothing from there. */
+.shortcut-capture:focused {
+    -fx-prompt-text-fill: -color-fg-muted;
+}
+
 .settings-preview {
     -fx-border-color: -color-border-default;
     -fx-border-radius: 6;
 }
+
+/* The sync's status pill (SET-21): a word on a tinted ground, in the state's own color. */
+.sync-pill {
+    -fx-background-radius: 10;
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+}
+.sync-pill.off { -fx-background-color: -color-neutral-subtle; -fx-text-fill: -color-fg-muted; }
+.sync-pill.idle { -fx-background-color: -color-success-subtle; -fx-text-fill: -color-success-fg; }
+.sync-pill.syncing { -fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; }
+.sync-pill.problem { -fx-background-color: -color-danger-subtle; -fx-text-fill: -color-danger-fg; }

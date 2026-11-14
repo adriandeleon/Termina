@@ -4,6 +4,42 @@
  */
 
 /*
+ * State colours (ICON-07, Pauta 2.0.2), named once here and used by name everywhere else, so what
+ * a colour means is decided in one place:
+ *
+ *   red    broken: a refusal, a failure, a value that will not be used
+ *   amber  not durable yet: a warning, something that needs another step
+ *   green  verified: a check that answered yes
+ *
+ * Each chains to the theme's text role for that state, which keeps 4.5:1 on its grounds.
+ */
+.root {
+    -state-red: -color-danger-fg;
+    -state-amber: -color-warning-fg;
+    -state-green: -color-success-fg;
+
+    /* The keyboard's colour (ICON-06, MENU-15): wherever a chord is shown, a menu's chord column or
+       the palette's, so "what do I press" is always the same colour and never an accent or a
+       state. Editora's periwinkle, a ladder over the theme's ground: a deep ink on a light ground,
+       a lighter periwinkle the darker the ground gets, 4.5:1 or more on the default and subtle
+       surfaces of both themes (StyleContrastTest). */
+    -state-key: ladder(-color-bg-default, #b0b6e0 0%, #b8bee5 10%, #cdd1f1 20%, #e3e6f9 30%, #ecedfb 49%, #3c4380 50%);
+    -state-key-bg: ladder(-color-bg-default, rgba(176, 182, 224, 0.15) 0%, rgba(205, 209, 241, 0.15) 20%,
+            rgba(236, 237, 251, 0.15) 49%, rgba(60, 67, 128, 0.15) 50%);
+
+    /* What sits behind and under a floating surface (ICON-08): a scrim over the window while the
+       palette is open, and the shadows of the palette and the find bar. Black in every theme —
+       a shadow is the absence of light, not a hue — so named here rather than per theme. */
+    -scrim: rgba(0, 0, 0, 0.32);
+    -shadow-overlay: rgba(0, 0, 0, 0.45);
+    -shadow-floating: rgba(0, 0, 0, 0.35);
+}
+
+/* A status line saying something failed or was refused, and one asking for attention. */
+.state-error { -fx-text-fill: -state-red; }
+.state-warning { -fx-text-fill: -state-amber; }
+
+/*
  * Context-menu glyphs. Coloured here rather than in MenuIcons so they track the theme; an SVGPath
  * takes its colour from -fx-fill, not -fx-text-fill, so it does not inherit the item's own.
  */
@@ -17,8 +53,46 @@
 }
 
 /* A disabled item dims its label but not its graphic, so the icon has to be dimmed explicitly. */
+/* A destructive row of a right-click menu (MENU-12): its text in the danger colour, until it is
+   the highlighted row, whose text has to read on the highlight. */
+.context-menu .menu-item.danger > .label {
+    -fx-text-fill: -color-danger-fg;
+}
+
+.context-menu .menu-item.danger:focused > .label {
+    -fx-text-fill: -color-fg-default;
+}
+
+/* The same for a row of the menu bar, whose title is a label of the row's own (MENU-12). */
+.menu-item.danger .menu-item-title {
+    -fx-text-fill: -color-danger-fg;
+}
+
+.menu-item.danger:focused .menu-item-title {
+    -fx-text-fill: -color-fg-default;
+}
+
 .menu-item:disabled .menu-icon {
     -fx-fill: -color-fg-subtle;
+    -fx-opacity: 0.5;
+}
+
+/* The outline glyphs (MENU-14): the same three states, on the stroke. */
+.menu-icon-line {
+    -fx-fill: transparent;
+    -fx-stroke: -color-fg-muted;
+    -fx-stroke-width: 1.3;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.menu-item:focused .menu-icon-line,
+.menu-item:hover .menu-icon-line {
+    -fx-stroke: -color-fg-default;
+}
+
+.menu-item:disabled .menu-icon-line {
+    -fx-stroke: -color-fg-subtle;
     -fx-opacity: 0.5;
 }
 
@@ -75,10 +149,54 @@
 .about-version { -fx-text-fill: -color-fg-muted; }
 .about-details { -fx-text-fill: -color-fg-muted; }
 .about-details .label { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.9em; }
-.about-credits { -fx-text-fill: -color-fg-subtle; -fx-font-size: 0.85em; }
-.about-path { -fx-text-fill: -color-fg-subtle; -fx-font-family: monospace; -fx-font-size: 0.8em; }
-.about-uptodate { -fx-text-fill: -color-success-fg; -fx-font-size: 0.9em; }
-.about-update-headline { -fx-text-fill: -color-accent-fg; -fx-font-weight: bold; }
+.about-credits { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.85em; }
+.about-path { -fx-text-fill: -color-fg-muted; -fx-font-family: monospace; -fx-font-size: 0.8em; }
+.about-uptodate { -fx-text-fill: -state-green; -fx-font-size: 0.9em; }
+/* A failed check in the red token, and when the last one ran in the muted color (ABOUT-10). */
+.about-checkfailed { -fx-text-fill: -state-red; -fx-font-size: 0.9em; }
+.about-lastchecked { -fx-text-fill: -color-fg-muted; -fx-font-size: 0.9em; }
+/* The Pauta window (PWIN-02): the conformance as a pill in its role's tint, and the list of
+   exceptions, each a rule's ID, its level and the reason. */
+.pauta-conformance {
+    -fx-background-radius: 10;
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+}
+.pauta-conformance.complete { -fx-background-color: -color-success-subtle; -fx-text-fill: -color-success-fg; }
+.pauta-conformance.core { -fx-background-color: -color-accent-subtle; -fx-text-fill: -color-accent-fg; }
+.pauta-conformance.partial { -fx-background-color: -color-warning-subtle; -fx-text-fill: -color-warning-fg; }
+.pauta-list { -fx-background-color: transparent; }
+.pauta-list > .viewport { -fx-background-color: transparent; }
+.pauta-group { -fx-font-weight: bold; -fx-padding: 8 0 2 0; }
+.pauta-rule {
+    -fx-font-family: "JetBrains Mono", monospace;
+    -fx-font-size: 12px;
+    -fx-padding: 0;
+}
+.pauta-level { -fx-text-fill: -color-fg-muted; -fx-font-size: 11.5px; }
+.pauta-reason > .text { -fx-fill: -color-fg-default; }
+.pauta-reason > .hyperlink { -fx-padding: 0; }
+
+/* The Doctor (DIAG-07): a status is its word first, and a colour second. */
+.doctor-status {
+    -fx-background-radius: 10;
+    -fx-padding: 1 9 1 9;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: bold;
+}
+.doctor-status.doctor-ok { -fx-background-color: -color-success-subtle; -fx-text-fill: -color-success-fg; }
+.doctor-status.doctor-missing { -fx-background-color: -color-danger-subtle; -fx-text-fill: -color-danger-fg; }
+.doctor-status.doctor-problem { -fx-background-color: -color-danger-subtle; -fx-text-fill: -color-danger-fg; }
+.doctor-status.doctor-optional { -fx-background-color: -color-warning-subtle; -fx-text-fill: -color-warning-fg; }
+.doctor-name { -fx-font-weight: bold; }
+.doctor-detail { -fx-text-fill: -color-fg-muted; -fx-font-family: "JetBrains Mono", monospace; -fx-font-size: 12px; }
+.doctor-fix { -fx-padding: 0 0 0 2; }
+.doctor-link { -fx-padding: 0 0 0 2; }
+
+/* An available update stands out (ABOUT-10): bold, in amber, which nothing else in About uses;
+   the links beside it keep the accent. */
+.about-update-headline { -fx-text-fill: -state-amber; -fx-font-weight: bold; }
 
 /*
  * macOS moves the menus to the screen menu bar, but the MenuBar node stays in the scene graph —
@@ -101,8 +219,23 @@
  * background is cleared so the two cannot show a seam. The title is muted, as a title is.
  */
 .header-bar {
-    -fx-background-color: -color-border-muted, -color-bg-subtle;
-    -fx-background-insets: 0, 0 0 1 0;
+    -fx-background-color: -color-bg-subtle;
+    -fx-background-insets: 0;
+}
+
+/*
+ * The bars at the top are one band (TBAR-06, Pauta 6.0.1): the menu bar and the tab strip share
+ * -color-bg-subtle, with no hairline and no change of ground between them. The theme draws a line
+ * under the menu bar and puts the strip on the default ground; both are taken back here. The line
+ * under the strip stays: it is where the band ends and the terminal begins.
+ */
+.menu-bar {
+    -fx-background-color: -color-bg-subtle;
+    -fx-background-insets: 0;
+}
+
+.tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: -color-border-default, -color-bg-subtle;
 }
 
 .header-bar > .menu-bar {
@@ -152,6 +285,15 @@
 /* Drag-to-reorder feedback: the dragged tab dims, and an accent edge shows where it would land. */
 .tab-title {
     -fx-padding: 0 2 0 2;
+}
+
+/* A pinned tab (TABS-03, Pauta 2.0.2): a bold title and a pin after it. Bulk closes pass over it. */
+.tab-title.pinned {
+    -fx-font-weight: bold;
+}
+
+.tab-pin {
+    -fx-fill: -color-fg-muted;
 }
 
 .tab-dragging {
@@ -340,7 +482,27 @@
  * and a centred card sits exactly where the output being consulted is.
  */
 .palette-backdrop {
-    -fx-background-color: rgba(0, 0, 0, 0.32);
+    -fx-background-color: -scrim;
+}
+
+/* The Message Log's card (MLOG-08): the palette's surface, at the bottom left over the status
+   bar's echo area. What is behind it is not dimmed; a press there closes the log. */
+.message-log-backdrop {
+    -fx-background-color: transparent;
+}
+
+.message-log-card {
+    -fx-background-color: -color-bg-overlay;
+    -fx-background-radius: 12;
+    -fx-border-color: -color-border-default;
+    -fx-border-width: 1;
+    -fx-border-radius: 12;
+    -fx-padding: 12;
+    -fx-effect: dropshadow(gaussian, -shadow-overlay, 44, 0.16, 0, 18);
+}
+
+.message-log-title {
+    -fx-font-weight: bold;
 }
 
 .command-palette {
@@ -352,7 +514,7 @@
     -fx-padding: 6;
     /* The kit layers a tight contact shadow and a wide ambient one; JavaFX takes a single
        dropshadow, so this is the wide one with a short offset, and the 1px border is the edge. */
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.45), 44, 0.16, 0, 18);
+    -fx-effect: dropshadow(gaussian, -shadow-overlay, 44, 0.16, 0, 18);
     /* Clear of the tab strip, so the tabs stay readable while choosing. */
     -fx-translate-y: 64;
 }
@@ -365,8 +527,8 @@
 .command-palette .palette-prefix {
     -fx-font-size: 11px;
     -fx-font-weight: bold;
-    -fx-text-fill: -color-accent-fg;
-    -fx-background-color: -color-accent-subtle;
+    -fx-text-fill: -state-key;
+    -fx-background-color: -state-key-bg;
     -fx-background-radius: 5;
     -fx-padding: 2 7 2 7;
 }
@@ -416,7 +578,7 @@
 
 /* The shortcut is a reminder, not the point of the row. */
 .command-palette .list-cell .keybinding {
-    -fx-text-fill: -color-fg-muted;
+    -fx-text-fill: -state-key;
     -fx-font-size: 11px;
 }
 
@@ -449,10 +611,12 @@
     -fx-padding: 7 10 2 10;
 }
 
-/* The settings window's chord-recording field: while it has the focus it is empty and its prompt
-   says what to do, so the prompt must stay readable rather than fade as a focused prompt does. */
-.shortcut-capture:focused {
-    -fx-prompt-text-fill: -color-fg-muted;
+/* A file path in a window's footer: the Debug Log's, and the settings window's (settings.css has
+   its own copy, since that scene does not load this sheet). */
+.settings-path {
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-family: monospace;
+    -fx-font-size: 0.85em;
 }
 
 
@@ -509,7 +673,7 @@
     -fx-border-radius: 8;
     -fx-padding: 3 4 3 8;
     -fx-pref-width: 380;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 18, 0.12, 0, 6);
+    -fx-effect: dropshadow(gaussian, -shadow-floating, 18, 0.12, 0, 6);
 }
 
 /* The query is the card's own text, not a boxed field inside it. */
@@ -524,7 +688,7 @@
 
 /* A regular expression that does not compile yet: said in the text, not by a dialog. */
 .search-bar .search-field:invalid {
-    -fx-text-fill: -color-danger-fg;
+    -fx-text-fill: -state-red;
 }
 
 .search-bar .search-count {
@@ -611,4 +775,130 @@
 .empty-window-placeholder {
     -fx-text-fill: -color-fg-muted;
     -fx-padding: 24;
+}
+
+/*
+ * The status bar (WIN-01): one quiet row under the terminal, in the chrome's surface, its echo text
+ * in the readable muted ink until a message says something is wrong.
+ */
+.status-bar {
+    -fx-background-color: -color-bg-subtle;
+    -fx-border-color: -color-border-muted transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 2 10 3 10;
+    -fx-spacing: 12;
+}
+
+.status-bar .status-echo {
+    -fx-text-fill: -color-fg-muted;
+    -fx-font-size: 0.85em;
+}
+
+.status-bar .status-echo.state-error { -fx-text-fill: -state-red; }
+.status-bar .status-echo.state-warning { -fx-text-fill: -state-amber; }
+
+/* The link to a newer version's release (DIAG-09): the bar's size, no padding of its own. */
+.status-bar .status-update {
+    -fx-font-size: 0.85em;
+    -fx-padding: 0;
+    -fx-border-width: 0;
+}
+
+.status-bar .status-unread {
+    -fx-font-size: 0.85em;
+    -fx-font-weight: bold;
+}
+
+/*
+ * The keyboard focus ring (ICON-12, KBD-16, Pauta 2.0.2), Editora's, cut to the controls Termina
+ * has. Most of the main window's chrome is deliberately not focus-traversable (Tab is the shell's);
+ * this is for Settings, the dialogs and the other windows, where it is.
+ *
+ * AtlantaFX marks focus by recolouring a control's 1px border layer, and has no focus rule at all
+ * for check boxes or hyperlinks. `:focus-visible` is set only when focus arrives from the keyboard,
+ * so a click never leaves a ring behind. The ring is a 2px border with negative insets: just outside
+ * the control, adding nothing to its insets, so focusing never shifts layout. `-focus-ring` is a
+ * looked-up colour, 3:1 or better against every surface in the Editora themes.
+ *
+ * Keep this block last: equal-specificity author rules are decided by order.
+ */
+.root {
+    -focus-ring: -color-accent-emphasis;
+}
+.button:focus-visible,
+.toggle-button:focus-visible,
+.menu-button:focus-visible,
+.hyperlink:focus-visible,
+.combo-box-base:focus-visible,
+.check-box:focus-visible > .box {
+    -fx-border-color: -focus-ring;
+    -fx-border-width: 2;
+    -fx-border-insets: -3;
+    -fx-border-radius: 10;
+    -fx-border-style: solid;
+}
+.check-box:focus-visible > .box {
+    -fx-border-radius: 6;
+}
+/* A settings switch reached with Tab: the same ring, round its track. */
+.toggle-switch:focus-visible > .thumb-area {
+    -fx-border-color: -focus-ring;
+    -fx-border-width: 2;
+    -fx-border-insets: -3;
+    -fx-border-radius: 12;
+    -fx-border-style: solid;
+}
+/* A text field already gets the theme's accent border on focus; from the keyboard it is thickened to
+   the same 2px weight by widening that border layer, which keeps the ring inside the field. */
+.text-field:focus-visible,
+.password-field:focus-visible {
+    -fx-background-insets: 0, 2px;
+}
+
+/*
+ * Every menu the app draws (MENU-16): titles in Inter 14 px and chords in Inter 11 px at 100%,
+ * whatever node the menu was opened from. Set here, on the menu and on its rows' labels, in pixels
+ * and never in em, so the font of the node behind a menu cannot reach it; the UI zoom rewrites
+ * these values with every other length in this file (UiZoom.scale), so both sizes follow it.
+ */
+.context-menu {
+    -fx-font-family: "Inter";
+    -fx-font-size: 14px;
+    /* The popup's card (MENU-18): a radius of 8, and a shadow of radius 16 at offset Y 16, the
+       offset no smaller than the radius, so the card reads as lifted and not as outlined. */
+    -fx-background-radius: 8px, 7px;
+    -fx-effect: dropshadow(three-pass-box, -color-shadow-default, 16, 0, 0, 16);
+}
+.context-menu .menu-item > .label,
+.context-menu .menu-item .menu-item-title {
+    -fx-font-family: "Inter";
+    -fx-font-size: 14px;
+}
+
+/* The menu bar's rows (MENU-02): a title and the chord the row draws itself, in its own column. */
+.menu-item .menu-item-title {
+    -fx-text-fill: -color-fg-default;
+}
+.context-menu .menu-item .menu-item-chord,
+.menu-item .menu-item-chord {
+    -fx-text-fill: -state-key;
+    -fx-font-family: "Inter";
+    -fx-font-size: 11px;
+}
+
+/* The chord cell of a right-click menu's row (MENU-15): the item's accelerator text, which the
+   skin draws right-aligned in one column, in the keyboard's colour and at the bar's chord size.
+   A destructive row's too: the cell is a label like the title, and the danger rule would take it. */
+.context-menu .menu-item > .accelerator-text,
+.context-menu .menu-item:focused > .accelerator-text,
+.context-menu .menu-item.danger > .accelerator-text {
+    -fx-text-fill: -state-key;
+    -fx-font-family: "Inter";
+    -fx-font-size: 11px;
+}
+
+/* A picker's title (QOPEN-02): the command's name over the field, on the palette's card. */
+.command-palette .palette-title {
+    -fx-font-weight: bold;
+    -fx-padding: 4 10 0 10;
 }

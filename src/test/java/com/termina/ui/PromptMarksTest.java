@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** How the marks a shell sends become commands, and where a jump lands. */
@@ -107,5 +109,28 @@ class PromptMarksTest {
         for (int i = 0; i < PromptMarks.MAX_COMMANDS + 5; i++) marks.prompt(at(i));
         assertEquals(PromptMarks.MAX_COMMANDS, marks.all().size());
         assertEquals(at(5), marks.all().getFirst().prompt());
+    }
+
+    /**
+     * PERF-21 (Pauta 6.0.1), for the fix in cedc1f5: the painter asks for the marks on every
+     * frame, and is handed the same list until a command changes it. It used to be copied each
+     * time, up to a few hundred records a frame for a list that changes once a command.
+     */
+    @Test
+    void thePainterIsHandedTheSameListUntilSomethingChanges() {
+        PromptMarks marks = session(1, 5, 9);
+        java.util.List<PromptMarks.Command> first = marks.all();
+        assertSame(first, marks.all(), "nothing changed: not copied again");
+        assertSame(first, marks.all());
+
+        marks.prompt(at(14));
+        java.util.List<PromptMarks.Command> second = marks.all();
+        assertNotSame(first, second, "a new prompt is a new list");
+        assertEquals(first.size() + 1, second.size());
+        assertSame(second, marks.all());
+
+        // A prompt redrawn in place changes nothing, and so copies nothing.
+        marks.prompt(at(14));
+        assertSame(second, marks.all());
     }
 }

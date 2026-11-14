@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  * after a rebind, a clear or a reset.
  *
  * <p>A port of Editora's {@code command.KeybindingEdits}, keyed by command rather than by chord —
- * Termina stores {@code keys.newTab=Ctrl+Shift+Y}, Editora {@code "C-x C-s": "file.save"} — and
+ * Termina stores {@code keys.file.newTab=Ctrl+Shift+Y}, Editora {@code "C-x C-s": "file.save"} — and
  * without the prefix conflicts, because nothing here is a multi-key sequence. What carries over is
  * the shape: every edit returns the whole new table, so a rebind that takes a chord from another
  * command is one write, and the window never sees the chord on both.

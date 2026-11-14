@@ -96,11 +96,95 @@ class ThemesTest {
         assertEquals("editora-dark", Themes.byId("editora-dark").id());
     }
 
+    /** SET-10 (Pauta 6.0.1): a newer build's theme is kept beside itself and not read. */
+    @Test
+    void aThemeFromANewerTerminaIsSetAsideAndNotListed() throws Exception {
+        Path themes = Files.createDirectories(config.resolve("themes"));
+        String current = com.termina.theme.ThemeFile.write(
+                new com.termina.theme.ColorScheme("Night", 0x101010, 0xf0f0f0, new int[16], null, null));
+        int newer = com.termina.theme.ThemeFile.SCHEMA_VERSION + 1;
+        String fromTheFuture = current.replace(
+                "\"schemaVersion\" : " + com.termina.theme.ThemeFile.SCHEMA_VERSION, "\"schemaVersion\" : " + newer);
+        assertFalse(current.equals(fromTheFuture), "the file carries its version");
+        Files.writeString(themes.resolve("night.json"), current);
+        Files.writeString(themes.resolve("later.json"), fromTheFuture);
+        Themes.useDirectory(themes);
+        assertEquals(Theme.values().length + 1, Themes.all().size());
+        assertEquals("Night", Themes.byId("user-night").displayName());
+        Path backup = themes.resolve("later.json.v" + newer + ".bak");
+        assertEquals(backup, Themes.backupOf(themes.resolve("later.json"), newer));
+        assertEquals(fromTheFuture, Files.readString(backup));
+        assertFalse(Files.exists(themes.resolve("later.json")));
+        // Whatever named it falls back, as for any theme that is not there.
+        assertEquals(
+                Themes.byId("no-such-theme").id(), Themes.byId("user-later").id());
+
+        // A second newer file of the same name does not overwrite the copy already kept.
+        Files.writeString(themes.resolve("later.json"), fromTheFuture + "\n");
+        Themes.useDirectory(themes);
+        assertEquals(fromTheFuture, Files.readString(backup));
+        assertEquals(Theme.values().length + 1, Themes.all().size());
+    }
+
     @Test
     void aBrokenFileInTheFolderIsSkipped() throws Exception {
         Path themes = Files.createDirectories(config.resolve("themes"));
         Files.writeString(themes.resolve("broken.properties"), "name=Broken\n");
+        Files.writeString(themes.resolve("also.json"), "{\"name\": \"Also broken\"}");
+        Files.writeString(themes.resolve("notes.txt"), "not a theme at all");
         Themes.useDirectory(themes);
+        assertEquals(Theme.values().length, Themes.all().size());
+        // Neither is touched: a file that does not read is the user's to mend.
+        assertTrue(Files.exists(themes.resolve("broken.properties")));
+        assertFalse(Files.exists(themes.resolve("broken.json")));
+    }
+
+    /**
+     * PLAT-14 (Pauta 6.0.1): a theme from before 0.15, a properties file, is rewritten as JSON the
+     * first time it is read, under the same id, and the old file is kept.
+     */
+    @Test
+    void aThemeStoredAsPropertiesIsRewrittenAsJsonOnce() throws Exception {
+        Path themes = Files.createDirectories(config.resolve("themes"));
+        StringBuilder old = new StringBuilder("schemaVersion=1\nname=Night\nbackground=#101010\nforeground=#f0f0f0\n");
+        for (int i = 0; i < 16; i++)
+            old.append("ansi.")
+                    .append(i)
+                    .append("=#0000")
+                    .append(String.format("%02x", i))
+                    .append('\n');
+        Files.writeString(themes.resolve("night.properties"), old.toString());
+
+        Themes.useDirectory(themes);
+        ThemeEntry night = Themes.byId("user-night");
+        assertEquals("Night", night.displayName());
+        assertEquals(themes.resolve("night.json"), night.file());
+        assertEquals(Color.web("#00000f"), night.palette().ansi(15));
+        assertFalse(Files.exists(themes.resolve("night.properties")));
+        assertEquals(old.toString(), Files.readString(themes.resolve("night.properties.migrated")));
+        String json = Files.readString(themes.resolve("night.json"));
+        assertEquals(com.termina.theme.ThemeFile.SCHEMA_VERSION, com.termina.theme.ThemeFile.versionOf(json));
+        try (var files = Files.list(themes)) {
+            assertEquals(2, files.count(), "the theme, the file it was, and no temporary");
+        }
+
+        // The next read finds the JSON file and writes nothing.
+        var written = Files.getLastModifiedTime(themes.resolve("night.json"));
+        Themes.useDirectory(themes);
+        assertEquals(written, Files.getLastModifiedTime(themes.resolve("night.json")));
+        assertEquals(Theme.values().length + 1, Themes.all().size());
+
+        // With both forms of one name in the folder the JSON file is the theme, the other left alone.
+        Files.writeString(themes.resolve("night.properties"), old.toString().replace("Night", "Older"));
+        Themes.useDirectory(themes);
+        assertEquals("Night", Themes.byId("user-night").displayName());
+        assertTrue(Files.exists(themes.resolve("night.properties")));
+
+        // Removing the theme retires the older file too, or it would bring the theme back at the next read.
+        Themes.remove("user-night");
+        assertFalse(Files.exists(themes.resolve("night.json")));
+        assertFalse(Files.exists(themes.resolve("night.properties")));
+        assertTrue(Files.exists(themes.resolve("night.properties.migrated")));
         assertEquals(Theme.values().length, Themes.all().size());
     }
 
@@ -182,5 +266,25 @@ class ThemesTest {
                 "clear-light",
                 TerminalWindow.themeFor(com.termina.config.Settings.ProfileStyle.NONE, "clear-light")
                         .id());
+    }
+
+    @Test
+    void followingTheSystemResolvesToEditoraLightOrDarkAndChangesWithIt() {
+        try {
+            Themes.followSystem(false);
+            assertEquals("editora-light", Themes.byId(Themes.SYSTEM_ID).id());
+            Themes.followSystem(true);
+            assertEquals("editora-dark", Themes.byId(Themes.SYSTEM_ID).id());
+        } finally {
+            Themes.followSystem(true);
+        }
+    }
+
+    @Test
+    void thePickerOffersTheSystemChoiceFirstAndStoresItsIdNotTodaysAnswer() {
+        var first = Themes.byDisplayName().entrySet().iterator().next();
+        assertEquals(Themes.systemDisplayName(), first.getKey());
+        assertEquals(Themes.SYSTEM_ID, first.getValue().id());
+        assertTrue(first.getValue().isBuiltIn(), "the system choice cannot be removed");
     }
 }

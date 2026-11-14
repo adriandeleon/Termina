@@ -32,10 +32,14 @@ class TypeAheadModelTest {
     private final TypeAheadModel model = new TypeAheadModel(terminal, buffer, wanted::get);
     private final TerminalTypeAheadManager predictor = new TerminalTypeAheadManager(model);
 
-    /** Types a key, then echoes it after a delay, as a far-away shell would. */
+    /**
+     * Types a key, then echoes it after a delay, as a far-away shell would. The delay is the input
+     * here, not a wait for anything: JediTerm's predictor times the echo against the system clock
+     * and has no clock to hand it, so 150 ms have to pass. They pass on a latch nothing opens.
+     */
     private void typeWithSlowEcho(char c) throws InterruptedException {
         predictor.onKeyEvent(TerminalTypeAheadManager.TypeAheadEvent.fromChar(c));
-        Thread.sleep(150);
+        new java.util.concurrent.CountDownLatch(1).await(150, java.util.concurrent.TimeUnit.MILLISECONDS);
         terminal.writeCharacters(String.valueOf(c));
         predictor.onTerminalStateChanged();
     }

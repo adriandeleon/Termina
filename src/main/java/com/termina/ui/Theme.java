@@ -1,8 +1,5 @@
 package com.termina.ui;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import javafx.scene.paint.Color;
 
 /**
@@ -111,6 +108,38 @@ public enum Theme {
                 "#5685a8", "#ad64be", "#69c6c9", "#c1c8cc",
                 "#506573", "#df6c5a", "#79be7e", "#e5c872",
                 "#49a2e1", "#d389e5", "#77e1e5", "#d8e1e7",
+            }),
+    /**
+     * High contrast (ACC-09, Pauta 6.0.1): white on black, with every colour a program can ask for
+     * at 7:1 or better on that black, and a control stylesheet of its own
+     * ({@code editora-contrast.css}, the dark one with other values for its colour tokens). The
+     * theme the app switches to while Windows' high-contrast mode is on ({@link HighContrast}),
+     * and one anybody can choose.
+     */
+    HIGH_CONTRAST(
+            "high-contrast",
+            "High Contrast",
+            true,
+            "editora-contrast",
+            Color.web("#000000"),
+            Color.web("#ffffff"),
+            new String[] {
+                "#000000", // 0 black: the ground itself, as a program that paints with it expects
+                "#ff6b6b", // 1 red
+                "#3ff23f", // 2 green
+                "#ffff00", // 3 yellow
+                "#6cb6ff", // 4 blue, lightened: a saturated blue is the least legible colour on black
+                "#ff7bff", // 5 magenta
+                "#1aebff", // 6 cyan, the accent
+                "#e6e6e6", // 7 white
+                "#a0a0a0", // 8 bright black: a grey that can still be read
+                "#ff9a9a", // 9 bright red
+                "#8cf88c", // 10 bright green
+                "#ffff8a", // 11 bright yellow
+                "#a8d4ff", // 12 bright blue
+                "#ffb3ff", // 13 bright magenta
+                "#8cf4ff", // 14 bright cyan
+                "#ffffff", // 15 bright white
             });
 
     private final String id;
@@ -122,8 +151,9 @@ public enum Theme {
     /**
      * @param chrome the control stylesheet to use for the application's own windows. A ported
      *     terminal palette brings no opinion about how a settings window should look, so it
-     *     borrows whichever Caret &amp; Ink sheet matches its brightness. That also keeps the two
-     *     vendored 165 KB stylesheets as the only two.
+     *     borrows whichever Caret &amp; Ink sheet matches its brightness. That also keeps the
+     *     vendored 165 KB stylesheets to the two of them and the high-contrast one made from the
+     *     dark.
      */
     Theme(
             String id,
@@ -158,7 +188,7 @@ public enum Theme {
         return palette;
     }
 
-    /** Which of the two control stylesheets the application's own windows use with this theme. */
+    /** Which of the control stylesheets the application's own windows use with this theme. */
     String chrome() {
         return chrome;
     }
@@ -175,12 +205,5 @@ public enum Theme {
             if (t.id.equals(id)) return t;
         }
         return fallback;
-    }
-
-    /** Display name to theme, in declaration order — what a picker shows. */
-    public static Map<String, Theme> byDisplayName() {
-        Map<String, Theme> map = new LinkedHashMap<>();
-        for (Theme t : values()) map.put(t.displayName, t);
-        return map;
     }
 }

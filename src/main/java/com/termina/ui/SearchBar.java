@@ -5,7 +5,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
-import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -39,7 +38,7 @@ final class SearchBar extends HBox {
 
     private final TextField field = new TextField();
     private final Label count = new Label();
-    private final ToggleButton regex = new ToggleButton(".*");
+    private final ToggleButton regex = new ToggleButton(tr("search.regexToggle"));
     private final Listener listener;
 
     SearchBar(Listener listener) {
@@ -53,6 +52,8 @@ final class SearchBar extends HBox {
 
         field.getStyleClass().add("search-field");
         field.setPromptText(tr("search.prompt"));
+        // A prompt is not a name: a screen reader asks for the accessible text (ACC-01).
+        field.setAccessibleText(tr("search.prompt"));
         field.textProperty().addListener((o, was, now) -> fireQuery());
         field.addEventFilter(KeyEvent.KEY_PRESSED, this::onKey);
         HBox.setHgrow(field, Priority.ALWAYS);
@@ -61,12 +62,15 @@ final class SearchBar extends HBox {
         count.setMinWidth(COUNT_MIN_WIDTH);
 
         regex.getStyleClass().add("search-toggle");
+        // Out of the Tab order because a command does what it does (FIND-16, Pauta 6.0.1): Toggle
+        // Regular Expression, whose title and chord are its name.
         regex.setFocusTraversable(false);
-        regex.setTooltip(new Tooltip(tr("search.regex")));
+        IconNames.name(regex, regexTip);
         regex.selectedProperty().addListener((o, was, now) -> fireQuery());
 
-        Button older = button(MenuIcons.arrowUp(), tr("search.older"), () -> listener.step(true));
-        Button newer = button(MenuIcons.arrowDown(), tr("search.newer"), () -> listener.step(false));
+        // The commands' own glyphs, the ones their menu rows wear (ICON-20, Pauta 6.1.0).
+        Button older = button(MenuIcons.command("find.next"), olderTip, () -> listener.step(true));
+        Button newer = button(MenuIcons.command("find.previous"), newerTip, () -> listener.step(false));
         Button close = button(MenuIcons.close(), tr("search.close"), this::close);
 
         getChildren().addAll(MenuIcons.search(), field, count, regex, older, newer, close);
@@ -77,11 +81,53 @@ final class SearchBar extends HBox {
     /** Keeps the buttons from shuffling sideways as the count grows a digit. */
     private static final double COUNT_MIN_WIDTH = 64;
 
+    /**
+     * The up arrow steps to older output, which is Find Next, and the down arrow is Find Previous;
+     * each is named with that command's title and shows its chord (TBAR-03, Pauta 6.0.1).
+     */
+    private final javafx.beans.property.StringProperty olderTip =
+            new javafx.beans.property.SimpleStringProperty(tr("command.find.next"));
+
+    private final javafx.beans.property.StringProperty newerTip =
+            new javafx.beans.property.SimpleStringProperty(tr("command.find.previous"));
+
+    private final javafx.beans.property.StringProperty regexTip =
+            new javafx.beans.property.SimpleStringProperty(tr("command.find.regex"));
+
+    /** Re-reads the chords: each time the bar opens and whenever the key bindings change. */
+    void showChords(
+            java.util.function.Function<String, javafx.scene.input.@org.jspecify.annotations.Nullable KeyCombination>
+                    chordOf) {
+        olderTip.set(IconNames.withChord(tr("command.find.next"), chordOf.apply("find.next")));
+        newerTip.set(IconNames.withChord(tr("command.find.previous"), chordOf.apply("find.previous")));
+        regexTip.set(IconNames.withChord(tr("command.find.regex"), chordOf.apply("find.regex")));
+    }
+
+    /** The arrows' tooltips, older first: for tests. */
+    java.util.List<String> arrowTooltips() {
+        return java.util.List.of(olderTip.get(), newerTip.get());
+    }
+
+    /** The regular-expression switch's tooltip: for tests. */
+    String regexTooltip() {
+        return regexTip.get();
+    }
+
+    /** Flips the regular-expression switch, which runs the search again: what the command does. */
+    void toggleRegex() {
+        regex.setSelected(!regex.isSelected());
+    }
+
     private static Button button(javafx.scene.Node icon, String tip, Runnable action) {
+        return button(icon, new javafx.beans.property.SimpleStringProperty(tip), action);
+    }
+
+    private static Button button(
+            javafx.scene.Node icon, javafx.beans.value.ObservableValue<String> tip, Runnable action) {
         Button button = new Button(null, icon);
         button.getStyleClass().add("search-button");
         button.setFocusTraversable(false);
-        button.setTooltip(new Tooltip(tip));
+        IconNames.name(button, tip);
         button.setOnAction(e -> action.run());
         return button;
     }

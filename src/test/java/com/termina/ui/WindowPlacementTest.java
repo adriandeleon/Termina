@@ -1,7 +1,5 @@
 package com.termina.ui;
 
-import javafx.geometry.Rectangle2D;
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -9,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 /** Where a window opened from another one lands. */
 class WindowPlacementTest {
 
-    private static final Rectangle2D SCREEN = new Rectangle2D(0, 0, 1920, 1080);
+    private static final WindowPlacement.Bounds SCREEN = new WindowPlacement.Bounds(0, 0, 1920, 1080);
 
     @Test
     void aCascadeOffsetsFromTheOriginatingWindow() {
@@ -26,7 +24,7 @@ class WindowPlacementTest {
 
     @Test
     void aSecondScreenToTheLeftHasNegativeCoordinatesAndThatIsFine() {
-        Rectangle2D left = new Rectangle2D(-1920, 0, 1920, 1080);
+        WindowPlacement.Bounds left = new WindowPlacement.Bounds(-1920, 0, 0, 1080);
         assertArrayEquals(new double[] {-1900 + 28, 128}, WindowPlacement.offsetWithin(-1900, 100, 28, 800, 600, left));
         // Clamped against that screen's own bounds, not the primary's.
         assertArrayEquals(new double[] {-800, 480}, WindowPlacement.offsetWithin(-100, 900, 28, 800, 600, left));

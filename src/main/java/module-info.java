@@ -3,6 +3,8 @@ module com.termina {
     requires static org.jspecify;
     requires javafx.controls;
     requires javafx.graphics;
+    // The control themes: AtlantaFX's Theme API and its Primer themes (ui.ChromeTheme).
+    requires atlantafx.base;
 
     // The VT/xterm emulation core and the PTY. Both are automatic modules (no module-info,
     // no Automatic-Module-Name), so these names are derived from the jar file names —
@@ -26,7 +28,7 @@ module com.termina {
 
     // TtyConnector declares default resize(java.awt.Dimension) overloads. We never call them,
     // but the interface cannot be verified without java.desktop on the module path.
-    // See App.main for why AWT is nonetheless forced headless.
+    // See Main.main for why AWT is nonetheless forced headless.
     requires java.desktop;
     // The debug log captures j.u.l output, which is where JavaFX and the emulator report trouble.
     requires java.logging;
@@ -34,9 +36,20 @@ module com.termina {
     // The update check: one HTTPS request, and a real parser for its response.
     requires java.net.http;
     requires com.fasterxml.jackson.core;
+    // The config files, read and written as plain classes (PLAT-14, Pauta 6.0.1). Jackson fills
+    // those classes by reflection, so the three packages that hold them are opened to it and to
+    // nothing else.
+    requires com.fasterxml.jackson.databind;
 
     // Importing a colour scheme: iTerm2 and Terminal both write them as XML property lists.
     requires java.xml;
 
     exports com.termina;
+
+    opens com.termina.config to
+            com.fasterxml.jackson.databind;
+    opens com.termina.ui to
+            com.fasterxml.jackson.databind;
+    opens com.termina.theme to
+            com.fasterxml.jackson.databind;
 }

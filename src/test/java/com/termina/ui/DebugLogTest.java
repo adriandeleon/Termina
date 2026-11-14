@@ -44,6 +44,23 @@ class DebugLogTest {
     }
 
     @Test
+    void theLastSessionsLogIsKeptWhenThisOneStarts(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        // DIAG-02 (Pauta 2.0.2): the crash a report is about happened last time.
+        java.nio.file.Path log = dir.resolve(DebugLog.FILE_NAME);
+        java.nio.file.Files.writeString(log, "last session's crash\n");
+        try {
+            DebugLog.attachFile(dir, 1);
+            assertEquals(
+                    "last session's crash\n", java.nio.file.Files.readString(dir.resolve(DebugLog.PREVIOUS_FILE_NAME)));
+            // By size, not content: the log is locked now, and on Windows the lock bars reading it.
+            assertEquals(0, java.nio.file.Files.size(log), "this session starts empty");
+        } finally {
+            DebugLog.detachFile();
+        }
+    }
+
+    @Test
     void aSecondInstanceDoesNotTruncateTheFirstOnesLog(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
             throws Exception {
         // A dev run without TERMINA_CONFIG_DIR wiped the packaged app's log — the one with the
@@ -93,7 +110,33 @@ class DebugLogTest {
         // would be worse than none.
         assertFalse(text.contains("line 0\n"), "oldest should have been dropped");
         assertTrue(text.contains("line 2499"), "newest should be kept");
+        assertTrue(text.startsWith("[500 earlier entries dropped"), "and says what went (PERF-11)");
         DebugLog.clear();
         assertEquals("", DebugLog.text());
+    }
+
+    @Test
+    void theFileIsCutBackToItsNewestLinesUnderANote(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        // PERF-11 (Pauta 2.0.2): filled past its cap, the oldest goes and a line says how much.
+        java.nio.file.Path log = dir.resolve("log");
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < 100; i++) lines.append(String.format("line %03d%n", i));
+        java.nio.file.Files.writeString(log, lines);
+        long size = java.nio.file.Files.size(log);
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(
+                log, java.nio.file.StandardOpenOption.READ, java.nio.file.StandardOpenOption.WRITE)) {
+            assertEquals(0, DebugLog.trimIfOver(channel, size, size / 4), "at the cap: untouched");
+            long cut = DebugLog.trimIfOver(channel, size - 1, size / 4);
+            assertTrue(cut > size / 2, "cut " + cut);
+        }
+        String text = java.nio.file.Files.readString(log);
+        assertTrue(text.startsWith("["), text);
+        assertTrue(text.contains("bytes of earlier log cut"), text);
+        assertFalse(text.contains("line 000"), "the oldest went");
+        assertTrue(text.endsWith(String.format("line 099%n")), "the newest stayed");
+        String afterNote = text.substring(
+                text.indexOf(System.lineSeparator()) + System.lineSeparator().length());
+        assertTrue(afterNote.startsWith("line "), "from a whole line: " + afterNote.substring(0, 12));
     }
 }

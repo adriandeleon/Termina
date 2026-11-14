@@ -119,4 +119,75 @@ class CommandLineTest {
             assertTrue(usage.contains(option), "usage omits " + option);
         }
     }
+
+    @Test
+    void reportIsAnswerWithoutStartingTheApp() {
+        CommandLine cli = CommandLine.parse("--report");
+        org.junit.jupiter.api.Assertions.assertTrue(cli.report());
+        org.junit.jupiter.api.Assertions.assertFalse(cli.shouldRun(), "--report prints and exits; no window");
+        org.junit.jupiter.api.Assertions.assertTrue(CommandLine.usage("termina").contains("--report"));
+    }
+
+    @Test
+    void theLaunchersJvmOptionsAreSkippedWithTheirValues() {
+        // CLI-12 (Pauta 6.0.1): by name, in both forms a launcher writes, and never refused.
+        CommandLine spaced = CommandLine.parse(
+                "--add-exports", "javafx.graphics/com.sun.glass.ui=com.termina",
+                "--add-opens", "javafx.graphics/com.sun.javafx.font=com.termina",
+                "-p", "/opt/termina/lib",
+                "--title", "kept");
+        assertNull(spaced.error());
+        assertTrue(spaced.shouldRun());
+        assertEquals("kept", spaced.title());
+
+        CommandLine joined = CommandLine.parse(
+                "--add-exports=javafx.graphics/com.sun.glass.ui=com.termina",
+                "--add-opens=javafx.graphics/com.sun.javafx.font=com.termina",
+                "-d",
+                "/tmp");
+        assertNull(joined.error());
+        assertEquals("/tmp", joined.workingDirectory());
+
+        // The last argument with its value missing is still not an error of ours.
+        assertNull(CommandLine.parse("--add-opens").error());
+    }
+
+    @Test
+    void anOptionThatOnlyLooksLikeALaunchersIsStillRefused() {
+        assertEquals(
+                "unknown option: --add-modules",
+                CommandLine.parse("--add-modules", "x").error());
+        assertEquals("unknown option: -P", CommandLine.parse("-P", "x").error());
+        assertEquals(
+                "unknown option: --add-export=x",
+                CommandLine.parse("--add-export=x").error());
+    }
+
+    @Test
+    void afterDashETheLaunchersOptionsBelongToTheCommand() {
+        CommandLine cli = CommandLine.parse("-e", "java", "-p", "mods");
+        assertEquals(List.of("java", "-p", "mods"), cli.command());
+    }
+
+    @Test
+    void everyOptionLineOfTheUsageTextStartsInTheSameColumns() {
+        // Two rows once sat ten columns left of the rest: a text block is stripped to its
+        // shallowest line.
+        CommandLine.usage("termina")
+                .lines()
+                .filter(line -> line.contains("--"))
+                .filter(line -> !line.startsWith("Usage") && !line.startsWith("itself"))
+                .forEach(line -> assertTrue(line.matches("^  (-\\w,|   ) --.*"), line));
+    }
+
+    @org.junit.jupiter.api.Test
+    void noSessionStartsWithoutTheTabsOfLastTime() {
+        // CLI-04 (Pauta 6.0.1).
+        org.junit.jupiter.api.Assertions.assertTrue(
+                CommandLine.parse("--no-session").noSession());
+        org.junit.jupiter.api.Assertions.assertFalse(CommandLine.parse().noSession());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                CommandLine.parse("--no-session", "-e", "htop").hasCommand());
+        org.junit.jupiter.api.Assertions.assertTrue(CommandLine.usage("termina").contains("--no-session"));
+    }
 }

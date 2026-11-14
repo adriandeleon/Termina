@@ -20,6 +20,10 @@ import org.jspecify.annotations.Nullable;
 public record CommandLine(
         boolean help,
         boolean version,
+        boolean report,
+        boolean newInstance,
+        boolean dev,
+        boolean noSession,
         String workingDirectory,
         List<String> command,
         String configDir,
@@ -28,7 +32,7 @@ public record CommandLine(
 
     /** Parsed successfully and the application should start. */
     public boolean shouldRun() {
-        return !help && !version && error == null;
+        return !help && !version && !report && error == null;
     }
 
     /** Whether a command was given with {@code -e}, to be run instead of a shell. */
@@ -39,6 +43,10 @@ public record CommandLine(
     public static CommandLine parse(String... args) {
         boolean help = false;
         boolean version = false;
+        boolean report = false;
+        boolean newInstance = false;
+        boolean dev = false;
+        boolean noSession = false;
         String workingDirectory = "";
         String configDir = "";
         String title = "";
@@ -62,9 +70,21 @@ public record CommandLine(
                 break;
             }
 
+            // What a launcher can leave among the program's arguments is skipped with its value,
+            // never refused (CLI-12, Pauta 6.0.1).
+            int launcherOption = launcherOptionWidth(arg);
+            if (launcherOption > 0) {
+                i += launcherOption - 1;
+                continue;
+            }
+
             switch (arg) {
                 case "-h", "--help" -> help = true;
                 case "-v", "-V", "--version" -> version = true;
+                case "--report" -> report = true;
+                case "--new-instance" -> newInstance = true;
+                case "--dev" -> dev = true;
+                case "--no-session" -> noSession = true;
                 case "-d", "--working-directory" -> {
                     if (i + 1 >= args.length) return error(arg + " needs a directory");
                     workingDirectory = args[++i];
@@ -94,7 +114,31 @@ public record CommandLine(
                 }
             }
         }
-        return new CommandLine(help, version, workingDirectory, List.copyOf(command), configDir, title, null);
+        return new CommandLine(
+                help,
+                version,
+                report,
+                newInstance,
+                dev,
+                noSession,
+                workingDirectory,
+                List.copyOf(command),
+                configDir,
+                title,
+                null);
+    }
+
+    /**
+     * How many arguments a JVM option left by the launcher takes up: 2 for {@code --add-exports},
+     * {@code --add-opens} and {@code -p} followed by their value, 1 for the two long ones with the
+     * value after {@code =}, 0 for anything else. By name, so a mistyped option of ours is still
+     * refused.
+     */
+    static int launcherOptionWidth(String arg) {
+        return switch (arg) {
+            case "--add-exports", "--add-opens", "-p" -> 2;
+            default -> arg.startsWith("--add-exports=") || arg.startsWith("--add-opens=") ? 1 : 0;
+        };
     }
 
     private static String value(String arg) {
@@ -102,7 +146,7 @@ public record CommandLine(
     }
 
     private static CommandLine error(String message) {
-        return new CommandLine(false, false, "", List.of(), "", "", message);
+        return new CommandLine(false, false, false, false, false, false, "", List.of(), "", "", message);
     }
 
     /** The text {@code --help} prints. */
@@ -115,6 +159,10 @@ public record CommandLine(
                 Options:
                   -h, --help                     Show this help and exit
                   -v, --version                  Show the version and exit
+                      --report                   Write a problem report to a file, open a GitHub issue for it, and exit
+                      --new-instance             Start a Termina of its own, not a window in the running one
+                      --dev                      Use ~/.termina-dev for settings, leaving ~/.termina alone
+                      --no-session               Start without the tabs that were open last time
                   -d, --working-directory=DIR    Start the shell in DIR
                   -T, --title=TITLE              Name the first tab TITLE
                   -e, --command CMD [args...]    Run CMD instead of the shell; must come last
