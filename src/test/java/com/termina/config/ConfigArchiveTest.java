@@ -46,7 +46,7 @@ class ConfigArchiveTest {
         write(config.resolve("settings.json"), "{}");
         write(config.resolve("workspace-state.json"), "{}");
         write(config.resolve("settings.json.corrupt.bak"), "x");
-        write(config.resolve("themes/dracula.properties"), "background=#282a36");
+        write(config.resolve("themes/dracula.json"), "background=#282a36");
         for (String skipped : List.of(
                 "settings.json.lock",
                 "instance.lock",
@@ -63,11 +63,7 @@ class ConfigArchiveTest {
         assertEquals(4, ConfigArchive.export(config, zip));
 
         assertEquals(
-                List.of(
-                        "settings.json",
-                        "settings.json.corrupt.bak",
-                        "themes/dracula.properties",
-                        "workspace-state.json"),
+                List.of("settings.json", "settings.json.corrupt.bak", "themes/dracula.json", "workspace-state.json"),
                 entries(zip));
         try (var siblings = Files.list(zip.getParent())) {
             assertEquals(List.of(zip), siblings.toList(), "no temporary is left beside the export");
@@ -95,7 +91,7 @@ class ConfigArchiveTest {
                 "sync.repository", "git@example.com:me/dotfiles.git");
         Files.createDirectories(config);
         Files.write(config.resolve("settings.json"), ConfigArchive.settingsBytes(settings));
-        write(config.resolve("themes/dracula.properties"), "background=#282a36");
+        write(config.resolve("themes/dracula.json"), "background=#282a36");
         Path zip = dir.resolve("export.zip");
         ConfigArchive.export(config, zip);
 
@@ -181,18 +177,29 @@ class ConfigArchiveTest {
     @Test
     void themesAreReplacedAsASetAndOnlyWhenTicked() throws Exception {
         Path config = dir.resolve("config");
-        write(config.resolve("themes/old.properties"), "background=#000000");
+        write(config.resolve("themes/old.json"), "background=#000000");
         Path zip = zip(Map.of(
                 "settings.json", "{\"schemaVersion\": 1, \"settings\": {}}",
-                "themes/new.properties", "background=#ffffff"));
+                "themes/new.json", "background=#ffffff"));
         ConfigArchive.Scan scan = ConfigArchive.scan(zip);
 
         ConfigArchive.applyFiles(scan, EnumSet.of(Part.PREFERENCES), config);
-        assertTrue(Files.exists(config.resolve("themes/old.properties")), "unticked: untouched");
+        assertTrue(Files.exists(config.resolve("themes/old.json")), "unticked: untouched");
 
         ConfigArchive.applyFiles(scan, EnumSet.of(Part.THEMES), config);
-        assertFalse(Files.exists(config.resolve("themes/old.properties")));
-        assertEquals("background=#ffffff", Files.readString(config.resolve("themes/new.properties")));
+        assertFalse(Files.exists(config.resolve("themes/old.json")));
+        assertEquals("background=#ffffff", Files.readString(config.resolve("themes/new.json")));
+
+        // An older export's properties file replaces the set the same way, and what is not a
+        // theme file in the folder is left where it is.
+        write(config.resolve("themes/new.json.v9.bak"), "kept");
+        Path older = zip(Map.of(
+                "settings.json", "{\"schemaVersion\": 1, \"settings\": {}}",
+                "themes/older.properties", "background=#101010"));
+        ConfigArchive.applyFiles(ConfigArchive.scan(older), EnumSet.of(Part.THEMES), config);
+        assertFalse(Files.exists(config.resolve("themes/new.json")));
+        assertEquals("background=#101010", Files.readString(config.resolve("themes/older.properties")));
+        assertEquals("kept", Files.readString(config.resolve("themes/new.json.v9.bak")));
     }
 
     @Test
@@ -203,7 +210,7 @@ class ConfigArchiveTest {
                 Refused.Reason.NOT_A_ZIP,
                 assertThrows(Refused.class, () -> ConfigArchive.scan(notZip)).reason());
 
-        Path noSettings = zip(Map.of("themes/a.properties", "x"));
+        Path noSettings = zip(Map.of("themes/a.json", "x"));
         assertEquals(
                 Refused.Reason.NO_SETTINGS,
                 assertThrows(Refused.class, () -> ConfigArchive.scan(noSettings))
@@ -236,7 +243,11 @@ class ConfigArchiveTest {
 
     @Test
     void onlyPlainThemeFilesAreTaken() {
+        assertEquals("a.json", ConfigArchive.themeName("themes/a.json"));
+        // A zip exported before 0.15 holds each theme as a properties file.
         assertEquals("a.properties", ConfigArchive.themeName("themes/a.properties"));
+        assertNull(ConfigArchive.themeName("themes/a.properties.migrated"));
+        assertNull(ConfigArchive.themeName("themes/a.json.v3.bak"));
         assertNull(ConfigArchive.themeName("themes/sub/a.properties"));
         assertNull(ConfigArchive.themeName("themes/.hidden.properties"));
         assertNull(ConfigArchive.themeName("themes/a.txt"));

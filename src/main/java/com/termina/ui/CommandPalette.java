@@ -42,9 +42,10 @@ import static com.termina.i18n.Messages.tr;
  * cursor only rests on a command that can run; one that cannot is listed greyed with the reason as
  * its tooltip, because a command that is simply missing reads as the palette not knowing it.
  *
- * <p>An in-scene overlay rather than a window of its own. A second Stage would take OS focus away
- * from the terminal, and getting it back is exactly the thing that has to work: whatever the user
- * does here, the next keystroke belongs to the shell again.
+ * <p>An in-scene overlay rather than a window of its own, shown through the window's
+ * {@link OverlayHost}. A second Stage would take OS focus away from the terminal, and getting it
+ * back is exactly the thing that has to work: whatever the user does here, the next keystroke
+ * belongs to the shell again.
  *
  * <p>The commands are the menu bar's own {@link MenuAction}s. They are not a parallel list that
  * could disagree with the menus — a command reaches the palette by being in a menu, and its
@@ -61,8 +62,7 @@ final class CommandPalette {
     /** What a match through a keyword loses against any match on the label: more than a label can score. */
     static final int KEYWORD_PENALTY = 1_000_000;
 
-    private final StackPane host;
-    private final Runnable onHidden;
+    private final OverlayHost host;
 
     private final TextField input = new TextField();
     /** The input row's chip: the chord that opens the palette, so it introduces itself by its key. */
@@ -76,19 +76,56 @@ final class CommandPalette {
     private final Label hint = new Label();
 
     private final VBox card = new VBox(6);
-    /**
-     * The scrim. A press on it closes the palette, so to a screen reader it is a button that does
-     * (ACC-02, Pauta 6.0.1), and its press runs what a click runs.
-     */
-    private final Region backdrop = new Region() {
-        @Override
-        public void executeAccessibleAction(javafx.scene.AccessibleAction action, Object... parameters) {
-            if (action == javafx.scene.AccessibleAction.FIRE) hide();
-            else super.executeAccessibleAction(action, parameters);
-        }
-    };
-
     private List<MenuAction> commands = List.of();
+
+    /**
+     * The chords that move the selection a row and a page, as the bindings in force have them
+     * (PAL-06, Pauta 6.0.1): {@link KeyChord} token to action. Until the window says, the
+     * defaults of {@code keymaps/lists.json}.
+     */
+    private java.util.Map<String, PaletteKeys.Action> moves =
+            PaletteKeys.moves(id -> KeyChord.of(Keymap.lists().get(id), Keybindings.MAC));
+
+    /** The bindings changed, or were first applied: the movement chords are looked up again. */
+    void setMoves(java.util.Map<String, PaletteKeys.Action> moves) {
+        this.moves = java.util.Map.copyOf(moves);
+        hint.setText(legend());
+    }
+
+    /** The key that opens the highlighted command's page of the guide, as a token; null for none. */
+    private @Nullable String helpKey;
+
+    /** Opens a command's page, given its id, or the list of commands for null. */
+    private java.util.function.Consumer<@Nullable String> openHelp = id -> {};
+
+    /**
+     * The help key (PAL-08, Pauta 6.0.1) and what it opens. The window works the key out from the
+     * bindings in force, the first of Ctrl+H, F1 and Shift+F1 that no command has, and says again
+     * when they change.
+     */
+    void setHelp(@Nullable String helpKey, java.util.function.Consumer<@Nullable String> openHelp) {
+        this.helpKey = helpKey;
+        this.openHelp = openHelp;
+        hint.setText(legend());
+    }
+
+    private String legend() {
+        return PaletteKeys.legend(
+                moves,
+                PaletteKeys.hint("run", "↵"),
+                helpKey == null ? null : PaletteKeys.hint("help", KeyChord.display(helpKey)));
+    }
+
+    /** The help key's token: for tests. */
+    @Nullable
+    String helpKeyForTest() {
+        return helpKey;
+    }
+
+    /** The legend's text: for tests. */
+    String legendForTest() {
+        return hint.getText();
+    }
     /** The query of the current filter pass, read by the cells to highlight the matched characters. */
     private String currentQuery = "";
     /** Which commands can run right now; the rest are listed greyed and stepped over. */
@@ -96,19 +133,9 @@ final class CommandPalette {
     /** Why a greyed command cannot run, for its tooltip; null or blank installs none. */
     private Function<MenuAction, @Nullable String> disabledReason = a -> null;
 
-    CommandPalette(StackPane host, Runnable onHidden) {
+    /** @param host the window's overlay host, which shows the card and gives the keyboard back */
+    CommandPalette(OverlayHost host) {
         this.host = host;
-        this.onHidden = onHidden;
-
-        backdrop.getStyleClass().add("palette-backdrop");
-        backdrop.setAccessibleRole(javafx.scene.AccessibleRole.BUTTON);
-        backdrop.setAccessibleText(tr("palette.close"));
-        // Dismiss on PRESS and consume it: a click is press+release, so consuming the press means
-        // the gesture that closes the palette cannot also reach the terminal behind it.
-        backdrop.setOnMousePressed(e -> {
-            hide();
-            e.consume();
-        });
 
         prefixChip.getStyleClass().add("palette-prefix");
         setOpener(Keymap.defaultFor("palette.show"));
@@ -150,7 +177,7 @@ final class CommandPalette {
         desc.setTextOverrun(OverrunStyle.ELLIPSIS);
         desc.setText(" ");
         hint.getStyleClass().add("palette-hint");
-        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        hint.setText(legend());
 
         card.getStyleClass().add("command-palette");
         card.getChildren().addAll(inputRow, list, desc, hint);
@@ -192,7 +219,7 @@ final class CommandPalette {
      */
     void rebind(@Nullable KeyCombination opener, List<MenuAction> commands) {
         setOpener(opener);
-        hint.setText(PaletteKeys.legend(PaletteKeys.hint("run", "↵")));
+        hint.setText(legend());
         if (!isShowing()) return;
         MenuAction selected = list.getSelectionModel().getSelectedItem();
         String id = selected == null ? null : selected.id();
@@ -211,7 +238,7 @@ final class CommandPalette {
     }
 
     boolean isShowing() {
-        return host.getChildren().contains(card);
+        return host.isShowing(card);
     }
 
     /** The chord the open palette shows for command {@code id}, or "" for none or no such row: for tests. */
@@ -248,54 +275,18 @@ final class CommandPalette {
         this.disabledReason = disabledReason == null ? a -> null : disabledReason;
         input.clear();
         filter("");
-        // Where the keyboard was, to give it back on closing (PAL-07, Pauta 6.0.1).
-        focusBefore = host.getScene() == null ? null : host.getScene().getFocusOwner();
-        host.getChildren().addAll(backdrop, card);
+        // The host remembers where the keyboard was, and gives it back on closing (PAL-07).
+        host.show(card, new OverlayHost.Scrim("palette-backdrop", tr("palette.close")), () -> {});
         input.requestFocus();
     }
 
-    /** The node that had the keyboard when the palette opened, or null. */
-    private javafx.scene.@Nullable Node focusBefore;
-
     void hide() {
-        if (!isShowing()) return;
-        host.getChildren().removeAll(backdrop, card);
-        javafx.scene.Node before = focusBefore;
-        focusBefore = null;
-        // A command the palette ran may already have put the keyboard somewhere of its own, a
-        // find bar's field: then it stays there. Otherwise back where it was, the find bar's
-        // field included, and to the terminal when that node is gone or cannot take it.
-        javafx.scene.Node now = host.getScene() == null ? null : host.getScene().getFocusOwner();
-        boolean stillOurs = now == null || now == input || isUnder(now, card);
-        if (stillOurs && returnsTo(before, host.getScene())) {
-            java.util.Objects.requireNonNull(before).requestFocus();
-        } else if (stillOurs) {
-            onHidden.run();
-        }
+        host.hide(card);
     }
 
-    /**
-     * Whether closing gives the keyboard back to {@code before}: it is still in this scene, shown,
-     * enabled and able to take focus. Otherwise the terminal has it.
-     */
+    /** {@link OverlayHost#returnsTo}, which is where the rule lives now. */
     static boolean returnsTo(javafx.scene.@Nullable Node before, javafx.scene.@Nullable Scene scene) {
-        if (before == null || scene == null || before.getScene() != scene) return false;
-        if (!before.isFocusTraversable() && !(before instanceof javafx.scene.control.TextInputControl)) {
-            // The terminal itself is not focus-traversable and takes focus by request: it is the
-            // fallback, and reaching it through the fallback keeps one way of focusing it.
-            return false;
-        }
-        for (javafx.scene.Node node = before; node != null; node = node.getParent()) {
-            if (!node.isVisible() || node.isDisabled()) return false;
-        }
-        return true;
-    }
-
-    private static boolean isUnder(javafx.scene.Node node, javafx.scene.Node ancestor) {
-        for (javafx.scene.Node at = node; at != null; at = at.getParent()) {
-            if (at == ancestor) return true;
-        }
-        return false;
+        return OverlayHost.returnsTo(before, scene);
     }
 
     private boolean isEnabled(MenuAction action) {
@@ -303,7 +294,15 @@ final class CommandPalette {
     }
 
     private void onKey(KeyEvent e) {
-        PaletteKeys.Action action = PaletteNav.action(e, true);
+        // The help key first (PAL-08): the highlighted command's page of the guide, in the
+        // browser. The palette stays up, so the next row's page is one arrow and one key away.
+        if (helpKey != null && helpKey.equals(KeyChord.of(e))) {
+            MenuAction selected = list.getSelectionModel().getSelectedItem();
+            openHelp.accept(selected == null ? null : selected.id());
+            e.consume();
+            return;
+        }
+        PaletteKeys.Action action = PaletteNav.action(e, true, moves);
         switch (action) {
             case CANCEL -> hide();
             case ACCEPT -> runSelected();

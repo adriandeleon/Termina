@@ -1,6 +1,7 @@
 # 0009. Config is JSON, with a schema version
 
-Recorded: 2026-11-07. Supersedes [0005](0005-settings-in-a-properties-file.md).
+Recorded: 2026-11-07. Supersedes [0005](0005-settings-in-a-properties-file.md). Its "Streaming, not
+data binding" point is superseded by [0013](0013-config-files-are-plain-classes.md).
 
 ## Context
 

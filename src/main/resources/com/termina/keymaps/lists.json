@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "comment": "The chords that move the selection in a list and cancel it: the Command Palette, the pickers and the Message Log (PAL-06, PAL-07, QOPEN-07, MLOG-03). They are Emacs's own line and page movement, the same on every system, and they are plain Ctrl and Alt with a letter because they act only while a list has the keyboard: with the terminal in front, these keys reach the shell as they always did, which is why they are not in keymap.json. The arrows and Page Up and Page Down always move too.",
+  "bindings": {
+    "nav.lineDown": "Ctrl+N",
+    "nav.lineUp": "Ctrl+P",
+    "nav.pageDown": "Ctrl+V",
+    "nav.pageUp": "Alt+V",
+    "nav.cancel": "Ctrl+G"
+  }
+}

@@ -1661,6 +1661,17 @@ public final class TerminalView extends Region {
         }
     }
 
+    /**
+     * Scrolls the history a line or a page, towards the live screen for a positive
+     * {@code direction} and into the history for a negative one: what the {@code nav} commands do
+     * when they are run as commands (PAL-06, Pauta 6.0.1).
+     */
+    void scrollHistory(int direction, boolean page) {
+        if (buffer == null) return;
+        int step = Integer.signum(direction) * (page ? Math.max(1, rows - 1) : 1);
+        moveOrigin(origin -> origin + step);
+    }
+
     /** Performs a {@link ViewKeys} action, returning false when the key is not one. */
     private boolean handleViewKey(KeyEvent e) {
         ViewKeys.Action action = ViewKeys.of(e, display.isAlternateScreen());

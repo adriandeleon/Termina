@@ -29,13 +29,18 @@ parameters rather than static calls, because the Windows branch is the one the f
 the one that cannot be run here.
 
 **Importing a colour scheme is in `com.termina.theme`**: one reader per format, all to a
-JavaFX-free `ColorScheme`, stored as `<config>/themes/*.properties` and listed with the built-ins by
-`ui.Themes`. Anything that draws asks `Themes.byId`, never the `Theme` enum, which is only the four
-built-ins.
+JavaFX-free `ColorScheme`, stored as `<config>/themes/*.json` and listed with the built-ins by
+`ui.Themes`. Anything that draws asks `Themes.drawn`, never the `Theme` enum, which is only the five
+built-ins: it gives the theme an id names, or the high-contrast one while Windows' high-contrast
+mode is on (`ui.HighContrast`, ACC-09). `Themes.byId` is for what shows or edits the choice
+itself. The high-contrast control stylesheet is the dark one with other values for its colour
+tokens, written by `scripts/high-contrast-theme.py`.
 
 **Settings sync is a fifth, in `com.termina.sync`, ported from Editora's.** It carries only the key
-bindings, one file per platform family (`keybindings/macos.properties`,
-`keybindings/windows-linux.properties`), through a private clone in `<config>/sync/repo` that git
+bindings, in one file for every system (`keybindings/keybindings.properties`, OS-04) whose chords
+are in the Windows and Linux form: a Mac reads `Ctrl+Shift` as Command and writes Command as
+`Ctrl+Shift` (`sync.SharedChords`; [decision 0012](decisions/0012-one-file-of-key-bindings.md)). It
+goes through a private clone in `<config>/sync/repo` that git
 never merges: the remote is checked out, a per-command three-way merge against
 `refs/termina/base` is written over it, and that is pushed. `ui.SettingsSync` schedules runs and
 writes results into the live `Settings`; one process per config folder syncs, by file lock. For an
@@ -60,6 +65,19 @@ files are replaced in `themes/`, and the settings parts are merged key by key
 (`ConfigArchive.merge`) into the live `Settings` through `replaceStored`, never by writing over
 `settings.json`, so memory and file cannot disagree. `ui.ConfigTransfer` is the FX side: the
 worker threads, the chooser and the parts dialog.
+
+**A card over the terminal is shown by `ui.OverlayHost`**, one at a time: the Command Palette, the
+Message Log's card and `ui.QuickPick`, the one generic picker (a port of Editora's `QuickOpen`) that
+the theme, font, cursor shape and profile pickers are instances of. The host owns the backdrop and
+gives the keyboard back, when the card closes, to the node that had it before the first card
+opened, or to the terminal. All three move on `PaletteKeys`' table: the arrows, and the chords the
+bindings give the four `nav` commands.
+
+**How much chrome a window shows is `ui.Chrome`'s**, one pure truth table (WIN-10): the menu bar,
+the tab strip and the status bar each show when their setting says so and no mode in force hides
+them. Zen and Expert are a field of the window (`Chrome.Modes`) and are never written to a setting.
+Simple mode is the setting `ui.simpleMode` and changes which of two sets of menus the bar holds,
+both built once from `MenuBarModel.menus(boolean)` and swapped only when the mode changes (MENU-04).
 
 **Commands are by id, in `ui.CommandRegistry`.** Each window registers every command with its
 action, its label now and its gate now (`TerminalWindow.currentLabel`, `unavailableNow`). Menu items,

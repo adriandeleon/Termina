@@ -84,4 +84,32 @@ class AppInfoTest {
         assertEquals(AppInfo.RELEASES_PAGE, AppInfo.releaseNotesUrl("1.3.0-SNAPSHOT"));
         assertTrue(AppInfo.DOCUMENTATION.startsWith(AppInfo.HOMEPAGE));
     }
+
+    /**
+     * DOCS-03 (Pauta 6.0.1): every link from the app into the guide names the running version,
+     * and a development build the release it is working toward.
+     */
+    @Test
+    void theGuideIsOpenedAtThisVersion() throws java.io.IOException {
+        assertEquals("https://termina-project.dev/docs/v-1.2.3/", AppInfo.documentation("1.2.3"));
+        assertEquals("https://termina-project.dev/docs/v-0.15.0/", AppInfo.documentation("0.15.0-SNAPSHOT"));
+        assertEquals(AppInfo.documentation(AppInfo.VERSION), AppInfo.DOCUMENTATION);
+        assertEquals(AppInfo.DOCUMENTATION + "commands/file.newTab/", AppInfo.commandPage("file.newTab"));
+        assertEquals(AppInfo.DOCUMENTATION + "commands/", AppInfo.commandsPage());
+
+        // Nothing else in the application writes an address of the guide for itself.
+        java.util.List<String> own = new java.util.ArrayList<>();
+        try (java.util.stream.Stream<java.nio.file.Path> files =
+                java.nio.file.Files.walk(java.nio.file.Path.of("src/main/java"))) {
+            for (java.nio.file.Path file :
+                    files.filter(p -> p.toString().endsWith(".java")).toList()) {
+                if (file.endsWith("AppInfo.java")) continue;
+                String source = java.nio.file.Files.readString(file);
+                if (source.contains("termina-project.dev/docs") || source.contains("HOMEPAGE + \"/docs")) {
+                    own.add(file.toString());
+                }
+            }
+        }
+        assertEquals(java.util.List.of(), own);
+    }
 }

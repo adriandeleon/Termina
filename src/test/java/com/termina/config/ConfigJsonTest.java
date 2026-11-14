@@ -63,4 +63,28 @@ class ConfigJsonTest {
         assertEquals(Map.of("k", "v"), ConfigJson.migrate(1, Map.of("k", "v")));
         assertFalse(ConfigJson.isCanonicalInteger("007"));
     }
+
+    /** PLAT-14 (Pauta 6.0.1): the file goes through Jackson's ObjectMapper as a plain class. */
+    @Test
+    void theFileIsReadAndWrittenByTheObjectMapper() throws Exception {
+        String text = ConfigJson.write(java.util.Map.of("font.size", "13", "ui.showMenuBar", "true", "name", "007"));
+        ConfigJson.Stored stored = ConfigJson.mapper().readValue(text, ConfigJson.Stored.class);
+        assertEquals(ConfigJson.SCHEMA_VERSION, stored.schemaVersion);
+        assertEquals(13, stored.settings.get("font.size"), "a number in the file");
+        assertEquals(Boolean.TRUE, stored.settings.get("ui.showMenuBar"));
+        assertEquals("007", stored.settings.get("name"), "what would not read back as itself stays text");
+        assertEquals(
+                java.util.Map.of("font.size", "13", "ui.showMenuBar", "true", "name", "007"),
+                ConfigJson.read(text).values());
+        // The version first, then the values sorted by key, one to a line.
+        assertTrue(text.indexOf("schemaVersion") < text.indexOf("settings"), text);
+        assertTrue(
+                text.indexOf("font.size") < text.indexOf("name") && text.indexOf("name") < text.indexOf("ui."), text);
+
+        String source = java.nio.file.Files.readString(
+                java.nio.file.Path.of("src/main/java/com/termina/config/ConfigJson.java"));
+        for (String byHand : java.util.List.of("JsonGenerator", "JsonParser", "JsonFactory", "JsonToken")) {
+            org.junit.jupiter.api.Assertions.assertFalse(source.contains(byHand), byHand);
+        }
+    }
 }

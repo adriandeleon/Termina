@@ -199,11 +199,14 @@ public final class App extends Application {
         // Applied before any window is built, so the first frame is already themed.
         com.termina.ui.Themes.followSystem(
                 javafx.application.Platform.getPreferences().getColorScheme() == javafx.application.ColorScheme.DARK);
+        // And whether Windows' high-contrast mode is on, which decides the theme outright (ACC-09).
+        com.termina.ui.Themes.followHighContrast(
+                com.termina.ui.HighContrast.isOn(javafx.application.Platform.getPreferences()));
         // The UI zoom before any window is built too (WIN-12, Pauta 6.0.1): its sheets were read
         // and scaled in prepare, off this thread.
         com.termina.ui.UiZoom.apply(settings.uiZoom());
         Application.setUserAgentStylesheet(com.termina.ui.UiZoom.theme(
-                com.termina.ui.Themes.byId(settings.themeId()).stylesheet()));
+                com.termina.ui.Themes.drawn(settings.themeId()).stylesheet()));
 
         com.termina.ui.StallMonitor.installIfRequested();
         WindowManager manager = new WindowManager(settings);

@@ -896,6 +896,7 @@ public final class SettingsWindow {
     private Spinner<Integer> uiZoom;
     private CheckBox showScrollBar;
     private CheckBox showStatusBar;
+    private CheckBox simpleMode;
     private CheckBox confirmClose;
     private CheckBox restoreSession;
     private ComboBox<String> language;
@@ -1200,6 +1201,19 @@ public final class SettingsWindow {
                 tr("settings.showStatusBar.desc"),
                 showStatusBar,
                 "status bar statusbar messages message log echo errors");
+
+        simpleMode = new CheckBox();
+        simpleMode.selectedProperty().addListener((o, old, value) -> {
+            if (loading) return;
+            write(() -> settings.setSimpleMode(value));
+        });
+        row(
+                Category.APPEARANCE,
+                windowSection,
+                tr("settings.simpleMode"),
+                tr("settings.simpleMode.desc"),
+                simpleMode,
+                "simple mode menus menu bar short fewer beginner new zen expert");
 
         windowOpacity = new Slider(WindowOpacity.MIN * 100, WindowOpacity.MAX * 100, 100);
         windowOpacity.setPrefWidth(180);
@@ -2067,13 +2081,23 @@ public final class SettingsWindow {
         String directory = profileDirectory.getText();
         // Whether the command and the folder are there is the disk's to say, so it is asked on a
         // worker (PERF-01, Pauta 6.0.1) and the edit is made back here with the two answers.
+        // Each check is on a thread of its own, so two commits a moment apart can answer out of
+        // order. Only the newest for its profile is applied: it was made from the form as it stood
+        // last, and an older one applied after it wrote its stale folder back.
+        String id = selected.id();
+        long edit = profileEdits.begin(id);
         PATH_CHECKS.execute(() -> {
             boolean commandPasses = commits(ShellLauncher.validateCommand(command));
             boolean directoryPasses = commits(ShellLauncher.validateDirectory(directory));
-            Platform.runLater(
-                    () -> applyProfileEdit(selected.id(), name, command, commandPasses, directory, directoryPasses));
+            Platform.runLater(() -> {
+                if (!profileEdits.isNewest(id, edit)) return;
+                applyProfileEdit(id, name, command, commandPasses, directory, directoryPasses);
+            });
         });
     }
+
+    /** Numbers the commits of a profile's form, so a late answer to an older one is dropped. */
+    private final LatestEdit profileEdits = new LatestEdit();
 
     /** The edit itself, on the FX thread, once the worker has said which of the two paths pass. */
     private void applyProfileEdit(
@@ -2658,6 +2682,7 @@ public final class SettingsWindow {
             menuBarInTitleBar.setSelected(settings.menuBarInTitleBar());
             showScrollBar.setSelected(settings.showScrollBar());
             showStatusBar.setSelected(settings.showStatusBar());
+            simpleMode.setSelected(settings.simpleMode());
             windowOpacity.setValue(WindowOpacity.clamp(settings.windowOpacity()) * 100);
             language.setValue(settings.uiLanguage());
             // Not under the user's fingers: a change from elsewhere — a sync run, a zoom chord in a

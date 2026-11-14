@@ -51,7 +51,7 @@ class SyncEngineTest {
         }
 
         String path() {
-            return KeybindingsFile.pathFor(mac);
+            return KeybindingsFile.PATH;
         }
 
         @Override
@@ -61,14 +61,16 @@ class SyncEngineTest {
 
         @Override
         public Map<String, String> read() {
-            String text = KeybindingsFile.text(path(), bindings);
+            // As the application's own target does: in the form every system shares.
+            String text = KeybindingsFile.text(path(), SharedChords.toFile(bindings, mac));
             return text == null ? Map.of() : Map.of(path(), text);
         }
 
         @Override
         public boolean apply(Map<String, String> expected, Map<String, String> changes) {
             if (refuseWrites || !Objects.equals(read().get(path()), expected.get(path()))) return false;
-            bindings = new LinkedHashMap<>(KeybindingsFile.entries(changes.get(path())));
+            bindings = new LinkedHashMap<>(
+                    SharedChords.fromFile(KeybindingsFile.entries(changes.get(path())), bindings, mac));
             writes++;
             Runnable then = duringSync;
             duringSync = null;
@@ -117,7 +119,7 @@ class SyncEngineTest {
         assertEquals(List.of("file.newTab"), first.sent());
         assertEquals(
                 "file.newTab=Ctrl+Shift+Y",
-                remoteFile(KeybindingsFile.OTHER_PATH)
+                remoteFile(KeybindingsFile.PATH)
                         .lines()
                         .filter(l -> !l.startsWith("#"))
                         .findFirst()
@@ -186,8 +188,8 @@ class SyncEngineTest {
         assertEquals(List.of("file.newTab"), r.received(), "received once, however many rounds it took");
         assertEquals(List.of("edit.copy"), r.sent());
         assertEquals(Map.of("file.newTab", "Ctrl+Alt+2", "edit.copy", "Ctrl+Alt+C"), a.bindings);
-        assertEquals("Ctrl+Alt+2", binding(remoteFile(KeybindingsFile.OTHER_PATH), "file.newTab"));
-        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.OTHER_PATH), "edit.copy"));
+        assertEquals("Ctrl+Alt+2", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
+        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.PATH), "edit.copy"));
     }
 
     @Test
@@ -212,8 +214,8 @@ class SyncEngineTest {
         assertEquals(List.of("edit.paste"), r.received());
         assertEquals(
                 Map.of("file.newTab", "Ctrl+Alt+A", "edit.copy", "Ctrl+Alt+C", "edit.paste", "Ctrl+Alt+V"), a.bindings);
-        assertEquals("Ctrl+Alt+A", binding(remoteFile(KeybindingsFile.OTHER_PATH), "file.newTab"));
-        assertEquals("Ctrl+Alt+V", binding(remoteFile(KeybindingsFile.OTHER_PATH), "edit.paste"));
+        assertEquals("Ctrl+Alt+A", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
+        assertEquals("Ctrl+Alt+V", binding(remoteFile(KeybindingsFile.PATH), "edit.paste"));
     }
 
     @Test
@@ -251,8 +253,8 @@ class SyncEngineTest {
         assertEquals(List.of("file.newTab"), r.received());
         assertEquals(List.of("edit.copy"), r.sent(), "the edit that failed to go is sent now");
         assertEquals(Map.of("file.newTab", "Ctrl+Alt+3", "edit.copy", "Ctrl+Alt+C"), a.bindings);
-        assertEquals("Ctrl+Alt+3", binding(remoteFile(KeybindingsFile.OTHER_PATH), "file.newTab"));
-        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.OTHER_PATH), "edit.copy"));
+        assertEquals("Ctrl+Alt+3", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
+        assertEquals("Ctrl+Alt+C", binding(remoteFile(KeybindingsFile.PATH), "edit.copy"));
     }
 
     @Test
@@ -273,7 +275,7 @@ class SyncEngineTest {
         a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         SyncReport r = a.sync();
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
-        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.OTHER_PATH), "file.newTab"));
+        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
         assertEquals("formatVersion=" + SyncEngine.FORMAT_VERSION + "\n", remoteFile(SyncEngine.FORMAT_FILE));
 
         Computer b = new Computer("b", false);
@@ -291,7 +293,7 @@ class SyncEngineTest {
                 new GitRunner(List.of("git"), a.clone, false, "").with(List.of("-c", "core.excludesFile=" + excludes));
         SyncReport r = new SyncEngine(runner, remote, "main", a, "a").run(false);
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
-        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.OTHER_PATH), "file.newTab"));
+        assertEquals("Ctrl+Shift+Y", binding(remoteFile(KeybindingsFile.PATH), "file.newTab"));
     }
 
     @Test
@@ -299,7 +301,7 @@ class SyncEngineTest {
         Computer a = new Computer("a", false);
         a.bindings.put("file.newTab", "Ctrl+Shift+Y");
         assertEquals(SyncReport.Status.OK, a.sync().status());
-        Files.writeString(a.clone.resolve(KeybindingsFile.OTHER_PATH), "x".repeat((int) SyncEngine.MAX_FILE_BYTES + 1));
+        Files.writeString(a.clone.resolve(KeybindingsFile.PATH), "x".repeat((int) SyncEngine.MAX_FILE_BYTES + 1));
         GitRunner inA = new GitRunner(List.of("git"), a.clone, false, "");
         assertTrue(inA.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "big")
                 .ok());
@@ -309,27 +311,72 @@ class SyncEngineTest {
         b.bindings.put("edit.copy", "Ctrl+Alt+C");
         SyncReport r = b.sync();
         assertEquals(SyncReport.Status.FAILED, r.status());
-        assertTrue(r.detail().contains(KeybindingsFile.OTHER_PATH), r.detail());
+        assertTrue(r.detail().contains(KeybindingsFile.PATH), r.detail());
         assertEquals(0, b.writes);
     }
 
     @Test
-    void aMacAndALinuxMachineNeverTouchEachOthersBindings() {
+    void aChordChangedOnAMacIsChangedOnLinuxAndBack() {
+        // OS-04 (Pauta 6.0.1): one file for every system. A Mac's Command is Ctrl+Shift in it.
         Computer mac = new Computer("mac", true);
         Computer linux = new Computer("linux", false);
-        mac.bindings.put("file.newTab", "Shortcut+Shift+Y");
-        linux.bindings.put("file.newTab", "Ctrl+Alt+T");
+        mac.bindings.put("file.newTab", "Meta+Y");
 
         assertEquals(SyncReport.Status.OK, mac.sync().status());
+        assertTrue(remoteFile(KeybindingsFile.PATH).contains("file.newTab=Ctrl+Shift+Y"));
         SyncReport l = linux.sync();
         assertEquals(SyncReport.Status.OK, l.status(), l.detail());
-        assertEquals(List.of(), l.received());
-        assertEquals(Map.of("file.newTab", "Ctrl+Alt+T"), linux.bindings);
-        assertEquals(SyncReport.Status.OK, mac.sync().status());
-        assertEquals(Map.of("file.newTab", "Shortcut+Shift+Y"), mac.bindings);
+        assertEquals(List.of("file.newTab"), l.received());
+        assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), linux.bindings);
 
-        assertTrue(remoteFile(KeybindingsFile.MAC_PATH).contains("file.newTab=Shortcut+Shift+Y"));
-        assertTrue(remoteFile(KeybindingsFile.OTHER_PATH).contains("file.newTab=Ctrl+Alt+T"));
+        // And the other way: Linux changes two, one of them a chord that is no application chord.
+        linux.bindings.put("edit.copy", "Ctrl+Shift+U");
+        linux.bindings.put("view.fullScreen", "F9");
+        assertEquals(SyncReport.Status.OK, linux.sync().status());
+        SyncReport m = mac.sync();
+        assertEquals(SyncReport.Status.OK, m.status(), m.detail());
+        assertEquals(Map.of("file.newTab", "Meta+Y", "edit.copy", "Meta+U", "view.fullScreen", "F9"), mac.bindings);
+
+        // Nothing is left to say: neither side sends or receives again.
+        SyncReport quiet = linux.sync();
+        assertEquals(List.of(), quiet.received());
+        assertEquals(List.of(), quiet.sent());
+        assertEquals(null, remoteFile(KeybindingsFile.MAC_PATH), "the file per platform is not written any more");
+    }
+
+    @Test
+    void aMacKeepsItsOwnChordWhereTheFileSaysTheSameThing() {
+        // Cmd+Shift+K and Cmd+K are both Ctrl+Shift+K in the file. A Mac that has the first is
+        // not handed the second back by its own sync, nor by another computer's.
+        Computer mac = new Computer("mac", true);
+        Computer linux = new Computer("linux", false);
+        mac.bindings.put("edit.clearScrollback", "Meta+Shift+K");
+        assertEquals(SyncReport.Status.OK, mac.sync().status());
+        linux.bindings.put("file.newTab", "Ctrl+Shift+Y");
+        assertEquals(SyncReport.Status.OK, linux.sync().status());
+        assertEquals("Ctrl+Shift+K", linux.bindings.get("edit.clearScrollback"));
+
+        assertEquals(SyncReport.Status.OK, mac.sync().status());
+        assertEquals("Meta+Shift+K", mac.bindings.get("edit.clearScrollback"));
+        assertEquals("Meta+Y", mac.bindings.get("file.newTab"));
+    }
+
+    @Test
+    void aRepositoryOfTheOlderLayoutIsMarkedAsTheNewOne() throws Exception {
+        // Version 1 had a file per platform. A computer still on it then says the repository is
+        // newer than it is, where it would have gone on syncing a file nobody else reads.
+        Computer a = new Computer("a", false);
+        a.bindings.put("file.newTab", "Ctrl+Shift+Y");
+        assertEquals(SyncReport.Status.OK, a.sync().status());
+        Files.writeString(a.clone.resolve(SyncEngine.FORMAT_FILE), "formatVersion=1\n");
+        GitRunner git = new GitRunner(List.of("git"), a.clone, false, "");
+        assertTrue(git.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "as 0.14 left it")
+                .ok());
+        assertTrue(git.network("push", "-q", "origin", "HEAD:refs/heads/main").ok());
+        assertEquals("formatVersion=1\n", remoteFile(SyncEngine.FORMAT_FILE));
+        a.bindings.put("edit.copy", "Ctrl+Shift+U");
+        assertEquals(SyncReport.Status.OK, a.sync().status());
+        assertEquals("formatVersion=2\n", remoteFile(SyncEngine.FORMAT_FILE));
     }
 
     @Test
@@ -358,16 +405,16 @@ class SyncEngineTest {
         Computer a = new Computer("a", false);
         for (int i = 0; i < SyncEngine.GUARDED_SIZE + 2; i++) a.bindings.put("command" + i, "Ctrl+Alt+F" + (i + 1));
         assertEquals(SyncReport.Status.OK, a.sync().status());
-        String before = remoteFile(KeybindingsFile.OTHER_PATH);
+        String before = remoteFile(KeybindingsFile.PATH);
 
         a.bindings.clear();
         SyncReport stopped = a.sync();
         assertEquals(SyncReport.Status.NEEDS_CONFIRMATION, stopped.status());
-        assertEquals(before, remoteFile(KeybindingsFile.OTHER_PATH));
+        assertEquals(before, remoteFile(KeybindingsFile.PATH));
 
         SyncReport anyway = a.engine().run(true);
         assertEquals(SyncReport.Status.OK, anyway.status(), anyway.detail());
-        assertEquals(null, remoteFile(KeybindingsFile.OTHER_PATH));
+        assertEquals(null, remoteFile(KeybindingsFile.PATH));
     }
 
     @Test
@@ -385,7 +432,7 @@ class SyncEngineTest {
         old.bindings.put("edit.copy", "Ctrl+Alt+C");
         assertEquals(SyncReport.Status.NEWER_FORMAT, old.sync().status());
         assertEquals(0, old.writes);
-        assertFalse(remoteFile(KeybindingsFile.OTHER_PATH).contains("edit.copy"));
+        assertFalse(remoteFile(KeybindingsFile.PATH).contains("edit.copy"));
     }
 
     @Test
@@ -421,7 +468,7 @@ class SyncEngineTest {
         SyncEngine engine = a.engine();
         assertTrue(engine.cancel());
         assertEquals(SyncReport.Status.CANCELLED, engine.run(false).status());
-        assertEquals(null, remoteFile(KeybindingsFile.OTHER_PATH));
+        assertEquals(null, remoteFile(KeybindingsFile.PATH));
     }
 
     @Test
@@ -456,7 +503,7 @@ class SyncEngineTest {
         assertEquals(SyncReport.Status.OK, r.status(), r.detail());
         assertEquals(Map.of("file.newTab", "Ctrl+Shift+Y"), a.bindings);
         GitRunner git = new GitRunner(List.of("git"), other, false, "");
-        assertTrue(git.run("show", "main:" + KeybindingsFile.OTHER_PATH).out().contains("file.newTab=Ctrl+Shift+Y"));
+        assertTrue(git.run("show", "main:" + KeybindingsFile.PATH).out().contains("file.newTab=Ctrl+Shift+Y"));
     }
 
     @Test

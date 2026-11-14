@@ -56,6 +56,11 @@ writing code (https://github.com/c4f7fcce9cb06515/Schubfach), Copyright
 2018-2020 Raffaello Giulietti, MIT License. The licence texts are in the
 jackson-core jar's META-INF directory.
 
+Jackson databind and Jackson annotations — https://github.com/FasterXML/jackson-databind,
+https://github.com/FasterXML/jackson-annotations
+Copyright 2007-, Tatu Saloranta (tatu.saloranta@iki.fi).
+Licensed under Apache-2.0. Unmodified dependencies.
+
 SLF4J — https://www.slf4j.org
 Copyright (c) 2004-2023 QOS.ch.
 Licensed under the MIT License. slf4j-api and slf4j-jdk14, unmodified.

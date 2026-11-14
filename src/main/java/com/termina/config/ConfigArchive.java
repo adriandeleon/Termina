@@ -299,13 +299,22 @@ public final class ConfigArchive {
         return true;
     }
 
-    /** The theme file an entry names, {@code themes/<name>.properties} and nothing deeper; else null. Pure. */
+    /**
+     * The theme file an entry names, {@code themes/<name>.json} and nothing deeper; else null. A
+     * zip exported before 0.15 has {@code <name>.properties}, which is taken too: the themes
+     * folder's reader rewrites it as JSON when it next reads the folder. Pure.
+     */
     static @Nullable String themeName(String entry) {
         String prefix = THEMES_DIR + "/";
         if (!entry.startsWith(prefix)) return null;
         String name = entry.substring(prefix.length());
-        if (name.isEmpty() || name.contains("/") || name.startsWith(".") || !name.endsWith(".properties")) return null;
+        if (name.isEmpty() || name.contains("/") || name.startsWith(".") || !isThemeFile(name)) return null;
         return name;
+    }
+
+    /** Whether a file name is a theme's: JSON, or the properties file it was until 0.15. Pure. */
+    static boolean isThemeFile(String name) {
+        return name.endsWith(".json") || name.endsWith(".properties");
     }
 
     /**
@@ -347,9 +356,11 @@ public final class ConfigArchive {
         if (!ticked.contains(Part.THEMES) || scan.themes().isEmpty()) return;
         Path themes = configDir.resolve(THEMES_DIR);
         Files.createDirectories(themes);
-        try (DirectoryStream<Path> existing = Files.newDirectoryStream(themes, "*.properties")) {
+        try (DirectoryStream<Path> existing = Files.newDirectoryStream(themes)) {
             for (Path file : existing) {
-                if (!scan.themes().containsKey(String.valueOf(file.getFileName()))) Files.deleteIfExists(file);
+                String name = String.valueOf(file.getFileName());
+                if (name.startsWith(".") || !isThemeFile(name)) continue;
+                if (!scan.themes().containsKey(name)) Files.deleteIfExists(file);
             }
         }
         for (Map.Entry<String, byte[]> theme : scan.themes().entrySet()) {

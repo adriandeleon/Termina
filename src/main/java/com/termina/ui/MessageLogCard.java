@@ -50,26 +50,9 @@ final class MessageLogCard {
     /** The gap between the card and the window's edge, and between it and the status bar. */
     private static final double GAP = 8;
 
-    private final StackPane host;
-    private final Runnable onHidden;
+    private final OverlayHost host;
     private final java.util.function.DoubleSupplier statusBarHeight;
     private final VBox card = new VBox(10);
-
-    /**
-     * What is behind the card: a press on it closes the log (MLOG-03), so to a screen reader it
-     * is a button that does (ACC-02), and its press runs what a click runs. Not dimmed: the log
-     * is a glance at the terminal's side, and the terminal stays readable around it.
-     */
-    private final Region backdrop = new Region() {
-        @Override
-        public void executeAccessibleAction(javafx.scene.AccessibleAction action, Object... parameters) {
-            if (action == javafx.scene.AccessibleAction.FIRE) hide();
-            else super.executeAccessibleAction(action, parameters);
-        }
-    };
-
-    /** The node that had the keyboard when the log opened, or null. */
-    private javafx.scene.@org.jspecify.annotations.Nullable Node focusBefore;
 
     private final MessageLog log;
     private final ListView<MessageLog.Entry> list = new ListView<>();
@@ -86,18 +69,23 @@ final class MessageLogCard {
         this.chords = chords;
     }
 
+    /** The chords in force that move a row and a page; the key maps' own until the window says. */
+    private java.util.function.Supplier<java.util.Map<String, PaletteKeys.Action>> moves =
+            () -> PaletteKeys.moves(id -> KeyChord.of(Keymap.lists().get(id), Keybindings.MAC));
+
+    void setMoves(java.util.function.Supplier<java.util.Map<String, PaletteKeys.Action>> moves) {
+        this.moves = moves;
+    }
+
     private final Runnable refresh = this::refresh;
 
     /**
-     * @param host the window's overlay host, which the card and its backdrop are added to
-     * @param onHidden gives the keyboard back to the terminal when nothing else should have it
+     * @param host the window's overlay host, which shows the card and gives the keyboard back
      * @param statusBarHeight how much room the status bar takes at the bottom now; 0 when hidden
      */
-    MessageLogCard(
-            MessageLog log, StackPane host, Runnable onHidden, java.util.function.DoubleSupplier statusBarHeight) {
+    MessageLogCard(MessageLog log, OverlayHost host, java.util.function.DoubleSupplier statusBarHeight) {
         this.log = log;
         this.host = host;
-        this.onHidden = onHidden;
         this.statusBarHeight = statusBarHeight;
         list.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         list.setPlaceholder(noEntries);
@@ -173,14 +161,6 @@ final class MessageLogCard {
         list.setMinHeight(0);
         StackPane.setAlignment(card, Pos.BOTTOM_LEFT);
 
-        backdrop.getStyleClass().add("message-log-backdrop");
-        backdrop.setAccessibleRole(javafx.scene.AccessibleRole.BUTTON);
-        backdrop.setAccessibleText(tr("messagelog.close"));
-        backdrop.setOnMousePressed(e -> {
-            hide();
-            e.consume();
-        });
-
         // On the card, ahead of the list and the field: Escape and the chord that opened the log
         // close it, and Ctrl+F (Cmd+F) goes to the filter, where a find bar's chord would lead.
         card.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -192,8 +172,33 @@ final class MessageLogCard {
                 filter.requestFocus();
                 filter.selectAll();
                 e.consume();
+            } else {
+                // The picker's keys (QOPEN-12, Pauta 6.0.1): the chords bound to a row and a
+                // page move the list, from the filter too, and the one bound to cancelling
+                // closes the log (MLOG-03): read from the bindings, never a fixed letter.
+                PaletteKeys.Action action = listAction(KeyChord.of(e), moves.get());
+                if (action == PaletteKeys.Action.CANCEL) {
+                    hide();
+                    e.consume();
+                } else if (PaletteNav.navigate(list, action, entry -> true)) {
+                    e.consume();
+                }
             }
         });
+    }
+
+    /**
+     * What a key does in the log beyond the list's own keys: the action of a chord the bindings
+     * give a row, a page or cancelling, or of the two fixed ones for the ends. Nothing for the arrows,
+     * Page Up and Down, Home and End, which the list moves on itself and extends a selection with;
+     * nothing for Enter, there being nothing to accept; nothing for Escape, which {@link #closes}
+     * has. Pure.
+     */
+    static PaletteKeys.Action listAction(
+            @org.jspecify.annotations.Nullable String token, java.util.Map<String, PaletteKeys.Action> moves) {
+        if (token == null) return PaletteKeys.Action.NONE;
+        PaletteKeys.Action moved = moves.get(token);
+        return moved != null ? moved : PaletteKeys.EMACS.getOrDefault(token, PaletteKeys.Action.NONE);
     }
 
     /**
@@ -237,8 +242,12 @@ final class MessageLogCard {
         list.setPrefHeight(size[1]);
         // Just above the status bar's echo area, which is at the window's bottom left.
         StackPane.setMargin(card, new Insets(GAP, GAP, statusBarHeight.getAsDouble() + GAP, GAP));
-        focusBefore = host.getScene() == null ? null : host.getScene().getFocusOwner();
-        host.getChildren().addAll(backdrop, card);
+        // What is behind the card is not dimmed: the log is a glance at the terminal's side, and
+        // the terminal stays readable around it. A press there closes the log (MLOG-03).
+        host.show(
+                card,
+                new OverlayHost.Scrim("message-log-backdrop", tr("messagelog.close")),
+                () -> log.removeListener(refresh));
         log.addListener(refresh);
         refresh();
         // A card added in this pulse has no skin yet, and a list without one takes no focus.
@@ -247,32 +256,13 @@ final class MessageLogCard {
         list.requestFocus();
     }
 
+    /** Closes the log; the host gives the keyboard back to where it was, or to the terminal. */
     void hide() {
-        if (!isShowing()) return;
-        log.removeListener(refresh);
-        javafx.scene.Node now = host.getScene() == null ? null : host.getScene().getFocusOwner();
-        boolean ours = now == null || isUnder(now, card);
-        host.getChildren().removeAll(backdrop, card);
-        javafx.scene.Node before = focusBefore;
-        focusBefore = null;
-        // Back where the keyboard was, a find bar's field included; to the terminal when that
-        // node is gone or cannot take it. Left alone if something else took it meanwhile.
-        if (ours && CommandPalette.returnsTo(before, host.getScene())) {
-            java.util.Objects.requireNonNull(before).requestFocus();
-        } else if (ours) {
-            onHidden.run();
-        }
-    }
-
-    private static boolean isUnder(javafx.scene.Node node, javafx.scene.Node ancestor) {
-        for (javafx.scene.Node at = node; at != null; at = at.getParent()) {
-            if (at == ancestor) return true;
-        }
-        return false;
+        host.hide(card);
     }
 
     boolean isShowing() {
-        return host.getChildren().contains(card);
+        return host.isShowing(card);
     }
 
     /** Says the oldest messages are gone, when they are (PERF-11): a log that stops short says nothing. */
@@ -338,8 +328,8 @@ final class MessageLogCard {
 
     /** The filter's text, the lines shown, what an empty list says, and who has the keyboard. */
     String report() {
-        javafx.scene.Node owner =
-                host.getScene() == null ? null : host.getScene().getFocusOwner();
+        javafx.scene.Scene scene = host.scene();
+        javafx.scene.Node owner = scene == null ? null : scene.getFocusOwner();
         return "filter=<" + filter.getText() + "> lines="
                 + list.getItems().stream().map(MessageLog.Entry::text).toList()
                 + " empty=<" + noEntries.getText() + "> focus="

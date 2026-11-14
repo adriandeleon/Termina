@@ -36,8 +36,8 @@ class ConfigTransferTest {
 
     @Test
     void theDialogOffersOnlyThePartsTheZipHoldsAllTickedAndWillNotImportNothing() throws Exception {
-        ConfigArchive.Scan scan = new ConfigArchive.Scan(
-                Map.of("theme", "dracula", "font.size", "14"), Map.of("a.properties", new byte[] {1}));
+        ConfigArchive.Scan scan =
+                new ConfigArchive.Scan(Map.of("theme", "dracula", "font.size", "14"), Map.of("a.json", new byte[] {1}));
 
         List<Object> seen = onFx(() -> {
             ConfigTransfer.PartsDialog dialog = ConfigTransfer.PartsDialog.of(Path.of("/home/me/export.zip"), scan);

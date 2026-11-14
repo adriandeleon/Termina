@@ -43,7 +43,7 @@ import org.jspecify.annotations.Nullable;
 public final class SyncEngine {
 
     /** The repository layout this build reads and writes ({@code formatVersion} in {@value #FORMAT_FILE}). */
-    public static final int FORMAT_VERSION = 1;
+    public static final int FORMAT_VERSION = 2;
 
     static final String FORMAT_FILE = "termina-sync.properties";
     static final String BASE_REF = "refs/termina/base";
@@ -263,7 +263,14 @@ public final class SyncEngine {
         String settled = settledBase(results, base);
 
         for (SyncMerge.FileResult r : results) writeOrDelete(clone.resolve(r.path()), r.text());
-        writeIfAbsent(FORMAT_FILE, "formatVersion=" + FORMAT_VERSION + "\n");
+        // Written again where an older build left its own: version 2 is the one file of key
+        // bindings for every system (OS-04, Pauta 6.0.1), and a computer still on version 1 then
+        // says the repository is newer than it is, where it would have gone on syncing a file
+        // nobody else reads.
+        if (formatVersion(clone.resolve(FORMAT_FILE)) < FORMAT_VERSION) {
+            Files.writeString(
+                    clone.resolve(FORMAT_FILE), "formatVersion=" + FORMAT_VERSION + "\n", StandardCharsets.UTF_8);
+        }
         writeIfAbsent(".gitattributes", "* -text\n");
         writeIfAbsent("README.md", README);
         List<String> written = new ArrayList<>(paths);
@@ -479,10 +486,12 @@ public final class SyncEngine {
             # Termina settings sync
 
             This repository is written by the Termina terminal's settings sync. It holds the key bindings
-            the computers connected to it have changed: keybindings/macos.properties for Macs and
-            keybindings/windows-linux.properties for everything else, one command=chord line each.
+            the computers connected to it have changed, in keybindings/keybindings.properties: one
+            command=chord line each, for every system. A chord is written as Windows and Linux press
+            it; a Mac reads Ctrl+Shift as Command, and writes Command as Ctrl+Shift.
 
-            Editing a file here by hand is fine: every connected computer picks the change up on its
-            next sync.
+            Editing the file by hand is fine: every connected computer picks the change up on its
+            next sync. keybindings/macos.properties and keybindings/windows-linux.properties, where
+            they exist, are from Termina 0.14 and earlier and are no longer read.
             """;
 }

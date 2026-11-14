@@ -268,8 +268,13 @@ is broken.
 - **The command palette is a port of Editora's, and the pure parts are verbatim.** `FuzzyMatch`,
   `PaletteKeys`, `TextInputKeys` and `MatchText` are Editora's `search.FuzzyMatch`, `ui.PickerKeys`,
   `command.TextInputKeymap` and `ui.MatchText` with the keymap manager replaced by a fixed Emacs
-  table in `KeyChord` tokens (`C-n`, `M-S-.`). A ranking or navigation change belongs in both
-  projects, or the two palettes stop agreeing. One place differs on purpose: `PickerKeys`'
+  table in `KeyChord` tokens (`M-S-.`, `C-g`). A ranking or navigation change belongs in both
+  projects, or the two palettes stop agreeing. A row and a page are not in that table any more
+  (PAL-06): they move on the chords bound to `nav.lineDown`, `nav.lineUp`, `nav.pageDown` and
+  `nav.pageUp`, as Editora's do. Their defaults are in `keymaps/lists.json` and not in
+  `keymap.json`, because they are plain `Ctrl` and `Alt` with a letter, and
+  `WindowRules.actsOnlyInLists` keeps them out of the window's key filter: bound where an
+  application chord is bound, `Ctrl+N` would be taken from the shell in every tab. One place differs on purpose: `PickerKeys`'
   JavaFX half (the event, the `ListView`) is `PaletteNav` here, so `PaletteKeys` imports no JavaFX
   type (QUAL-05); worth porting back. The chord that opens it is an ordinary
   key binding (`keys.palette.show`, which was `keys.commandPalette` until the command took the id
@@ -476,13 +481,20 @@ is broken.
 - **The Linux listing's screenshot is `docs/screenshot.png` on master, by URL.** It is in the
   metainfo of packages already installed, so the dark hero keeps that path and only the light one
   has a new name.
-- **A card over the terminal has to be claimed in three places.** The palette and the Message
-  Log's card are nodes in the window's overlay `StackPane`, not windows. Each is named in
-  `TerminalWindow.overlayWantsKeys`, or `FocusGuard` takes the keyboard back from it a pulse after
-  it opens; each makes `onKeyPressed` return early, or a bound chord runs behind it; and opening
-  one closes the other, since both keep "the node that had the keyboard" to give it back. A third
-  card needs all three. `PaletteFocusFxTest` waits three frames and asks who has the keyboard,
-  which is the check the first of them needs.
+- **A card over the terminal shows through `OverlayHost`, and nowhere else.** The palette, the
+  Message Log and every `QuickPick` are nodes in the window's overlay `StackPane`, not windows,
+  and the host shows one at a time: it owns the backdrop and remembers which node had the keyboard
+  before the first card opened. `TerminalWindow.overlayWantsKeys` and `onKeyPressed` ask the host
+  whether a card is up, so a new card is claimed by showing it there. Before the host each card
+  kept its own backdrop and focus memory and had three places to be named in; one added straight
+  to the `StackPane` again would lose the keyboard to `FocusGuard` a pulse after it opened and let
+  bound chords run behind it. `QuickPickTest` fails on a fourth class that calls `host.show`
+  without being listed, and `PaletteFocusFxTest` waits three frames and asks who has the keyboard.
+- **A picker's preview fires on every selection change, so its first selection is made before it
+  is "showing".** `QuickPick` selects the value in force while `showing` is still false, and
+  `reload` lowers the flag around its own reselect: a preview for a row nobody moved to would
+  change the theme the moment the card appeared. The undo runs from the host's `onHidden`, which
+  is why `chosen` is set before `hide()`.
 - **A capture run, and a test's `WindowManager`, keep no session and restore none.** `App` calls
   `keepSession` only for its own runs, so a picture never depends on the run before it and a test
   leaves no tabs in its settings. A test that wants a session calls `keepSession` and
@@ -497,3 +509,33 @@ is broken.
   deadline without waiting for a pipe's end, so a shell that does hang costs five seconds on a
   worker and no more. The method is `synchronized`, so a caller that arrives while the launch-time
   request is out waits for that one answer and does not start a second shell.
+- **`Themes.byId` is the choice; `Themes.drawn` is what to draw with.** While Windows'
+  high-contrast mode is on, `drawn` answers with the High Contrast theme whatever id it is given,
+  and the stored choice is left alone so the mode's end brings it back. A new place that paints
+  with a theme and asks `byId` will ignore the mode; Settings, which shows and edits the choice,
+  is the one caller that should. The mode's flag is static, so a test that turns it on turns it
+  off again (`HighContrastTest`).
+- **`editora-contrast.css` is written by a script, and a test holds it to the dark sheet.** It is
+  `editora-dark.css` with other values for the `-color-*` tokens of its palette block and nothing
+  else changed. Change a control's rule in the dark sheet and `HighContrastTest` fails until
+  `scripts/high-contrast-theme.py` has been run. A stylesheet the zoom should scale is also named
+  in `UiZoom.SHEETS`: one left out draws at 100% whatever the interface zoom.
+- **A class Jackson fills needs its package opened, and no test will say so.** The config files
+  are read and written as plain classes (`ConfigJson.Stored`, `SessionStore.Stored`,
+  `ThemeFile.Stored`) through one `ObjectMapper`, `ConfigJson.mapper()`. Jackson sets their fields
+  by reflection, so `module-info` has `opens <package> to com.fasterxml.jackson.databind` for each
+  package holding one. The tests run on the class path, where everything is open: a stored class
+  in a new package passes every test and fails in the running application with
+  `InaccessibleObjectException`. Run it on the module path (`scripts/dev-run.sh`, or a capture)
+  before believing it.
+- **What chrome shows is `Chrome`'s answer, not the setting's.** A window in Zen or Expert mode
+  hides chrome its settings have on, without writing them. Code that asks
+  `settings.showStatusBar()` to decide where a message goes, or how tall something is, is wrong in
+  Zen: ask `statusBarShown()` and `tabStripShown()`, which put the setting through the table.
+  `report` did ask the setting, and in Zen would have sent a message to a status bar that was not
+  there.
+- **The menu bar has two sets of menus, and holds one.** Simple mode's shorter set is built beside
+  the full one and the bar is handed whichever the mode asks for. `menuBar.getMenus()` is
+  therefore what is on screen, not every command: the shortcut reference walks `fullMenus`. A set
+  that is out of the bar is not refreshed by opening, so `applyMenuShape` refreshes it as it goes
+  in; without that the row that leaves Simple mode still read "Simple Mode".

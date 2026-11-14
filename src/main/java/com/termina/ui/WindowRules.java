@@ -150,6 +150,17 @@ final class WindowRules {
         return "edit.clearScrollback".equals(id);
     }
 
+    /**
+     * Whether a command's chord acts only while a list has the keyboard (PAL-06, Pauta 6.0.1): the
+     * four that move the selection a line or a page, and the one that cancels. The window's key
+     * filter passes their chords over, so Ctrl+N, Ctrl+P and Ctrl+G reach the shell with the
+     * terminal in front; the palette, the pickers and the Message Log look them up in the bindings
+     * in force.
+     */
+    static boolean actsOnlyInLists(@Nullable String id) {
+        return id != null && id.startsWith("nav.");
+    }
+
     /** Which profile a numbered profile command opens, 1 to 9; 0 for any other id. */
     static int profileNumber(@Nullable String id) {
         if (id == null || !id.startsWith(PROFILE_CHORD_ID)) return 0;
@@ -275,5 +286,16 @@ final class WindowRules {
             if (selectable.test(i)) return i;
         }
         return -1;
+    }
+
+    /**
+     * A picker's title from its command's label (QOPEN-02): the command's name, without the
+     * ellipsis that says the command asks for something. The picker is that something. Pure.
+     */
+    static String pickerTitle(String commandLabel) {
+        String title = commandLabel.strip();
+        if (title.endsWith("…")) title = title.substring(0, title.length() - 1);
+        else if (title.endsWith("...")) title = title.substring(0, title.length() - 3);
+        return title.strip();
     }
 }

@@ -1,21 +1,16 @@
 package com.termina.ui;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
 
 import javafx.geometry.Orientation;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.termina.pty.LaunchOptions;
 import org.jspecify.annotations.Nullable;
 
@@ -54,10 +49,8 @@ public final class SessionStore {
     /** The shape of the value, apart from the file's own schema version: a later shape is not read. */
     static final int VERSION = 1;
 
-    /** Deeper than any tab anyone has split; a file nested past it is not one of ours. */
+    /** Deeper than any tab anyone has split; a value nested past it is not one of ours. */
     private static final int MAX_DEPTH = 32;
-
-    private static final JsonFactory FACTORY = new JsonFactory();
 
     private static final ClosedTabs.Window NOTHING = new ClosedTabs.Window(List.of(), -1, 0);
 
@@ -157,86 +150,108 @@ public final class SessionStore {
         };
     }
 
-    // ---------------------------------------------------------------- the file's text
+    // ---------------------------------------------------------------- the stored value
 
-    /** The stored value for {@code session}, after {@link #kept}: JSON on one line. Pure. */
-    static String write(ClosedTabs.Window session) {
-        StringWriter out = new StringWriter();
-        try (JsonGenerator json = FACTORY.createGenerator(out)) {
-            json.writeStartObject();
-            json.writeNumberField("version", VERSION);
-            json.writeNumberField("selected", session.selected());
-            json.writeArrayFieldStart("tabs");
-            for (ClosedTabs.Entry tab : ClosedTabs.reopenOrder(kept(session).tabs())) {
-                json.writeStartObject();
-                json.writeBooleanField("pinned", tab.pinned());
-                json.writeNumberField("active", tab.layout().activeLeaf());
-                json.writeFieldName("panes");
-                writeLayout(json, tab.layout().root());
-                json.writeEndObject();
-            }
-            json.writeEndArray();
-            json.writeEndObject();
-        } catch (IOException e) {
-            throw new java.io.UncheckedIOException(e); // a StringWriter does not fail
-        }
-        return out.toString();
+    /**
+     * The value as Jackson reads and writes it (PLAT-14, Pauta 6.0.1): plain classes through the
+     * config files' own {@code ObjectMapper}, never JSON built or parsed by hand.
+     */
+    @JsonPropertyOrder({"version", "selected", "tabs"})
+    static final class Stored {
+        public int version;
+        public int selected = -1;
+        public List<StoredTab> tabs = new ArrayList<>();
     }
 
-    private static void writeLayout(JsonGenerator json, PaneLayout node) throws IOException {
-        json.writeStartObject();
-        switch (node) {
-            case PaneLayout.Leaf leaf -> {
-                json.writeStringField("shell", leaf.options().shell());
-                json.writeStringField("directory", leaf.options().workingDirectory());
-                json.writeStringField("profile", leaf.options().profileId());
-                json.writeStringField("title", leaf.userTitle());
-            }
-            case PaneLayout.Split split -> {
-                json.writeStringField("split", split.orientation().name());
-                json.writeArrayFieldStart("dividers");
-                for (double divider : split.dividers()) json.writeNumber(divider);
-                json.writeEndArray();
-                json.writeArrayFieldStart("children");
-                for (PaneLayout child : split.children()) writeLayout(json, child);
-                json.writeEndArray();
-            }
-        }
-        json.writeEndObject();
+    /** One tab: whether it was pinned, which of its panes was active, and its panes. */
+    @JsonPropertyOrder({"pinned", "active", "panes"})
+    static final class StoredTab {
+        public boolean pinned;
+        public int active;
+        public @Nullable StoredPane panes;
     }
 
     /**
-     * The session a stored value holds. A tab or a pane that does not read as one is left out and
-     * the rest kept; text that is not JSON, or JSON of another shape or a later version, throws.
+     * A pane, or a split of panes: a pane has the first four fields, a split the last three. A
+     * field of the other kind is left out of the value.
      */
-    static ClosedTabs.Window read(String text) throws IOException {
-        Object parsed;
-        try (JsonParser json = FACTORY.createParser(text)) {
-            json.nextToken();
-            parsed = value(json, 0);
-        }
-        if (!(parsed instanceof Map<?, ?> root)) throw new IOException("not a session: no object");
-        if (!(root.get("version") instanceof Number version) || version.intValue() != VERSION) {
-            throw new IOException("not a session this version reads: version " + root.get("version"));
-        }
-        List<ClosedTabs.Entry> tabs = new ArrayList<>();
-        if (root.get("tabs") instanceof List<?> stored) {
-            for (Object each : stored) {
-                if (!(each instanceof Map<?, ?> tab)) continue;
-                PaneLayout layout = layout(tab.get("panes"), 0);
-                if (layout == null) continue;
-                int active = tab.get("active") instanceof Number n ? n.intValue() : 0;
-                tabs.add(new ClosedTabs.Entry(
-                        new PaneLayout.Tab(layout, active), tabs.size(), 0, Boolean.TRUE.equals(tab.get("pinned"))));
-            }
-        }
-        int selected = root.get("selected") instanceof Number n ? n.intValue() : -1;
-        return new ClosedTabs.Window(tabs, selected, 0);
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonPropertyOrder({"shell", "directory", "profile", "title", "split", "dividers", "children"})
+    static final class StoredPane {
+        public @Nullable String shell;
+        public @Nullable String directory;
+        public @Nullable String profile;
+        public @Nullable String title;
+        public @Nullable String split;
+        public @Nullable List<Double> dividers;
+        public @Nullable List<StoredPane> children;
     }
 
-    private static @Nullable PaneLayout layout(@Nullable Object stored, int depth) {
-        if (!(stored instanceof Map<?, ?> node) || depth > MAX_DEPTH) return null;
-        if (node.get("split") instanceof String direction) {
+    /** The stored value for {@code session}, after {@link #kept}: JSON on one line. Pure. */
+    static String write(ClosedTabs.Window session) {
+        Stored stored = new Stored();
+        stored.version = VERSION;
+        stored.selected = session.selected();
+        for (ClosedTabs.Entry tab : ClosedTabs.reopenOrder(kept(session).tabs())) {
+            StoredTab out = new StoredTab();
+            out.pinned = tab.pinned();
+            out.active = tab.layout().activeLeaf();
+            out.panes = stored(tab.layout().root());
+            stored.tabs.add(out);
+        }
+        try {
+            return com.termina.config.ConfigJson.mapper().writeValueAsString(stored);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e); // a string does not fail
+        }
+    }
+
+    private static StoredPane stored(PaneLayout node) {
+        StoredPane out = new StoredPane();
+        switch (node) {
+            case PaneLayout.Leaf leaf -> {
+                out.shell = leaf.options().shell();
+                out.directory = leaf.options().workingDirectory();
+                out.profile = leaf.options().profileId();
+                out.title = leaf.userTitle();
+            }
+            case PaneLayout.Split split -> {
+                out.split = split.orientation().name();
+                out.dividers = new ArrayList<>();
+                for (double divider : split.dividers()) out.dividers.add(divider);
+                out.children =
+                        split.children().stream().map(SessionStore::stored).toList();
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The session a stored value holds. A tab whose panes do not make a layout (a split in no
+     * direction this build knows, or with nothing in it) is left out and the rest kept; text that
+     * is not JSON, JSON of another shape, or of a later version, throws.
+     */
+    static ClosedTabs.Window read(String text) throws IOException {
+        Stored stored = com.termina.config.ConfigJson.mapper().readValue(text, Stored.class);
+        if (stored == null || stored.version != VERSION) {
+            throw new IOException("not a session this version reads: version "
+                    + (stored == null ? "none" : String.valueOf(stored.version)));
+        }
+        List<ClosedTabs.Entry> tabs = new ArrayList<>();
+        if (stored.tabs != null) {
+            for (StoredTab tab : stored.tabs) {
+                PaneLayout layout = tab == null ? null : layout(tab.panes, 0);
+                if (layout == null) continue;
+                tabs.add(new ClosedTabs.Entry(new PaneLayout.Tab(layout, tab.active), tabs.size(), 0, tab.pinned));
+            }
+        }
+        return new ClosedTabs.Window(tabs, stored.selected, 0);
+    }
+
+    private static @Nullable PaneLayout layout(@Nullable StoredPane node, int depth) {
+        if (node == null || depth > MAX_DEPTH) return null;
+        String direction = node.split;
+        if (direction != null) {
             Orientation orientation;
             try {
                 orientation = Orientation.valueOf(direction);
@@ -244,61 +259,30 @@ public final class SessionStore {
                 return null;
             }
             List<PaneLayout> children = new ArrayList<>();
-            if (node.get("children") instanceof List<?> list) {
-                for (Object child : list) {
+            List<StoredPane> stored = node.children;
+            if (stored != null) {
+                for (StoredPane child : stored) {
                     PaneLayout read = layout(child, depth + 1);
                     if (read != null) children.add(read);
                 }
             }
             // A split left with one pane is that pane; with none, nothing.
             if (children.size() < 2) return children.isEmpty() ? null : children.getFirst();
-            List<Double> dividers = new ArrayList<>();
-            if (node.get("dividers") instanceof List<?> list) {
-                for (Object divider : list) {
-                    if (divider instanceof Number n) dividers.add(Math.clamp(n.doubleValue(), 0.0, 1.0));
-                }
-            }
-            return new PaneLayout.Split(
-                    orientation,
-                    dividers.stream().mapToDouble(Double::doubleValue).toArray(),
-                    children);
+            List<Double> stops = node.dividers;
+            double[] dividers = stops == null
+                    ? new double[0]
+                    : stops.stream()
+                            .filter(java.util.Objects::nonNull)
+                            .mapToDouble(stop -> Math.clamp(stop, 0.0, 1.0))
+                            .toArray();
+            return new PaneLayout.Split(orientation, dividers, children);
         }
         return new PaneLayout.Leaf(
-                new LaunchOptions(
-                        text(node.get("shell")), text(node.get("directory")), List.of(), text(node.get("profile"))),
-                text(node.get("title")));
+                new LaunchOptions(text(node.shell), text(node.directory), List.of(), text(node.profile)),
+                text(node.title));
     }
 
-    private static String text(@Nullable Object value) {
-        return value instanceof String s ? s : "";
-    }
-
-    /** The value the parser is on, as maps, lists, strings, numbers and booleans; null for null. */
-    private static @Nullable Object value(JsonParser json, int depth) throws IOException {
-        if (depth > MAX_DEPTH * 3) throw new IOException("nested too deep");
-        JsonToken token = json.currentToken();
-        if (token == null) throw new IOException("empty");
-        return switch (token) {
-            case START_OBJECT -> {
-                Map<String, @Nullable Object> map = new LinkedHashMap<>();
-                while (json.nextToken() != JsonToken.END_OBJECT) {
-                    String name = json.currentName();
-                    json.nextToken();
-                    map.put(name, value(json, depth + 1));
-                }
-                yield map;
-            }
-            case START_ARRAY -> {
-                List<@Nullable Object> list = new ArrayList<>();
-                while (json.nextToken() != JsonToken.END_ARRAY) list.add(value(json, depth + 1));
-                yield list;
-            }
-            case VALUE_STRING -> json.getText();
-            case VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT -> json.getDoubleValue();
-            case VALUE_TRUE -> Boolean.TRUE;
-            case VALUE_FALSE -> Boolean.FALSE;
-            case VALUE_NULL -> null;
-            default -> throw new IOException("unexpected " + token);
-        };
+    private static String text(@Nullable String value) {
+        return value == null ? "" : value;
     }
 }

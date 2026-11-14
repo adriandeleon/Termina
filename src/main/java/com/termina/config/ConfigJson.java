@@ -1,16 +1,16 @@
 package com.termina.config;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.UnaryOperator;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The JSON form of Termina's config files (PLAT-14, SET-08, SET-09, Pauta 2.0.2):
@@ -31,8 +31,9 @@ import com.fasterxml.jackson.core.JsonToken;
  * number as a number, but only when it reads back to exactly the same text: a profile named "007"
  * stays a string. Everything is read back as text, which is what {@link Settings} keeps.
  *
- * <p>Through jackson-core's streaming API: one small file does not need a data-binding library, and
- * the runtime image does not need its reflection.
+ * <p>Read and written by Jackson's {@code ObjectMapper} as a plain class, {@link Stored} (PLAT-14,
+ * Pauta 6.0.1), and never built or parsed by hand. Until 0.15 it went through jackson-core's
+ * streaming API, a token at a time.
  */
 public final class ConfigJson {
 
@@ -54,7 +55,31 @@ public final class ConfigJson {
     static final List<UnaryOperator<Map<String, String>>> MIGRATIONS =
             List.of(CommandIds::migrateSettings, CommandIds::groupByArea);
 
-    private static final JsonFactory FACTORY = new JsonFactory();
+    /**
+     * The one mapper for the config files: a file may hold a field this build does not know, and
+     * nothing may follow the object; keys are written sorted, so a file changes only where a value
+     * did.
+     */
+    private static final ObjectMapper MAPPER = com.fasterxml.jackson.databind.json.JsonMapper.builder()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+            .build();
+
+    /** The mapper every config store shares: the tabs of the last session are written with it too. */
+    public static ObjectMapper mapper() {
+        return MAPPER;
+    }
+
+    /**
+     * The file as Jackson reads and writes it: its version, then its values by key. A value is a
+     * string, a number or a boolean in the file; anything else in its place is not one of ours.
+     */
+    @JsonPropertyOrder({"schemaVersion", "settings"})
+    public static final class Stored {
+        public @Nullable Integer schemaVersion;
+        public @Nullable Map<String, @Nullable Object> settings;
+    }
 
     private ConfigJson() {}
 
@@ -70,38 +95,24 @@ public final class ConfigJson {
 
     /** Reads a file's text. */
     public static Document read(String text) throws FormatException {
-        Integer version = null;
-        Map<String, String> values = new TreeMap<>();
-        try (JsonParser parser = FACTORY.createParser(text)) {
-            if (parser.nextToken() != JsonToken.START_OBJECT) throw new FormatException("not a JSON object");
-            while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                String field = parser.currentName();
-                JsonToken value = parser.nextToken();
-                if ("schemaVersion".equals(field)) {
-                    if (value != JsonToken.VALUE_NUMBER_INT) throw new FormatException("schemaVersion is not a number");
-                    version = parser.getIntValue();
-                } else if ("settings".equals(field)) {
-                    if (value != JsonToken.START_OBJECT) throw new FormatException("settings is not an object");
-                    while (parser.nextToken() == JsonToken.FIELD_NAME) {
-                        String key = parser.currentName();
-                        JsonToken token = parser.nextToken();
-                        if (token == JsonToken.VALUE_NULL) continue;
-                        if (token.isStructStart()) {
-                            parser.skipChildren();
-                            continue; // a value this build cannot hold is dropped, not fatal
-                        }
-                        values.put(key, parser.getText());
-                    }
-                } else {
-                    parser.skipChildren();
-                }
-            }
-            if (parser.currentToken() != JsonToken.END_OBJECT) throw new FormatException("trailing content");
+        Stored stored;
+        try {
+            stored = MAPPER.readValue(text, Stored.class);
         } catch (IOException e) {
             throw new FormatException(e.getMessage() == null ? "unreadable JSON" : e.getMessage());
         }
-        if (version == null) throw new FormatException("no schemaVersion");
-        return new Document(version, values);
+        if (stored == null) throw new FormatException("not a JSON object");
+        if (stored.schemaVersion == null) throw new FormatException("no schemaVersion");
+        Map<String, String> values = new TreeMap<>();
+        if (stored.settings != null) {
+            stored.settings.forEach((key, value) -> {
+                // A value this build cannot hold, an object or a list, is dropped, not fatal.
+                if (value instanceof String || value instanceof Number || value instanceof Boolean) {
+                    values.put(key, String.valueOf(value));
+                }
+            });
+        }
+        return new Document(stored.schemaVersion, values);
     }
 
     /** Brings an older file's values forward to {@link #SCHEMA_VERSION}, one step at a time. */
@@ -115,34 +126,27 @@ public final class ConfigJson {
 
     /** The file's text, keys sorted, one per line. */
     public static String write(Map<String, String> values) {
-        StringWriter out = new StringWriter();
-        try (JsonGenerator json = FACTORY.createGenerator(out)) {
-            json.useDefaultPrettyPrinter();
-            json.writeStartObject();
-            json.writeNumberField("schemaVersion", SCHEMA_VERSION);
-            json.writeObjectFieldStart("settings");
-            for (Map.Entry<String, String> entry : new TreeMap<>(values).entrySet()) {
-                json.writeFieldName(entry.getKey());
-                writeValue(json, entry.getValue());
-            }
-            json.writeEndObject();
-            json.writeEndObject();
+        Stored stored = new Stored();
+        stored.schemaVersion = SCHEMA_VERSION;
+        Map<String, @Nullable Object> typed = new TreeMap<>();
+        values.forEach((key, value) -> typed.put(key, typed(value)));
+        stored.settings = typed;
+        try {
+            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(stored) + System.lineSeparator();
         } catch (IOException e) {
             throw new IllegalStateException("writing to a string cannot fail", e);
         }
-        return out + System.lineSeparator();
     }
 
-    private static void writeValue(JsonGenerator json, String value) throws IOException {
-        if (value.equals("true") || value.equals("false")) {
-            json.writeBoolean(Boolean.parseBoolean(value));
-        } else if (isCanonicalInteger(value)) {
-            json.writeNumber(Long.parseLong(value));
-        } else if (isCanonicalDecimal(value)) {
-            json.writeNumber(value);
-        } else {
-            json.writeString(value);
-        }
+    /**
+     * A value as the file holds it: a boolean or a number where the text reads back as exactly
+     * that, so a profile named "007" stays a string; a string otherwise.
+     */
+    private static Object typed(String value) {
+        if (value.equals("true") || value.equals("false")) return Boolean.parseBoolean(value);
+        if (isCanonicalInteger(value)) return Long.parseLong(value);
+        if (isCanonicalDecimal(value)) return Double.parseDouble(value);
+        return value;
     }
 
     /** {@code 42} or {@code -7}, but not {@code 007} or {@code +3}, which would read back otherwise. */

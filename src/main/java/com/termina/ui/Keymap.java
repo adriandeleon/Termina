@@ -29,19 +29,39 @@ final class Keymap {
 
     private static @Nullable Map<String, KeyCombination> defaults;
 
+    /** The file of the chords that act only in a list (PAL-06, Pauta 6.0.1): the same on every system. */
+    static final String LISTS = "lists.json";
+
     private Keymap() {}
 
     /** The default chord for command {@code id} on this platform, or null when it has none. */
     static synchronized @Nullable KeyCombination defaultFor(@Nullable String id) {
         if (id == null) return null;
         Map<String, KeyCombination> map = defaults;
-        if (map == null) defaults = map = load(Keybindings.MAC);
+        if (map == null) {
+            map = new LinkedHashMap<>(load(Keybindings.MAC));
+            map.putAll(lists());
+            defaults = map;
+        }
         return map.get(id);
+    }
+
+    /**
+     * The chords that move the selection in a list, command id to chord. Apart from the platform's
+     * key map on purpose: those are application chords, taken from the shell everywhere in the
+     * window, and none of them may be a plain Ctrl or Alt with a letter (KBD-09). These act only
+     * while a list has the keyboard, and with the terminal in front their keys reach the shell.
+     */
+    static Map<String, KeyCombination> lists() {
+        return read(LISTS);
     }
 
     /** One platform's keymap; a missing or broken resource is a build fault, so it throws. */
     static Map<String, KeyCombination> load(boolean mac) {
-        String name = mac ? "keymap.mac.json" : "keymap.json";
+        return read(mac ? "keymap.mac.json" : "keymap.json");
+    }
+
+    private static Map<String, KeyCombination> read(String name) {
         try (InputStream in = Keymap.class.getResourceAsStream(RESOURCE + name)) {
             if (in == null) throw new IllegalStateException("missing keymap " + name);
             Map<String, KeyCombination> out = new LinkedHashMap<>();

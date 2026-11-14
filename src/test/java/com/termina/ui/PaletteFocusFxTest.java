@@ -153,6 +153,122 @@ class PaletteFocusFxTest {
     }
 
     @Test
+    void thePalettesMovementKeysAreTheOnesBoundAndTheShellKeepsThem() throws Exception {
+        // PAL-06 (Pauta 6.0.1): a row and a page move on the chords of the four nav commands,
+        // and follow them when they are rebound; with the terminal in front those keys are not
+        // the window's to take.
+        Settings settings = new Settings(dir.resolve("moves.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        WindowManager windows = onFx(() -> new WindowManager(settings));
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+
+        String[] seen = onFx(() -> {
+            javafx.scene.input.KeyEvent ctrlN = new javafx.scene.input.KeyEvent(
+                    javafx.scene.input.KeyEvent.KEY_PRESSED,
+                    "",
+                    "",
+                    javafx.scene.input.KeyCode.N,
+                    false,
+                    true,
+                    false,
+                    false);
+            boolean windowTakesIt = window.keyFilterTakesForTest(ctrlN);
+            window.showPaletteForCapture("");
+            String first = window.firePaletteKeysForCapture("up");
+            String byDefault = window.firePaletteKeysForCapture("C-n,C-n,C-p,C-v,M-v");
+            String legend = window.paletteLegendForTest();
+
+            settings.replaceKeyBindings(java.util.Map.of("nav.lineDown", "Ctrl+J", "nav.lineUp", "none"));
+            String rebound = window.firePaletteKeysForCapture("C-j,C-n,down,up");
+            String legendAfter = window.paletteLegendForTest();
+            boolean stillNotTaken = !window.keyFilterTakesForTest(new javafx.scene.input.KeyEvent(
+                    javafx.scene.input.KeyEvent.KEY_PRESSED,
+                    "",
+                    "",
+                    javafx.scene.input.KeyCode.J,
+                    false,
+                    true,
+                    false,
+                    false));
+            run(window, "palette.show");
+            settings.replaceKeyBindings(java.util.Map.of());
+            return new String[] {
+                String.valueOf(windowTakesIt),
+                first,
+                byDefault,
+                legend,
+                rebound,
+                legendAfter,
+                String.valueOf(stillNotTaken)
+            };
+        });
+        assertEquals("false", seen[0], "Ctrl+N with the terminal in front is the shell's");
+        // C-n twice goes two rows down, C-p one back; the page chords move further than a row.
+        String[] steps = seen[2].split(" \\| ");
+        assertEquals(5, steps.length, seen[2]);
+        String start = seen[1].substring(seen[1].indexOf(" -> ") + 4);
+        String afterOne = steps[0].substring(steps[0].indexOf(" -> ") + 4);
+        String afterTwo = steps[1].substring(steps[1].indexOf(" -> ") + 4);
+        String back = steps[2].substring(steps[2].indexOf(" -> ") + 4);
+        assertTrue(!afterOne.equals(start) && !afterTwo.equals(afterOne), seen[2]);
+        assertEquals(afterOne, back, "C-p goes back up a row");
+        assertTrue(seen[3].contains(KeyChord.display("C-n")) && seen[3].contains(KeyChord.display("C-p")), seen[3]);
+
+        // Rebound: Ctrl+J moves, Ctrl+N no longer does, the arrows still do.
+        String[] after = seen[4].split(" \\| ");
+        String j = after[0].substring(after[0].indexOf(" -> ") + 4);
+        String n = after[1].substring(after[1].indexOf(" -> ") + 4);
+        String down = after[2].substring(after[2].indexOf(" -> ") + 4);
+        String up = after[3].substring(after[3].indexOf(" -> ") + 4);
+        assertEquals(j, n, "Ctrl+N is no longer a movement key: " + seen[4]);
+        assertTrue(!down.equals(n) && up.equals(n), seen[4]);
+        assertTrue(seen[5].contains(KeyChord.display("C-j")) && !seen[5].contains(KeyChord.display("C-n")), seen[5]);
+        assertEquals("true", seen[6], "nor is the new chord the window's with the terminal in front");
+    }
+
+    @Test
+    void theHelpKeyOpensTheHighlightedCommandsPageForThisVersion() throws Exception {
+        // PAL-08 (Pauta 6.0.1): Ctrl+H in the palette opens the page of the command under the
+        // highlight, in the guide of the running version; a command put on Ctrl+H moves the help
+        // key to F1.
+        Settings settings = new Settings(dir.resolve("help.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        java.util.List<String> opened = new java.util.concurrent.CopyOnWriteArrayList<>();
+        WindowManager windows = onFx(() -> {
+            WindowManager manager = new WindowManager(settings);
+            manager.setLinkOpener(opened::add);
+            return manager;
+        });
+        TerminalWindow window = onFx(() -> windows.openWindow(null));
+        waitFor(() -> started(window), "the shell to start");
+
+        String[] seen = onFx(() -> {
+            window.showPaletteForCapture("keyboard shortcuts");
+            String key = window.paletteHelpKeyForTest();
+            String legend = window.paletteLegendForTest();
+            window.firePaletteKeysForCapture("C-h");
+            boolean stillUp = window.paletteLegendForTest().equals(legend);
+            settings.replaceKeyBindings(java.util.Map.of("file.newWindow", "Ctrl+H"));
+            String moved = window.paletteHelpKeyForTest();
+            window.firePaletteKeysForCapture("f1");
+            run(window, "palette.show");
+            settings.replaceKeyBindings(java.util.Map.of());
+            return new String[] {key, legend, String.valueOf(stillUp), moved};
+        });
+        assertEquals("C-h", seen[0]);
+        assertTrue(seen[1].contains(KeyChord.display("C-h")), "the legend names the help key: " + seen[1]);
+        assertEquals("true", seen[2]);
+        assertEquals("f1", seen[3], "Ctrl+H is a command's now, so help is on F1");
+        assertEquals(2, opened.size(), opened.toString());
+        String page = com.termina.AppInfo.commandPage("help.keyboardShortcuts");
+        assertEquals(java.util.List.of(page, page), opened, "Keyboard Shortcuts is the row under the highlight");
+        assertTrue(page.contains("/docs/v-"), page);
+    }
+
+    @Test
     void anOpenPaletteFollowsAChangeOfBindings() throws Exception {
         // PAL-09 (Pauta 6.0.1): the opener's chip and the rows are rebuilt as the bindings change,
         // so a palette that is up never shows a chord that has moved.

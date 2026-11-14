@@ -10,6 +10,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -23,6 +24,31 @@ class RepositoryDocsTest {
 
     private static String read(String path) throws IOException {
         return Files.readString(Path.of(path)).replace("\r\n", "\n");
+    }
+
+    /**
+     * DOCS-02 (Pauta 6.0.1): the user's documentation is on the website. No page under
+     * {@code docs/} tells the person using the app how to install a download or check its
+     * signature, and the README, which may, sends the reader to the website for the detail.
+     * {@code docs/release.md} is the maintainer's: it says how the packages are published.
+     */
+    @Test
+    void installingIsOnTheWebsiteAndNotInTheRepositorysDocs() throws IOException {
+        java.util.List<String> found = new java.util.ArrayList<>();
+        try (java.util.stream.Stream<Path> files = Files.walk(Path.of("docs"))) {
+            for (Path file : files.filter(p -> p.toString().endsWith(".md")).toList()) {
+                String name = file.getFileName().toString();
+                if (name.startsWith("pauta-audit") || name.equals("release.md")) continue;
+                String text = Files.readString(file);
+                for (String telling :
+                        java.util.List.of("gpg --verify", "sudo apt install", "sudo dnf install", "sudo dpkg -i")) {
+                    if (text.contains(telling)) found.add(file + ": " + telling);
+                }
+            }
+        }
+        assertEquals(java.util.List.of(), found);
+        assertFalse(Files.exists(Path.of("docs/reference/installing.md")));
+        assertTrue(read("README.md").contains("https://termina-project.dev/docs/installing/"));
     }
 
     /**

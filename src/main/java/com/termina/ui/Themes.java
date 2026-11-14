@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Every theme there is to choose from: the four built in, then the ones imported from other
- * terminals' files, which live as {@code <config>/themes/<name>.properties}.
+ * terminals' files, which live as {@code <config>/themes/<name>.json}.
  *
  * <p>The settings store a theme by id, as before. An imported theme's id is {@code user-<name>}, so
  * it can never collide with a built-in one, and an id that names nothing — a theme deleted by hand,
@@ -67,16 +67,16 @@ public final class Themes {
         reload();
     }
 
-    /** Re-reads the folder. A file that does not parse is skipped and logged, not fatal. */
+    /**
+     * Re-reads the folder. A file that does not parse is skipped and logged, not fatal. A theme
+     * still in the properties form from before 0.15 is rewritten as JSON first ({@link #bringForward}).
+     */
     static synchronized void reload() {
         Path dir = directory;
         List<ThemeEntry> found = new ArrayList<>();
         if (dir != null && Files.isDirectory(dir)) {
-            try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.properties")) {
-                List<Path> sorted = new ArrayList<>();
-                files.forEach(sorted::add);
-                sorted.sort(null);
-                for (Path file : sorted) {
+            try {
+                for (Path file : themeFiles(dir)) {
                     try {
                         String text = Files.readString(file, StandardCharsets.UTF_8);
                         int version = ThemeFile.versionOf(text);
@@ -84,7 +84,8 @@ public final class Themes {
                             setAside(file, version);
                             continue;
                         }
-                        found.add(entry(idOf(file), ThemeFile.read(text), file));
+                        ColorScheme scheme = ThemeFile.read(text);
+                        found.add(entry(idOf(file), scheme, bringForward(file, scheme)));
                     } catch (IOException | ThemeImportException e) {
                         LOG.log(Level.WARNING, "skipping theme " + file + ": " + e.getMessage());
                     }
@@ -94,6 +95,63 @@ public final class Themes {
             }
         }
         imported = List.copyOf(found);
+    }
+
+    /**
+     * The theme files in a folder, by name: every {@code .json}, and a {@code .properties} from
+     * before 0.15 only where no JSON file of its name stands beside it.
+     */
+    static List<Path> themeFiles(Path dir) throws IOException {
+        Map<String, Path> byStem = new java.util.TreeMap<>();
+        try (DirectoryStream<Path> files = Files.newDirectoryStream(dir)) {
+            for (Path file : files) {
+                String name = String.valueOf(file.getFileName());
+                if (name.startsWith(".") || !Files.isRegularFile(file)) continue;
+                if (name.endsWith(ThemeFile.EXTENSION)) {
+                    byStem.put(stem(file), file);
+                } else if (name.endsWith(ThemeFile.LEGACY_EXTENSION)) {
+                    byStem.putIfAbsent(stem(file), file);
+                }
+            }
+        }
+        return List.copyOf(byStem.values());
+    }
+
+    /**
+     * A theme read from a properties file is written as {@code <name>.json} beside it, and the old
+     * file kept as {@code <name>.properties.migrated}, once (PLAT-14, Pauta 6.0.1). The theme's id
+     * is its file's stem, so it is unchanged and whatever names it still does. Returns the file
+     * the theme is in now: the old one when the folder cannot be written, and it is then read
+     * from there every time.
+     */
+    static Path bringForward(Path file, ColorScheme scheme) {
+        if (!String.valueOf(file.getFileName()).endsWith(ThemeFile.LEGACY_EXTENSION)) return file;
+        Path target = file.resolveSibling(stem(file) + ThemeFile.EXTENSION);
+        try {
+            writeWhole(target, ThemeFile.write(scheme));
+            retire(file);
+            return target;
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "theme " + file + " could not be rewritten as JSON; read as it is", e);
+            return Files.exists(target) ? target : file;
+        }
+    }
+
+    /** A properties file that is no longer read keeps its content as {@code <name>.properties.migrated}. */
+    private static void retire(Path legacy) throws IOException {
+        Files.move(
+                legacy, legacy.resolveSibling(legacy.getFileName() + ".migrated"), StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    /** Writes a theme file whole: a temporary beside it, then a move into place (SET-22). */
+    private static void writeWhole(Path target, String text) throws IOException {
+        Path temp = target.resolveSibling(target.getFileName() + ".tmp");
+        Files.writeString(temp, text, StandardCharsets.UTF_8);
+        try {
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException atomicUnsupported) {
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /**
@@ -145,6 +203,24 @@ public final class Themes {
     /** The desktop's scheme changed, or was read at startup. */
     public static void followSystem(boolean dark) {
         systemDark = dark;
+    }
+
+    /** Whether the system's high-contrast mode is on (ACC-09): then one theme draws everything. */
+    private static volatile boolean highContrast;
+
+    /** The system's high-contrast mode began or ended, or was read at startup ({@link HighContrast}). */
+    public static void followHighContrast(boolean on) {
+        highContrast = on;
+    }
+
+    /**
+     * The theme to draw with for the id a setting or a profile holds: that theme, or the
+     * high-contrast one while the system's high-contrast mode is on (ACC-09, Pauta 6.0.1). The
+     * stored choice is untouched, so the mode's end brings it back. Everything that draws asks
+     * this; {@link #byId} is for what shows or edits the choice itself.
+     */
+    public static ThemeEntry drawn(String id) {
+        return highContrast ? byId(Theme.HIGH_CONTRAST.id()) : byId(id);
     }
 
     /** Whether an id is the follow-the-system choice rather than a theme. */
@@ -213,14 +289,7 @@ public final class Themes {
                     name, scheme.background(), scheme.foreground(), scheme.ansi(), scheme.cursor(), scheme.selection());
             String slug = fileStem(name, stored);
             stored.put(slug, name);
-            Path target = dir.resolve(slug + ".properties");
-            Path temp = dir.resolve(slug + ".properties.tmp");
-            Files.writeString(temp, ThemeFile.write(named), StandardCharsets.UTF_8);
-            try {
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException atomicUnsupported) {
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            writeWhole(dir.resolve(slug + ThemeFile.EXTENSION), ThemeFile.write(named));
             // Once: two schemes of one exact name in one file are one theme, the second replacing the first.
             String id = USER_PREFIX + slug;
             if (!ids.contains(id)) ids.add(id);
@@ -234,17 +303,15 @@ public final class Themes {
     /** Each theme file's stem and the name stored in it — null for a file that does not read. */
     private static Map<String, @Nullable String> storedNames(Path dir) throws IOException {
         Map<String, @Nullable String> names = new java.util.HashMap<>();
-        try (DirectoryStream<Path> files = Files.newDirectoryStream(dir, "*.properties")) {
-            for (Path existing : files) {
-                String stem = idOf(existing).substring(USER_PREFIX.length());
-                try {
-                    names.put(
-                            stem,
-                            ThemeFile.read(Files.readString(existing, StandardCharsets.UTF_8))
-                                    .name());
-                } catch (IOException | ThemeImportException | RuntimeException unreadable) {
-                    names.put(stem, null);
-                }
+        for (Path existing : themeFiles(dir)) {
+            String stem = stem(existing);
+            try {
+                names.put(
+                        stem,
+                        ThemeFile.read(Files.readString(existing, StandardCharsets.UTF_8))
+                                .name());
+            } catch (IOException | ThemeImportException | RuntimeException unreadable) {
+                names.put(stem, null);
             }
         }
         return names;
@@ -269,11 +336,20 @@ public final class Themes {
         }
     }
 
-    /** Deletes an imported theme. A built-in one cannot be, and is left alone. */
+    /**
+     * Deletes an imported theme. A built-in one cannot be, and is left alone. A properties file of
+     * the same name from before 0.15 is retired with it, kept as {@code .migrated} like every other:
+     * left under its own name, the next read of the folder would take it for a theme not yet
+     * rewritten as JSON, and the theme would come back.
+     */
     public static synchronized void remove(String id) throws IOException {
         ThemeEntry entry = byId(id);
         if (entry.isBuiltIn() || !entry.id().equals(id)) return;
-        Files.deleteIfExists(entry.file());
+        Path file = entry.file();
+        if (file == null) return;
+        Files.deleteIfExists(file);
+        Path older = file.resolveSibling(stem(file) + ThemeFile.LEGACY_EXTENSION);
+        if (!older.equals(file) && Files.exists(older)) retire(older);
         reload();
     }
 
@@ -313,8 +389,16 @@ public final class Themes {
     }
 
     private static String idOf(Path file) {
-        String name = file.getFileName().toString();
-        return USER_PREFIX + name.substring(0, name.length() - ".properties".length());
+        return USER_PREFIX + stem(file);
+    }
+
+    /** A theme file's name without what it ends in, {@code .json} or the older {@code .properties}. */
+    static String stem(Path file) {
+        String name = String.valueOf(file.getFileName());
+        for (String ending : List.of(ThemeFile.EXTENSION, ThemeFile.LEGACY_EXTENSION)) {
+            if (name.endsWith(ending)) return name.substring(0, name.length() - ending.length());
+        }
+        return name;
     }
 
     /**

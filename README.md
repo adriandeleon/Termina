@@ -97,9 +97,9 @@ gpg --verify Termina-<version>-linux-x64.deb.asc Termina-<version>-linux-x64.deb
 ```
 
 The Windows MSI is not signed yet, so SmartScreen warns on first run ("More info" → "Run anyway").
-Intel Macs get no Homebrew cask, which takes one artifact; use the `macos-x64` dmg. What the Linux
-packages install and how they are signed is in
-[docs/reference/installing.md](docs/reference/installing.md).
+Intel Macs get no Homebrew cask, which takes one artifact; use the `macos-x64` dmg. What each
+installer puts where, and how to check a download, is in the user guide:
+[Installing](https://termina-project.dev/docs/installing/).
 
 ## Build from source
 

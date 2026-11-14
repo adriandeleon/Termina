@@ -632,7 +632,9 @@ final class SettingsSync {
     // ---------------------------------------------------------------- this computer's side
 
     private @Nullable String renderKeybindings() {
-        return KeybindingsFile.text(KeybindingsFile.pathFor(mac), settings.keyBindings());
+        // In the form every system shares (OS-04, Pauta 6.0.1): a Mac's Command is Ctrl+Shift there.
+        return KeybindingsFile.text(
+                KeybindingsFile.PATH, com.termina.sync.SharedChords.toFile(settings.keyBindings(), mac));
     }
 
     /**
@@ -643,7 +645,7 @@ final class SettingsSync {
      */
     private final class LiveTarget implements SyncTarget {
 
-        private final String path = KeybindingsFile.pathFor(mac);
+        private final String path = KeybindingsFile.PATH;
 
         @Override
         public Set<String> paths() {
@@ -672,7 +674,10 @@ final class SettingsSync {
                 applying = true;
                 try {
                     String text = changes.get(path);
-                    settings.replaceKeyBindings(KeybindingsFile.entries(text));
+                    // Back in this system's form, and a chord here that already says what the
+                    // file says is left as it is.
+                    settings.replaceKeyBindings(com.termina.sync.SharedChords.fromFile(
+                            KeybindingsFile.entries(text), settings.keyBindings(), mac));
                     keybindingsSeen = renderKeybindings();
                 } finally {
                     applying = false;
