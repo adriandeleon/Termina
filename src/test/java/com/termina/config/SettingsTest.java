@@ -26,6 +26,7 @@ class SettingsTest {
         assertEquals(Settings.DEFAULT_FONT_SIZE, settings.fontSize());
         assertEquals(Settings.DEFAULT_SCROLLBACK, settings.scrollbackLines());
         assertEquals(Settings.CursorShape.BLOCK, settings.cursorShape());
+        assertEquals(Settings.OtherLaunches.WINDOW, settings.otherLaunches());
         assertTrue(settings.altIsMeta());
         assertTrue(settings.bell());
         assertEquals("", settings.shell());
@@ -43,6 +44,7 @@ class SettingsTest {
         written.setFontSize(17);
         written.setScrollbackLines(1234);
         written.setCursorShape(Settings.CursorShape.BAR);
+        written.setOtherLaunches(Settings.OtherLaunches.TAB);
         written.setAltIsMeta(false);
         written.setBell(false);
         written.setShell("/bin/bash");
@@ -54,6 +56,7 @@ class SettingsTest {
         assertEquals(17, read.fontSize());
         assertEquals(1234, read.scrollbackLines());
         assertEquals(Settings.CursorShape.BAR, read.cursorShape());
+        assertEquals(Settings.OtherLaunches.TAB, read.otherLaunches());
         assertFalse(read.altIsMeta());
         assertFalse(read.bell());
         assertEquals("/bin/bash", read.shell());
@@ -72,12 +75,15 @@ class SettingsTest {
     void aGarbledValueFallsBackToItsDefaultWithoutTakingTheRestWithIt(@TempDir Path dir) throws IOException {
         // The file is meant to be hand-editable, so one bad line must not cost the others.
         Path file = dir.resolve("settings.properties");
-        Files.writeString(file, "font.size=enormous\nterminal.cursorShape=spiral\ntheme=editora-light\n");
+        Files.writeString(
+                file,
+                "font.size=enormous\nterminal.cursorShape=spiral\ninstance.otherLaunches=sometimes\ntheme=editora-light\n");
 
         Settings settings = new Settings(file);
         settings.load();
         assertEquals(Settings.DEFAULT_FONT_SIZE, settings.fontSize());
         assertEquals(Settings.CursorShape.BLOCK, settings.cursorShape());
+        assertEquals(Settings.OtherLaunches.WINDOW, settings.otherLaunches());
         assertEquals("editora-light", settings.themeId());
     }
 

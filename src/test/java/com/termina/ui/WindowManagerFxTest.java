@@ -99,6 +99,16 @@ class WindowManagerFxTest {
         onFx(() -> windows.openHandedOff(new LaunchOptions("", dir.toString(), List.of()), "handed over"));
         assertEquals(before + 1, onFx(() -> windows.windows().size()));
 
+        // Set to tabs: no window, a tab in an existing one, named as -T asked.
+        settings.setOtherLaunches(Settings.OtherLaunches.TAB);
+        int terminalsBefore = onFx(() -> windows.allTerminals().size());
+        onFx(() -> windows.openHandedOff(new LaunchOptions("", dir.toString(), List.of()), "as a tab"));
+        waitFor(() -> terminalCount(windows) == terminalsBefore + 1, "the handed-off tab");
+        assertEquals(before + 1, onFx(() -> windows.windows().size()), "no window for it");
+        assertTrue(onFx(() -> windows.allTerminals().stream()
+                .anyMatch(t -> "as a tab".equals(t.getDisplay().getUserTitle()))));
+        settings.setOtherLaunches(Settings.OtherLaunches.WINDOW);
+
         // A window closed, then brought back.
         onFx(() -> {
             first.stage().hide();
@@ -406,6 +416,14 @@ class WindowManagerFxTest {
     private static String clipboard() throws Exception {
         return onFx(() ->
                 String.valueOf(javafx.scene.input.Clipboard.getSystemClipboard().getString()));
+    }
+
+    private static int terminalCount(WindowManager windows) {
+        try {
+            return onFx(() -> windows.allTerminals().size());
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     private static boolean started(TerminalWindow window) {

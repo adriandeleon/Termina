@@ -43,7 +43,103 @@ class SingleInstanceTest {
             assertNotNull(first);
             first.serve(received::add);
             SingleInstance.Request sent = new SingleInstance.Request("/tmp", List.of("-e", "htop"));
-            assertTrue(SingleInstance.handOff(dir, sent, Duration.ofSeconds(5)));
+            assertEquals(SingleInstance.Answer.ACCEPTED, SingleInstance.handOff(dir, sent, Duration.ofSeconds(5)));
+            assertEquals(sent, received.poll(5, TimeUnit.SECONDS));
+        }
+    }
+
+    /** The setting that makes every launch its own: the holder says so, and keeps nothing. */
+    @Test
+    void aHolderSetToLeaveLaunchesAloneDeclinesThem(@TempDir Path dir) throws Exception {
+        LinkedBlockingQueue<SingleInstance.Request> received = new LinkedBlockingQueue<>();
+        java.util.concurrent.atomic.AtomicBoolean accepting = new java.util.concurrent.atomic.AtomicBoolean(false);
+        try (SingleInstance first = SingleInstance.claim(dir)) {
+            assertNotNull(first);
+            first.serve(accepting::get, received::add);
+            SingleInstance.Request sent = new SingleInstance.Request("/tmp", List.of());
+            assertEquals(SingleInstance.Answer.DECLINED, SingleInstance.handOff(dir, sent, Duration.ofSeconds(5)));
+            assertNull(received.poll(200, TimeUnit.MILLISECONDS), "a declined request opens nothing");
+            // Asked per request: changing the setting changes the next launch, without a restart.
+            accepting.set(true);
+            assertEquals(SingleInstance.Answer.ACCEPTED, SingleInstance.handOff(dir, sent, Duration.ofSeconds(5)));
+            assertEquals(sent, received.poll(5, TimeUnit.SECONDS));
+        }
+    }
+
+    /**
+     * A double click: the second launch finds the folder claimed before the first is listening —
+     * it binds only once its window is up — and has to wait for it rather than start a second one.
+     */
+    @Test
+    void aLaunchThatArrivesBeforeTheHolderListensWaitsForIt(@TempDir Path dir) throws Exception {
+        LinkedBlockingQueue<SingleInstance.Request> received = new LinkedBlockingQueue<>();
+        try (SingleInstance first = SingleInstance.claim(dir)) {
+            assertNotNull(first);
+            SingleInstance.Request sent = new SingleInstance.Request("/tmp", List.of("-T", "early"));
+            var answer = java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> SingleInstance.handOff(dir, sent, Duration.ofSeconds(5)));
+            // Not a sleep: the hand-off is still trying when this wait runs out.
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    java.util.concurrent.TimeoutException.class,
+                    () -> answer.get(400, TimeUnit.MILLISECONDS),
+                    "still trying");
+            first.serve(received::add);
+            assertEquals(SingleInstance.Answer.ACCEPTED, answer.get(5, TimeUnit.SECONDS));
+            assertEquals(sent, received.poll(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void anUnknownReplyIsNoAnswer() {
+        assertEquals(SingleInstance.Answer.ACCEPTED, SingleInstance.answerOf("ok\r"));
+        assertEquals(SingleInstance.Answer.DECLINED, SingleInstance.answerOf("own"));
+        assertEquals(SingleInstance.Answer.NONE, SingleInstance.answerOf(""));
+        assertEquals(SingleInstance.Answer.NONE, SingleInstance.answerOf("maybe"));
+    }
+
+    /** Whoever can connect can ask for a window running any command, so nobody else may. */
+    @Test
+    void theSocketIsItsOwnersAlone(@TempDir Path dir) throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(java.nio.file.FileSystems.getDefault()
+                .supportedFileAttributeViews()
+                .contains("posix"));
+        try (SingleInstance first = SingleInstance.claim(dir)) {
+            assertNotNull(first);
+            first.serve(request -> {});
+            assertEquals(
+                    "rw-------",
+                    java.nio.file.attribute.PosixFilePermissions.toString(
+                            java.nio.file.Files.getPosixFilePermissions(SingleInstance.socketFor(dir))));
+        }
+    }
+
+    @Test
+    void aLongFolderPathPrefersTheRuntimeFolderAndOtherwiseAPrivateOneInTemp() {
+        Path deep = Path.of("/tmp", "a".repeat(120), "config").toAbsolutePath();
+        Path runtime = SingleInstance.socketFor(deep, "/run/user/1000", "/tmp", "adl");
+        assertEquals(
+                Path.of("/run/user/1000", "termina").toAbsolutePath(),
+                runtime.getParent().toAbsolutePath());
+        // No runtime folder: a folder of the user's own in temp, never the shared temp folder itself.
+        Path temp = SingleInstance.socketFor(deep, null, "/tmp", "a d/l");
+        assertEquals(Path.of("/tmp", "termina-a_d_l"), temp.getParent());
+        assertEquals(runtime.getFileName(), temp.getFileName(), "the same name wherever it goes");
+        // A short folder keeps its socket where it always was.
+        assertEquals(
+                Path.of("/tmp/c").toAbsolutePath().normalize().resolve("instance.sock"),
+                SingleInstance.socketFor(Path.of("/tmp/c"), "/run/user/1000", "/tmp", "adl"));
+    }
+
+    @Test
+    void aSocketInAFolderOfItsOwnStillWorks(@TempDir Path dir) throws Exception {
+        // Deep enough that the socket leaves the config folder for the temp folder.
+        Path deep = dir.resolve("b".repeat(110));
+        LinkedBlockingQueue<SingleInstance.Request> received = new LinkedBlockingQueue<>();
+        try (SingleInstance first = SingleInstance.claim(deep)) {
+            assertNotNull(first);
+            first.serve(received::add);
+            SingleInstance.Request sent = new SingleInstance.Request("/tmp", List.of());
+            assertEquals(SingleInstance.Answer.ACCEPTED, SingleInstance.handOff(deep, sent, Duration.ofSeconds(5)));
             assertEquals(sent, received.poll(5, TimeUnit.SECONDS));
         }
     }
@@ -51,7 +147,9 @@ class SingleInstanceTest {
     @Test
     void nobodyListeningIsAnAnswerNotAHang(@TempDir Path dir) {
         long start = System.nanoTime();
-        assertFalse(SingleInstance.handOff(dir, new SingleInstance.Request("/", List.of()), Duration.ofSeconds(2)));
+        assertEquals(
+                SingleInstance.Answer.NONE,
+                SingleInstance.handOff(dir, new SingleInstance.Request("/", List.of()), Duration.ofSeconds(2)));
         assertTrue(System.nanoTime() - start < Duration.ofSeconds(3).toNanos());
     }
 
@@ -95,7 +193,11 @@ class SingleInstanceTest {
 
     @org.junit.jupiter.api.Test
     void handingOffToAFolderNobodyListensOnIsNoAnswer(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
-        org.junit.jupiter.api.Assertions.assertFalse(SingleInstance.handOff(
-                dir, new SingleInstance.Request(dir.toString(), java.util.List.of()), java.time.Duration.ofSeconds(2)));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                SingleInstance.Answer.NONE,
+                SingleInstance.handOff(
+                        dir,
+                        new SingleInstance.Request(dir.toString(), java.util.List.of()),
+                        java.time.Duration.ofSeconds(2)));
     }
 }

@@ -263,16 +263,45 @@ public final class WindowManager {
     }
 
     /**
-     * A window for another launch's command line (CLI-07): its options apply to this window's
-     * first tab, as they would have to a process of its own, and it comes to the front.
+     * Another launch's command line (CLI-07): a window of its own, or a tab in the window used last
+     * when the settings say so. Its options apply to that one tab, as they would have to a process
+     * of its own, and the window it lands in comes to the front.
      */
     public TerminalWindow openHandedOff(com.termina.pty.LaunchOptions cli, String title) {
+        TerminalWindow host = tabHost(settings.otherLaunches(), windows, lastActive);
         firstTabTitle = title;
-        TerminalWindow window = open(new Stage(), cli, windows.isEmpty() ? null : windows.getLast(), null);
-        window.stage().toFront();
-        window.stage().requestFocus();
+        TerminalWindow window;
+        if (host != null) {
+            window = host;
+            openTabFor(window, cli, false);
+        } else {
+            window = open(new Stage(), cli, windows.isEmpty() ? null : windows.getLast(), null);
+        }
+        raise(window.stage());
         return window;
     }
+
+    /**
+     * The window a handed-off launch opens a tab in, or null for a window of its own: the one used
+     * last when tabs are asked for, else the newest, and none when there is no window to put it in.
+     */
+    static <W> @Nullable W tabHost(Settings.OtherLaunches setting, List<W> open, @Nullable W recent) {
+        if (setting != Settings.OtherLaunches.TAB || open.isEmpty()) return null;
+        return recent != null && open.contains(recent) ? recent : open.getLast();
+    }
+
+    /**
+     * Brings a window up from wherever it is: out of the dock, in front, with the keyboard. A
+     * minimised window ignores {@code toFront}, so the tab it was given would open out of sight.
+     */
+    private static void raise(Stage stage) {
+        if (stage.isIconified()) stage.setIconified(false);
+        stage.toFront();
+        stage.requestFocus();
+    }
+
+    /** The terminal window that last had the keyboard, for a handed-off launch's tab. */
+    private @Nullable TerminalWindow lastActive;
 
     /**
      * A new window, cascaded from {@code from} — the window whose menu or chord asked for it.
@@ -301,9 +330,15 @@ public final class WindowManager {
             java.util.function.@Nullable Consumer<TerminalWindow> fill) {
         TerminalWindow window = new TerminalWindow(this, settings, stage);
         windows.add(window);
+        // Remembered rather than asked at the time: a launch from the file manager arrives while
+        // the file manager has the keyboard, and no Termina window is focused then.
+        stage.focusedProperty().addListener((o, was, focused) -> {
+            if (focused) lastActive = window;
+        });
 
         stage.setOnHidden(e -> {
             windows.remove(window);
+            if (lastActive == window) lastActive = null;
             // The last window closing ends the app. Without this the JVM lingers: the settings
             // window is a Stage of its own and would keep the toolkit alive on its own.
             if (windows.isEmpty()) endApp.run();

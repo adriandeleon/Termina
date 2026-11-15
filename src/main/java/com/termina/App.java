@@ -36,7 +36,7 @@ public final class App extends Application {
     }
 
     /**
-     * A later launch's request: a new window, started as that launch would have started its first.
+     * A later launch's request: a new window or a tab, started as that launch would have started its first.
      * Its {@code -d} is relative to where it was run, and with no {@code -d} the window opens there.
      */
     private void openHandedOff(com.termina.instance.SingleInstance.Request request, Settings settings) {
@@ -227,8 +227,11 @@ public final class App extends Application {
             Thread listen = new Thread(
                     () -> {
                         try {
-                            held.serve(request ->
-                                    javafx.application.Platform.runLater(() -> openHandedOff(request, settings)));
+                            // Asked per launch, so the setting applies to the next one, live.
+                            held.serve(
+                                    () -> settings.otherLaunches() != Settings.OtherLaunches.OWN_PROCESS,
+                                    request -> javafx.application.Platform.runLater(
+                                            () -> openHandedOff(request, settings)));
                         } catch (java.io.IOException e) {
                             java.util.logging.Logger.getLogger(App.class.getName())
                                     .log(java.util.logging.Level.WARNING, "cannot listen for other launches", e);
