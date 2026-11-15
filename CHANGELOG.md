@@ -7,6 +7,11 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-15
+
+Launching Termina again can open a tab in the window you used last, and two quick launches make
+one Termina.
+
 ### Added
 
 - **Launching Termina again can open a tab instead of a window.** Settings ▸ Terminal ▸ *When
@@ -1676,7 +1681,8 @@ First release.
   elsewhere.
 - **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
 
-[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/adriandeleon/Termina/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/adriandeleon/Termina/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/adriandeleon/Termina/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/adriandeleon/Termina/compare/v0.13.0...v0.14.0
