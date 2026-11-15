@@ -7,6 +7,11 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+### Changed
+
+- **The About window lists its links one to a line.** Side by side they read as one run of
+  underlined text.
+
 ## [0.15.1] - 2026-11-14
 
 Built to Pauta 6.1.0, a window that opens at the opacity you set on Linux, and the find bar's

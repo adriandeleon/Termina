@@ -148,10 +148,10 @@ public final class AboutWindow {
         // version's, and shows only when there is one.
         Hyperlink source = new Hyperlink(tr("about.source"));
         source.setOnAction(e -> openLink.accept(AppInfo.RELEASES_PAGE));
-        // A flow, not a row: three links are wider than the window in most languages, and a row
-        // would cut each short with an ellipsis.
-        javafx.scene.layout.FlowPane links = new javafx.scene.layout.FlowPane(4, 0, homepage, source);
-        links.setAlignment(Pos.CENTER_LEFT);
+        // One link to a line: side by side they read as one run of underlined text, and the
+        // longer ones would not fit the window in most languages.
+        VBox links = new VBox(0, homepage, source);
+        links.setAlignment(Pos.TOP_LEFT);
         // The numbered edition's page, never latest/: a newer edition may hold rules this build
         // does not meet. Absent from an unfiltered build rather than linking nowhere.
         if (!AppInfo.PAUTA_EDITION.isBlank()) {
@@ -203,7 +203,7 @@ public final class AboutWindow {
         root.setAlignment(Pos.TOP_LEFT);
         VBox.setMargin(footer, new Insets(8, 0, 0, 0));
 
-        Scene scene = UiZoom.scene(root, 480, 440);
+        Scene scene = UiZoom.scene(root, 480, 480);
         scene.getStylesheets().add(UiZoom.sheet("app.css"));
         Fonts.installUiFont(scene);
         SecondaryWindows.closeOnEscape(stage, scene);
