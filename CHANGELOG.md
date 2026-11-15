@@ -7,10 +7,26 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+### Added
+
+- **Launching Termina again can open a tab instead of a window.** Settings ▸ Terminal ▸ *When
+  Termina is opened again* chooses: a new window (as before), a new tab in the window used last,
+  or a separate Termina. The choice applies to the next launch, without a restart. A minimised
+  window that a launch opens a tab in is brought back up.
+
 ### Changed
 
 - **The About window lists its links one to a line.** Side by side they read as one run of
   underlined text.
+
+### Fixed
+
+- **Two launches in quick succession make one Termina.** A launch that arrived while the first was
+  still opening its window — a double click — found nothing listening yet and started a second
+  Termina; it now waits for the first, up to five seconds.
+- **The hand-off socket is its owner's alone.** It was left to the umask, and when the config
+  folder's path was too long for a socket it went in the shared temp folder; it now goes in
+  `$XDG_RUNTIME_DIR` or a private folder of the user's own.
 
 ## [0.15.1] - 2026-11-14
 

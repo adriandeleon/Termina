@@ -81,10 +81,12 @@ class AppStartFxTest {
 
         // A second launch hands its request over and the running one opens a window for it.
         int before = onFx(() -> javafx.stage.Window.getWindows().size());
-        assertTrue(com.termina.instance.SingleInstance.handOff(
-                config,
-                new com.termina.instance.SingleInstance.Request(dir.toString(), List.of("-T", "handed over")),
-                java.time.Duration.ofSeconds(5)));
+        assertEquals(
+                com.termina.instance.SingleInstance.Answer.ACCEPTED,
+                com.termina.instance.SingleInstance.handOff(
+                        config,
+                        new com.termina.instance.SingleInstance.Request(dir.toString(), List.of("-T", "handed over")),
+                        java.time.Duration.ofSeconds(5)));
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (onFx(() -> javafx.stage.Window.getWindows().size()) <= before && System.nanoTime() < deadline) {
             Await.frame();

@@ -83,6 +83,7 @@ public final class Settings {
     public static final String SESSION_TABS = "session.tabs";
     public static final String UI_ZOOM = "ui.zoom";
     public static final String CONFIRM_CLOSE = "ui.confirmClose";
+    public static final String OTHER_LAUNCHES = "instance.otherLaunches";
     public static final String WINDOW_X = "window.x";
     public static final String WINDOW_Y = "window.y";
     public static final String WINDOW_WIDTH = "window.width";
@@ -107,6 +108,16 @@ public final class Settings {
     public static final int DEFAULT_SYNC_INTERVAL = 15;
     public static final int MIN_SYNC_INTERVAL = 5;
     public static final int MAX_SYNC_INTERVAL = 24 * 60;
+
+    /**
+     * What a launch does while a Termina is already running on the same config folder: hand its
+     * command line over for a window, or a tab in the window used last, or start a Termina of its own.
+     */
+    public enum OtherLaunches {
+        WINDOW,
+        TAB,
+        OWN_PROCESS
+    }
 
     /** Cursor appearance. Names match the DECSCUSR families a program can also request. */
     public enum CursorShape {
@@ -750,6 +761,23 @@ public final class Settings {
 
     public void setCursorShape(CursorShape shape) {
         put(CURSOR_SHAPE, shape.name());
+    }
+
+    /**
+     * Read by the thread that answers other launches as well as the FX thread; {@code properties}
+     * is a {@code Hashtable}, so the read is safe from either.
+     */
+    public OtherLaunches otherLaunches() {
+        String raw = properties.getProperty(OTHER_LAUNCHES, OtherLaunches.WINDOW.name());
+        try {
+            return OtherLaunches.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return OtherLaunches.WINDOW;
+        }
+    }
+
+    public void setOtherLaunches(OtherLaunches launches) {
+        put(OTHER_LAUNCHES, launches.name());
     }
 
     /**

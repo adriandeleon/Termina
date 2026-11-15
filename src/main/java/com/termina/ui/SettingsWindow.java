@@ -882,6 +882,7 @@ public final class SettingsWindow {
     private Spinner<Double> fontSize;
     private Spinner<Integer> scrollback;
     private ComboBox<Settings.CursorShape> cursorShape;
+    private ComboBox<Settings.OtherLaunches> otherLaunches;
     private Spinner<Integer> padding;
     private CheckBox altIsMeta;
     private CheckBox copyOnSelect;
@@ -1287,6 +1288,15 @@ public final class SettingsWindow {
                 previewSection));
     }
 
+    /** The catalogue key naming one choice of {@link Settings.OtherLaunches}. */
+    static String otherLaunchesKey(Settings.OtherLaunches launches) {
+        return switch (launches) {
+            case WINDOW -> "otherLaunches.window";
+            case TAB -> "otherLaunches.tab";
+            case OWN_PROCESS -> "otherLaunches.ownProcess";
+        };
+    }
+
     private void buildTerminal(VBox page) {
         VBox display = section(page, tr("settings.section.display"));
 
@@ -1380,6 +1390,31 @@ public final class SettingsWindow {
                 tr("settings.restoreSession.desc"),
                 restoreSession,
                 "reopen restore session tabs panes launch startup start last time no-session");
+
+        otherLaunches = new ComboBox<>();
+        otherLaunches.getItems().setAll(Settings.OtherLaunches.values());
+        otherLaunches.setConverter(new javafx.util.StringConverter<>() {
+            @Override
+            public String toString(Settings.OtherLaunches launches) {
+                return launches == null ? "" : tr(otherLaunchesKey(launches));
+            }
+
+            @Override
+            public Settings.@Nullable OtherLaunches fromString(String display) {
+                return null;
+            }
+        });
+        otherLaunches.valueProperty().addListener((o, old, value) -> {
+            if (loading || value == null) return;
+            write(() -> settings.setOtherLaunches(value));
+        });
+        row(
+                Category.TERMINAL,
+                session,
+                tr("settings.otherLaunches"),
+                tr("settings.otherLaunches.desc"),
+                otherLaunches,
+                "single instance launch open again second new-instance window tab process file manager nautilus");
 
         scrollback = new Spinner<>(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 Settings.MIN_SCROLLBACK, Settings.MAX_SCROLLBACK, Settings.DEFAULT_SCROLLBACK, 500));
@@ -2666,6 +2701,7 @@ public final class SettingsWindow {
             uiZoom.getValueFactory().setValue(settings.uiZoom());
             scrollback.getValueFactory().setValue(settings.scrollbackLines());
             cursorShape.setValue(settings.cursorShape());
+            otherLaunches.setValue(settings.otherLaunches());
             padding.getValueFactory().setValue(settings.padding());
             altIsMeta.setSelected(settings.altIsMeta());
             copyOnSelect.setSelected(settings.copyOnSelect());

@@ -109,6 +109,12 @@ final class SettingCommands {
         out.add(toggle("settings.notifications", settings::notifications, settings::setNotifications));
         out.add(toggle("settings.confirmClose", settings::confirmClose, settings::setConfirmClose));
         out.add(toggle("settings.restoreSession", settings::restoreSession, settings::setRestoreSession));
+        for (Settings.OtherLaunches launches : Settings.OtherLaunches.values()) {
+            out.add(choice(
+                    "settings.otherLaunches",
+                    tr(SettingsWindow.otherLaunchesKey(launches)),
+                    () -> settings.setOtherLaunches(launches)));
+        }
         out.add(number(
                 "settings.scrollback",
                 host,

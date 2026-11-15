@@ -133,8 +133,11 @@ termina [options] [-e command [args...]]
 ```
 
 `-e` takes the rest of the line, xterm's convention, which is what lets desktops use Termina as the
-system terminal. One Termina runs per config folder: launching it again opens a window in the
-running one. More on the [website](https://termina-project.dev/docs/command-line/).
+system terminal. One Termina runs per config folder: launching it again hands the command line to
+the running one, which opens a window for it — or a tab in the window used last, or nothing, when
+Settings ▸ Terminal ▸ *When Termina is opened again* says so — and the launch exits in a fraction of
+a second. A relative `-d` is resolved where the launch ran. A separate `--config-dir` is a separate
+Termina. More on the [website](https://termina-project.dev/docs/command-line/).
 
 ## Configuration
 

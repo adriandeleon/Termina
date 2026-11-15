@@ -105,9 +105,11 @@ public final class Main {
         }
         if (claimed != null) return claimed;
         var request = new SingleInstance.Request(System.getProperty("user.dir", ""), java.util.List.of(args));
-        if (SingleInstance.handOff(configDir, request, java.time.Duration.ofSeconds(5))) {
-            System.exit(0);
-        }
+        SingleInstance.Answer answer = SingleInstance.handOff(configDir, request, java.time.Duration.ofSeconds(5));
+        if (answer == SingleInstance.Answer.ACCEPTED) System.exit(0);
+        // Settings say each launch is a Termina of its own: the holder keeps the folder, and this
+        // one starts beside it, which is what was asked for and nothing to warn about.
+        if (answer == SingleInstance.Answer.DECLINED) return null;
         System.err.println(
                 AppInfo.NAME + ": another Termina holds " + configDir + " but did not answer; starting a second one.");
         return null;
