@@ -37,10 +37,10 @@ and does nothing.
 
 The pull request needs **Allow GitHub Actions to create and approve pull requests** in the
 repository's Actions settings (`gh api repos/adriandeleon/Termina/actions/permissions/workflow`,
-`can_approve_pull_request_reviews`). It is off, so today the job pushes the branch and then fails,
-"GitHub Actions is not permitted to create or approve pull requests", which fails the run after
-everything is published. Open the pull request from that branch by hand
-(`gh pr create --head build/start-X.Y.0-SNAPSHOT --fill`); it runs CI, being yours.
+`can_approve_pull_request_reviews`). It is on, first used for 0.16.0. Turned off, the job pushes the
+branch and then fails, "GitHub Actions is not permitted to create or approve pull requests", which
+fails the run after everything is published; open the pull request from that branch by hand
+(`gh pr create --head build/start-X.Y.0-SNAPSHOT --fill`, after a `git fetch`).
 
 The release builds run the tests (`verify`, not CI's `-DskipTests package`) — a tag is not gated on
 CI, and the `linux-arm64` and `macos-x64` runners build nowhere else — and then the same checks CI
