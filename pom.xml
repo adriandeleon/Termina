@@ -92,7 +92,7 @@
              JSpecify supplies the annotations. Error Prone reaches into javac, hence .mvn/jvm.config. -->
         <jspecify.version>1.0.1</jspecify.version>
         <errorprone.version>2.52.0</errorprone.version>
-        <nullaway.version>0.14.3</nullaway.version>
+        <nullaway.version>0.14.4</nullaway.version>
 
         <!-- dist profile only -->
         <moditect.version>1.3.0.Final</moditect.version>
