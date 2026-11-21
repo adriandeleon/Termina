@@ -27,7 +27,7 @@
              src/main/resources/com/termina/pauta.json. -->
         <pauta.version>6.1.0</pauta.version>
 
-        <javafx.version>27.0.1</javafx.version>
+        <javafx.version>27.0.1.1</javafx.version>
         <spotless.version>3.11.0</spotless.version>
         <palantir.version>2.102.0</palantir.version>
         <jacoco.version>0.8.16</jacoco.version>
