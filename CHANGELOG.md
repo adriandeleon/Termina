@@ -13,6 +13,16 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
   edition makes a status bar optional and the echo area, the one line that says how the last
   action went, a rule of its own; Termina's echo area is the status bar's left side, as before,
   so nothing you see changes.
+- **Termina's other windows open centred on the window you opened them from.** Settings, About,
+  Doctor, Report a Problem, Pauta Conformance, Keyboard Shortcuts and the Debug Log used to open
+  near that window's top-left corner. A window too big to fit is still kept on that window's
+  screen, and one that the interface zoom makes bigger is kept on it and no bigger than it.
+  Dialogs were already centred.
+
+### Fixed
+
+- **One click on a menu row runs it.** A click on a row's edge, or on the space between its title
+  and its shortcut, highlighted the row and did nothing, so a command often took two clicks.
 
 ## [0.16.0] - 2026-11-15
 

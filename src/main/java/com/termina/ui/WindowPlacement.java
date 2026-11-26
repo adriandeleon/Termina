@@ -40,6 +40,28 @@ final class WindowPlacement {
     }
 
     /**
+     * The top-left corner that centres a {@code width}-by-{@code height} window on the window at
+     * {@code (x, y)} sized {@code ownerWidth}-by-{@code ownerHeight}, pulled back inside
+     * {@code screen} the way {@link #offsetWithin} is.
+     *
+     * <p>For the windows a terminal window opens (Settings, About and the rest): they appear over
+     * the window that asked, where the eye already is. One larger than its owner overhangs it
+     * evenly on every side.
+     *
+     * @return {@code {x, y}}
+     */
+    static double[] centredWithin(
+            double x,
+            double y,
+            double ownerWidth,
+            double ownerHeight,
+            double width,
+            double height,
+            @Nullable Bounds screen) {
+        return offsetWithin(x + (ownerWidth - width) / 2, y + (ownerHeight - height) / 2, 0, width, height, screen);
+    }
+
+    /**
      * A screen's usable area, as JavaFX's {@code Rectangle2D} gives it, without the JavaFX type
      * (QUAL-05, Pauta 2.0.2); {@link SecondaryWindows#bounds} converts.
      */

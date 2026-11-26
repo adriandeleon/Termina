@@ -260,10 +260,10 @@ final class PautaWindow {
         copy.setText(tr("pauta.copied"));
     }
 
-    /** Shows it beside {@code from}, the Copy button back to its own label. */
+    /** Shows it centred on {@code from}, the Copy button back to its own label. */
     void show(Window from) {
         copy.setText(tr("pauta.copy"));
-        if (!stage.isShowing()) SecondaryWindows.placeNear(stage, from);
+        if (!stage.isShowing()) SecondaryWindows.placeOver(stage, from);
         stage.show();
         stage.toFront();
     }

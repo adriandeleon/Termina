@@ -9,6 +9,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -80,11 +81,45 @@ final class MenuRows {
         HBox content = content(icon, titleLabel, chordLabel);
         CustomMenuItem item = new CustomMenuItem(content);
         item.setHideOnClick(true);
+        clickAnywhereOnTheRow(content);
         item.getProperties().put(ICON, content.getChildren().getFirst());
         item.getProperties().put(TITLE, titleLabel);
         item.getProperties().put(CHORD, chordLabel);
         return item;
     }
+
+    /**
+     * Makes a click anywhere on the row run it, not only a click on its text.
+     *
+     * <p>JavaFX runs a {@code CustomMenuItem} from a click handler on its <em>content</em>, while
+     * the row the pointer highlights is the container around it: its padding, and whatever of the
+     * row the content does not cover or pick, highlighted the row and did nothing. That was most of
+     * the row, so it took a second click, landing on the title, to run a command. A click on the
+     * container is handed to the content, where JavaFX's own handler hides the menu and fires the
+     * item. The container is the skin's and appears when the menu is first shown, so it is caught
+     * as it becomes the content's parent; a disabled row takes no mouse events, so stays inert.
+     */
+    private static void clickAnywhereOnTheRow(Node content) {
+        content.parentProperty().addListener((o, was, row) -> {
+            if (row == null || row.getProperties().containsKey(FORWARDS_CLICKS)) return;
+            row.getProperties().put(FORWARDS_CLICKS, Boolean.TRUE);
+            row.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
+                if (!(e.getTarget() instanceof Node target) || !isWithin(target, content)) {
+                    content.fireEvent(e.copyFor(content, content));
+                }
+            });
+        });
+    }
+
+    /** Whether {@code node} is {@code ancestor} or inside it. */
+    static boolean isWithin(@Nullable Node node, Node ancestor) {
+        for (Node n = node; n != null; n = n.getParent()) {
+            if (n == ancestor) return true;
+        }
+        return false;
+    }
+
+    private static final String FORWARDS_CLICKS = "termina.menuRow.forwardsClicks";
 
     /**
      * A submenu row: in-window, its graphic is a row's content with no chord, so its title lines up

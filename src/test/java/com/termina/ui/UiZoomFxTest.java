@@ -12,6 +12,7 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -99,6 +100,63 @@ class UiZoomFxTest {
         assertEquals(at100, seen.get(0));
         assertEquals("15.0 18.0/3.0 165.0 true 50.0 9.0 12.0 30.0 45.0 15.0", seen.get(1));
         assertEquals(at100, seen.get(2), "back at 100% everything is as the code wrote it");
+    }
+
+    @Test
+    void aWindowTheZoomGrowsStaysOnItsScreen() throws Exception {
+        // Low on the screen, as a window centred on a terminal window can be: grown from its
+        // top-left corner, it would hang off the bottom with its buttons out of reach.
+        double[] seen = onFx(() -> {
+            Stage stage = new Stage();
+            stage.setScene(UiZoom.scene(new StackPane(), 400, 300));
+            javafx.geometry.Rectangle2D screen =
+                    javafx.stage.Screen.getPrimary().getVisualBounds();
+            stage.setX(screen.getMaxX() - 450);
+            stage.setY(screen.getMaxY() - 350);
+            stage.show();
+            UiZoom.apply(150);
+            double[] out = {
+                stage.getX() + stage.getWidth(),
+                stage.getY() + stage.getHeight(),
+                screen.getMaxX(),
+                screen.getMaxY(),
+                stage.getWidth()
+            };
+            stage.hide();
+            return out;
+        });
+        assertEquals(600.0, seen[4], "grown by the zoom");
+        assertTrue(seen[0] <= seen[2] && seen[1] <= seen[3], "inside the screen: " + java.util.Arrays.toString(seen));
+    }
+
+    @Test
+    void aWindowTheZoomGrowsPastTheScreenIsCutToIt() throws Exception {
+        double[] seen = onFx(() -> {
+            javafx.geometry.Rectangle2D screen =
+                    javafx.stage.Screen.getPrimary().getVisualBounds();
+            Stage stage = new Stage();
+            stage.setScene(UiZoom.scene(new StackPane(), screen.getWidth() * 0.8, screen.getHeight() * 0.8));
+            stage.setX(screen.getMinX() + 40);
+            stage.setY(screen.getMinY() + 40);
+            stage.show();
+            UiZoom.apply(150);
+            double[] out = {
+                stage.getX(),
+                stage.getY(),
+                stage.getWidth(),
+                stage.getHeight(),
+                screen.getMinX(),
+                screen.getMinY(),
+                screen.getWidth(),
+                screen.getHeight()
+            };
+            stage.hide();
+            return out;
+        });
+        assertEquals(seen[6], seen[2], "as wide as the screen: " + java.util.Arrays.toString(seen));
+        assertEquals(seen[7], seen[3], "as tall as the screen");
+        assertEquals(seen[4], seen[0], "and on it");
+        assertEquals(seen[5], seen[1]);
     }
 
     @Test
@@ -229,7 +287,10 @@ class UiZoomFxTest {
             out.add("no right-click menu");
         }
         out.add(String.valueOf(UiZoom.factor().get()));
-        out.add(String.valueOf(windows.showAboutForCapture(window.stage()).getWidth()));
+        // The window's width, which the zoom sets, not its scene's: the scene follows on the next
+        // pulse, so read in the same one it can still be the old size.
+        out.add(String.valueOf(
+                windows.showAboutForCapture(window.stage()).getWindow().getWidth()));
         return out;
     }
 

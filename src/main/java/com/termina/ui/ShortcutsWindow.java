@@ -48,7 +48,7 @@ final class ShortcutsWindow {
             stage.toFront();
             stage.requestFocus();
         } else {
-            SecondaryWindows.placeNear(stage, from);
+            SecondaryWindows.placeOver(stage, from);
             stage.show();
         }
         search.requestFocus();

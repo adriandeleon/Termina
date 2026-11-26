@@ -75,12 +75,12 @@ final class ReportProblemWindow {
         Icons.applyTo(stage);
     }
 
-    /** Fills it with a freshly built report and shows it beside {@code from}. */
+    /** Fills it with a freshly built report and shows it centred on {@code from}. */
     void show(Window from, ProblemReport built) {
         environment.setText(built.environment());
         report.setText(built.report());
         status.setText("");
-        if (!stage.isShowing()) SecondaryWindows.placeNear(stage, from);
+        if (!stage.isShowing()) SecondaryWindows.placeOver(stage, from);
         stage.show();
         stage.toFront();
     }
