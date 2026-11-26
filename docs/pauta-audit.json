@@ -1,11 +1,11 @@
 {
-  "$schema": "https://pauta-project.dev/6.1.0/audit.schema.json",
+  "$schema": "https://pauta-project.dev/6.2.0/audit.schema.json",
   "app": "Termina",
   "commit": "6de43a1",
-  "edition": "6.1.0",
-  "date": "2026-11-14",
+  "edition": "6.2.0",
+  "date": "2026-11-25",
   "scope": [],
-  "rules": "https://pauta-project.dev/6.1.0/rules.json",
+  "rules": "https://pauta-project.dev/6.2.0/rules.json",
   "results": [
     {
       "id": "OS-01",
@@ -35,7 +35,7 @@
       "id": "PAUTA-01",
       "level": "MUST",
       "status": "pass",
-      "evidence": "pom.xml:28 defines `pauta.version` (6.1.0) and src/main/resources/com/termina/pauta.json exists; the app states its conformance, Core, in About (src/main/java/com/termina/ui/AboutWindow.java:167), the Pauta window and the README (README.md:14, :32) (fixed in a78d371)"
+      "evidence": "pom.xml:28 defines `pauta.version` (6.2.0) and src/main/resources/com/termina/pauta.json exists; the app states its conformance, Core, in About (src/main/java/com/termina/ui/AboutWindow.java:167), the Pauta window and the README (README.md:14, :32) (fixed in a78d371)"
     },
     {
       "id": "PAUTA-02",
@@ -71,7 +71,7 @@
       "id": "PAUTA-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the one pending entry, REL-17, links issue #92, read with `gh issue view` on 2026-11-14 after it was renamed for the move: open, and naming the rule as \"REL-17 (Pauta 6.1.0)\""
+      "evidence": "every pending entry's link is an issue of adriandeleon/Termina (src/test/java/com/termina/PautaConformanceTest.java:282 holds that much): the one pending entry, REL-17, links issue #92, read with `gh issue view` on 2026-11-25 after it was renamed for the move: open, and naming the rule as \"REL-17 (Pauta 6.2.0)\""
     },
     {
       "id": "PAUTA-08",
@@ -107,7 +107,7 @@
       "id": "PAUTA-11",
       "level": "SHOULD",
       "status": "manual",
-      "evidence": "Read the change that raises `pauta.version` from 6.0.1 to 6.1.0 (pom.xml:28): it replaces src/test/resources/pauta-rules.json with 6.1.0's rules.json, moves pauta.json's rule addresses, the README, AGENTS.md and TODO.md with it, and this report; there is no checked entry to go stale, and the app keeps no skill copy (.claude/skills absent); not recorded"
+      "evidence": "Read the change that raises `pauta.version` from 6.1.0 to 6.2.0 (pom.xml:28): it replaces src/test/resources/pauta-rules.json with 6.2.0's rules.json, moves pauta.json's rule addresses, the README, AGENTS.md and TODO.md with it, and this report; there is no checked entry to go stale, and the app keeps no skill copy (.claude/skills absent); not recorded"
     },
     {
       "id": "PAUTA-13",
@@ -125,13 +125,13 @@
       "id": "PAUTA-15",
       "level": "MUST",
       "status": "pass",
-      "evidence": "README.md:14 is the badge `Pauta-6.1.0 · Core` in blue and README.md:32 the line \"Built to Pauta …, edition 6.1.0, Pauta conformance: Core\"; both link https://termina-project.dev/docs/pauta/. src/test/java/com/termina/PautaConformanceTest.java holds the edition to pauta.version, the conformance to the helper's, the opening words, the badge's colour and both links"
+      "evidence": "README.md:14 is the badge `Pauta-6.2.0 · Core` in blue and README.md:32 the line \"Built to Pauta …, edition 6.2.0, Pauta conformance: Core\"; both link https://termina-project.dev/docs/pauta/. src/test/java/com/termina/PautaConformanceTest.java holds the edition to pauta.version, the conformance to the helper's, the opening words, the badge's colour and both links"
     },
     {
       "id": "PAUTA-17",
       "level": "MUST",
       "status": "pass",
-      "evidence": "AGENTS.md:11 \"## Pauta\" names 6.1.0, the edition of pom.xml:28, and links https://pauta-project.dev/6.1.0/llms.txt and /6.1.0/llms-full.txt (AGENTS.md:13-14); no link at latest/ or another edition; src/test/java/com/termina/AppInfoTest.java:38 asserts all of it"
+      "evidence": "AGENTS.md:11 \"## Pauta\" names 6.2.0, the edition of pom.xml:28, and links https://pauta-project.dev/6.2.0/llms.txt and /6.2.0/llms-full.txt (AGENTS.md:13-14); no link at latest/ or another edition; src/test/java/com/termina/AppInfoTest.java:38 asserts all of it"
     },
     {
       "id": "PLAT-01",
@@ -749,7 +749,13 @@
       "id": "WIN-01",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/config/Settings.java:1015: `ui.showStatusBar` defaults to true, so the main window's status bar is visible unless the user hid it (src/test/java/com/termina/config/SettingsTest.java:33; docs/decisions/0010-status-bar-and-title-bar-menus-on-by-default.md). The echo label switches between the error and warning classes (src/main/java/com/termina/ui/StatusBar.java:99-100) and a click opens the Message Log (:40) (fixed in c167783)"
+      "evidence": "src/main/java/com/termina/config/Settings.java:1110: `ui.showStatusBar` defaults to true, so the main window's status bar is visible unless the user hid it, View ▸ Hide Status Bar or Settings (src/test/java/com/termina/config/SettingsTest.java:33; docs/decisions/0010-status-bar-and-title-bar-menus-on-by-default.md); Zen mode hides it too (src/main/java/com/termina/ui/Chrome.java:71). The echo area's label is the bar's first child, at its left, and takes the room the rest leaves (src/main/java/com/termina/ui/StatusBar.java:36-38, :46) (fixed in c167783)"
+    },
+    {
+      "id": "WIN-16",
+      "level": "MUST",
+      "status": "pass",
+      "evidence": "Every message for the user goes through TerminalWindow.report (src/main/java/com/termina/ui/TerminalWindow.java:3752) into the Message Log, and the echo area shows the log's latest: one label at the status bar's left (src/main/java/com/termina/ui/StatusBar.java:31, :89-101), which takes `state-error` or `state-warning` by the message's severity (:97-98; red and amber at src/main/resources/com/termina/styles/app.css:797-798), and whose click runs view.messageLog through the registry (src/main/java/com/termina/ui/TerminalWindow.java:321). It is a label, not focus-traversable, in a bar that is not either (StatusBar.java:35), so a message never takes the focus or waits for an answer. Termina has a status bar, so the echo area hides with it (applyStatusBarVisibility, TerminalWindow.java:3771); with the bar hidden a message is an information dialog as well as a log entry (:3755), which the rule leaves to the app"
     },
     {
       "id": "WIN-03",
@@ -911,7 +917,7 @@
       "id": "ICON-18",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "Every use of the three tokens marks a listed meaning: errors and refusals in red (src/main/resources/com/termina/styles/app.css:30, :565 an invalid regex, :671), warnings in amber (:31, :672), a verified up-to-date check in green (:107); no other rule in app.css or settings.css uses them."
+      "evidence": "Every use of the three tokens marks a listed meaning: errors and refusals in red (src/main/resources/com/termina/styles/app.css:39, :691, :797, About's failed check :156), warnings in amber (:40, :798, and About's update headline :199), a verified up-to-date check in green (:154); no other rule in app.css or settings.css uses them."
     },
     {
       "id": "ICON-19",
@@ -1511,7 +1517,7 @@
       "id": "DIAG-09",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/StatusBar.java:59 showUpdate: once the check has found a newer version the status bar holds a link that names it (status.updateAvailable) and opens that release (src/main/java/com/termina/ui/TerminalWindow.java:3177 -> WindowManager.openReleasePage), in every window, until it is followed or the version dismissed; held by src/test/java/com/termina/ui/WindowManagerFxTest.java:74 and seen in a headless capture (-Dtermina.captureUpdateAvailable) (fixed in 26adef2)"
+      "evidence": "src/main/java/com/termina/ui/StatusBar.java:57 showUpdate: once the check has found a newer version the status bar holds a link that names it (status.updateAvailable) and opens that release (src/main/java/com/termina/ui/TerminalWindow.java:3712 -> WindowManager.openReleasePage), in every window, until it is followed or the version dismissed; held by src/test/java/com/termina/ui/WindowManagerFxTest.java:74 and seen in a headless capture (-Dtermina.captureUpdateAvailable). Termina has a status bar, so the notice is there, as 6.2.0 asks of an app with one (fixed in 26adef2)"
     },
     {
       "id": "DIAG-10",
@@ -1829,7 +1835,7 @@
       "id": "QOPEN-10",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "every picker has a placeholder sentence: the constructor sets one for a list with no rows (src/main/java/com/termina/ui/QuickPick.java:127), and the profile picker, the one whose source could in principle be empty, sets its own (src/main/java/com/termina/ui/TerminalWindow.java:3505). The list keeps one row's height with nothing in it, so the sentence has somewhere to be (listHeight; src/test/java/com/termina/ui/QuickPickTest.java:56); src/test/java/com/termina/ui/QuickPickFxTest.java:81 filters to nothing and reads the sentence (fixed in 7ec50ba)"
+      "evidence": "every picker has a placeholder sentence: the constructor sets one for a list with no rows (src/main/java/com/termina/ui/QuickPick.java:127), and the profile picker, the one whose source could in principle be empty, sets its own (src/main/java/com/termina/ui/TerminalWindow.java). No picker declines to open, so none says anything in the echo area instead. The list keeps one row's height with nothing in it, so the sentence has somewhere to be (listHeight; src/test/java/com/termina/ui/QuickPickTest.java:56); src/test/java/com/termina/ui/QuickPickFxTest.java:81 filters to nothing and reads the sentence (fixed in 7ec50ba)"
     },
     {
       "id": "QOPEN-11",
@@ -1943,7 +1949,7 @@
       "id": "ABOUT-05",
       "level": "MUST",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:163 adds the edition link among the links, \"Working toward Pauta 6.1.0\" at Partial and \"Built to Pauta\" otherwise, in the catalog's words (src/main/resources/com/termina/i18n/messages.properties:108-109); src/main/java/com/termina/AppInfo.java:141 writes `Pauta: <edition>` right after the Commit line (asserted by src/test/java/com/termina/AppInfoTest.java)"
+      "evidence": "src/main/java/com/termina/ui/AboutWindow.java:163 adds the edition link among the links, \"Working toward Pauta 6.2.0\" at Partial and \"Built to Pauta\" otherwise, in the catalog's words (src/main/resources/com/termina/i18n/messages.properties:108-109); src/main/java/com/termina/AppInfo.java:141 writes `Pauta: <edition>` right after the Commit line (asserted by src/test/java/com/termina/AppInfoTest.java)"
     },
     {
       "id": "ABOUT-06",
@@ -1955,7 +1961,7 @@
       "id": "ABOUT-07",
       "level": "MUST",
       "status": "pass",
-      "evidence": "About says \"Built to Pauta 6.1.0\" (src/main/java/com/termina/ui/AboutWindow.java:163, src/main/resources/com/termina/i18n/messages.properties:110) with the conformance beside it: the helper returns Core, not Partial, so \"Working toward\" (:111) is not used"
+      "evidence": "About says \"Built to Pauta 6.2.0\" (src/main/java/com/termina/ui/AboutWindow.java:163, src/main/resources/com/termina/i18n/messages.properties:110) with the conformance beside it: the helper returns Core, not Partial, so \"Working toward\" (:111) is not used"
     },
     {
       "id": "ABOUT-08",
@@ -2159,7 +2165,7 @@
       "id": "FIND-10",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "src/main/java/com/termina/ui/SearchBar.java:167-168 sets the count to `search.none`, \"No matches\" (src/main/resources/com/termina/i18n/messages.properties:363); nothing beeps or opens"
+      "evidence": "src/main/java/com/termina/ui/SearchBar.java:190 sets the count to `search.none`, \"No matches\" (src/main/resources/com/termina/i18n/messages.properties:363); nothing beeps or opens"
     },
     {
       "id": "FIND-11",
@@ -2201,13 +2207,13 @@
       "id": "MLOG-08",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the log is a card shown through the window's overlay host, and no Stage (src/main/java/com/termina/ui/MessageLogCard.java:247; built per window at src/main/java/com/termina/ui/TerminalWindow.java:3364), aligned to the bottom left with the status bar's height under it (:244), 773 wide with a list 336 high at the default zoom and both times the interface zoom (WIDTH :45, LIST_HEIGHT :48, sizeAt), over the newest 200 messages (src/main/java/com/termina/ui/MessageLog.java:30). src/test/java/com/termina/ui/LogWindowsFxTest.java:296 lays it out in a 1200 by 800 window and reads 773 and 336, 8 px from the left and 8 above the bar, with no window opened, and holds the cap and the absence of a Stage in the source; src/test/java/com/termina/ui/PaletteFocusFxTest.java:103 opens it in a real terminal window. Seen in a headless capture (fixed in 3af07ed)"
+      "evidence": "the log is a card shown through the window's overlay host, and no Stage (src/main/java/com/termina/ui/MessageLogCard.java:247; built per window at src/main/java/com/termina/ui/TerminalWindow.java:3481), aligned to the bottom left with the status bar's height under it, so just above the echo area at the bar's left, or at the bottom with the bar hidden (:244; TerminalWindow.java:3484), 773 wide with a list 336 high at the default zoom and both times the interface zoom (WIDTH :45, LIST_HEIGHT :48, sizeAt), over the newest 200 messages (src/main/java/com/termina/ui/MessageLog.java:30). src/test/java/com/termina/ui/LogWindowsFxTest.java:296 lays it out in a 1200 by 800 window and reads 773 and 336, 8 px from the left and 8 above the bar, with no window opened, and holds the cap and the absence of a Stage in the source; src/test/java/com/termina/ui/PaletteFocusFxTest.java:103 opens it in a real terminal window. Seen in a headless capture (fixed in 3af07ed)"
     },
     {
       "id": "MLOG-02",
       "level": "SHOULD",
       "status": "pass",
-      "evidence": "the command is registered as view.messageLog (src/main/java/com/termina/ui/TerminalWindow.java:3000), and a click on the unread-error count, as on the echo area, runs it through the registry (src/main/java/com/termina/ui/StatusBar.java:40 -> src/main/java/com/termina/ui/TerminalWindow.java:279) (fixed in 9261b38)"
+      "evidence": "the command is registered as view.messageLog (src/main/java/com/termina/ui/TerminalWindow.java:3305), and a click on the echo area or on the status bar's unread-error count runs it through the registry (src/main/java/com/termina/ui/StatusBar.java:31-32 -> src/main/java/com/termina/ui/TerminalWindow.java:321) (fixed in 9261b38)"
     },
     {
       "id": "MLOG-03",
@@ -2480,6 +2486,7 @@
     "The website for 0.15.0 was published on 2026-11-13 (termina-website c3e5a10), and the seven rules that waited on it were judged again from the live site and that repository, in a twenty-first batch, in 1a262f8: PAUTA-13, DOCS-01, DOCS-02, PAUTA-14, DOCS-03, DOCS-18, PAL-08 now pass, and their entries are out of pauta.json, which leaves 3, all SHOULD. With no MUST pending the conformance is Core, where it was Partial. DOCS-04 stays pending: the website checks the commands and keys its guide quotes on pull requests, and not yet in the build that deploys it.",
     "One more pending SHOULD was settled on 2026-11-14, in a twenty-second batch, in bed9eba: DOCS-04 now pass, and its entry is out of pauta.json, which leaves 2, both SHOULD: KBD-04 and REL-17. The website's build runs its docs check since termina-website 455f68c, and the deploy of that commit was read to have run it.",
     "KBD-04 was recorded as a deviation on 2026-11-14, at the maintainer's word, in a6c08ad: on macOS the screen's menu bar is AppKit's, and JavaFX's menu item (com.sun.glass.ui.MenuItem: title, callback, shortcut, icon, enabled, checked) carries no tooltip, so a greyed row there cannot say why. docs/decisions/0014-no-reason-on-a-greyed-row-of-the-macos-menu-bar.md has the choice and what it costs. pauta.json holds 2 entries: that deviation, and REL-17 pending. PAUTA-06's evidence was brought up to date.",
-    "Moved to 6.1.0 on 2026-11-14, from 6.0.1, in a change that also fixes what the move found. The two editions' rules.json differ in three rules alone: MENU-14 goes from MUST to MAY and checks only that a row's glyph is its own command's, ICON-20's check drops a sentence about MENU-14, and PAUTA-07 takes MENU-15 for its example. Every other result is carried over unchanged, since master had only the 0.15.0 release and the snapshot bump since the last judging. MENU-14, ICON-20, PAUTA-07 and PAUTA-11 were judged again, and PAUTA-01, PAUTA-15, PAUTA-17, ABOUT-05 and ABOUT-07, whose evidence names the edition, brought up to date. ICON-20 had failed unnoticed at 6.0.1: the terminal's find bar drew Find Next and Find Previous with arrows of its own, not the commands' glyphs, and Find Next's chevron pointed down for a step up the scrollback; both are fixed here. PAUTA-07 was read from issue #92, renamed to name REL-17 at 6.1.0."
+    "Moved to 6.1.0 on 2026-11-14, from 6.0.1, in a change that also fixes what the move found. The two editions' rules.json differ in three rules alone: MENU-14 goes from MUST to MAY and checks only that a row's glyph is its own command's, ICON-20's check drops a sentence about MENU-14, and PAUTA-07 takes MENU-15 for its example. Every other result is carried over unchanged, since master had only the 0.15.0 release and the snapshot bump since the last judging. MENU-14, ICON-20, PAUTA-07 and PAUTA-11 were judged again, and PAUTA-01, PAUTA-15, PAUTA-17, ABOUT-05 and ABOUT-07, whose evidence names the edition, brought up to date. ICON-20 had failed unnoticed at 6.0.1: the terminal's find bar drew Find Next and Find Previous with arrows of its own, not the commands' glyphs, and Find Next's chevron pointed down for a step up the scrollback; both are fixed here. PAUTA-07 was read from issue #92, renamed to name REL-17 at 6.1.0.",
+    "Moved to 6.2.0 on 2026-11-25, from 6.1.0, on master at 39d5597. The two editions' rules.json differ in one rule added and ten reworded, the References aside: WIN-16, a new MUST, makes the echo area a rule of its own, and WIN-01 now asks only what an app with a status bar does with it; DIAG-09, MLOG-02, MLOG-08 and WIN-12 say the same of the status bar; FIND-10, FIND-12 and QOPEN-10 say echo area for status line; DIAG-01 and ICON-18 point at WIN-16. Termina has a status bar with the echo area at its left, so WIN-16 passes and nothing it does changes. Those eleven were judged again at 39d5597, and PAUTA-11 with them; PAUTA-01, PAUTA-07, PAUTA-15, PAUTA-17, ABOUT-05 and ABOUT-07, whose evidence names the edition, were brought up to date. Every other result is carried over unchanged: master had the 0.15.1 and 0.16.0 releases since the last judging, whose changes (a window's opacity on Linux, the About window's links, a second launch's tab) touch none of the rules judged again here, and their line numbers are as judged before."
   ]
 }

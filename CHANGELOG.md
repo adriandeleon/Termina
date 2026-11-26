@@ -9,6 +9,10 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ### Changed
 
+- **Built to [Pauta 6.2.0](https://pauta-project.dev/6.2.0/)**, still at Core conformance. The
+  edition makes a status bar optional and the echo area, the one line that says how the last
+  action went, a rule of its own; Termina's echo area is the status bar's left side, as before,
+  so nothing you see changes.
 - **Termina's other windows open centred on the window you opened them from.** Settings, About,
   Doctor, Report a Problem, Pauta Conformance, Keyboard Shortcuts and the Debug Log used to open
   near that window's top-left corner. A window too big to fit is still kept on that window's
