@@ -5,8 +5,8 @@
 # UpgradeBehavior keys — empty is not the same as absent to the schema validator.
 #
 # An MSI needs no NestedInstallerType or NestedInstallerFiles; those belong to the zip form this
-# replaced. ProductCode is deliberately omitted: winget derives it from the package itself, and a
-# wrong one makes upgrades and uninstalls silently fail to find what they installed.
+# replaced. ProductCode is the MSI's own, read from the file by release.yml: it is how winget finds
+# an installed Termina to upgrade or remove, and jpackage makes a new one for every version.
 PackageIdentifier: {{wingetPackageIdentifier}}
 PackageVersion: {{wingetPackageVersion}}
 MinimumOSVersion: {{wingetMinimumOsVersion}}
@@ -18,5 +18,6 @@ Installers:
   - Architecture: {{wingetInstallerArchitecture}}
     InstallerUrl: {{distributionUrl}}
     InstallerSha256: {{distributionChecksumSha256}}
+    ProductCode: '{{wingetProductCode}}'
 ManifestType: installer
 ManifestVersion: 1.9.0
