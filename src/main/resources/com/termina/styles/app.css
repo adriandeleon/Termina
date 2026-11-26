@@ -778,8 +778,8 @@
 }
 
 /*
- * The status bar (WIN-01): one quiet row under the terminal, in the chrome's surface, its echo text
- * in the readable muted ink until a message says something is wrong.
+ * The status bar (WIN-01) and its echo area (WIN-16): one quiet row under the terminal, in the
+ * chrome's surface, its echo text in the readable muted ink until a message says something is wrong.
  */
 .status-bar {
     -fx-background-color: -color-bg-subtle;

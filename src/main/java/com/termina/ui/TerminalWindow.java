@@ -3747,7 +3747,7 @@ public final class TerminalWindow {
     /**
      * Says how something went: into the Message Log always, and where the user will see it — the
      * status bar's echo area when the bar is on, otherwise the dialog this always used to be, since
-     * a message nobody can see is no message (WIN-01, DIAG-01, Pauta 2.0.2).
+     * a message nobody can see is no message (WIN-16, DIAG-01, Pauta 6.2.0).
      */
     private void report(MessageLog.Severity severity, String message) {
         windows.messages().add(severity, message);

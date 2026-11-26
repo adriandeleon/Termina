@@ -8,10 +8,11 @@ import javafx.scene.layout.Priority;
 import static com.termina.i18n.Messages.tr;
 
 /**
- * The status bar (WIN-01, MLOG-02, Pauta 2.0.2): off by default, a row under the terminal when
- * turned on. Its echo area on the left says the latest message, red for an error and amber for a
- * warning; on the right, how many errors nobody has looked at yet. A click on either opens the
- * Message Log. Not focus-traversable, like the rest of the chrome: Tab is the shell's.
+ * The status bar (WIN-01, MLOG-02, Pauta 6.2.0): on by default, a row under the terminal that the
+ * user may hide. Its left side is the echo area (WIN-16, Pauta 6.2.0), which says the latest
+ * message, red for an error and amber for a warning; on the right, how many errors nobody has
+ * looked at yet. A click on either opens the Message Log. Not focus-traversable, like the rest of
+ * the chrome: Tab is the shell's.
  *
  * <p>Between the two, once the update check has found a newer version, a link that names it and
  * opens its release (DIAG-09, Pauta 6.0.1). The echo area says so too, but only until the next
