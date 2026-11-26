@@ -265,7 +265,7 @@ public final class SettingsWindow {
     }
 
     /**
-     * Shows the window beside {@code from}, without being owned by it. Ownership would close it
+     * Shows the window centred on {@code from}, without being owned by it. Ownership would close it
      * with the first terminal window to have opened it; see {@link SecondaryWindows}.
      */
     public void show(Window from) {
@@ -277,7 +277,7 @@ public final class SettingsWindow {
         reload();
         // Asked on every opening, so a `gh auth login` since the last one offers Create on GitHub.
         if (sync != null) sync.checkGitHub();
-        SecondaryWindows.placeNear(stage, from);
+        SecondaryWindows.placeOver(stage, from);
         stage.show();
     }
 

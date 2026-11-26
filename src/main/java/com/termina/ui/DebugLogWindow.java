@@ -341,10 +341,19 @@ final class DebugLogWindow {
         writer.start();
     }
 
-    /** Shows the window with the log as it is now; what the Debug Log command does. */
+    /** Shows the window with the log as it is now, centred on its owner if it was not up. */
     void show() {
+        show(stage.getOwner());
+    }
+
+    /**
+     * Shows the window with the log as it is now; what the Debug Log command does. Opening, it is
+     * centred on {@code from}, the window that asked; one already up stays where it was put.
+     */
+    void show(@Nullable Window from) {
         refresh();
         boolean opening = !stage.isShowing();
+        if (opening) SecondaryWindows.placeOver(stage, from);
         stage.show();
         stage.toFront();
         // The keyboard starts in the text, where the Menu key opens its menu and a selection is made.

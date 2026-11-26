@@ -108,9 +108,9 @@ final class DoctorWindow {
         Icons.applyTo(stage);
     }
 
-    /** Shows it beside {@code from} and checks again: what the command does each time it runs. */
+    /** Shows it centred on {@code from} and checks again: what the command does each time it runs. */
     void show(Window from) {
-        if (!stage.isShowing()) SecondaryWindows.placeNear(stage, from);
+        if (!stage.isShowing()) SecondaryWindows.placeOver(stage, from);
         stage.show();
         stage.toFront();
         check();

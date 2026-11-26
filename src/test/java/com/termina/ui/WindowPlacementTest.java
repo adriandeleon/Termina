@@ -40,4 +40,27 @@ class WindowPlacementTest {
     void noScreenMeansNoClamping() {
         assertArrayEquals(new double[] {128, 228}, WindowPlacement.offsetWithin(100, 200, 28, 800, 600, null));
     }
+
+    @Test
+    void aSecondaryWindowIsCentredOnTheWindowThatAsked() {
+        assertArrayEquals(
+                new double[] {100 + 200, 200 + 150},
+                WindowPlacement.centredWithin(100, 200, 1000, 800, 600, 500, SCREEN));
+    }
+
+    @Test
+    void oneLargerThanItsOwnerOverhangsItEvenly() {
+        assertArrayEquals(
+                new double[] {400 - 100, 300 - 50},
+                WindowPlacement.centredWithin(400, 300, 600, 400, 800, 500, SCREEN));
+    }
+
+    @Test
+    void aCentredWindowStaysOnTheOwnersScreen() {
+        // A small terminal window in the top-left corner: centring a big one on it would put its
+        // title bar above the screen.
+        assertArrayEquals(new double[] {0, 0}, WindowPlacement.centredWithin(0, 0, 400, 300, 900, 700, SCREEN));
+        WindowPlacement.Bounds left = new WindowPlacement.Bounds(-1920, 0, 0, 1080);
+        assertArrayEquals(new double[] {-800, 100}, WindowPlacement.centredWithin(-300, 100, 300, 600, 800, 600, left));
+    }
 }

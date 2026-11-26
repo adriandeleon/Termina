@@ -702,7 +702,7 @@ public final class WindowManager {
 
     /** The Debug Log: a command now, not only a button on the Advanced page (DIAG-03). */
     void showDebugLog(Window from) {
-        debugLog(from).show();
+        debugLog(from).show(from);
     }
 
     /**

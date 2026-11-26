@@ -97,7 +97,7 @@ public final class AboutWindow {
      *
      * <p>An owned stage closes with its owner, and an owner can be set only once — so the first
      * version died with whichever terminal window happened to open it first, while others were
-     * still up. Unowned, it outlives any one window; it is placed beside the one that asked, which
+     * still up. Unowned, it outlives any one window; it is centred on the one that asked, which
      * is the part of ownership that was wanted.
      */
     public void show(Window from) {
@@ -108,7 +108,7 @@ public final class AboutWindow {
             stage.requestFocus();
             return;
         }
-        SecondaryWindows.placeNear(stage, from);
+        SecondaryWindows.placeOver(stage, from);
         stage.show();
     }
 

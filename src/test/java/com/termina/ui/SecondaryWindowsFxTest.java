@@ -179,6 +179,56 @@ class SecondaryWindowsFxTest {
                 logs::toString);
     }
 
+    @Test
+    void eachOpensCentredOnTheWindowThatAsked() throws Exception {
+        Settings settings = new Settings(dir.resolve("settings.json"));
+        settings.load();
+        settings.setUpdateCheck(false);
+        List<String> misplaced = onFx(() -> {
+            java.util.Set<Window> before = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            before.addAll(Window.getWindows());
+            WindowManager windows = new WindowManager(settings);
+            Stage owner = new Stage();
+            owner.setScene(new Scene(new StackPane(), 800, 700));
+            owner.setX(100);
+            owner.setY(50);
+            owner.show();
+            windows.showSettings(owner);
+            windows.showDebugLog(owner);
+            windows.showReportProblem(owner);
+            windows.showAbout(owner);
+            windows.showPauta(owner);
+            windows.showDoctor(owner);
+            new ShortcutsWindow().show(owner, List.of());
+            WindowPlacement.Bounds screen = SecondaryWindows.bounds(SecondaryWindows.screenOf(owner));
+            List<String> wrong = new ArrayList<>();
+            int seen = 0;
+            for (Window window : List.copyOf(Window.getWindows())) {
+                if (before.contains(window) || window == owner || !(window instanceof Stage stage)) continue;
+                if (!stage.isShowing()) continue;
+                seen++;
+                double[] want = WindowPlacement.centredWithin(
+                        owner.getX(),
+                        owner.getY(),
+                        owner.getWidth(),
+                        owner.getHeight(),
+                        stage.getWidth(),
+                        stage.getHeight(),
+                        screen);
+                if (Math.abs(stage.getX() - want[0]) > 1 || Math.abs(stage.getY() - want[1]) > 1) {
+                    wrong.add(stage.getTitle() + " at " + stage.getX() + "," + stage.getY() + " sized "
+                            + stage.getWidth() + "x" + stage.getHeight() + ", want " + want[0] + "," + want[1]);
+                }
+            }
+            if (seen < 7) wrong.add("only " + seen + " windows opened");
+            for (Window window : List.copyOf(Window.getWindows())) {
+                if (!before.contains(window) && window.isShowing()) window.hide();
+            }
+            return wrong;
+        });
+        assertTrue(misplaced.isEmpty(), misplaced::toString);
+    }
+
     private static <T extends Node> List<T> find(Node node, Class<T> type) {
         List<T> out = new ArrayList<>();
         if (type.isInstance(node)) out.add(type.cast(node));

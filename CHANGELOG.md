@@ -7,6 +7,13 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+### Changed
+
+- **Termina's other windows open centred on the window you opened them from.** Settings, About,
+  Doctor, Report a Problem, Pauta Conformance, Keyboard Shortcuts and the Debug Log used to open
+  near that window's top-left corner. A window too big to fit is still kept on that window's
+  screen. Dialogs were already centred.
+
 ## [0.16.0] - 2026-11-15
 
 Launching Termina again can open a tab in the window you used last, and two quick launches make
