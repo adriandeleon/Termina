@@ -496,6 +496,27 @@ jobs:
         with:
           subject-path: 'artifacts/*'
 
+      # winget's manifest names the MSI's ProductCode, which is how winget finds an installed Termina
+      # to upgrade or remove. jpackage makes a new one for every version, so it is read from the file
+      # itself, and a missing or malformed one fails before anything is published.
+      - name: Read the MSI's ProductCode
+        id: msi
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq msitools
+          msi="artifacts/Termina-$VERSION-windows-x64.msi"
+          code="$(msiinfo export "$msi" Property | tr -d '\r' | awk -F '\t' '$1 == "ProductCode" { print $2 }')"
+          if ! [[ "$code" =~ ^\{[0-9A-Fa-f-]{36}\}$ ]]; then
+            echo "::error title=No ProductCode::$msi has no ProductCode that winget can use: '$code'"
+            exit 1
+          fi
+          echo "product_code=$code" >> "$GITHUB_OUTPUT"
+          echo "MSI ProductCode: $code"
+
       # Decided here rather than by editing config: with no token the package managers are excluded
       # outright, and the moment PACKAGES_TOKEN exists they are included again with no change to
       # anything. Excluding is not the same as letting them fail — a skipped packager says so in one
@@ -530,9 +551,11 @@ jobs:
           arguments: ${{ steps.packagers.outputs.args }}
         env:
           JRELEASER_PROJECT_VERSION: ${{ needs.build.outputs.version }}
+          # The winget manifest's ProductCode (jreleaser.yml), read from the MSI above.
+          TERMINA_MSI_PRODUCT_CODE: ${{ steps.msi.outputs.product_code }}
           # Creates the release in this repository.
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Pushes to the Homebrew tap and opens the winget pull request. Those live in other
+          # Pushes to the Homebrew tap and to a branch of the winget fork. Those live in other
           # repositories, which the default GITHUB_TOKEN cannot write to — so this must be a PAT
           # with repo scope. Without it both packagers fail, and because both are continueOnError
           # the release itself still succeeds.
@@ -546,6 +569,74 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: 'out/jreleaser/checksums/checksums_sha256.txt'
+
+      # JReleaser's winget packager only pushes the manifests to the `termina-X.Y.Z` branch of the
+      # adriandeleon/winget-pkgs fork: it never opens the pull request on microsoft/winget-pkgs
+      # (1.26.0 has no option for it). This step opens it, as Editora's release does. It runs only on
+      # a release tag (a pre-release, any tag with a hyphen, is `active: RELEASE`'s to skip) and only
+      # with PACKAGES_TOKEN. It refuses a branch that changes anything outside this version's
+      # manifest folder (winget-pkgs takes one manifest per pull request), and leaves a pull request
+      # that is already open alone, so a rerun is safe. Like the packager, it never fails the release.
+      - name: Open the winget pull request
+        if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
+        continue-on-error: true
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          GH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "No PACKAGES_TOKEN: JReleaser pushed no winget manifest, so there is nothing to submit."
+            exit 0
+          fi
+          upstream=microsoft/winget-pkgs
+          owner=adriandeleon
+          branch="termina-$VERSION"
+          dir="manifests/a/AdrianDeLeon/Termina/$VERSION"
+          if ! gh api "repos/$owner/winget-pkgs/branches/$branch" --silent; then
+            echo "::warning title=No winget pull request::$owner/winget-pkgs has no $branch branch: the winget packager did not push (see the jreleaser-logs artifact)."
+            exit 0
+          fi
+          existing="$(gh pr list -R "$upstream" --head "$branch" --author "$owner" --state open --json url -q '.[0].url // ""')"
+          if [ -n "$existing" ]; then
+            echo "The winget pull request is already open: $existing"
+            exit 0
+          fi
+          stray="$(gh api "repos/$upstream/compare/master...$owner:$branch" -q '.files[].filename' | grep -v "^$dir/" || true)"
+          if [ -n "$stray" ]; then
+            echo "::error title=winget branch changes other files::$branch changes more than $dir: $stray"
+            exit 1
+          fi
+          kind="New version"
+          if ! gh api "repos/$upstream/contents/manifests/a/AdrianDeLeon/Termina" --silent 2>/dev/null; then
+            kind="New package"
+          fi
+          body="$RUNNER_TEMP/winget-pr.md"
+          cat > "$body" <<EOF
+          ## 📖 Description
+
+          $kind: **AdrianDeLeon.Termina** version **$VERSION**, a keyboard-driven terminal emulator for macOS, Windows and Linux. Open source, MIT: https://github.com/adriandeleon/Termina
+
+          The installer is the per-user MSI published with the release: https://github.com/adriandeleon/Termina/releases/tag/v$VERSION. The manifests were generated by JReleaser from the release's own files, in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID.
+
+          ## ✅ Checklist
+
+          - [x] Signed the [Contributor License Agreement](https://cla.opensource.microsoft.com)
+          - [ ] Linked to an issue (if applicable)
+
+          ## 📦 Manifest Checklist
+
+          - [x] Checked that there aren't other open [pull requests](https://github.com/microsoft/winget-pkgs/pulls) for the same manifest update/change
+          - [x] This PR only modifies one (1) manifest
+          - [ ] Validated manifest locally with \`winget validate --manifest <path>\` ([validation guide](https://github.com/microsoft/winget-pkgs/blob/master/doc/ValidationFailureGuide.md))
+          - [ ] Tested manifest locally with \`winget install --manifest <path>\`
+          - [ ] Manifest conforms to the [1.28 schema](https://github.com/microsoft/winget-pkgs/tree/master/doc/manifest/schema/1.28.0)
+          EOF
+          url="$(gh pr create -R "$upstream" --base master --head "$owner:$branch" \
+            --title "$kind: AdrianDeLeon.Termina version $VERSION" --body-file "$body")"
+          echo "Opened the winget pull request: $url"
+          echo "winget pull request: $url" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JReleaser output
         # The trace is the only way to tell a packager that was skipped from one that failed.

@@ -121,7 +121,16 @@ distributions:
         type: MSI
         scope: USER
         upgradeBehavior: INSTALL
-      # A fork of microsoft/winget-pkgs under this account; the pull request is opened from it.
+      # How winget finds an installed Termina to upgrade or remove. jpackage makes a new one for every
+      # version, so release.yml reads it from the MSI itself ("Read the MSI's ProductCode").
+      productCode: '{{Env.TERMINA_MSI_PRODUCT_CODE}}'
+      # JReleaser copies the project's LICENSE into every packager's repository; in the winget fork
+      # that would replace Microsoft's own, the pull request would carry it, and release.yml's
+      # "Open the winget pull request" refuses a branch that changes anything outside the manifests.
+      extraProperties:
+        skipLicenseFile: true
+      # A fork of microsoft/winget-pkgs under this account. JReleaser only pushes the manifests to the
+      # branch below; release.yml's "Open the winget pull request" step opens the pull request from it.
       repository:
         active: RELEASE
         owner: adriandeleon

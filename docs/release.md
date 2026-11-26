@@ -71,6 +71,32 @@ To publish to Homebrew and winget:
    repository alone and cannot write to the tap or the fork. A fine-grained token will not do:
    opening a pull request against `microsoft/winget-pkgs` is not something it can express.
 
+**JReleaser does not open the winget pull request.** Its winget packager (1.26.0) only pushes the
+manifests to the `termina-X.Y.Z` branch of the fork. The **Open the winget pull request** step after
+it opens one on [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs) from that
+branch, titled *New package* until Termina is in winget and *New version* after. It runs only for a
+release tag without a hyphen and only with `PACKAGES_TOKEN`. It refuses a branch that changes
+anything outside that version's manifest folder (hence `skipLicenseFile`, without which JReleaser
+would put Termina's LICENSE over Microsoft's), leaves an open pull request for the branch alone so a
+rerun is safe, and is `continue-on-error`, so it never fails the release.
+
+**The manifest's `ProductCode` is the MSI's own**, which is how winget finds an installed Termina to
+upgrade or remove. jpackage makes a new one for every version, so the **Read the MSI's ProductCode**
+step reads it with `msiinfo` (msitools) and hands it to JReleaser as `TERMINA_MSI_PRODUCT_CODE`; an
+MSI without a well-formed one fails the publish job before anything is published.
+
+**Publishing to a release that is already out** (v0.16.0 was released before the secret existed):
+run JReleaser's `publish` step, which leaves the GitHub release alone, from a clone of the tag with
+the release's arm64 dmg and MSI under `artifacts/`, then open the winget pull request by hand. The
+ProductCode is `msiinfo export <msi> Property`'s `ProductCode` row:
+
+```
+JRELEASER_PROJECT_VERSION=X.Y.Z TERMINA_MSI_PRODUCT_CODE='{…}' \
+JRELEASER_GITHUB_TOKEN=$(gh auth token) JRELEASER_BREW_GITHUB_TOKEN=$(gh auth token) \
+JRELEASER_WINGET_GITHUB_TOKEN=$(gh auth token) \
+jreleaser publish --packager brew --packager winget --basedir .
+```
+
 Neither is turnkey after that. **winget submissions are reviewed by Microsoft**, and the first one
 for a new publisher is a human process rather than an automatic merge. **The official homebrew-cask
 repository has notability requirements** a new project does not meet, which is why this uses a
