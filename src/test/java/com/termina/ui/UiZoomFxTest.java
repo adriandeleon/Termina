@@ -229,7 +229,10 @@ class UiZoomFxTest {
             out.add("no right-click menu");
         }
         out.add(String.valueOf(UiZoom.factor().get()));
-        out.add(String.valueOf(windows.showAboutForCapture(window.stage()).getWidth()));
+        // The window's width, which the zoom sets, not its scene's: the scene follows on the next
+        // pulse, so read in the same one it can still be the old size.
+        out.add(String.valueOf(
+                windows.showAboutForCapture(window.stage()).getWindow().getWidth()));
         return out;
     }
 
