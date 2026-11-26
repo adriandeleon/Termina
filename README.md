@@ -25,8 +25,8 @@ A cross-platform terminal emulator built on JavaFX. Runs a real shell on a real 
 renders the emulated screen to a canvas.
 
 🌐 **[termina-project.dev](https://termina-project.dev)** — [features](https://termina-project.dev/features/),
-[user docs](https://termina-project.dev/docs/), [keybindings](https://termina-project.dev/keybindings/),
-[news](https://termina-project.dev/news/) and the [blog](https://termina-project.dev/blog/).
+[user docs](https://termina-project.dev/docs/), [keybindings](https://termina-project.dev/keybindings/)
+and [news](https://termina-project.dev/news/).
 The site's source is [adriandeleon/termina-website](https://github.com/adriandeleon/termina-website).
 
 Built to [Pauta (the adl desktop apps guidelines)](https://pauta-project.dev/), edition [6.2.0](https://pauta-project.dev/6.2.0/), [Pauta conformance: Core](https://termina-project.dev/docs/pauta/).
