@@ -119,6 +119,7 @@ touching its area.
 - Tab disposal is driven off the tab list, not the close button.
 - The macOS system menu bar still occupies layout.
 - One `CustomMenuItem` costs the whole screen menu bar.
+- A `CustomMenuItem` runs only from a click on its content, not on its row.
 - JediTerm's text-scanning hyperlink layer is deliberately unused; its OSC 8 path is used.
 - Closing a stage takes nothing out of the tab list.
 - A pane moves by leaving its group before its tab goes.

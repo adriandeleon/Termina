@@ -136,6 +136,14 @@ is broken.
   every platform. In-window, every command row *is* a `CustomMenuItem` (`MenuRows`, MENU-02), so
   rows are built for the bar they are in: drawn rows where JavaFX draws the bar, plain text with the
   chord appended under `useSystemMenuBar`.
+- **A `CustomMenuItem` runs only from a click on its content.** `ContextMenuContent` puts the
+  click handler on `getContent()`, not on the row's container, while the highlight, the padding and
+  the hover all belong to the container. So a click on a menu bar row's padding, or on any part of
+  the row the content does not pick, lit the row and did nothing, and a command took a second click
+  that happened to land on the title. Headless tests that fire `ActionEvent`s never see it, and
+  neither does a click aimed at the label. `MenuRows.clickAnywhereOnTheRow` hands a click on the
+  container to the content; `MenuRowsClickFxTest` clicks the padding with a `Robot`. A new
+  `CustomMenuItem` anywhere else needs the same.
 - **JediTerm's text-scanning hyperlink layer is deliberately unused; its OSC 8 path is used.** The
   dependency has a whole layer: a `TextProcessing` handed to `TerminalTextBuffer` runs filters over
   each line as it is written and marks the runs with a `HyperlinkStyle`. We do not use it. Links

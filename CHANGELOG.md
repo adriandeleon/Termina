@@ -19,6 +19,11 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
   screen, and one that the interface zoom makes bigger is kept on it and no bigger than it.
   Dialogs were already centred.
 
+### Fixed
+
+- **One click on a menu row runs it.** A click on a row's edge, or on the space between its title
+  and its shortcut, highlighted the row and did nothing, so a command often took two clicks.
+
 ## [0.16.0] - 2026-11-15
 
 Launching Termina again can open a tab in the window you used last, and two quick launches make
