@@ -7,6 +7,11 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-26
+
+Termina's other windows open centred on the window you opened them from, and one click on a menu
+row runs it.
+
 ### Changed
 
 - **Built to [Pauta 6.2.0](https://pauta-project.dev/6.2.0/)**, still at Core conformance. The
@@ -1698,7 +1703,8 @@ First release.
   elsewhere.
 - **A hidden menu bar painted over the terminal**, overlapping the first rows of output.
 
-[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/adriandeleon/Termina/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/adriandeleon/Termina/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/adriandeleon/Termina/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/adriandeleon/Termina/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/adriandeleon/Termina/compare/v0.14.0...v0.15.0

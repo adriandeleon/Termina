@@ -65,6 +65,15 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.17.0" date="2026-11-26">
+      <description>
+        <p>
+          Termina's other windows, such as Settings and About, open centred on the window they
+          were opened from. One click on a menu row runs it, wherever on the row it lands.
+        </p>
+      </description>
+      <url type="details">https://github.com/adriandeleon/Termina/releases/tag/v0.17.0</url>
+    </release>
     <release version="0.16.0" date="2026-11-15">
       <description>
         <p>
