@@ -329,9 +329,31 @@ public final class UiZoom {
     }
 
     /**
+     * Pulls a window that a zoom has grown back inside its screen, and no bigger than it. It grows
+     * from its top-left corner, so a window centred on a terminal window low on the screen would
+     * otherwise hang off the bottom, its buttons out of reach; at a large zoom on a small screen it
+     * can outgrow the screen altogether.
+     */
+    private static void keepOnScreen(Window window) {
+        javafx.geometry.Rectangle2D screen = SecondaryWindows.screenOf(window);
+        if (window.getWidth() > screen.getWidth()) window.setWidth(screen.getWidth());
+        if (window.getHeight() > screen.getHeight()) window.setHeight(screen.getHeight());
+        double[] at = WindowPlacement.offsetWithin(
+                window.getX(),
+                window.getY(),
+                0,
+                window.getWidth(),
+                window.getHeight(),
+                SecondaryWindows.bounds(screen));
+        if (at[0] != window.getX()) window.setX(at[0]);
+        if (at[1] != window.getY()) window.setY(at[1]);
+    }
+
+    /**
      * A window's scene at {@code width} by {@code height} pixels at 100%: made at that size times
      * the zoom, and its window resized by the same ratio when the zoom changes while it is open.
-     * Not for the terminal's window, whose size is the user's and the grid's.
+     * Not for the terminal's window, whose size is the user's and the grid's. A window grown past
+     * the edge of its screen is moved back onto it, and one grown past its size is cut to it.
      */
     static Scene scene(javafx.scene.Parent root, double width, double height) {
         Scene scene = new Scene(root, px(width), px(height));
@@ -342,6 +364,7 @@ public final class UiZoom {
             if (window != null && window.isShowing() && at[0] > 0) {
                 window.setWidth(window.getWidth() * now / at[0]);
                 window.setHeight(window.getHeight() * now / at[0]);
+                keepOnScreen(window);
             }
             at[0] = now;
         });
