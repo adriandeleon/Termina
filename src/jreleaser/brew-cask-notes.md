@@ -1,5 +1,10 @@
 # Why the cask template is overridden
 
+These notes are about `distributions/termina/brew/cask.rb.tpl`. They live here, not beside it:
+JReleaser copies every file in a packager's template folder into the packager's repository, so a
+`NOTES.md` there was pushed to the tap (0.17.0), as was a `README.md.tpl`, which replaced the tap's
+own README with the stock one.
+
 JReleaser's stock cask template emits
 
     binary "<artifact-root>/bin/<executable>"
@@ -13,9 +18,12 @@ The `cask.appName` setting is meant to produce exactly that stanza. It is droppe
 configuration (`jreleaser config` shows the cask with `enabled`, `name` and `displayName` and no
 `appName`), so the template says it outright instead.
 
-Another thing lives here rather than in `jreleaser.yml`:
+Two other things live in the template rather than in `jreleaser.yml`:
 
 - **`zap`.** Removes `~/.termina`, which holds settings and the session log.
+- **`depends_on arch: :arm64`.** The cask installs the Apple Silicon dmg only (a cask takes one
+  artifact), so an Intel Mac is told so rather than given an app it cannot run. Intel Macs use
+  the `macos-x64` dmg from the release page.
 
 There are no `caveats`. Until the dmg was Developer ID signed and notarized (README, "macOS
 signing"), the cask carried one telling users to allow the app under Privacy & Security; a

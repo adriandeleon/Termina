@@ -78,6 +78,12 @@ distributions:
       active: RELEASE
       # A token problem costs the tap, not the release.
       continueOnError: true
+      # The tap is shared with Editora and jkit and has a README of its own; JReleaser's stock one,
+      # written over it on every release, describes formulae the tap does not have. (Every other
+      # file in src/jreleaser/distributions/termina/brew/ is copied into the tap too, so that folder
+      # holds the cask template alone.)
+      skipTemplates:
+        - README.md.tpl
       cask:
         enabled: true
         name: termina

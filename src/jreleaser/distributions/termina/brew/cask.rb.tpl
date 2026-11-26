@@ -1,6 +1,5 @@
 # {{jreleaserCreationStamp}}
-{{! Overrides JReleaser's stock cask template. Why, and what changed, is in NOTES.md beside this
-    file — kept out of here so the rationale does not end up in the cask every user reads. }}
+{{! Overrides JReleaser's stock cask template; why is in src/jreleaser/brew-cask-notes.md. }}
 cask "{{brewCaskName}}" do
   desc "{{projectDescription}}"
   homepage "{{projectLinkHomepage}}"
@@ -9,6 +8,8 @@ cask "{{brewCaskName}}" do
   version "{{projectVersion}}"
   sha256 "{{distributionChecksumSha256}}"
   name "{{brewCaskDisplayName}}"
+
+  depends_on arch: :arm64
 
   app "Termina.app"
 
