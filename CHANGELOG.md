@@ -7,6 +7,13 @@ moves for anything user-visible. Each entry opens with a bold one-line summary.
 
 ## [Unreleased]
 
+### Changed
+
+- **Built to [Pauta 6.2.0](https://pauta-project.dev/6.2.0/)**, still at Core conformance. The
+  edition makes a status bar optional and the echo area, the one line that says how the last
+  action went, a rule of its own; Termina's echo area is the status bar's left side, as before,
+  so nothing you see changes.
+
 ## [0.16.0] - 2026-11-15
 
 Launching Termina again can open a tab in the window you used last, and two quick launches make

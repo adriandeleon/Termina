@@ -1102,8 +1102,8 @@ public final class Settings {
     }
 
     /**
-     * Show the status bar under the terminal. On by default (WIN-01, Pauta 6.0.1): a message goes
-     * to its echo area and not to a dialog. It costs the terminal a row, which is why it can be
+     * Show the status bar under the terminal. On by default (WIN-01, Pauta 6.2.0): a message goes
+     * to its echo area (WIN-16) and not to a dialog. It costs the terminal a row, which is why it can be
      * hidden; hidden, a message is a dialog again, and the Message Log has every one either way.
      */
     public boolean showStatusBar() {
